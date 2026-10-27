@@ -5,6 +5,7 @@ extends Node3D
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
 var raider: SMRaider = SMRaider.new()
+var roster: SMRoster = SMRoster.new()
 var status: Label
 var explore_bus: AudioStreamPlayer
 var combat_bus: AudioStreamPlayer
@@ -12,6 +13,7 @@ var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	sim.setup_phillips("gtfc")
+	roster.setup("gtfc")
 	_world()
 	_audio()
 	_ui()
@@ -94,7 +96,8 @@ func _ui() -> void:
 	side.add_child(title)
 	var data: Dictionary = SMCatalog.faction("gtfc")
 	var units: Array[Dictionary] = SMCatalog.units_of(data)
-	for i: int in units.size():
+	var shown: int = mini(units.size(), 6)
+	for i: int in shown:
 		var row: HBoxContainer = HBoxContainer.new()
 		row.name = "Cameo%d" % i
 		var swatch: ColorRect = ColorRect.new()
@@ -105,6 +108,7 @@ func _ui() -> void:
 		cap.text = "%s\n%s" % [str(units[i].get("cameo", "")), str(units[i].get("display_name", ""))]
 		row.add_child(cap)
 		side.add_child(row)
+	_action(side, "Train unit", _on_train)
 	_action(side, "Build pipeline", _on_build)
 	_action(side, "Cross channel", _on_cross)
 	_action(side, "Ability (F)", _on_ability)
@@ -150,6 +154,19 @@ func _action(side: VBoxContainer, caption: String, fn: Callable) -> void:
 	b.text = caption
 	b.pressed.connect(fn)
 	side.add_child(b)
+
+func train_unit() -> String:
+	var done: StringName = roster.train_and_finish(&"crimson_sapper")
+	if done == &"":
+		return ""
+	var at: Vector3 = sim.grid.cell_center(Vector2i(1, 6))
+	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, done)
+	var label: String = field.name_of(u)
+	_say(label)
+	return label
+
+func _on_train() -> void:
+	train_unit()
 
 func _on_build() -> void:
 	_say("pipeline ready" if sim.run_player_pipeline() else "pipeline blocked")

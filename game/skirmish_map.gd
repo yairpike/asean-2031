@@ -7,15 +7,27 @@ var grid: SMDomainGrid
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
 var raider: SMRaider = SMRaider.new()
+var roster: SMRoster = SMRoster.new()
 var status: Label
 var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	grid = _grid_for(map_id)
+	roster.setup("gtfc")
 	_prepare_ability()
 	_world()
 	_ui()
 	_arm_units()
+
+func train_unit() -> String:
+	var done: StringName = roster.train_and_finish(&"crimson_sapper")
+	if done == &"":
+		return ""
+	var at: Vector3 = grid.cell_center(_player_cells()[0]) + Vector3(6.0, 0.0, 0.0)
+	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, done)
+	var label: String = field.name_of(u)
+	_say(label)
+	return label
 
 func fire_ability() -> bool:
 	var ok: bool = sim.use_f()
@@ -141,6 +153,12 @@ func _ui() -> void:
 	ability.position = Vector2(16, 44)
 	ability.pressed.connect(fire_ability)
 	ui_layer.add_child(ability)
+	var train: Button = Button.new()
+	train.name = "TrainButton"
+	train.text = "Train unit"
+	train.position = Vector2(160, 44)
+	train.pressed.connect(train_unit)
+	ui_layer.add_child(train)
 	status = Label.new()
 	status.name = "Status"
 	status.text = _blurb()

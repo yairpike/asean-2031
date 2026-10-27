@@ -53,6 +53,7 @@ func _run() -> void:
 	await H.section("test_sm_maps", test_sm_maps)
 	await H.section("test_sm_factions", test_sm_factions)
 	await H.section("test_sm_raider", test_sm_raider)
+	await H.section("test_sm_roster", test_sm_roster)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -686,7 +687,7 @@ func test_sm_catalog() -> void:
 	for id: String in ["gtfc", "mvd", "nmrf"]:
 		var data: Dictionary = SMCatalog.faction(id)
 		var units: Array[Dictionary] = SMCatalog.units_of(data)
-		check(units.size() == 6, "%s has six units" % id)
+		check(units.size() == 16, "%s fields sixteen catalog units" % id)
 		for unit: Dictionary in units:
 			check(SMCatalog.entry_ok(unit), "%s %s has a weapon and one secondary" % [id, str(unit.get("id", ""))])
 	var gtfc: Dictionary = SMCatalog.faction("gtfc")
@@ -702,7 +703,10 @@ func test_sm_catalog() -> void:
 	var market: Dictionary = SMCatalog.faction("black_market")
 	var flags: Dictionary = market["import_flags"]
 	check(bool(flags.get("rotary_slot", false)) and bool(flags.get("strike_slot", false)) and bool(flags.get("spotter_slot", false)), "black-market imports are flags")
-	check(SMCatalog.units_of(market).is_empty(), "black market ships no unit meshes")
+	var market_units: Array[Dictionary] = SMCatalog.units_of(market)
+	check(market_units.size() == 4, "black market air is in the catalog")
+	for unit: Dictionary in market_units:
+		check(SMCatalog.entry_ok(unit), "black market %s has a weapon and one secondary" % str(unit.get("id", "")))
 	var banned: PackedStringArray = PackedStringArray(["opium", "heroin", "cocaine", "fentanyl", "yaba", "methamphetamine"])
 	var hits: PackedStringArray = PackedStringArray()
 	for faction_id: String in ["gtfc", "mvd", "nmrf", "black_market"]:
@@ -958,6 +962,63 @@ func test_sm_raider() -> void:
 	])
 	for path: String in paths:
 		await _enemy_fights(path)
+
+func test_sm_roster() -> void:
+	var failed: PackedStringArray = PackedStringArray()
+	var total: int = 0
+	for faction_id: String in ["gtfc", "mvd", "nmrf", "black_market"]:
+		var roster: SMRoster = SMRoster.new()
+		roster.setup(faction_id)
+		for unit: Dictionary in SMCatalog.units_of(SMCatalog.faction(faction_id)):
+			total += 1
+			var id: StringName = StringName(str(unit.get("id", "")))
+			if roster.train_and_finish(id) != id:
+				failed.append("%s:%s" % [faction_id, str(id)])
+	check(total == 52 and failed.is_empty(), "all 52 catalog units train through production %s" % [failed])
+	check(_spawned("gtfc", &"crimson_sapper", "Crimson Sapper", "rifle", "smart_cast", 9.0), "gtfc sapper spawns with a weapon and a secondary")
+	check(_spawned("mvd", &"cyan_sentry", "Cyan Sentry", "carbine", "group_toggle", 9.0), "mvd sentry spawns with a weapon and a secondary")
+	check(_spawned("nmrf", &"olive_ranger", "Olive Ranger", "rifle", "group_toggle", 8.0), "nmrf ranger spawns with a weapon and a secondary")
+	check(_spawned("black_market", &"ch4", "CH-4", "autocannon", "smart_cast", 14.0), "CH-4 spawns from production")
+	check(_spawned("black_market", &"su30", "Su-30", "cannon", "group_toggle", 26.0), "Su-30 spawns from production")
+	check(_spawned("black_market", &"orlan10", "Orlan-10", "camera", "channeled_beam", 4.0), "Orlan-10 spawns from production")
+	var phillips_name: String = await _trained("res://game/phillips_channel.tscn")
+	check(phillips_name == "Crimson Sapper", "phillips trains a catalog unit onto the field")
+	var burma_name: String = await _trained("res://game/burma_road.tscn")
+	check(burma_name == "Crimson Sapper", "burma road trains a catalog unit onto the field")
+	var nmrf_name: String = await _trained("res://game/nmrf_yard.tscn")
+	check(nmrf_name == "Olive Ranger", "nmrf trains a catalog unit onto the field")
+	var mvd_name: String = await _trained("res://game/mvd_yard.tscn")
+	check(mvd_name == "Cyan Sentry", "mvd trains a catalog unit onto the field")
+
+func _spawned(faction: String, id: StringName, display: String, weapon: String, secondary: String, damage: float) -> bool:
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var cam: RTSCamera = RTSCamera.new()
+	host.add_child(cam)
+	var field: SMPointer = SMPointer.new()
+	field.bind_faction(host, cam, faction)
+	field.use_open(8, 8, 2.0, Vector3.ZERO)
+	var roster: SMRoster = SMRoster.new()
+	roster.setup(faction)
+	var made: StringName = roster.train_and_finish(id)
+	var u: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3.ZERO, id)
+	var ok: bool = made == id and field.name_of(u) == display and str(u.get_meta("weapon")) == weapon and str(u.get_meta("secondary")) == secondary and is_equal_approx(u.attack_damage, damage)
+	host.free()
+	return ok
+
+func _trained(path: String) -> String:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var before: int = field.count_team(0)
+	var label: String = str(scene.call("train_unit"))
+	var grew: bool = field.count_team(0) == before + 1
+	scene.free()
+	await process_frame
+	if not grew:
+		return ""
+	return label
 
 func _enemy_fights(path: String) -> void:
 	var scene: Node = (load(path) as PackedScene).instantiate()

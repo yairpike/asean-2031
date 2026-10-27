@@ -139,8 +139,11 @@ func _apply_catalog(u: RTSUnit, kind: StringName) -> void:
 		if str(unit.get("id", "")) != str(kind):
 			continue
 		u.max_hp = float(unit.get("hp", u.max_hp))
+		u.hp = u.max_hp
 		u.speed = float(unit.get("speed", u.speed))
 		u.attack_damage = float(unit.get("weapon_damage", u.attack_damage))
+		u.set_meta("weapon", str(unit.get("weapon", "")))
+		u.set_meta("secondary", str(unit.get("secondary", "")))
 		return
 
 func _body_color(team: int, kind: StringName) -> Color:

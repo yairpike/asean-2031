@@ -50,7 +50,7 @@ func _ready() -> void:
 	_body(box, "Attack. Right click an enemy labeled Enemy. The selection attacks it. On every skirmish the enemy builds a yard, claims a ruby node, and attacks your units. On Phillips Channel, Engage still runs the scripted fight as well.")
 	_body(box, "F ability. On every skirmish, including NMRF and MVD, press F or click Ability (F). That toggles one unit and smart-casts the closest ready unit. On the Kokang raid, press F and the squad strikes the nearest enemy. Greybox ignores F.")
 	_body(box, "Camera. On every mode, move the pointer to a screen edge to pan, roll the wheel to zoom toward the cursor, and drag with the middle mouse button to orbit.")
-	_body(box, "Phillips Channel buttons: Build pipeline, Cross channel, Ability (F), Engage, and one shot each of Logistics, Arsenal, and Oracle. Sop Ruak and the four other GTFC maps have Ability (F). NMRF adds Move packer, Unpack, and Upgrade wharf. MVD adds Queue hub, Buy clearance, and Place hub. Kokang raid buttons: Raise scaffold, Ruby night shift, Secure rare earth.")
+	_body(box, "Phillips Channel buttons: Train unit, Build pipeline, Cross channel, Ability (F), Engage, and one shot each of Logistics, Arsenal, and Oracle. Sop Ruak and the four other GTFC maps have Ability (F) and Train unit. NMRF adds Move packer, Unpack, and Upgrade wharf. MVD adds Queue hub, Buy clearance, and Place hub. Kokang raid buttons: Raise scaffold, Ruby night shift, Secure rare earth.")
 
 func _heading(box: VBoxContainer, text: String, size: int) -> void:
 	var title: Label = Label.new()

@@ -8,6 +8,7 @@ var grid: SMDomainGrid
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
 var raider: SMRaider = SMRaider.new()
+var roster: SMRoster = SMRoster.new()
 var yard: SMBuildYard = SMBuildYard.new()
 var economy: RTSEconomy = RTSEconomy.new()
 var status: Label
@@ -17,12 +18,24 @@ var hub_mesh: MeshInstance3D
 
 func _ready() -> void:
 	grid = SMDomainGrid.phillips_layout()
+	roster.setup(faction_id)
 	economy.set_credits(0, 4000)
 	_prepare_yard()
 	_prepare_ability()
 	_world()
 	_ui()
 	_arm_units()
+
+func train_unit() -> String:
+	var id: StringName = &"cyan_sentry" if faction_id == "mvd" else &"olive_ranger"
+	var done: StringName = roster.train_and_finish(id)
+	if done == &"":
+		return ""
+	var at: Vector3 = grid.cell_center(Vector2i(1, 6))
+	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, done)
+	var label: String = field.name_of(u)
+	_say(label)
+	return label
 
 func fire_ability() -> bool:
 	var ok: bool = sim.use_f()
@@ -156,6 +169,12 @@ func _ui() -> void:
 	ability.position = Vector2(16, 44)
 	ability.pressed.connect(fire_ability)
 	ui_layer.add_child(ability)
+	var train: Button = Button.new()
+	train.name = "TrainButton"
+	train.text = "Train unit"
+	train.position = Vector2(16, 120)
+	train.pressed.connect(train_unit)
+	ui_layer.add_child(train)
 	if faction_id == "mvd":
 		_button("QueueHub", "Queue hub", Vector2(160, 44), queue_hub)
 		_button("BuyClearance", "Buy clearance", Vector2(300, 44), buy_clearance)
