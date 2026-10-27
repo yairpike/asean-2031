@@ -52,6 +52,40 @@ func apply() -> void:
 	if position.distance_squared_to(focus) > 0.0001:
 		look_at(focus, Vector3.UP)
 
+## Pointer edge scroll. Lite stored `edge_pan_px` but did not test the pointer,
+## and zoom stayed on the focus. Returns the pan direction actually applied.
+func edge_scroll(mouse: Vector2, viewport_size: Vector2, delta: float) -> Vector2:
+	if edge_pan_px <= 0.0 or viewport_size.x <= edge_pan_px * 2.0 or viewport_size.y <= edge_pan_px * 2.0:
+		return Vector2.ZERO
+	var dir: Vector2 = Vector2.ZERO
+	if mouse.x <= edge_pan_px:
+		dir.x = -1.0
+	elif mouse.x >= viewport_size.x - edge_pan_px:
+		dir.x = 1.0
+	if mouse.y <= edge_pan_px:
+		dir.y = 1.0
+	elif mouse.y >= viewport_size.y - edge_pan_px:
+		dir.y = -1.0
+	if dir != Vector2.ZERO:
+		pan(dir, delta)
+	return dir
+
+## Zooms, then slides the focus so `ground` (the point under the cursor) stays put.
+func zoom_toward(steps: float, ground: Vector3) -> void:
+	var before: float = distance
+	zoom(steps)
+	if ground == Vector3.INF or before <= 0.001:
+		return
+	var ratio: float = distance / before
+	var g: Vector3 = Vector3(ground.x, 0.0, ground.z)
+	focus = g + (focus - g) * ratio
+	apply()
+
+## Orbits the focus by `degrees` of yaw.
+func orbit(degrees: float) -> void:
+	yaw_degrees += degrees
+	apply()
+
 ## World point on the y=0 ground plane under a screen position (INF if none).
 func ground_at(screen: Vector2) -> Vector3:
 	var o: Vector3 = project_ray_origin(screen)

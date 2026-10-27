@@ -5,3 +5,6 @@ export_credentials.cfg
 *.import.bak
 # Local test output
 tests/last_run.txt
+# Reference clones stay out of the runtime and out of git.
+_reference_repos/
+build/
