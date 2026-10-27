@@ -322,7 +322,7 @@ func _guide(layer: CanvasLayer) -> void:
 	body.name = "HowToBody"
 	body.text = SMGuide.howto_text()
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(740, 168)
+	body.custom_minimum_size = Vector2(740, 190)
 	body.add_theme_font_size_override("font_size", 16)
 	body.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
 	box.add_child(body)

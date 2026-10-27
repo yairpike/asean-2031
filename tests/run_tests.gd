@@ -2505,7 +2505,7 @@ func test_sm_orders_mark() -> void:
 	var hint: String = SMGuide.controls_hint()
 	var howto: String = SMGuide.howto_text()
 	check(hint.contains("Right-click") and hint.contains("ring") and hint.contains("minimap") and hint.contains("F") and hint.contains("H"), "the controls hint names the order ring and the minimap")
-	check(howto.contains("ring") and howto.contains("minimap") and howto.contains("Objective complete"), "the how-to says a ring marks the order and the minimap jumps")
+	check(howto.contains("ring") and howto.contains("weapon range") and howto.contains("minimap") and howto.contains("Objective complete"), "the how-to says a ring marks the order and the minimap jumps")
 	SMFront.faction_id = "gtfc"
 	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
 	root.add_child(scene)
@@ -2513,6 +2513,9 @@ func test_sm_orders_mark() -> void:
 	var field: SMPointer = scene.get("field") as SMPointer
 	var unit: RTSUnit = _unit_kind(field, 0, "militia")
 	var picked: RTSUnit = field.select_click(_proj(unit.global_position), Callable(self, "_proj"))
+	field.tick(0.05)
+	var reach: MeshInstance3D = unit.get_node_or_null("RangeRing") as MeshInstance3D
+	check(reach != null and reach.visible and absf(reach.scale.x - unit.attack_range) < 0.05, "a selected unit shows its weapon range")
 	var step: Vector3 = unit.global_position + Vector3(8.0, 0.0, 0.0)
 	var moved: StringName = field.command_at(step, _proj(step), Callable(self, "_proj"))
 	var move_ping: Node = _order_ping(field, "move")
@@ -2527,6 +2530,9 @@ func test_sm_orders_mark() -> void:
 	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
 	var jumped: Vector3 = mm.pan_to(Vector2(190, 10))
 	check(mm != null and mm.camera.focus.distance_to(jumped) < 1.0 and mm.covers_focus(), "a minimap click jumps the camera")
+	field.selection.clear()
+	field.tick(0.05)
+	check(reach != null and not reach.visible, "the range ring hides when the unit is deselected")
 	scene.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"

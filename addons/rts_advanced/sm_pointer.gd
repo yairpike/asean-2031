@@ -194,6 +194,21 @@ func _add_vitals(u: RTSUnit, team: int) -> void:
 	glow.albedo_color = Color(1.0, 0.82, 0.35)
 	muzzle.material_override = glow
 	u.add_child(muzzle)
+	var reach: MeshInstance3D = MeshInstance3D.new()
+	reach.name = "RangeRing"
+	var band: TorusMesh = TorusMesh.new()
+	band.inner_radius = 0.92
+	band.outer_radius = 1.0
+	reach.mesh = band
+	reach.position = Vector3(0.0, 0.06, 0.0)
+	reach.visible = false
+	reach.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var reach_ink: StandardMaterial3D = StandardMaterial3D.new()
+	reach_ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	reach_ink.albedo_color = Color(0.95, 0.55, 0.22, 0.85)
+	reach_ink.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	reach.material_override = reach_ink
+	u.add_child(reach)
 
 func _on_shot(unit: RTSUnit, _target: RTSUnit) -> void:
 	if not is_instance_valid(unit):
@@ -651,6 +666,11 @@ func tick(delta: float) -> void:
 		var ring: Node3D = u.get_node_or_null("Ring") as Node3D
 		if ring != null:
 			ring.visible = u.selected
+		var reach: MeshInstance3D = u.get_node_or_null("RangeRing") as MeshInstance3D
+		if reach != null:
+			reach.visible = u.selected and u.team == PLAYER
+			var span: float = maxf(u.attack_range, 0.2)
+			reach.scale = Vector3(span, 1.0, span)
 		_paint_vitals(u, delta)
 		alive.append(u)
 	units = alive
