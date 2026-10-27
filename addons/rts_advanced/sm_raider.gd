@@ -10,6 +10,15 @@ var built: bool = false
 var expanded: bool = false
 var attacked: bool = false
 var node_id: StringName = &"enemy_ruby"
+var personality_name: String = "Bo Mya"
+var plan_goods: SMCommodityNet
+var plan_tech: SMTechNet
+var plan_a: StringName = &""
+var plan_b: StringName = &""
+var plan_site: StringName = &""
+var opened_nodes: int = 0
+var took_tech: bool = false
+var used_f: bool = false
 
 func attach(p_field: SMPointer, center: Vector3) -> void:
 	field = p_field
@@ -31,16 +40,36 @@ func attach(p_field: SMPointer, center: Vector3) -> void:
 	expanded = false
 	attacked = false
 
+func bind_plan(goods: SMCommodityNet, tech: SMTechNet, first: StringName, second: StringName, site: StringName, who: String) -> void:
+	plan_goods = goods
+	plan_tech = tech
+	plan_a = first
+	plan_b = second
+	plan_site = site
+	personality_name = who
+
 func tick(_delta: float) -> void:
 	if field == null:
 		return
 	_build()
 	_expand()
+	_open()
 	_attack()
 
 func show_markers(host: Node3D) -> void:
 	if built and host.get_node_or_null("EnemyYard") == null:
 		_marker(host, "EnemyYard", SMPointer.building_at(yard.center), SMPointer.BUILDING_SIZE, Color(0.45, 0.16, 0.14))
+	var yard_node: Node3D = host.get_node_or_null("EnemyYard") as Node3D
+	if yard_node != null and yard_node.get_node_or_null("Personality") == null:
+		var tag: Label3D = Label3D.new()
+		tag.name = "Personality"
+		tag.text = personality_name
+		tag.font_size = 48
+		tag.pixel_size = 0.02
+		tag.position = Vector3(0, 3.4, 0)
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.modulate = Color(0.97, 0.94, 0.84)
+		yard_node.add_child(tag)
 	if expanded and host.get_node_or_null("EnemyClaim") == null:
 		var spot: Vector3 = yard.center + Vector3(3.0, 0.5, 2.0)
 		_marker(host, "EnemyClaim", spot, Vector3(1.2, 0.8, 1.2), Color(0.7, 0.12, 0.22))
@@ -59,6 +88,29 @@ func _expand() -> void:
 		expanded = true
 		return
 	expanded = goods.snap_refinery(node_id, SMPointer.ENEMY)
+
+func _open() -> void:
+	if plan_goods != null and plan_a != &"" and plan_b != &"":
+		if not plan_goods.has_collector(plan_a):
+			plan_goods.snap_refinery(plan_a, SMPointer.ENEMY)
+		if not plan_goods.has_collector(plan_b):
+			plan_goods.snap_refinery(plan_b, SMPointer.ENEMY)
+		opened_nodes = 0
+		if plan_goods.has_collector(plan_a):
+			opened_nodes += 1
+		if plan_goods.has_collector(plan_b):
+			opened_nodes += 1
+	if plan_tech != null and plan_site != &"":
+		if plan_tech.owner_of(plan_site) < 0:
+			took_tech = plan_tech.capture(plan_site, SMPointer.ENEMY)
+		elif plan_tech.owner_of(plan_site) == SMPointer.ENEMY:
+			took_tech = true
+	if used_f or field == null:
+		return
+	var foes: Array[RTSUnit] = field.units_of(SMPointer.ENEMY)
+	if foes.is_empty():
+		return
+	used_f = field.apply_named_f(foes[0])
 
 func _attack() -> void:
 	var friends: Array[RTSUnit] = field.units_of(SMPointer.PLAYER)

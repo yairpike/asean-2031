@@ -65,6 +65,7 @@ func _run() -> void:
 	await H.section("test_sm_chain", test_sm_chain)
 	await H.section("test_sm_names", test_sm_names)
 	await H.section("test_sm_protocols", test_sm_protocols)
+	await H.section("test_sm_sides", test_sm_sides)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1802,6 +1803,73 @@ func test_sm_protocols() -> void:
 		check(map_bar != null and buttons.size() == 25, "%s lists the protocol names" % path.get_file())
 		map_scene.free()
 		await process_frame
+
+func test_sm_sides() -> void:
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var raider: SMRaider = scene.get("raider") as SMRaider
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var field: SMPointer = scene.get("field") as SMPointer
+	var tag: Label3D = scene.find_child("Personality", true, false) as Label3D
+	check(raider.opened_nodes == 2 and sim.goods.has_collector(&"bullion_east") and sim.goods.has_collector(&"bullion_north"), "the phillips bot owns two nodes")
+	check(raider.took_tech and sim.tech.owner_of(&"cyber") == SMPointer.ENEMY, "the phillips bot owns a tech site")
+	check(raider.used_f and field.name_of(field.units_of(SMPointer.ENEMY)[0]) == "Enemy", "the bot uses F and the raider label stays Enemy")
+	check(tag != null and tag.text == "Bo Mya", "bo mya is named on the phillips yard")
+	scene.free()
+	await process_frame
+	var atolls: Node = (load("res://game/ten_degree_atolls.tscn") as PackedScene).instantiate()
+	root.add_child(atolls)
+	await process_frame
+	var atoll_field: SMPointer = atolls.get("field") as SMPointer
+	check(_team_ids(atoll_field).size() == 4, "atolls spawns four teams")
+	check(not atoll_field.teams.are_enemies(0, 2) and atoll_field.teams.are_enemies(0, 1) and atoll_field.teams.are_enemies(0, 3) and not atoll_field.teams.are_enemies(1, 3), "atolls is two alliances")
+	var tran: Label3D = atolls.find_child("PersonalityTran", true, false) as Label3D
+	var iskandar: Label3D = atolls.find_child("PersonalityIskandar", true, false) as Label3D
+	check(tran != null and tran.text == "Tran" and iskandar != null and iskandar.text == "Iskandar", "tran and iskandar are on the atolls")
+	check(atoll_field.name_of(atoll_field.units_of(1)[0]) == "Enemy", "atoll raiders stay labeled Enemy")
+	_wipe(atoll_field.units_of(1))
+	var atoll_raider: SMRaider = atolls.get("raider") as SMRaider
+	atoll_raider.yard.damage_structure(&"enemy_yard", 100000.0)
+	await process_frame
+	var atoll_end: SMOutcome = atolls.get("outcome") as SMOutcome
+	check(not atoll_end.over, "one living allied enemy keeps the atolls open")
+	_wipe(atoll_field.units_of(3))
+	await process_frame
+	check(atoll_end.over and atoll_end.victory, "wiping one atoll alliance ends the match")
+	atolls.free()
+	await process_frame
+	var mekong: Node = (load("res://game/mekong_delta.tscn") as PackedScene).instantiate()
+	root.add_child(mekong)
+	await process_frame
+	check(_team_ids(mekong.get("field") as SMPointer).size() == 4, "the mekong spawns four teams")
+	mekong.free()
+	await process_frame
+	var chiang: Node = (load("res://game/chiang_rai.tscn") as PackedScene).instantiate()
+	root.add_child(chiang)
+	await process_frame
+	var chiang_field: SMPointer = chiang.get("field") as SMPointer
+	check(_team_ids(chiang_field).size() == 6, "chiang rai spawns six teams")
+	check(not chiang_field.teams.are_enemies(0, 2) and not chiang_field.teams.are_enemies(0, 4) and not chiang_field.teams.are_enemies(1, 5) and chiang_field.teams.are_enemies(0, 5), "chiang rai is two alliances of three")
+	var chiang_tran: Label3D = chiang.find_child("PersonalityTran", true, false) as Label3D
+	check(chiang_tran != null and chiang_tran.text == "Tran", "tran is on the chiang rai field")
+	_wipe(chiang_field.units_of(1))
+	_wipe(chiang_field.units_of(3))
+	_wipe(chiang_field.units_of(5))
+	var chiang_raider: SMRaider = chiang.get("raider") as SMRaider
+	chiang_raider.yard.damage_structure(&"enemy_yard", 100000.0)
+	await process_frame
+	var chiang_end: SMOutcome = chiang.get("outcome") as SMOutcome
+	check(chiang_end.over and chiang_end.victory, "wiping one chiang rai alliance ends the match")
+	chiang.free()
+	await process_frame
+
+func _team_ids(field: SMPointer) -> Array[int]:
+	var ids: Array[int] = []
+	for u: RTSUnit in field.units:
+		if is_instance_valid(u) and u.is_alive() and not ids.has(u.team):
+			ids.append(u.team)
+	return ids
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"

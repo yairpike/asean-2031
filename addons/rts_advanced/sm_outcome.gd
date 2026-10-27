@@ -65,8 +65,10 @@ func consider(player_units: int, player_buildings: int, enemy_units: int, enemy_
 func tick(field: SMPointer, player_yards: Array[SMBuildYard], enemy_yards: Array[SMBuildYard], delta: float) -> void:
 	if over or field == null:
 		return
-	var player_units: int = field.count_team(SMPointer.PLAYER)
-	var enemy_units: int = field.count_team(SMPointer.ENEMY)
+	var friends: Array[RTSUnit] = _side_units(field, true)
+	var hostiles: Array[RTSUnit] = _side_units(field, false)
+	var player_units: int = friends.size()
+	var enemy_units: int = hostiles.size()
 	var player_buildings: int = _living(player_yards)
 	var enemy_buildings: int = _living(enemy_yards)
 	if (player_units > 0 or player_buildings > 0) and (enemy_units > 0 or enemy_buildings > 0):
@@ -78,12 +80,22 @@ func tick(field: SMPointer, player_yards: Array[SMBuildYard], enemy_yards: Array
 		saw_enemy = true
 	if saw_player and saw_enemy:
 		if enemy_units == 0 and player_units > 0:
-			_press(field, field.units_of(SMPointer.PLAYER), enemy_yards, delta)
+			_press(field, friends, enemy_yards, delta)
 		elif player_units == 0 and enemy_units > 0:
-			_press(field, field.units_of(SMPointer.ENEMY), player_yards, delta)
+			_press(field, hostiles, player_yards, delta)
 		player_buildings = _living(player_yards)
 		enemy_buildings = _living(enemy_yards)
 	consider(player_units, player_buildings, enemy_units, enemy_buildings)
+
+func _side_units(field: SMPointer, friendly: bool) -> Array[RTSUnit]:
+	var out: Array[RTSUnit] = []
+	for u: RTSUnit in field.units:
+		if not is_instance_valid(u) or not u.is_alive():
+			continue
+		var with_player: bool = field.teams.are_allies(SMPointer.PLAYER, u.team)
+		if with_player == friendly:
+			out.append(u)
+	return out
 
 func _living(yards: Array[SMBuildYard]) -> int:
 	var total: int = 0

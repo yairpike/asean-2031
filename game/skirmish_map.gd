@@ -80,6 +80,69 @@ func _player_cells() -> Array[Vector2i]:
 		cells = [Vector2i(3, 13), Vector2i(5, 13), Vector2i(7, 13), Vector2i(3, 16), Vector2i(5, 16), Vector2i(7, 16)]
 	return cells
 
+func _plan_name() -> String:
+	if map_id == "burma_road":
+		return "Tran"
+	return "Bo Mya"
+
+func _plan_a() -> StringName:
+	if map_id == "ten_degree_atolls":
+		return &"isle_d"
+	if map_id == "mekong_delta":
+		return &"paddy_i"
+	if map_id == "chiang_rai":
+		return &"chiang_12"
+	return &"ruby_d"
+
+func _plan_b() -> StringName:
+	if map_id == "ten_degree_atolls":
+		return &"isle_e"
+	if map_id == "mekong_delta":
+		return &"paddy_j"
+	if map_id == "chiang_rai":
+		return &"chiang_13"
+	return &"jade_b"
+
+func _plan_site() -> StringName:
+	if map_id == "ten_degree_atolls":
+		return &"radar_b"
+	if map_id == "mekong_delta":
+		return &"clinic_b"
+	if map_id == "chiang_rai":
+		return &"cyber_c"
+	return &"radar_b"
+
+func _extra_sides() -> void:
+	if map_id == "ten_degree_atolls" or map_id == "mekong_delta":
+		_seat(2, Color(0.85, 0.72, 0.28), 0, _player_cells()[0], "Tran", "PersonalityTran")
+		_seat(3, Color(0.85, 0.45, 0.12), 1, _enemy_cells()[0], "Iskandar", "PersonalityIskandar")
+		field.teams.set_relation(1, 3, RTSTeams.Relation.ALLY)
+	elif map_id == "chiang_rai":
+		_seat(2, Color(0.85, 0.72, 0.28), 0, _player_cells()[0], "Ally", "PersonalityAlly")
+		_seat(4, Color(0.45, 0.7, 0.4), 0, _player_cells()[3], "Ally", "PersonalityAllyB")
+		_seat(3, Color(0.85, 0.45, 0.12), 1, _enemy_cells()[0], "Iskandar", "PersonalityIskandar")
+		_seat(5, Color(0.55, 0.35, 0.75), 1, _enemy_cells()[3], "Tran", "PersonalityTran")
+		field.teams.set_relation(2, 4, RTSTeams.Relation.ALLY)
+		field.teams.set_relation(1, 3, RTSTeams.Relation.ALLY)
+		field.teams.set_relation(1, 5, RTSTeams.Relation.ALLY)
+		field.teams.set_relation(3, 5, RTSTeams.Relation.ALLY)
+
+func _seat(team: int, color: Color, ally_of: int, cell: Vector2i, caption: String, node_name: String) -> void:
+	field.teams.add_team(team, color)
+	field.teams.set_relation(team, ally_of, RTSTeams.Relation.ALLY)
+	var origin: Vector3 = grid.cell_center(cell)
+	for i: int in 3:
+		field.spawn(team, origin + Vector3(float(i) * 1.6, 0.0, 2.2), &"raider")
+	var tag: Label3D = Label3D.new()
+	tag.name = node_name
+	tag.text = caption
+	tag.font_size = 48
+	tag.pixel_size = 0.02
+	tag.position = origin + Vector3(1.6, 4.2, 2.2)
+	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	tag.modulate = Color(0.97, 0.94, 0.84)
+	add_child(tag)
+
 func _enemy_cells() -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	if map_id == "ten_degree_atolls":
@@ -200,6 +263,8 @@ func _arm_units() -> void:
 	for cell: Vector2i in _enemy_cells():
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
 	raider.attach(field, grid.cell_center(_enemy_cells()[0]))
+	raider.bind_plan(sim.goods, sim.tech, _plan_a(), _plan_b(), _plan_site(), _plan_name())
+	_extra_sides()
 
 func tick_world(delta: float) -> void:
 	sim.tick_live(delta, roster.economy, field)

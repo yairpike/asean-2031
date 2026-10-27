@@ -80,7 +80,7 @@ func conceal(field: SMPointer, host: Node3D) -> void:
 		for u: RTSUnit in field.units:
 			if not is_instance_valid(u):
 				continue
-			if u.team == SMPointer.PLAYER:
+			if field.teams.are_allies(SMPointer.PLAYER, u.team):
 				u.visible = true
 			else:
 				u.visible = sees(u.global_position)
@@ -127,8 +127,9 @@ static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: S
 	sight.begin()
 	var radar_held: bool = tech != null and tech.reveals_water(SMPointer.PLAYER)
 	var reach: float = sight.unit_radius(radar_held)
-	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
-		sight.add_seer(u.global_position, reach)
+	for u: RTSUnit in field.units:
+		if is_instance_valid(u) and u.is_alive() and field.teams.are_allies(SMPointer.PLAYER, u.team):
+			sight.add_seer(u.global_position, reach)
 	if radar_held:
 		for at: Vector3 in tech.vision_points(SMPointer.PLAYER):
 			sight.add_seer(at, SMTechNet.VISION_RADIUS)

@@ -120,6 +120,7 @@ func _arm_units() -> void:
 	for cell: Vector2i in [Vector2i(30, 12), Vector2i(31, 14), Vector2i(33, 11)]:
 		field.spawn(SMPointer.ENEMY, sim.grid.cell_center(cell), &"raider")
 	raider.attach(field, sim.grid.cell_center(Vector2i(30, 12)))
+	raider.bind_plan(sim.goods, sim.tech, &"bullion_east", &"bullion_north", &"cyber", "Bo Mya")
 
 func _action(row: HBoxContainer, caption: String, fn: Callable) -> void:
 	var b: Button = Button.new()

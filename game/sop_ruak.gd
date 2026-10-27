@@ -115,6 +115,7 @@ func _arm_units() -> void:
 	for cell: Vector2i in [Vector2i(26, 22), Vector2i(28, 22), Vector2i(27, 26)]:
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
 	raider.attach(field, grid.cell_center(Vector2i(26, 22)))
+	raider.bind_plan(sim.goods, sim.tech, &"bullion_a", &"bullion_b", &"cyber_b", "Iskandar")
 
 func tick_world(delta: float) -> void:
 	sim.tick_live(delta, roster.economy, field)
