@@ -40,6 +40,8 @@ func finish_objective() -> bool:
 		if not foes.is_empty():
 			field.apply_status(foes[0], "frozen", 8.0)
 	_say(campaign.result_text)
+	if ok:
+		SMSave.mark(mission_id)
 	return ok
 
 func fire_secondary() -> int:
@@ -139,6 +141,7 @@ func _process(delta: float) -> void:
 	story.tick(delta)
 	if story.done and status != null and status.text != "Objective complete":
 		_say("Objective complete")
+		SMSave.mark(mission_id)
 	hud.refresh()
 
 func _unhandled_input(event: InputEvent) -> void:

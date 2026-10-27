@@ -68,6 +68,7 @@ func _run() -> void:
 	await H.section("test_sm_sides", test_sm_sides)
 	await H.section("test_sm_fx", test_sm_fx)
 	await H.section("test_sm_story", test_sm_story)
+	await H.section("test_sm_web", test_sm_web)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1997,7 +1998,52 @@ func _press_proto(scene: Node, id: String) -> void:
 	if button != null:
 		button.pressed.emit()
 
+func test_sm_web() -> void:
+	SMSave.clear()
+	var camera: RTSCamera = RTSCamera.new()
+	root.add_child(camera)
+	var touch: Node = root.get_node_or_null("SMTouch")
+	var before: Vector3 = camera.focus
+	var before_dist: float = camera.distance
+	check(touch != null, "touch pan is an autoload")
+	if touch != null:
+		touch.call("pan_camera", camera, Vector2(80.0, 0.0))
+		touch.call("pinch_camera", camera, 40.0, 100.0)
+	check(camera.focus.distance_to(before) > 0.01, "one finger pans the camera")
+	check(camera.distance < before_dist, "a pinch zooms the camera")
+	camera.free()
+	SMCampaign.selected = "tachileik"
+	var scene: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	_meet_story(scene, "tachileik")
+	await process_frame
+	check(FileAccess.file_exists("user://campaign.save") and SMSave.has("tachileik") and not SMSave.has("kokang"), "a campaign save appears after the objective")
+	scene.free()
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	var done: Label = boot.find_child("Done_tachileik", true, false) as Label
+	var other: Label = boot.find_child("Done_kokang", true, false) as Label
+	var warm: Node = boot.find_child("ShaderWarmup", true, false)
+	var warmed: int = 0
+	if warm != null:
+		for child: Node in warm.get_children():
+			var mesh: MeshInstance3D = child as MeshInstance3D
+			var mat: ShaderMaterial = null
+			if mesh != null:
+				mat = mesh.material_override as ShaderMaterial
+			if mat != null and mat.shader != null and str(mat.shader.resource_path).ends_with(".gdshader"):
+				warmed += 1
+	check(done != null and done.text == "Done" and other == null, "the campaign tab marks the finished mission")
+	check(warmed == 3, "boot warms the cryo, aegis, and slag shaders")
+	boot.free()
+	SMSave.clear()
+	SMCampaign.selected = "tachileik"
+	await process_frame
+
 func test_sm_boot() -> void:
+	SMSave.clear()
 	SMFront.faction_id = "gtfc"
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)

@@ -147,6 +147,7 @@ func _process(delta: float) -> void:
 	story.tick(delta)
 	if story.done and status != null and status.text != "Objective complete":
 		_say("Objective complete")
+		SMSave.mark("kokang")
 	hud.refresh()
 
 func _unhandled_input(event: InputEvent) -> void:

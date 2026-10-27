@@ -39,6 +39,7 @@ func _ready() -> void:
 	_show_act("act_1")
 	_mark_factions()
 	_refresh_playing()
+	_warm_shaders()
 
 func _skirmish() -> void:
 	_card(skirmish_panel, "CardPhillips", "Phillips Channel", "Water", "res://game/phillips_channel.tscn", Vector2(48, 16))
@@ -212,6 +213,35 @@ func _mission_row(box: VBoxContainer, mission_id: String) -> void:
 	brief.add_theme_font_size_override("font_size", 15)
 	brief.add_theme_color_override("font_color", Color(0.68, 0.72, 0.76))
 	box.add_child(brief)
+	if SMSave.has(mission_id):
+		var done: Label = Label.new()
+		done.name = "Done_%s" % mission_id
+		done.text = "Done"
+		done.position = Vector2(620, 4)
+		done.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		done.add_theme_color_override("font_color", Color(0.55, 0.78, 0.45))
+		b.add_child(done)
+
+func _warm_shaders() -> void:
+	var holder: Node3D = Node3D.new()
+	holder.name = "ShaderWarmup"
+	holder.visible = false
+	add_child(holder)
+	var paths: PackedStringArray = PackedStringArray([
+		"res://assets/shaders/cryo_freeze_overlay.gdshader",
+		"res://assets/shaders/aegis_dome_shield.gdshader",
+		"res://assets/shaders/slag_corrosion_pool.gdshader",
+	])
+	for i: int in paths.size():
+		var mesh: MeshInstance3D = MeshInstance3D.new()
+		mesh.name = "Warm%d" % i
+		var box: BoxMesh = BoxMesh.new()
+		box.size = Vector3(0.2, 0.2, 0.2)
+		mesh.mesh = box
+		var mat: ShaderMaterial = ShaderMaterial.new()
+		mat.shader = load(paths[i]) as Shader
+		mesh.material_override = mat
+		holder.add_child(mesh)
 
 func _faction_card(id: String, node_name: String, pos: Vector2) -> void:
 	var saved: String = SMFront.faction_id
