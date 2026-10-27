@@ -263,6 +263,7 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	field.place_beacon(field.enemy_anchor())
 	sight.advance_weather(delta)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
 	var players: Array[SMBuildYard] = [yard]

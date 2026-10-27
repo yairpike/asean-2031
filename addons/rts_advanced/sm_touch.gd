@@ -3,9 +3,13 @@ extends Node
 
 var points: Dictionary[int, Vector2] = {}
 var span: float = 0.0
+var last_group: int = -1
+var last_group_ms: int = 0
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _toggle_help(event):
+		return
+	if _command_key(event):
 		return
 	var touch: InputEventScreenTouch = event as InputEventScreenTouch
 	if touch != null:
@@ -40,6 +44,57 @@ func _toggle_help(event: InputEvent) -> bool:
 	overlay.visible = not overlay.visible
 	get_viewport().set_input_as_handled()
 	return true
+
+func _command_key(event: InputEvent) -> bool:
+	var key: InputEventKey = event as InputEventKey
+	if key == null or not key.pressed or key.echo:
+		return false
+	var match_field: SMPointer = _field()
+	if match_field == null:
+		return false
+	if key.keycode == KEY_X:
+		match_field.halt_selected()
+		get_viewport().set_input_as_handled()
+		return true
+	if key.keycode == KEY_Q:
+		var aim_cam: RTSCamera = _camera()
+		var at: Vector3 = match_field.aim_from_camera(aim_cam, get_viewport().get_mouse_position())
+		match_field.attack_move_at(at)
+		get_viewport().set_input_as_handled()
+		return true
+	var index: int = _digit(key.keycode)
+	if index < 1:
+		return false
+	if key.ctrl_pressed or key.meta_pressed:
+		match_field.bind_group(index, true)
+	else:
+		match_field.bind_group(index, false)
+		var now: int = Time.get_ticks_msec()
+		if last_group == index and now - last_group_ms < 420:
+			var focus: Vector3 = match_field.selection_focus()
+			var jump_cam: RTSCamera = _camera()
+			if jump_cam != null and focus != Vector3.INF:
+				jump_cam.focus_on(focus)
+		last_group = index
+		last_group_ms = now
+	get_viewport().set_input_as_handled()
+	return true
+
+func _digit(code: Key) -> int:
+	if code >= KEY_1 and code <= KEY_9:
+		return int(code) - int(KEY_1) + 1
+	if code >= KEY_KP_1 and code <= KEY_KP_9:
+		return int(code) - int(KEY_KP_1) + 1
+	return 0
+
+func _field() -> SMPointer:
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return null
+	var raw: Variant = scene.get("field")
+	if raw is SMPointer:
+		return raw as SMPointer
+	return null
 
 func pan_camera(camera: RTSCamera, slide: Vector2) -> void:
 	if camera == null:

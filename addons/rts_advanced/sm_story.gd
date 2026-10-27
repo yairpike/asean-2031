@@ -298,6 +298,107 @@ func progress() -> String:
 		return ending
 	return "Fight the briefing."
 
+## Where the tall objective marker should stand. INF hides it.
+func beacon() -> Vector3:
+	if done or lost or field == null:
+		return Vector3.INF
+	if raid != null:
+		return _raid_beacon()
+	if _towers:
+		return _duty_at("tower", "hangar")
+	if _fleet:
+		return _duty_at("fleet", "")
+	if _column:
+		return _duty_at("column", "")
+	if _supers:
+		return _duty_at("super", "")
+	if _beam:
+		if not _beamed:
+			var tube: RTSUnit = _player_kind("monsoon_tube")
+			if tube != null:
+				return tube.global_position
+		if not _phantom_frozen and _living(_phantom):
+			return _phantom.global_position
+		return _duty_at("phantom", "battery")
+	if _kill:
+		var ghost: RTSUnit = _first_enemy()
+		if _living(ghost):
+			return ghost.global_position
+		if ew != null:
+			return ew.center
+		return Vector3.INF
+	if _cross:
+		if _left("clear") > 0:
+			return _duty_at("clear", "")
+		if not _crossed():
+			return far_shore
+		return Vector3.INF
+	if _packer:
+		if _left("clear") > 0:
+			return _duty_at("clear", "")
+		if sail != null and sail.factory_level(&"gun_wharf") < 2:
+			return shallow_pad
+		return Vector3.INF
+	if _haze or _radar:
+		if _left("clear") > 0:
+			return _duty_at("clear", "")
+		return pad
+	if _cyber:
+		if _left("clear") > 0:
+			return _duty_at("clear", "")
+		return pad
+	if _ruby:
+		if _left("clear") > 0:
+			return _duty_at("clear", "")
+		return pad
+	if _hold and _living(defend):
+		return defend.global_position
+	return Vector3.INF
+
+func _raid_beacon() -> Vector3:
+	var yard_up: bool = raid.yard.finished.has(&"scaffold_yard")
+	if not yard_up:
+		return raid.yard.center
+	var paid: int = raid.ruby_paid
+	if goods != null:
+		paid = maxi(paid, goods.paid_of(&"ruby"))
+	if paid < 30:
+		return _goods_at(&"ruby")
+	var stock: int = 0
+	if raid.goods != null:
+		stock = raid.goods.stock_of(0)
+	if stock < 1:
+		return _goods_at(&"rare")
+	return Vector3.INF
+
+func _goods_at(id: StringName) -> Vector3:
+	if goods == null:
+		return Vector3.INF
+	var i: int = goods.find(id)
+	if i < 0:
+		return Vector3.INF
+	return goods.nodes[i]["pos"] as Vector3
+
+func _duty_at(first: String, second: String) -> Vector3:
+	var hit: RTSUnit = _first_duty(first)
+	if hit == null and second != "":
+		hit = _first_duty(second)
+	if hit == null:
+		return Vector3.INF
+	return hit.global_position
+
+func _first_duty(duty: String) -> RTSUnit:
+	for u: RTSUnit in field.units:
+		if _living(u) and str(u.get_meta("duty", "")) == duty:
+			return u
+	return null
+
+func _player_kind(kind: String) -> RTSUnit:
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if _living(u) and str(u.unit_type) == kind:
+			return u
+	return null
+
 func tick(delta: float) -> bool:
 	if done or lost or field == null or ending == "":
 		return false

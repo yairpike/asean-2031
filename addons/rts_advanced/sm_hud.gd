@@ -213,19 +213,23 @@ func _power() -> int:
 	return total
 
 func _selection_line() -> String:
-	if field == null or field.selection.count() <= 0:
-		return "Nothing selected"
-	var first: RTSUnit = field.selection.units[0]
-	var extra: int = field.selection.count() - 1
-	var ability: String = "ability"
-	if first.has_meta("ability") and str(first.get_meta("ability")) != "":
-		ability = str(first.get_meta("ability"))
-	elif first.has_meta("secondary"):
-		ability = _ability_name(str(first.get_meta("secondary")))
-	var line: String = "%s    HP %d/%d    F %s" % [field.name_of(first), int(round(first.hp)), int(round(first.max_hp)), ability]
-	if extra > 0:
-		line += "    +%d" % extra
-	return line
+	var base: String = "Nothing selected"
+	if field != null and field.selection.count() > 0:
+		var first: RTSUnit = field.selection.units[0]
+		var extra: int = field.selection.count() - 1
+		var ability: String = "ability"
+		if first.has_meta("ability") and str(first.get_meta("ability")) != "":
+			ability = str(first.get_meta("ability"))
+		elif first.has_meta("secondary"):
+			ability = _ability_name(str(first.get_meta("secondary")))
+		base = "%s    HP %d/%d    F %s" % [field.name_of(first), int(round(first.hp)), int(round(first.max_hp)), ability]
+		if extra > 0:
+			base += "    +%d" % extra
+	if field != null and field.group_note_t > 0.0 and field.group_note != "":
+		if base == "Nothing selected":
+			return field.group_note
+		return "%s    %s" % [base, field.group_note]
+	return base
 
 func _faction_id() -> String:
 	if roster != null and roster.faction_id != "":

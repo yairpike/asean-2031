@@ -144,6 +144,7 @@ func _process(delta: float) -> void:
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
 	story.tick(delta)
+	field.place_beacon(story.beacon())
 	if story.lost:
 		if status != null and status.text != "Objective failed":
 			_say("Objective failed")

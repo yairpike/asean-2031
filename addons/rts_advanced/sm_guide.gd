@@ -3,10 +3,10 @@ extends RefCounted
 ## First-run copy: controls, the how-to panel, and the Kokang lesson.
 
 static func controls_hint() -> String:
-	return "Left-click select. Right-click ground to move, an enemy to attack. A ring marks the order. Click the minimap to jump. F ability. H guide."
+	return "Left-click select. Right-click ground to move, an enemy to attack. Q attack-move. X halt. Ctrl+1-9 stores a group, the number recalls it. A ring marks the order. Click the minimap to jump. F ability. H guide."
 
 static func howto_text() -> String:
-	return "Left-click a unit, or drag a box around your company. An orange ring shows that unit's weapon range.\nRight-click open ground to move. Right-click an enemy to attack. A ring marks that spot, then fades.\nClick the minimap to jump the camera there.\nPress F, or Ability, to use the selected unit's power. Smart-cast fires only the closest ready unit.\nThe column on the right trains units and raises buildings. Walk onto a colored pad to claim it.\nBoats cross deep water. Tanks and infantry stay on land, and they use a shallow ford when one is open.\nThe status line reads Objective complete when you win, and Objective failed if your company dies."
+	return "Left-click a unit, or drag a box around your company. An orange ring shows that unit's weapon range.\nRight-click open ground to move. Right-click an enemy to attack. A ring marks that spot, then fades.\nPress Q to attack-move toward the cursor. Press X to halt. Ctrl and 1 through 9 stores a group. Press the number to recall it, and press it again to center the camera.\nA diamond sits on the lead unit's next step. A tall marker stands on the current objective, and the minimap frames that spot. Hits show a floating number.\nClick the minimap to jump the camera there.\nPress F, or Ability, to use the selected unit's power. Smart-cast fires only the closest ready unit.\nThe column on the right trains units and raises buildings. Walk onto a colored pad to claim it.\nBoats cross deep water. Tanks and infantry stay on land, and they use a shallow ford when one is open.\nThe status line reads Objective complete when you win, and Objective failed if your company dies."
 
 static func tutorial_for(mission_id: String) -> String:
 	if mission_id == "kokang":

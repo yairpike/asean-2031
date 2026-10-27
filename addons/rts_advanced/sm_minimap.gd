@@ -107,6 +107,9 @@ func _draw() -> void:
 		for u: RTSUnit in field.units_of(SMPointer.ENEMY):
 			if sight == null or sight.sees(u.global_position):
 				_dot(u.global_position, hostile)
+		if field.beacon_at != Vector3.INF:
+			var beacon_p: Vector2 = _world_to_local(field.beacon_at)
+			draw_rect(Rect2(beacon_p - Vector2(5, 5), Vector2(10, 10)), Color(0.98, 0.82, 0.28), false, 2.0)
 	if sight != null:
 		for at: Vector3 in sight.posts:
 			if sight.sees(at):

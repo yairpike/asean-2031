@@ -75,6 +75,7 @@ func _run() -> void:
 	await H.section("test_sm_bark", test_sm_bark)
 	await H.section("test_sm_orders_mark", test_sm_orders_mark)
 	await H.section("test_sm_goal", test_sm_goal)
+	await H.section("test_sm_command", test_sm_command)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2603,6 +2604,81 @@ func _order_ping(field: SMPointer, order: String) -> Node:
 		if is_instance_valid(mark) and str(mark.get_meta("order", "")) == order:
 			return mark
 	return null
+
+func test_sm_command() -> void:
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var cam: RTSCamera = RTSCamera.new()
+	host.add_child(cam)
+	var field: SMPointer = SMPointer.new()
+	field.bind(host, cam)
+	field.use_open(24, 24, 2.0, Vector3(-24.0, 0.0, -24.0))
+	var a: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3.ZERO, &"militia")
+	var b: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(2.0, 0.0, 0.0), &"militia")
+	var foe: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(30.0, 0.0, 30.0), &"raider")
+	field.select_only([a, b])
+	check(field.bind_group(1, true) == 2 and field.group_note == "Group 1 stored", "ctrl-1 stores the company")
+	field.selection.clear()
+	check(field.bind_group(1, false) == 2 and a.selected and b.selected, "1 recalls the stored company")
+	var focus: Vector3 = field.selection_focus()
+	check(focus.distance_to(Vector3(1.0, 0.0, 0.0)) < 0.2, "a recalled group has a camera focus")
+	a.set_path(PackedVector3Array([Vector3(6.0, 0.0, 4.0)]))
+	field.tick(0.05)
+	var diamond: MeshInstance3D = host.get_node_or_null("PathMark") as MeshInstance3D
+	check(diamond != null and diamond.visible and absf(diamond.position.x - 6.0) < 0.2, "the lead unit shows its next waypoint")
+	field.halt_selected()
+	field.tick(0.05)
+	check(a.path.is_empty() and not bool(a.get_meta("hunt", false)) and diamond != null and not diamond.visible, "X halts the company and clears the waypoint")
+	var sent: int = field.attack_move_at(Vector3(8.0, 0.0, 0.0))
+	check(sent == 2 and bool(a.get_meta("hunt", false)) and not a.path.is_empty() and _order_ping(field, "attack") != null, "Q sends an attack-move and marks it")
+	foe.global_position = a.global_position + Vector3(2.0, 0.0, 0.0)
+	a.attack_range = 6.0
+	field.tick(0.05)
+	check(a.attack_target == foe, "attack-move shoots a unit in range")
+	foe.global_position = Vector3(30.0, 0.0, 30.0)
+	a.attack_target = null
+	var moved: StringName = field.command_at(Vector3(-6.0, 0.0, -2.0), Vector2(-800.0, -800.0), Callable(self, "_proj"))
+	check(moved == &"move" and not bool(a.get_meta("hunt", false)), "a move order cancels attack-move")
+	var victim: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(20.0, 0.0, -20.0), &"raider")
+	victim.take_damage(12.0)
+	field.tick(0.05)
+	var pop: Label3D = victim.get_node_or_null("DamagePop") as Label3D
+	check(pop != null and pop.visible and pop.text == "-12", "a hit floats a damage number")
+	field.place_beacon(Vector3(3.0, 0.0, -2.0))
+	var pole: MeshInstance3D = host.get_node_or_null("GoalBeacon") as MeshInstance3D
+	check(pole != null and pole.visible and absf(pole.position.x - 3.0) < 0.1, "the goal beacon stands on the objective")
+	field.place_beacon(Vector3.INF)
+	check(pole != null and not pole.visible, "the beacon hides when the objective is done")
+	var anchor: Vector3 = field.enemy_anchor()
+	check(anchor != Vector3.INF, "skirmish beacons the enemy force")
+	host.free()
+	await process_frame
+	SMCampaign.selected = "operation_1027"
+	var wave: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(wave)
+	await process_frame
+	var wave_story: SMStory = wave.get("story") as SMStory
+	var wave_at: Vector3 = wave_story.beacon()
+	check(absf(wave_at.x - 9.0) < 0.2 and (absf(wave_at.z - 5.0) < 0.2 or absf(wave_at.z + 5.0) < 0.2), "1027 beacons a living EW tower")
+	wave._process(0.05)
+	var planted: Node = wave.find_child("GoalBeacon", true, false)
+	check(planted != null and planted.visible, "the mission plants the beacon on the field")
+	wave.free()
+	await process_frame
+	SMCampaign.selected = "kokang"
+	var raid: Node = (load("res://game/mission_kokang.tscn") as PackedScene).instantiate()
+	root.add_child(raid)
+	await process_frame
+	var raid_story: SMStory = raid.get("story") as SMStory
+	var raid_at: Vector3 = raid_story.beacon()
+	check(raid_at.distance_to(Vector3.ZERO) < 0.2, "kokang beacons the yard before it is raised")
+	raid.free()
+	await process_frame
+	var hint: String = SMGuide.controls_hint()
+	var howto: String = SMGuide.howto_text()
+	check(hint.contains("attack-move") and hint.contains("Ctrl") and howto.contains("floating number") and howto.contains("objective"), "the guide names groups, attack-move, and the objective marker")
+	SMCampaign.selected = "tachileik"
+	SMFront.faction_id = "gtfc"
 
 func test_sm_boot() -> void:
 	SMSave.clear()

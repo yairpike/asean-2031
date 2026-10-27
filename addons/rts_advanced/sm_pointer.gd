@@ -32,6 +32,9 @@ var on_cue: Callable
 var on_line: Callable
 var on_bark: Callable
 var marks: Array[Node3D] = []
+var group_note: String = ""
+var group_note_t: float = 0.0
+var beacon_at: Vector3 = Vector3.INF
 const FX = preload("res://addons/rts_advanced/sm_fx.gd")
 const F_COOLDOWN: float = 3.0
 const BEAM_TIME: float = 1.5
@@ -163,8 +166,8 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	u.shot_filter = Callable(self, "filter_shot")
 	u.fired.connect(_on_shot)
 	_add_vitals(u, team)
-	u.set_meta("seen_hp", u.hp)
 	host.add_child(u)
+	u.set_meta("seen_hp", u.hp)
 	units.append(u)
 	return u
 
@@ -363,18 +366,28 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 				var one: Array[RTSUnit] = [u]
 				hit += RTSOrders.attack(one, foe, nav_for_unit(u), teams)
 		if hit > 0:
+			_drop_hunt(selection.units)
 			_cue("attack")
 			announce(_first_player(), "attack")
 			_mark(foe.global_position, "attack")
 		return &"attack" if hit > 0 else &"none"
 	if ground == Vector3.INF:
 		return &"none"
+	var sent: int = _send(ground, false)
+	if sent > 0:
+		_cue("move")
+		announce(_first_player(), "move")
+		_mark(ground, "move")
+	return &"move" if sent > 0 else &"none"
+
+## Walks the selection to formation slots. Hunt keeps them shooting on the way.
+func _send(ground: Vector3, hunt: bool) -> int:
 	var live: Array[RTSUnit] = []
 	for u: RTSUnit in selection.units:
 		if is_instance_valid(u) and u.is_alive():
 			live.append(u)
 	if live.is_empty():
-		return &"none"
+		return 0
 	var center: Vector3 = Vector3.ZERO
 	var positions: Array[Vector3] = []
 	for u: RTSUnit in live:
@@ -391,13 +404,105 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 		if route.is_empty():
 			continue
 		mover.attack_target = null
+		mover.set_meta("hunt", hunt)
+		if hunt:
+			mover.set_meta("hunt_goal", ground)
 		mover.set_path(route)
 		sent += 1
-	if sent > 0:
-		_cue("move")
-		announce(_first_player(), "move")
-		_mark(ground, "move")
-	return &"move" if sent > 0 else &"none"
+	return sent
+
+func _drop_hunt(list: Array[RTSUnit]) -> void:
+	for u: RTSUnit in list:
+		if is_instance_valid(u):
+			u.set_meta("hunt", false)
+
+## Ctrl stores the current selection in 1-9. A plain number recalls it.
+func bind_group(index: int, store: bool) -> int:
+	if index < 1 or index > 9:
+		return 0
+	if store:
+		selection.save_group(index)
+		group_note = "Group %d stored" % index
+		group_note_t = 1.8
+		return selection.count()
+	var n: int = selection.recall_group(index)
+	group_note = ("Group %d" % index) if n > 0 else ("Group %d empty" % index)
+	group_note_t = 1.8
+	return n
+
+func selection_focus() -> Vector3:
+	if selection.count() <= 0:
+		return Vector3.INF
+	var sum: Vector3 = Vector3.ZERO
+	var n: int = 0
+	for u: RTSUnit in selection.units:
+		if is_instance_valid(u) and u.is_alive():
+			sum += u.global_position
+			n += 1
+	if n <= 0:
+		return Vector3.INF
+	return sum / float(n)
+
+func halt_selected() -> void:
+	var live: Array[RTSUnit] = []
+	for u: RTSUnit in selection.units:
+		if is_instance_valid(u) and u.is_alive():
+			live.append(u)
+	RTSOrders.stop(live)
+	_drop_hunt(live)
+	group_note = "Halt"
+	group_note_t = 1.4
+
+## Move toward `at` and shoot anything that enters range along the way.
+func attack_move_at(at: Vector3) -> int:
+	if at == Vector3.INF:
+		return 0
+	var sent: int = _send(at, true)
+	if sent <= 0:
+		return 0
+	_mark(at, "attack")
+	group_note = "Attack-move"
+	group_note_t = 1.6
+	_cue("attack")
+	announce(_first_player(), "attack")
+	return sent
+
+func enemy_anchor() -> Vector3:
+	var sum: Vector3 = Vector3.ZERO
+	var n: int = 0
+	for u: RTSUnit in units:
+		if is_instance_valid(u) and u.is_alive() and teams.are_enemies(PLAYER, u.team):
+			sum += u.global_position
+			n += 1
+	if n <= 0:
+		return Vector3.INF
+	return sum / float(n)
+
+func place_beacon(at: Vector3) -> void:
+	beacon_at = at
+	if host == null:
+		return
+	var pole: MeshInstance3D = host.get_node_or_null("GoalBeacon") as MeshInstance3D
+	if at == Vector3.INF:
+		if pole != null:
+			pole.visible = false
+		return
+	if pole == null:
+		pole = MeshInstance3D.new()
+		pole.name = "GoalBeacon"
+		var box: BoxMesh = BoxMesh.new()
+		box.size = Vector3(0.45, 7.0, 0.45)
+		pole.mesh = box
+		pole.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var ink: StandardMaterial3D = StandardMaterial3D.new()
+		ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		ink.albedo_color = Color(0.98, 0.82, 0.28)
+		pole.material_override = ink
+		host.add_child(pole)
+	var pulse: float = 1.0 + 0.12 * sin(float(Time.get_ticks_msec()) * 0.005)
+	pole.scale = Vector3(pulse, 1.0, pulse)
+	pole.position = Vector3(at.x, 3.6, at.z)
+	pole.visible = true
 
 func _cue(kind: String) -> void:
 	if on_cue.is_valid():
@@ -651,6 +756,8 @@ func handle_motion(motion: InputEventMouseMotion) -> void:
 
 func tick(delta: float) -> void:
 	_fade_marks(delta)
+	if group_note_t > 0.0:
+		group_note_t = maxf(0.0, group_note_t - delta)
 	var alive: Array[RTSUnit] = []
 	for u: RTSUnit in units:
 		if not is_instance_valid(u):
@@ -660,6 +767,7 @@ func tick(delta: float) -> void:
 			u.queue_free()
 			continue
 		_tick_ability(u, delta)
+		_press_hunt(u)
 		var before: Vector3 = u.global_position
 		u.advance(delta)
 		_keep_domain(u, before)
@@ -674,6 +782,7 @@ func tick(delta: float) -> void:
 		_paint_vitals(u, delta)
 		alive.append(u)
 	units = alive
+	_paint_path()
 
 func _drop_wreck(at: Vector3) -> void:
 	if host == null:
@@ -761,9 +870,94 @@ func _paint_vitals(u: RTSUnit, delta: float) -> void:
 		if muzzle != null:
 			muzzle.visible = flash > 0.0
 	var seen: float = float(u.get_meta("seen_hp", u.hp))
-	if u.team == PLAYER and u.hp < seen - 0.5:
-		var now: int = Time.get_ticks_msec()
-		if now >= int(u.get_meta("hurt_until", 0)):
-			announce(u, "hurt")
-			u.set_meta("hurt_until", now + 1600)
+	var drop: float = seen - u.hp
+	if drop > 0.4:
+		_pop_damage(u, drop)
+		if u.team == PLAYER:
+			var now: int = Time.get_ticks_msec()
+			if now >= int(u.get_meta("hurt_until", 0)):
+				announce(u, "hurt")
+				u.set_meta("hurt_until", now + 1600)
 	u.set_meta("seen_hp", u.hp)
+	_rise_pop(u, delta)
+
+func _press_hunt(u: RTSUnit) -> void:
+	if not bool(u.get_meta("hunt", false)) or bool(u.get_meta("frozen", false)):
+		return
+	if u.attack_target != null and is_instance_valid(u.attack_target) and u.attack_target.is_alive():
+		return
+	u.attack_target = null
+	var foe: RTSUnit = nearest_enemy(u.global_position, u.attack_range)
+	if foe != null:
+		u.attack_target = foe
+		return
+	var goal: Variant = u.get_meta("hunt_goal", Vector3.INF)
+	if not (goal is Vector3):
+		return
+	var at: Vector3 = goal as Vector3
+	if at == Vector3.INF:
+		return
+	var flat: float = Vector2(u.global_position.x, u.global_position.z).distance_to(Vector2(at.x, at.z))
+	if flat <= 1.4:
+		u.set_meta("hunt", false)
+		return
+	if u.path.is_empty():
+		var route: PackedVector3Array = nav_for_unit(u).find_path(u.global_position, at)
+		if not route.is_empty():
+			u.set_path(route)
+
+func _paint_path() -> void:
+	if host == null:
+		return
+	var mark: MeshInstance3D = host.get_node_or_null("PathMark") as MeshInstance3D
+	var lead: RTSUnit = _first_player()
+	var show: bool = lead != null and not lead.path.is_empty()
+	if not show:
+		if mark != null:
+			mark.visible = false
+		return
+	if mark == null:
+		mark = MeshInstance3D.new()
+		mark.name = "PathMark"
+		var gem: BoxMesh = BoxMesh.new()
+		gem.size = Vector3(0.55, 0.14, 0.55)
+		mark.mesh = gem
+		mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var ink: StandardMaterial3D = StandardMaterial3D.new()
+		ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		ink.albedo_color = Color(0.95, 0.82, 0.28)
+		mark.material_override = ink
+		host.add_child(mark)
+	var step: Vector3 = lead.path[0]
+	mark.position = Vector3(step.x, 0.22, step.z)
+	mark.visible = true
+
+func _pop_damage(u: RTSUnit, amount: float) -> void:
+	var pop: Label3D = u.get_node_or_null("DamagePop") as Label3D
+	if pop == null:
+		pop = Label3D.new()
+		pop.name = "DamagePop"
+		pop.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		pop.font_size = 64
+		pop.pixel_size = 0.005
+		pop.outline_size = 10
+		pop.no_depth_test = true
+		pop.position = Vector3(0.0, 2.4, 0.0)
+		u.add_child(pop)
+	pop.text = "-%d" % maxi(1, int(round(amount)))
+	pop.modulate = Color(1.0, 0.45, 0.32, 1.0) if u.team == PLAYER else Color(1.0, 0.86, 0.35, 1.0)
+	pop.position = Vector3(0.0, 2.4, 0.0)
+	pop.visible = true
+	u.set_meta("pop_t", 0.75)
+
+func _rise_pop(u: RTSUnit, delta: float) -> void:
+	var pop: Label3D = u.get_node_or_null("DamagePop") as Label3D
+	if pop == null or not pop.visible:
+		return
+	var left: float = float(u.get_meta("pop_t", 0.0)) - delta
+	u.set_meta("pop_t", left)
+	if left <= 0.0:
+		pop.visible = false
+		return
+	pop.position.y += delta * 1.6
+	pop.modulate.a = clampf(left / 0.75, 0.0, 1.0)
