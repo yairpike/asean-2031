@@ -1,8 +1,8 @@
 class_name SMSight
 extends RefCounted
-
-const World = preload("res://game/world_view.gd")
 ## Fog for a skirmish. Explored ground stays dim. Current sight is clear.
+
+signal match_drawn(host: Node3D, sight: SMSight, cam: RTSCamera)
 
 const UNIT_RADIUS: float = 18.0
 const CYCLE: float = 24.0
@@ -161,7 +161,7 @@ static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: S
 	sight.commit()
 	sight.conceal(field, host)
 	apply_drag(sight, field)
-	World.sync(host, sight, field.cam)
+	sight.match_drawn.emit(host, sight, field.cam)
 
 static func apply_drag(sight: SMSight, field: SMPointer) -> void:
 	if sight == null or field == null:

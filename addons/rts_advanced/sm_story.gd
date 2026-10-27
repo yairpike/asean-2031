@@ -2,8 +2,8 @@ class_name SMStory
 extends RefCounted
 ## Live win and loss for a story mission. A protocol can help. Casting one does not finish the mission.
 
-const World = preload("res://game/world_view.gd")
 const REACH: float = 2.4
+signal pad_made(host: Node3D, node_name: String, at: Vector3, size: Vector3, color: Color)
 const HOLD_HAZE: float = 16.0
 const HOLD_TONLE: float = 20.0
 
@@ -728,4 +728,4 @@ func _pad(at: Vector3, color: Color, node_name: String) -> void:
 	_slab(node_name, at + Vector3(0.0, 0.15, 0.0), Vector3(1.6, 0.3, 1.6), color)
 
 func _slab(node_name: String, at: Vector3, size: Vector3, color: Color) -> void:
-	World.plain_slab(host, node_name, at, size, color)
+	pad_made.emit(host, node_name, at, size, color)

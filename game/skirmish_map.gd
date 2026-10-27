@@ -20,6 +20,7 @@ var status: Label
 var ui_layer: CanvasLayer
 
 func _ready() -> void:
+	preload("res://game/sim_presenter.gd").follow(self)
 	grid = _grid_for(map_id)
 	sim.place_sites(map_id, grid)
 	roster.setup(SMFront.current())

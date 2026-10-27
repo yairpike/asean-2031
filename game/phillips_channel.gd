@@ -21,6 +21,7 @@ var combat_bus: AudioStreamPlayer
 var ui_layer: CanvasLayer
 
 func _ready() -> void:
+	preload("res://game/sim_presenter.gd").follow(self)
 	sim.setup_phillips("gtfc")
 	roster.setup(SMFront.current())
 	roster.price_scale = Callable(self, "_price_scale")

@@ -1,33 +1,49 @@
 class_name SMSfx
 extends RefCounted
-## Plays one procedural cue at a time on the match UI.
-
-const Settings = preload("res://game/match_settings.gd")
+## Plays one cue at a time on the match UI. A view may supply volume and bark clips.
 
 var player: AudioStreamPlayer
 var voice: AudioStreamPlayer
+var cue_level: Callable
+var clip_for: Callable
 
 func mount(parent: Node) -> void:
 	player = AudioStreamPlayer.new()
 	player.name = "CuePlayer"
-	player.volume_db = Settings.cue_db(-8.0)
+	player.volume_db = _volume(-8.0)
 	parent.add_child(player)
 	voice = AudioStreamPlayer.new()
 	voice.name = "BarkPlayer"
-	voice.volume_db = Settings.cue_db(-6.0)
+	voice.volume_db = _volume(-6.0)
 	parent.add_child(voice)
+
+func apply_levels() -> void:
+	if player != null:
+		player.volume_db = _volume(-8.0)
+	if voice != null:
+		voice.volume_db = _volume(-6.0)
 
 func play(kind: String) -> void:
 	if player == null:
 		return
-	player.volume_db = Settings.cue_db(-8.0)
+	player.volume_db = _volume(-8.0)
 	player.stream = SMTone.cue(kind)
 	player.play()
 
-func bark(pitch: float) -> void:
+func bark(pitch: float, unit_id: String = "", event: String = "") -> void:
 	if voice == null:
 		return
-	voice.volume_db = Settings.cue_db(-6.0)
+	voice.volume_db = _volume(-6.0)
 	voice.pitch_scale = maxf(0.5, pitch)
-	voice.stream = SMTone.cue("bark")
+	var clip: AudioStream = null
+	if clip_for.is_valid() and unit_id != "":
+		var got: Variant = clip_for.call(unit_id, event)
+		if got is AudioStream:
+			clip = got
+	voice.stream = clip if clip != null else SMTone.cue("bark")
 	voice.play()
+
+func _volume(base: float) -> float:
+	if cue_level.is_valid():
+		return float(cue_level.call(base))
+	return base

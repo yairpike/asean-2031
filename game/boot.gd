@@ -51,6 +51,7 @@ func _ready() -> void:
 	add_child(gear)
 	preload("res://game/settings_panel.gd").attach(self)
 	preload("res://game/match_settings.gd").apply_scene(self)
+	preload("res://game/match_audio.gd").arm(self, "menu")
 
 func _skirmish() -> void:
 	_card(skirmish_panel, "CardPhillips", "Phillips Channel", "Water", "res://game/phillips_channel.tscn", Vector2(48, 16))

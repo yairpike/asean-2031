@@ -2,7 +2,8 @@ class_name SMRaider
 extends RefCounted
 ## The skirmish enemy builds a yard, claims a ruby node, and attacks.
 
-const World = preload("res://game/world_view.gd")
+signal marker_made(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color)
+signal banner_made(parent: Node3D, node_name: String, text: String, size: int, pixel: float, at: Vector3)
 
 var yard: SMBuildYard = SMBuildYard.new()
 var goods: SMCommodityNet = SMCommodityNet.new()
@@ -62,7 +63,7 @@ func show_markers(host: Node3D) -> void:
 	if built and host.get_node_or_null("EnemyYard") == null:
 		_marker(host, "EnemyYard", SMPointer.building_at(yard.center), SMPointer.BUILDING_SIZE, Color(0.45, 0.16, 0.14))
 	var yard_node: Node3D = host.get_node_or_null("EnemyYard") as Node3D
-	World.billboard(yard_node, "Personality", personality_name, 48, 0.02, Vector3(0, 3.4, 0))
+	banner_made.emit(yard_node, "Personality", personality_name, 48, 0.02, Vector3(0, 3.4, 0))
 	if expanded and host.get_node_or_null("EnemyClaim") == null:
 		var spot: Vector3 = yard.center + Vector3(3.0, 0.5, 2.0)
 		_marker(host, "EnemyClaim", spot, Vector3(1.2, 0.8, 1.2), Color(0.7, 0.12, 0.22))
@@ -132,4 +133,4 @@ func _nearest(from: Vector3, group: Array[RTSUnit]) -> RTSUnit:
 	return best
 
 func _marker(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
-	World.slab(host, node_name, pos, size, color)
+	marker_made.emit(host, node_name, pos, size, color)

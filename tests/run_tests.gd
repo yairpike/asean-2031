@@ -1795,6 +1795,7 @@ func _named_f(faction: String, id: String, display: String, ability: String, sta
 	var cam: RTSCamera = RTSCamera.new()
 	host.add_child(cam)
 	var field: SMPointer = SMPointer.new()
+	preload("res://game/sim_presenter.gd").follow_pointer(field)
 	field.bind_faction(host, cam, faction)
 	field.use_open(8, 8, 2.0, Vector3.ZERO)
 	var u: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3.ZERO, StringName(id))
@@ -2748,6 +2749,7 @@ func test_sm_command() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	host.add_child(cam)
 	var field: SMPointer = SMPointer.new()
+	preload("res://game/sim_presenter.gd").follow_pointer(field)
 	field.bind(host, cam)
 	field.use_open(24, 24, 2.0, Vector3(-24.0, 0.0, -24.0))
 	var a: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3.ZERO, &"militia")
@@ -3073,6 +3075,7 @@ func _spawned(faction: String, id: StringName, display: String, weapon: String, 
 	var cam: RTSCamera = RTSCamera.new()
 	host.add_child(cam)
 	var field: SMPointer = SMPointer.new()
+	preload("res://game/sim_presenter.gd").follow_pointer(field)
 	field.bind_faction(host, cam, faction)
 	field.use_open(8, 8, 2.0, Vector3.ZERO)
 	var roster: SMRoster = SMRoster.new()
@@ -3273,11 +3276,14 @@ func test_sm_settings() -> void:
 		"PlaneMesh.new", "ArrayMesh.new", ".gdshader",
 	])
 	var dirty: String = ""
+	var game_ref: String = ""
 	var files: PackedStringArray = DirAccess.get_files_at("res://addons/rts_advanced")
 	for file_name: String in files:
 		if not file_name.begins_with("sm_") or not file_name.ends_with(".gd"):
 			continue
 		var text: String = FileAccess.get_file_as_string("res://addons/rts_advanced/%s" % file_name)
+		if game_ref == "" and (text.contains("preload(\"res://game/") or text.contains("preload('res://game/")):
+			game_ref = file_name
 		for token: String in banned:
 			if text.contains(token):
 				dirty = "%s %s" % [file_name, token]
@@ -3285,6 +3291,7 @@ func test_sm_settings() -> void:
 		if dirty != "":
 			break
 	check(dirty == "", "sim scripts stay free of meshes and shaders")
+	check(game_ref == "", "sim scripts do not preload game views")
 	check(FileAccess.file_exists("res://game/shaders/channel_water.gdshader") and FileAccess.file_exists("res://game/shaders/monsoon_rain.gdshader") and not DirAccess.dir_exists_absolute("res://assets/shaders"), "shaders live under game")
 	check(Settings.quality_for_adapter("ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)") == "low", "swiftshader defaults to low graphics")
 	check(Settings.quality_for_adapter("llvmpipe") == "low" and Settings.quality_for_adapter("NVIDIA GeForce RTX") == "high", "software adapters default low and a gpu stays high")

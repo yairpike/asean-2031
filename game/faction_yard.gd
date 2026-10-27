@@ -24,6 +24,7 @@ var packer_mesh: MeshInstance3D
 var hub_mesh: MeshInstance3D
 
 func _ready() -> void:
+	preload("res://game/sim_presenter.gd").follow(self)
 	grid = SMDomainGrid.phillips_layout()
 	roster.setup(faction_id)
 	economy.set_credits(0, 4000)

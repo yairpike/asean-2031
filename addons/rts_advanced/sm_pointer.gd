@@ -41,11 +41,19 @@ var line_formation: bool = false
 var last_pick: int = 0
 var last_pick_ms: int = 0
 var hover_at: Vector2 = Vector2.INF
-const FX = preload("res://game/fx_view.gd")
+var visual_node: Node3D
 const Cast = preload("res://addons/rts_advanced/sm_cast.gd")
-const Forms = preload("res://game/unit_meshes.gd")
-const World = preload("res://game/world_view.gd")
 const F_COOLDOWN: float = 3.0
+signal dressed(host: Node3D)
+signal unit_made(u: RTSUnit, team: int, kind: String, role: String, loco: String, tint: Color, label: String)
+signal unit_posed(u: RTSUnit, delta: float)
+signal status_shown(body: MeshInstance3D, frozen: bool)
+signal beacon_moved(host: Node3D, at: Vector3)
+signal rally_moved(host: Node3D, at: Vector3)
+signal wreck_made(host: Node3D, at: Vector3)
+signal ping_made(host: Node3D, at: Vector3, order: String)
+signal path_moved(host: Node3D, show: bool, step: Vector3)
+signal damage_shown(u: RTSUnit, amount: float)
 const BEAM_TIME: float = 1.5
 
 func bind(p_host: Node3D, p_cam: RTSCamera) -> void:
@@ -55,7 +63,7 @@ func bind(p_host: Node3D, p_cam: RTSCamera) -> void:
 	teams.add_team(ENEMY, Color(0.12, 0.62, 0.7))
 	teams.set_relation(PLAYER, ENEMY, RTSTeams.Relation.ENEMY)
 	selection.team = PLAYER
-	FX.dress(host)
+	dressed.emit(host)
 
 func bind_faction(p_host: Node3D, p_cam: RTSCamera, faction: String) -> void:
 	bind(p_host, p_cam)
@@ -150,9 +158,8 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	var row: Dictionary = _unit_row(kind)
 	var role: String = "infantry" if row.is_empty() else str(row.get("role", ""))
 	var loco: String = "ground" if row.is_empty() else str(row.get("locomotion", "ground"))
-	var body: MeshInstance3D = Forms.dress_unit(str(kind), role, loco, _body_color(team, kind))
-	u.add_child(body)
-	World.dress_spawn(u, team, unit_label(team, kind))
+	visual_node = null
+	unit_made.emit(u, team, str(kind), role, loco, _body_color(team, kind), unit_label(team, kind))
 	u.shot_filter = Callable(self, "filter_shot")
 	u.fired.connect(_on_shot)
 	host.add_child(u)
@@ -506,10 +513,10 @@ func enemy_anchor() -> Vector3:
 
 func place_beacon(at: Vector3) -> void:
 	beacon_at = at
-	World.place_beacon(host, at)
+	beacon_moved.emit(host, at)
 
 func place_rally(at: Vector3) -> void:
-	World.place_rally(host, at)
+	rally_moved.emit(host, at)
 
 func _cue(kind: String) -> void:
 	if on_cue.is_valid():
@@ -651,7 +658,7 @@ func apply_status(u: RTSUnit, status: String, duration: float) -> void:
 	var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
 	if body != null:
 		body.scale = Vector3.ONE
-	Forms.paint_status(body, null)
+	status_shown.emit(body, false)
 	u.speed_scale = 1.0
 	u.incoming_mult = 1.0
 	u.set_meta("frozen", false)
@@ -661,7 +668,7 @@ func apply_status(u: RTSUnit, status: String, duration: float) -> void:
 		u.set_meta("frozen", true)
 		u.speed_scale = 0.0
 		u.stop()
-		Forms.paint_status(body, FX.ice_material())
+		status_shown.emit(body, true)
 	elif status == "shrunk":
 		u.speed_scale = 2.0
 		u.incoming_mult = 0.5
@@ -784,7 +791,7 @@ func tick(delta: float) -> void:
 		var before: Vector3 = u.global_position
 		u.advance(delta)
 		_keep_domain(u, before)
-		Forms.animate(u, delta)
+		unit_posed.emit(u, delta)
 		var ring: Node3D = u.get_node_or_null("Ring") as Node3D
 		if ring != null:
 			ring.visible = u.selected
@@ -804,7 +811,11 @@ func tick(delta: float) -> void:
 func _drop_wreck(at: Vector3) -> void:
 	if host == null:
 		return
-	var body: MeshInstance3D = World.wreck(host, at)
+	visual_node = null
+	wreck_made.emit(host, at)
+	var body: MeshInstance3D = visual_node as MeshInstance3D
+	if body == null:
+		return
 	body.set_meta("order", "wreck")
 	body.set_meta("life", 0.9)
 	marks.append(body)
@@ -812,7 +823,11 @@ func _drop_wreck(at: Vector3) -> void:
 func _mark(at: Vector3, order: String) -> void:
 	if host == null:
 		return
-	var ping: MeshInstance3D = World.order_ping(host, at, order)
+	visual_node = null
+	ping_made.emit(host, at, order)
+	var ping: MeshInstance3D = visual_node as MeshInstance3D
+	if ping == null:
+		return
 	ping.set_meta("order", order)
 	ping.set_meta("life", 1.15)
 	marks.append(ping)
@@ -838,7 +853,7 @@ func announce(u: RTSUnit, cue: String) -> void:
 		on_line.call(text)
 	if on_bark.is_valid():
 		var pitch: float = 1.35 if str(u.get_meta("status", "")) == "shrunk" else 1.0
-		on_bark.call(pitch)
+		on_bark.call(pitch, str(u.unit_type), cue)
 
 func _first_player() -> RTSUnit:
 	for u: RTSUnit in selection.units:
@@ -928,10 +943,10 @@ func _paint_path() -> void:
 	var lead: RTSUnit = _first_player()
 	var show: bool = lead != null and not lead.path.is_empty()
 	var step: Vector3 = lead.path[0] if show else Vector3.ZERO
-	World.path_mark(host, show, step)
+	path_moved.emit(host, show, step)
 
 func _pop_damage(u: RTSUnit, amount: float) -> void:
-	World.damage_pop(u, amount)
+	damage_shown.emit(u, amount)
 	u.set_meta("pop_t", 0.75)
 
 func _rise_pop(u: RTSUnit, delta: float) -> void:

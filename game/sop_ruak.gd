@@ -19,6 +19,7 @@ var status: Label
 var ui_layer: CanvasLayer
 
 func _ready() -> void:
+	preload("res://game/sim_presenter.gd").follow(self)
 	grid = SMDomainGrid.sop_ruak_layout()
 	sim.place_sites("sop_ruak", grid)
 	roster.setup(SMFront.current())

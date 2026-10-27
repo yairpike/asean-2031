@@ -16,6 +16,7 @@ var ui_layer: CanvasLayer
 var story: SMStory = SMStory.new()
 
 func _ready() -> void:
+	preload("res://game/sim_presenter.gd").follow(self)
 	mission.setup()
 	briefing_text = mission.briefing
 	grid = SMDomainGrid.new(14, 9, 2.0, Vector3(-14.0, 0.0, -9.0))

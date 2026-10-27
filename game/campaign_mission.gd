@@ -17,6 +17,7 @@ var ui_layer: CanvasLayer
 var story: SMStory = SMStory.new()
 
 func _ready() -> void:
+	preload("res://game/sim_presenter.gd").follow(self)
 	mission_id = SMCampaign.selected
 	if mission_id == "":
 		mission_id = "tachileik"

@@ -1,8 +1,10 @@
 class_name SMMatch
 extends RefCounted
-
-const World = preload("res://game/world_view.gd")
 ## Headless match: faction pipeline, channel crossing, abilities, passive enemy, bots.
+
+signal site_made(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color, form: String)
+signal plate_sunk(host: Node3D, node_name: String)
+signal deck_fit(host: Node3D, deck_name: String, north_up: bool, south_up: bool)
 
 var economy: RTSEconomy = RTSEconomy.new()
 var grid: SMDomainGrid
@@ -305,7 +307,7 @@ func collapse_bridge(id: StringName, squad: SMPointer, host: Node3D) -> void:
 		squad.use_domain(grid)
 	if host == null:
 		return
-	World.sink_named(host, "Bridge_%s" % str(id))
+	plate_sunk.emit(host, "Bridge_%s" % str(id))
 	_fit_deck(host, id)
 
 func _bridge_span(id: StringName) -> Rect2i:
@@ -325,7 +327,7 @@ func _fit_deck(host: Node3D, id: StringName) -> void:
 	var deck_name: String = "BridgeWest" if west else "BridgeEast"
 	var north_id: StringName = &"bridge_a" if west else &"bridge_c"
 	var south_id: StringName = &"bridge_b" if west else &"bridge_d"
-	World.fit_deck(host, deck_name, tech.bridge_alive(north_id), tech.bridge_alive(south_id))
+	deck_fit.emit(host, deck_name, tech.bridge_alive(north_id), tech.bridge_alive(south_id))
 
 func _owns(kind: StringName) -> bool:
 	for site: Dictionary in tech.sites:
@@ -524,4 +526,4 @@ func _tech_form(kind: StringName) -> String:
 	return "salvage"
 
 func _site_mesh(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color, form: String = "") -> void:
-	World.place_site(host, node_name, pos, size, color, form)
+	site_made.emit(host, node_name, pos, size, color, form)

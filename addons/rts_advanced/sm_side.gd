@@ -2,8 +2,9 @@ class_name SMSide
 extends RefCounted
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
-const World = preload("res://game/world_view.gd")
 ## Build-style buttons for the faction chosen on the boot screen.
+
+signal slab_made(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color)
 
 var faction_id: String = "gtfc"
 var yard: SMBuildYard = SMBuildYard.new()
@@ -34,7 +35,8 @@ func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector
 		yard.clearance = 1
 		yard.radius = 25.0
 		hub_mesh = _slab("HubShell", SMPointer.building_at(center + Vector3(4.0, 0.0, 0.0)), SMPointer.BUILDING_SIZE, Color.html("#26BFD1"))
-		hub_mesh.visible = false
+		if hub_mesh != null:
+			hub_mesh.visible = false
 	elif style_name == "mobile":
 		yard.style = SMBuildYard.Style.MOBILE
 		yard.grid = grid
@@ -234,4 +236,7 @@ func _say(text: String) -> void:
 		status.text = text
 
 func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
-	return World.slab(host, node_name, pos, size, color)
+	if host == null:
+		return null
+	slab_made.emit(host, node_name, pos, size, color)
+	return host.get_node_or_null(node_name) as MeshInstance3D

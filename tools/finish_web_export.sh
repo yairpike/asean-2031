@@ -47,6 +47,21 @@ if ! grep -q 'serviceWorker.register("sw.js")' "$DEST/index.html"; then
   sed -i 's#</body>#<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script></body>#' "$DEST/index.html"
 fi
 cp "$ROOT/tools/brotli_host.conf" "$DEST/brotli_host.conf"
+AUDIO_SRC="/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/audio"
+if [ -d "$AUDIO_SRC/music" ] || [ -d "$AUDIO_SRC/barks" ]; then
+  mkdir -p "$DEST/audio"
+  if [ -d "$AUDIO_SRC/music" ]; then
+    rm -rf "$DEST/audio/music"
+    cp -R "$AUDIO_SRC/music" "$DEST/audio/music"
+  fi
+  if [ -d "$AUDIO_SRC/barks" ]; then
+    rm -rf "$DEST/audio/barks"
+    cp -R "$AUDIO_SRC/barks" "$DEST/audio/barks"
+  fi
+  if [ -f "$AUDIO_SRC/manifest.json" ]; then
+    cp "$AUDIO_SRC/manifest.json" "$DEST/audio/manifest.json"
+  fi
+fi
 if ! grep -q "brotli" "$DEST/brotli_host.conf" || ! grep -q "wasm" "$DEST/brotli_host.conf"; then
   echo "finish_web_export: brotli host config is missing"
   exit 1

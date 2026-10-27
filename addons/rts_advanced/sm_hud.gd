@@ -2,8 +2,9 @@ class_name SMHud
 extends RefCounted
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
-const SettingsPanel = preload("res://game/settings_panel.gd")
 ## In-match readout. Primitive controls and a flat minimap. No map mesh, no art.
+
+signal layer_mounted(who: SMHud, layer: CanvasLayer)
 
 var field: SMPointer
 var roster: SMRoster
@@ -103,7 +104,7 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	layer.set_meta("hud", self)
 	if field != null:
 		field.place_rally(rally)
-	SettingsPanel.attach(layer)
+	layer_mounted.emit(self, layer)
 	refresh()
 
 func use_sight(p_sight: SMSight) -> void:
