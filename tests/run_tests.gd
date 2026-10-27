@@ -51,6 +51,7 @@ func _run() -> void:
 	await H.section("test_sm_mission", test_sm_mission)
 	await H.section("test_sm_sop_ruak", test_sm_sop_ruak)
 	await H.section("test_sm_maps", test_sm_maps)
+	await H.section("test_sm_factions", test_sm_factions)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -896,6 +897,84 @@ func test_sm_maps() -> void:
 	check(_boot_caption(boot, "ChiangRaiButton") == "Siege of Chiang Rai (larger team map)", "boot names the Siege of Chiang Rai")
 	boot.free()
 	await process_frame
+
+func test_sm_factions() -> void:
+	var nmrf: Node = (load("res://game/nmrf_yard.tscn") as PackedScene).instantiate()
+	root.add_child(nmrf)
+	await process_frame
+	check(nmrf.get_node_or_null("OliveGround") is MeshInstance3D and nmrf.get_node_or_null("PackerCore") is MeshInstance3D, "nmrf shows the mobile core")
+	var nfield: SMPointer = nmrf.get("field") as SMPointer
+	check(_has_names(nfield, PackedStringArray(["River Rifle", "Sampan", "Emerald Gunboat", "Mangrove Tube", "Packer", "Jade Skiff"])), "nmrf labels its six units")
+	check(nfield.name_of(nfield.units_of(1)[0]) == "Enemy", "nmrf labels the enemy")
+	check(_orders(nmrf, nfield), "nmrf select, move, attack, and F")
+	var nyard: SMBuildYard = nmrf.get("yard") as SMBuildYard
+	check(nyard.style == SMBuildYard.Style.MOBILE, "nmrf uses the mobile packer")
+	check(bool(nmrf.call("move_packer")), "the packer sails")
+	check(nyard.grid.unit_domain(nyard.packer_id) == SMDomainGrid.Domain.SHALLOW, "the packer enters shallow water")
+	check(bool(nmrf.call("unpack_core")) and nyard.factory_level(&"gun_wharf") == 1, "the wharf unpacks")
+	check(bool(nmrf.call("upgrade_wharf")) and nyard.factory_level(&"gun_wharf") == 2, "the wharf upgrades")
+	var nfriends: Array[RTSUnit] = nfield.units_of(0)
+	check(_albedo(nfriends[0]) == Color.html("#5A6824") and _albedo(nfriends[1]) == Color.html("#1F9E66"), "nmrf is olive and emerald")
+	nmrf.free()
+	var mvd: Node = (load("res://game/mvd_yard.tscn") as PackedScene).instantiate()
+	root.add_child(mvd)
+	await process_frame
+	check(mvd.get_node_or_null("CharcoalPad") is MeshInstance3D and mvd.get_node_or_null("HubShell") is MeshInstance3D, "mvd shows the internal pad")
+	var mfield: SMPointer = mvd.get("field") as SMPointer
+	check(_has_names(mfield, PackedStringArray(["Clearance Trooper", "Hub Drone", "Charcoal APC", "Cyan IFV", "Relay Van", "River Drone"])), "mvd labels its six units")
+	check(mfield.name_of(mfield.units_of(1)[0]) == "Enemy", "mvd labels the enemy")
+	check(_orders(mvd, mfield), "mvd select, move, attack, and F")
+	var myard: SMBuildYard = mvd.get("yard") as SMBuildYard
+	check(myard.style == SMBuildYard.Style.INTERNAL, "mvd uses the internal queue")
+	var before_radius: float = myard.radius
+	check(not myard.queue_internal(&"drone_bay"), "tier 2 waits on clearance")
+	check(bool(mvd.call("buy_clearance")) and myard.clearance == 2 and myard.radius == before_radius + 6.0, "clearance 2 widens the pad")
+	check(bool(mvd.call("queue_hub")), "the hub finishes inside the queue")
+	check(bool(mvd.call("place_hub")) and myard.finished.has(&"command_hub"), "the hub places inside the radius")
+	check(bool(mvd.call("buy_clearance")) and myard.clearance == 3, "clearance 3 follows clearance 2")
+	var mfriends: Array[RTSUnit] = mfield.units_of(0)
+	check(_albedo(mfriends[0]) == Color.html("#2A2E32") and _albedo(mfriends[1]) == Color.html("#26BFD1"), "mvd is charcoal and cyan")
+	check(mfield.teams.color_of(1) != Color.html("#26BFD1"), "the mvd enemy is not painted cyan")
+	mvd.free()
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	check(_boot_caption(boot, "NmrfButton") == "NMRF (mobile core)", "boot offers NMRF")
+	check(_boot_caption(boot, "MvdButton") == "MVD (internal queue)", "boot offers MVD")
+	boot.free()
+	await process_frame
+
+func _orders(scene: Node, field: SMPointer) -> bool:
+	if scene.find_child("SelectionBox", true, false) == null:
+		return false
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	if picked != friends[0] or field.selection.count() != 1:
+		return false
+	var grid: SMDomainGrid = scene.get("grid") as SMDomainGrid
+	var step: Vector3 = grid.cell_center(Vector2i(2, 6))
+	if field.command_at(step, _proj(step), Callable(self, "_proj")) != &"move" or not friends[0].is_moving():
+		return false
+	var foes: Array[RTSUnit] = field.units_of(1)
+	if field.command_at(foes[0].global_position, _proj(foes[0].global_position), Callable(self, "_proj")) != &"attack":
+		return false
+	if friends[0].attack_target != foes[0]:
+		return false
+	return bool(scene.call("fire_ability"))
+
+func _has_names(field: SMPointer, need: PackedStringArray) -> bool:
+	var names: PackedStringArray = PackedStringArray()
+	for u: RTSUnit in field.units_of(0):
+		names.append(field.name_of(u))
+	for item: String in need:
+		if not names.has(item):
+			return false
+	return true
+
+func _albedo(u: RTSUnit) -> Color:
+	var body: MeshInstance3D = u.get_child(0) as MeshInstance3D
+	var mat: StandardMaterial3D = body.material_override as StandardMaterial3D
+	return mat.albedo_color
 
 func _boot_caption(boot: Node, node_name: String) -> String:
 	var button: Button = boot.find_child(node_name, true, false) as Button

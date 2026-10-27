@@ -8,8 +8,13 @@ const ENEMY: int = 1
 const PICK_PX: float = 28.0
 const ATTACK_M: float = 2.2
 const GTFC_KINDS: Array[StringName] = [&"militia", &"slag_hauler", &"ruby_lancer", &"amber_tank", &"monsoon_tube", &"channel_skiff"]
+const MVD_KINDS: Array[StringName] = [&"clearance_trooper", &"hub_drone", &"charcoal_apc", &"cyan_ifv", &"relay_van", &"river_drone"]
+const NMRF_KINDS: Array[StringName] = [&"river_rifle", &"sampan", &"emerald_gunboat", &"mangrove_tube", &"packer", &"jade_skiff"]
 
 var teams: RTSTeams = RTSTeams.new()
+var faction_id: String = "gtfc"
+var primary_color: Color = Color(0.72, 0.12, 0.18)
+var accent_color: Color = Color(0.88, 0.62, 0.12)
 var nav: RTSGridNav
 var selection: RTSSelection = RTSSelection.new()
 var units: Array[RTSUnit] = []
@@ -24,6 +29,22 @@ func bind(p_host: Node3D, p_cam: RTSCamera) -> void:
 	teams.add_team(ENEMY, Color(0.12, 0.62, 0.7))
 	teams.set_relation(PLAYER, ENEMY, RTSTeams.Relation.ENEMY)
 	selection.team = PLAYER
+
+func bind_faction(p_host: Node3D, p_cam: RTSCamera, faction: String) -> void:
+	bind(p_host, p_cam)
+	faction_id = faction
+	var data: Dictionary = SMCatalog.faction(faction)
+	var colors: Dictionary = {}
+	var raw_colors: Variant = data.get("colors", {})
+	if raw_colors is Dictionary:
+		colors = raw_colors
+	primary_color = SMCatalog.hex_color(str(colors.get("primary_hex", "#B81E2D")))
+	accent_color = SMCatalog.hex_color(str(colors.get("accent_hex", "#E0A106")))
+	teams.add_team(PLAYER, primary_color)
+	if faction == "mvd":
+		teams.add_team(ENEMY, Color(0.72, 0.12, 0.18))
+	else:
+		teams.add_team(ENEMY, Color(0.12, 0.62, 0.7))
 
 func use_domain(grid: SMDomainGrid) -> void:
 	nav = RTSGridNav.new(grid.cols, grid.rows, grid.cell_size, grid.origin)
@@ -98,11 +119,11 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 func unit_label(team: int, kind: StringName) -> String:
 	if team != PLAYER:
 		return "Enemy"
-	var data: Dictionary = SMCatalog.faction("gtfc")
+	var data: Dictionary = SMCatalog.faction(faction_id)
 	for unit: Dictionary in SMCatalog.units_of(data):
 		if str(unit.get("id", "")) == str(kind):
-			return str(unit.get("display_name", "GTFC"))
-	return "GTFC"
+			return str(unit.get("display_name", faction_id.to_upper()))
+	return faction_id.to_upper()
 
 func name_of(u: RTSUnit) -> String:
 	if not is_instance_valid(u):
@@ -113,7 +134,7 @@ func name_of(u: RTSUnit) -> String:
 	return tag.text
 
 func _apply_catalog(u: RTSUnit, kind: StringName) -> void:
-	var data: Dictionary = SMCatalog.faction("gtfc")
+	var data: Dictionary = SMCatalog.faction(faction_id)
 	for unit: Dictionary in SMCatalog.units_of(data):
 		if str(unit.get("id", "")) != str(kind):
 			continue
@@ -125,11 +146,41 @@ func _apply_catalog(u: RTSUnit, kind: StringName) -> void:
 func _body_color(team: int, kind: StringName) -> Color:
 	if team != PLAYER:
 		return teams.color_of(team)
+	if faction_id != "gtfc":
+		return accent_color if _accent_kind(kind) else primary_color
 	if kind == &"slag_hauler" or kind == &"amber_tank" or kind == &"channel_skiff":
 		return Color(0.88, 0.62, 0.12)
 	return Color(0.72, 0.12, 0.18)
 
+func _accent_kind(kind: StringName) -> bool:
+	var units: Array[Dictionary] = SMCatalog.units_of(SMCatalog.faction(faction_id))
+	for i: int in units.size():
+		if str(units[i].get("id", "")) == str(kind):
+			return i % 2 == 1
+	return false
+
+func _role_of(kind: StringName) -> String:
+	var units: Array[Dictionary] = SMCatalog.units_of(SMCatalog.faction(faction_id))
+	for unit: Dictionary in units:
+		if str(unit.get("id", "")) == str(kind):
+			return str(unit.get("role", ""))
+	return ""
+
 func _body_mesh(team: int, kind: StringName) -> MeshInstance3D:
+	if faction_id != "gtfc":
+		var shaped: MeshInstance3D = MeshInstance3D.new()
+		if team == PLAYER and _role_of(kind) == "infantry":
+			var cap: CapsuleMesh = CapsuleMesh.new()
+			cap.radius = 0.42
+			cap.height = 1.6
+			shaped.mesh = cap
+			shaped.position = Vector3(0, 0.85, 0)
+		else:
+			var alt_box: BoxMesh = BoxMesh.new()
+			alt_box.size = Vector3(1.3, 0.8, 2.1)
+			shaped.mesh = alt_box
+			shaped.position = Vector3(0, 0.4, 0)
+		return shaped
 	var body: MeshInstance3D = MeshInstance3D.new()
 	if team != PLAYER or kind == &"amber_tank" or kind == &"slag_hauler" or kind == &"monsoon_tube" or kind == &"channel_skiff":
 		var box_mesh: BoxMesh = BoxMesh.new()

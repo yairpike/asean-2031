@@ -21,7 +21,7 @@ func _ready() -> void:
 	scroll.add_child(box)
 
 	_heading(box, "Shattered Monsoon", 32)
-	_body(box, "You play GTFC (crimson / amber) on every skirmish and on the Kokang raid. Greybox is a systems demo and has no player faction.")
+	_body(box, "You play GTFC (crimson / amber) on the skirmish maps and the Kokang raid. NMRF is olive / emerald. MVD is charcoal / cyan. Greybox is a systems demo and has no player faction.")
 
 	_link(box, "Greybox (systems demo)", "res://game/greybox.tscn", "GreyboxButton")
 	_hint(box, "Look at the build styles, commodity nodes, and jammer. Camera only. No select, move, attack, or F.")
@@ -37,6 +37,10 @@ func _ready() -> void:
 	_hint(box, "GTFC versus one enemy. Canals cut the paddies. Bridges are the crossings. Same orders as Sop Ruak.")
 	_link(box, "Siege of Chiang Rai (larger team map)", "res://game/chiang_rai.tscn", "ChiangRaiButton")
 	_hint(box, "GTFC versus one enemy on a larger field. A river, two fords, and a siege wall. Same orders as Sop Ruak.")
+	_link(box, "NMRF (mobile core)", "res://game/nmrf_yard.tscn", "NmrfButton")
+	_hint(box, "Olive and emerald. Six boats and rifles. Move the packer, unpack the wharf, then upgrade it. Same orders as Sop Ruak.")
+	_link(box, "MVD (internal queue)", "res://game/mvd_yard.tscn", "MvdButton")
+	_hint(box, "Charcoal and cyan. Six named units. Queue the hub inside the pad, buy clearance, then place it. Same orders as Sop Ruak.")
 	_link(box, "Kokang raid (mission 1)", "res://game/mission_kokang.tscn", "MissionButton")
 	_hint(box, "GTFC night raid. Names float on the squad. Select, right click, and press F to strike.")
 
@@ -44,9 +48,9 @@ func _ready() -> void:
 	_body(box, "Select. On every skirmish and the Kokang raid, left click a named GTFC unit. Drag a box around several. Greybox has no units to select.")
 	_body(box, "Move. Right click open ground. The selection walks there. Greybox has no move order.")
 	_body(box, "Attack. Right click an enemy labeled Enemy. The selection attacks it. On Phillips Channel, Engage still runs the scripted fight as well.")
-	_body(box, "F ability. On Phillips Channel, Sop Ruak, Burma Road, Ten Degree Atolls, Mekong Delta, and Siege of Chiang Rai, press F or click Ability (F). That toggles one unit and smart-casts the closest ready unit. On the Kokang raid, press F and the squad strikes the nearest enemy. Greybox ignores F.")
+	_body(box, "F ability. On every skirmish, including NMRF and MVD, press F or click Ability (F). That toggles one unit and smart-casts the closest ready unit. On the Kokang raid, press F and the squad strikes the nearest enemy. Greybox ignores F.")
 	_body(box, "Camera. On every mode, move the pointer to a screen edge to pan, roll the wheel to zoom toward the cursor, and drag with the middle mouse button to orbit.")
-	_body(box, "Phillips Channel buttons: Build pipeline, Cross channel, Ability (F), Engage, and one shot each of Logistics, Arsenal, and Oracle. Sop Ruak and the four other skirmish maps have Ability (F). Kokang raid buttons: Raise scaffold, Ruby night shift, Secure rare earth.")
+	_body(box, "Phillips Channel buttons: Build pipeline, Cross channel, Ability (F), Engage, and one shot each of Logistics, Arsenal, and Oracle. Sop Ruak and the four other GTFC maps have Ability (F). NMRF adds Move packer, Unpack, and Upgrade wharf. MVD adds Queue hub, Buy clearance, and Place hub. Kokang raid buttons: Raise scaffold, Ruby night shift, Secure rare earth.")
 
 func _heading(box: VBoxContainer, text: String, size: int) -> void:
 	var title: Label = Label.new()
