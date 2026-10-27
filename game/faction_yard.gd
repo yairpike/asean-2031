@@ -7,6 +7,7 @@ extends Node3D
 var grid: SMDomainGrid
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
+var raider: SMRaider = SMRaider.new()
 var yard: SMBuildYard = SMBuildYard.new()
 var economy: RTSEconomy = RTSEconomy.new()
 var status: Label
@@ -192,8 +193,8 @@ func _title() -> String:
 
 func _blurb() -> String:
 	if faction_id == "mvd":
-		return "Queue the hub inside the pad, buy clearance, then place the shell."
-	return "The packer sails, unpacks a wharf, then upgrades it."
+		return "Queue the hub inside the pad, buy clearance, then place it. The enemy builds, expands, and attacks."
+	return "The packer sails, unpacks a wharf, then upgrades it. The enemy builds, expands, and attacks."
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
@@ -206,6 +207,7 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.PLAYER, grid.cell_center(cells[i]), kinds[i])
 	for cell: Vector2i in [Vector2i(30, 12), Vector2i(31, 14), Vector2i(33, 11)]:
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
+	raider.attach(field, grid.cell_center(Vector2i(30, 12)))
 
 func _say(text: String) -> void:
 	if status != null:
@@ -229,6 +231,8 @@ func _process(delta: float) -> void:
 	if cam != null:
 		var vp: Viewport = get_viewport()
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
+	raider.tick(delta)
+	raider.show_markers(self)
 	field.tick(delta)
 
 func _unhandled_input(event: InputEvent) -> void:

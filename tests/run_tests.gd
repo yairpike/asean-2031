@@ -52,6 +52,7 @@ func _run() -> void:
 	await H.section("test_sm_sop_ruak", test_sm_sop_ruak)
 	await H.section("test_sm_maps", test_sm_maps)
 	await H.section("test_sm_factions", test_sm_factions)
+	await H.section("test_sm_raider", test_sm_raider)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -942,6 +943,34 @@ func test_sm_factions() -> void:
 	check(_boot_caption(boot, "NmrfButton") == "NMRF (mobile core)", "boot offers NMRF")
 	check(_boot_caption(boot, "MvdButton") == "MVD (internal queue)", "boot offers MVD")
 	boot.free()
+	await process_frame
+
+func test_sm_raider() -> void:
+	var paths: PackedStringArray = PackedStringArray([
+		"res://game/phillips_channel.tscn",
+		"res://game/sop_ruak.tscn",
+		"res://game/burma_road.tscn",
+		"res://game/ten_degree_atolls.tscn",
+		"res://game/mekong_delta.tscn",
+		"res://game/chiang_rai.tscn",
+		"res://game/nmrf_yard.tscn",
+		"res://game/mvd_yard.tscn",
+	])
+	for path: String in paths:
+		await _enemy_fights(path)
+
+func _enemy_fights(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var raider: SMRaider = scene.get("raider") as SMRaider
+	var field: SMPointer = scene.get("field") as SMPointer
+	var foe: RTSUnit = field.units_of(1)[0]
+	var label: String = path.get_file()
+	check(raider != null and raider.built and raider.yard.finished.has(&"enemy_yard") and scene.get_node_or_null("EnemyYard") is MeshInstance3D, "%s enemy builds a yard" % label)
+	check(raider.expanded and raider.goods.has_collector(raider.node_id) and scene.get_node_or_null("EnemyClaim") is MeshInstance3D, "%s enemy expands onto a ruby node" % label)
+	check(raider.attacked and foe.attack_target != null and foe.attack_target.team == 0 and (foe.is_moving() or foe.attack_target.hp < foe.attack_target.max_hp), "%s enemy attacks the player" % label)
+	scene.free()
 	await process_frame
 
 func _orders(scene: Node, field: SMPointer) -> bool:

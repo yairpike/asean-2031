@@ -6,6 +6,7 @@ extends Node3D
 var grid: SMDomainGrid
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
+var raider: SMRaider = SMRaider.new()
 var status: Label
 var ui_layer: CanvasLayer
 
@@ -165,12 +166,12 @@ func _title() -> String:
 
 func _blurb() -> String:
 	if map_id == "ten_degree_atolls":
-		return "Islands in deep water. Shoals are the crossings. One enemy holds the east isle."
+		return "Islands in deep water. Shoals are the crossings. The enemy builds, expands, and attacks."
 	if map_id == "mekong_delta":
-		return "Canals cut the paddies. Bridges are the crossings. One enemy holds the far bank."
+		return "Canals cut the paddies. Bridges are the crossings. The enemy builds, expands, and attacks."
 	if map_id == "chiang_rai":
-		return "A larger field. One enemy holds the far bank. Fords cross the river."
-	return "Highland cliffs block the climb. The road is open ground. One enemy holds the east side."
+		return "A larger field. Fords cross the river. The enemy builds, expands, and attacks."
+	return "Highland cliffs block the climb. The road is open ground. The enemy builds, expands, and attacks."
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
@@ -183,6 +184,7 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.PLAYER, grid.cell_center(cells[i]), kinds[i])
 	for cell: Vector2i in _enemy_cells():
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
+	raider.attach(field, grid.cell_center(_enemy_cells()[0]))
 
 func _say(text: String) -> void:
 	if status != null:
@@ -206,6 +208,8 @@ func _process(delta: float) -> void:
 	if cam != null:
 		var vp: Viewport = get_viewport()
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
+	raider.tick(delta)
+	raider.show_markers(self)
 	field.tick(delta)
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -1,9 +1,10 @@
 extends Node3D
 ## Phillips Channel. Two land masses, a deep channel, shallow crossings.
-## RA3-style sidebar with cameo placeholders. Passive opponent on the far shore.
+## RA3-style sidebar with cameo placeholders. The far shore builds, expands, and attacks.
 
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
+var raider: SMRaider = SMRaider.new()
 var status: Label
 var explore_bus: AudioStreamPlayer
 var combat_bus: AudioStreamPlayer
@@ -132,6 +133,7 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.PLAYER, sim.grid.cell_center(cells[i]), kinds[i])
 	for cell: Vector2i in [Vector2i(30, 12), Vector2i(31, 14), Vector2i(33, 11)]:
 		field.spawn(SMPointer.ENEMY, sim.grid.cell_center(cell), &"raider")
+	raider.attach(field, sim.grid.cell_center(Vector2i(30, 12)))
 
 func _proto_button(bar: HBoxContainer, caption: String, branch: StringName) -> void:
 	var b: Button = Button.new()
@@ -198,6 +200,8 @@ func _process(delta: float) -> void:
 	if explore_bus != null and combat_bus != null and sim.audio != null:
 		explore_bus.volume_db = linear_to_db(maxf(sim.audio.exploration, 0.001))
 		combat_bus.volume_db = linear_to_db(maxf(sim.audio.combat, 0.001))
+	raider.tick(delta)
+	raider.show_markers(self)
 	field.tick(delta)
 
 func _unhandled_input(event: InputEvent) -> void:

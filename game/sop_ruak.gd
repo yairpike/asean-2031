@@ -1,10 +1,11 @@
 extends Node3D
 ## Sop Ruak. Three land sectors split by a Y-shaped river.
-## GTFC versus one passive enemy. Same pointer controls as Phillips Channel.
+## GTFC versus one enemy across a Y-shaped river. Same pointer controls as Phillips Channel.
 
 var grid: SMDomainGrid
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
+var raider: SMRaider = SMRaider.new()
 var status: Label
 var ui_layer: CanvasLayer
 
@@ -75,7 +76,7 @@ func _ui() -> void:
 	ui_layer.add_child(ability)
 	status = Label.new()
 	status.name = "Status"
-	status.text = "Passive enemy holds the east shore. Cross a ford to reach them."
+	status.text = "The enemy builds, expands, and attacks. Cross a ford to reach them."
 	status.position = Vector2(16, 84)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.custom_minimum_size = Vector2(720, 28)
@@ -98,6 +99,7 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.PLAYER, grid.cell_center(cells[i]), kinds[i])
 	for cell: Vector2i in [Vector2i(26, 22), Vector2i(28, 22), Vector2i(27, 26)]:
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
+	raider.attach(field, grid.cell_center(Vector2i(26, 22)))
 
 func _say(text: String) -> void:
 	if status != null:
@@ -121,6 +123,8 @@ func _process(delta: float) -> void:
 	if cam != null:
 		var vp: Viewport = get_viewport()
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
+	raider.tick(delta)
+	raider.show_markers(self)
 	field.tick(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
