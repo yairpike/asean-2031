@@ -5,6 +5,9 @@ extends RefCounted
 var field: SMPointer
 var roster: SMRoster
 var side: SMSide
+var tech: SMTechNet
+var sidebar: VBoxContainer
+var imports_ready: bool = false
 var map_name: String = ""
 var rally: Vector3 = Vector3.ZERO
 var on_ability: Callable
@@ -84,6 +87,9 @@ func use_sight(p_sight: SMSight) -> void:
 	if minimap != null:
 		minimap.sight = p_sight
 
+func use_tech(p_tech: SMTechNet) -> void:
+	tech = p_tech
+
 func use_goods(p_goods: SMCommodityNet) -> void:
 	if minimap != null:
 		minimap.goods = p_goods
@@ -105,6 +111,7 @@ func refresh() -> void:
 			sky = minimap.sight.weather_name
 		weather_label.text = sky
 	selection_label.text = _selection_line()
+	_sync_imports()
 	_paint_tip()
 	_paint_radio()
 	if minimap != null:
@@ -206,6 +213,7 @@ func _column(layer: CanvasLayer) -> void:
 	box.custom_minimum_size = Vector2(220, 0)
 	box.add_theme_constant_override("separation", 4)
 	scroll.add_child(box)
+	sidebar = box
 	_header(box, "HudTitle", "ASEAN 2031")
 	_header(box, "GroupBuildings", "Buildings")
 	var data: Dictionary = SMCatalog.faction(_faction_id())
@@ -247,6 +255,51 @@ func _order(id: StringName) -> void:
 	var note: String = side.order_building(id)
 	if build_label != null:
 		build_label.text = note
+	refresh()
+
+func _sync_imports() -> void:
+	if sidebar == null:
+		return
+	var open: bool = tech != null and tech.holds(SMTechNet.BAZAAR, SMPointer.PLAYER)
+	if open and not imports_ready:
+		_header(sidebar, "GroupImports", "Black Market")
+		for unit: Dictionary in SMCatalog.units_of(SMCatalog.faction("black_market")):
+			var uid: StringName = StringName(str(unit.get("id", "")))
+			if str(uid) == "":
+				continue
+			var caption: String = str(unit.get("display_name", str(uid)))
+			_button(sidebar, "Import_%s" % str(uid), caption, _import.bind(uid), SMGuide.unit_tip(unit), "ui")
+		imports_ready = true
+	var header: Node = sidebar.get_node_or_null("GroupImports")
+	if header != null:
+		header.visible = open
+	if not imports_ready:
+		return
+	for child: Node in sidebar.get_children():
+		if str(child.name).begins_with("Import_"):
+			(child as CanvasItem).visible = open
+
+func _import(id: StringName) -> void:
+	if roster == null or field == null or tech == null or not tech.holds(SMTechNet.BAZAAR, SMPointer.PLAYER):
+		if build_label != null:
+			build_label.text = "bazaar required"
+		refresh()
+		return
+	var cost: int = 0
+	var row: Dictionary = {}
+	for unit: Dictionary in SMCatalog.units_of(SMCatalog.faction("black_market")):
+		if str(unit.get("id", "")) == str(id):
+			row = unit
+			cost = int(unit.get("cost", 0))
+	if row.is_empty() or not roster.economy.try_spend(SMPointer.PLAYER, cost):
+		if build_label != null:
+			build_label.text = "cannot import"
+		refresh()
+		return
+	var at: Vector3 = rally + Vector3(6.0 + float(field.count_team(SMPointer.PLAYER) % 4) * 2.0, 0.0, 2.0)
+	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, id)
+	if build_label != null:
+		build_label.text = field.name_of(u)
 	refresh()
 
 func _train(id: StringName) -> void:

@@ -31,6 +31,7 @@ func _ready() -> void:
 	outcome.mount(self, ui_layer)
 	sight.bind(grid)
 	hud.use_sight(sight)
+	hud.use_tech(sim.tech)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
 
 func train_unit() -> String:
@@ -107,6 +108,7 @@ func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	field.bind_faction(self, cam, SMFront.current())
 	field.use_domain(grid)
+	field.bind_tech(sim.tech, Callable(self, "_bridge_down"))
 	field.attach_box(ui_layer)
 	var kinds: Array[StringName] = SMFront.kinds()
 	var cells: Array[Vector2i] = [Vector2i(6, 22), Vector2i(8, 22), Vector2i(10, 22), Vector2i(6, 26), Vector2i(8, 26), Vector2i(10, 26)]
@@ -117,8 +119,11 @@ func _arm_units() -> void:
 	raider.attach(field, grid.cell_center(Vector2i(26, 22)))
 	raider.bind_plan(sim.goods, sim.tech, &"bullion_a", &"bullion_b", &"cyber_b", "Iskandar")
 
+func _bridge_down(id: StringName) -> void:
+	sim.collapse_bridge(id, field, self)
+
 func tick_world(delta: float) -> void:
-	sim.tick_live(delta, roster.economy, field)
+	sim.tick_live(delta, roster.economy, field, raider.economy)
 	sim.show_collectors(self)
 	side.yard.cool_super(delta)
 	sim.protocols.cool(delta)

@@ -238,9 +238,11 @@ func place_sites(map_id: String, p_grid: SMDomainGrid) -> void:
 	else:
 		_sites_phillips()
 
-func tick_live(delta: float, purse: RTSEconomy, squad: SMPointer) -> void:
+func tick_live(delta: float, purse: RTSEconomy, squad: SMPointer, foe_purse: RTSEconomy = null) -> void:
 	goods.advance(delta, purse)
 	tech.advance(delta, purse, SMPointer.ENEMY)
+	var bank: RTSEconomy = purse if foe_purse == null else foe_purse
+	tech.skim_bazaar(purse, bank, SMPointer.PLAYER, SMPointer.ENEMY, delta)
 	if squad == null:
 		return
 	for u: RTSUnit in squad.units:
@@ -290,6 +292,62 @@ func paint_sites(host: Node3D) -> void:
 		elif kind == SMTechNet.SALVAGE:
 			size = Vector3(1.8, 0.45, 1.1)
 		_site_mesh(host, node_name, spot + Vector3(0.0, size.y * 0.5, 0.0), size, _site_color(kind))
+
+func collapse_bridge(id: StringName, squad: SMPointer, host: Node3D) -> void:
+	var span: Rect2i = _bridge_span(id)
+	if grid != null and span.size.x > 0 and span.size.y > 0:
+		grid.fill_rect(span, SMDomainGrid.Domain.DEEP)
+	if squad != null and grid != null:
+		squad.use_domain(grid)
+	if host == null:
+		return
+	var plate: MeshInstance3D = host.get_node_or_null("Bridge_%s" % str(id)) as MeshInstance3D
+	if plate != null:
+		plate.position.y = -0.55
+		var sunk: StandardMaterial3D = StandardMaterial3D.new()
+		sunk.albedo_color = Color(0.08, 0.07, 0.06)
+		plate.material_override = sunk
+	_fit_deck(host, id)
+
+func _bridge_span(id: StringName) -> Rect2i:
+	var key: String = str(id)
+	if key == "bridge_a":
+		return Rect2i(12, 14, 3, 2)
+	if key == "bridge_b":
+		return Rect2i(12, 16, 3, 2)
+	if key == "bridge_c":
+		return Rect2i(26, 14, 3, 2)
+	if key == "bridge_d":
+		return Rect2i(26, 16, 3, 2)
+	return Rect2i(0, 0, 0, 0)
+
+func _fit_deck(host: Node3D, id: StringName) -> void:
+	var west: bool = str(id) == "bridge_a" or str(id) == "bridge_b"
+	var deck_name: String = "BridgeWest" if west else "BridgeEast"
+	var deck: MeshInstance3D = host.get_node_or_null(deck_name) as MeshInstance3D
+	if deck == null:
+		return
+	var north_id: StringName = &"bridge_a" if west else &"bridge_c"
+	var south_id: StringName = &"bridge_b" if west else &"bridge_d"
+	var north_up: bool = tech.bridge_alive(north_id)
+	var south_up: bool = tech.bridge_alive(south_id)
+	var box: BoxMesh = deck.mesh as BoxMesh
+	if not north_up and not south_up:
+		deck.visible = false
+		return
+	deck.visible = true
+	if box == null:
+		return
+	var x: float = deck.position.x
+	if north_up and south_up:
+		deck.position = Vector3(x, 0.15, 0.0)
+		box.size = Vector3(14.0, 0.28, 16.0)
+	elif north_up:
+		deck.position = Vector3(x, 0.15, -4.0)
+		box.size = Vector3(14.0, 0.28, 8.0)
+	else:
+		deck.position = Vector3(x, 0.15, 4.0)
+		box.size = Vector3(14.0, 0.28, 8.0)
 
 func _owns(kind: StringName) -> bool:
 	for site: Dictionary in tech.sites:

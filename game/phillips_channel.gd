@@ -30,6 +30,7 @@ func _ready() -> void:
 	outcome.mount(self, ui_layer)
 	sight.bind(sim.grid)
 	hud.use_sight(sight)
+	hud.use_tech(sim.tech)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
 
 func scripted_playthrough() -> bool:
@@ -112,6 +113,7 @@ func _arm_units() -> void:
 	field.bind_faction(self, cam, SMFront.current())
 	field.ew = sim.ew
 	field.use_domain(sim.grid)
+	field.bind_tech(sim.tech, Callable(self, "_bridge_down"))
 	field.attach_box(ui_layer)
 	var kinds: Array[StringName] = SMFront.kinds()
 	var cells: Array[Vector2i] = [Vector2i(1, 8), Vector2i(3, 8), Vector2i(5, 8), Vector2i(8, 8), Vector2i(10, 8), Vector2i(12, 8)]
@@ -161,8 +163,11 @@ func _price_scale(id: StringName) -> float:
 	return sim.tech.discount(SMPointer.PLAYER, roster.unit_tag(id))
 
 ## Income, night shift, rare-earth stock, water harm, cyber siphon, and clinic healing.
+func _bridge_down(id: StringName) -> void:
+	sim.collapse_bridge(id, field, self)
+
 func tick_world(delta: float) -> void:
-	sim.tick_live(delta, roster.economy, field)
+	sim.tick_live(delta, roster.economy, field, raider.economy)
 	sim.show_collectors(self)
 	side.yard.cool_super(delta)
 	sim.protocols.cool(delta)

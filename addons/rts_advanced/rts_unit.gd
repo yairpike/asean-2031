@@ -100,7 +100,10 @@ func advance(delta: float) -> void:
 	_move(delta)
 
 func _move(delta: float) -> void:
-	var step: float = speed * speed_scale * delta
+	var drag: float = 1.0
+	if has_meta("weather_drag"):
+		drag = float(get_meta("weather_drag"))
+	var step: float = speed * speed_scale * drag * delta
 	while step > 0.0 and not path.is_empty():
 		var goal: Vector3 = Vector3(path[0].x, position.y, path[0].z)
 		var to: Vector3 = goal - position

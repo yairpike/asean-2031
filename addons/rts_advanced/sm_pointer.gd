@@ -28,6 +28,8 @@ var box: RTSSelectionBox
 var cam: RTSCamera
 var host: Node3D
 var ew: SMEwField
+var tech: SMTechNet
+var on_bridge_ruined: Callable
 var on_cue: Callable
 var on_line: Callable
 var on_bark: Callable
@@ -66,6 +68,10 @@ func bind_faction(p_host: Node3D, p_cam: RTSCamera, faction: String) -> void:
 		teams.add_team(ENEMY, Color(0.72, 0.12, 0.18))
 	else:
 		teams.add_team(ENEMY, Color(0.12, 0.62, 0.7))
+
+func bind_tech(net: SMTechNet, ruined: Callable) -> void:
+	tech = net
+	on_bridge_ruined = ruined
 
 func use_domain(grid: SMDomainGrid) -> void:
 	domain = grid
@@ -228,11 +234,10 @@ func _on_shot(unit: RTSUnit, _target: RTSUnit) -> void:
 func unit_label(team: int, kind: StringName) -> String:
 	if team != PLAYER:
 		return "Enemy"
-	var data: Dictionary = SMCatalog.faction(faction_id)
-	for unit: Dictionary in SMCatalog.units_of(data):
-		if str(unit.get("id", "")) == str(kind):
-			return str(unit.get("display_name", faction_id.to_upper()))
-	return faction_id.to_upper()
+	var row: Dictionary = _unit_row(kind)
+	if row.is_empty():
+		return faction_id.to_upper()
+	return str(row.get("display_name", faction_id.to_upper()))
 
 func name_of(u: RTSUnit) -> String:
 	if not is_instance_valid(u):
@@ -243,23 +248,21 @@ func name_of(u: RTSUnit) -> String:
 	return tag.text
 
 func _apply_catalog(u: RTSUnit, kind: StringName) -> void:
-	var data: Dictionary = SMCatalog.faction(faction_id)
-	for unit: Dictionary in SMCatalog.units_of(data):
-		if str(unit.get("id", "")) != str(kind):
-			continue
-		u.max_hp = float(unit.get("hp", u.max_hp))
-		u.hp = u.max_hp
-		u.speed = float(unit.get("speed", u.speed))
-		u.attack_damage = float(unit.get("weapon_damage", u.attack_damage))
-		u.set_meta("weapon", str(unit.get("weapon", "")))
-		u.set_meta("secondary", str(unit.get("secondary", "")))
-		u.set_meta("guidance", str(unit.get("guidance", "none")))
-		u.set_meta("locomotion", str(unit.get("locomotion", "ground")))
-		u.set_meta("role", str(unit.get("role", "")))
-		u.set_meta("tags", _tag_list(unit))
-		u.set_meta("ability", str(unit.get("ability", "")))
-		u.set_meta("f_stat", str(unit.get("f_stat", "damage")))
+	var unit: Dictionary = _unit_row(kind)
+	if unit.is_empty():
 		return
+	u.max_hp = float(unit.get("hp", u.max_hp))
+	u.hp = u.max_hp
+	u.speed = float(unit.get("speed", u.speed))
+	u.attack_damage = float(unit.get("weapon_damage", u.attack_damage))
+	u.set_meta("weapon", str(unit.get("weapon", "")))
+	u.set_meta("secondary", str(unit.get("secondary", "")))
+	u.set_meta("guidance", str(unit.get("guidance", "none")))
+	u.set_meta("locomotion", str(unit.get("locomotion", "ground")))
+	u.set_meta("role", str(unit.get("role", "")))
+	u.set_meta("tags", _tag_list(unit))
+	u.set_meta("ability", str(unit.get("ability", "")))
+	u.set_meta("f_stat", str(unit.get("f_stat", "damage")))
 
 func _body_color(team: int, kind: StringName) -> Color:
 	if team != PLAYER:
@@ -295,10 +298,14 @@ func category_of(kind: StringName) -> String:
 	return "vehicle"
 
 func _unit_row(kind: StringName) -> Dictionary:
-	var units: Array[Dictionary] = SMCatalog.units_of(SMCatalog.faction(faction_id))
-	for unit: Dictionary in units:
-		if str(unit.get("id", "")) == str(kind):
-			return unit
+	var lists: Array[String] = [faction_id]
+	if faction_id != "black_market":
+		lists.append("black_market")
+	for faction: String in lists:
+		var units: Array[Dictionary] = SMCatalog.units_of(SMCatalog.faction(faction))
+		for unit: Dictionary in units:
+			if str(unit.get("id", "")) == str(kind):
+				return unit
 	return {}
 
 func _tagged(unit: Dictionary, tag: String) -> bool:
@@ -408,10 +415,15 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable, queue: b
 				hit += RTSOrders.attack(one, foe, nav_for_unit(u), teams)
 		if hit > 0:
 			_drop_hunt(selection.units)
+			_clear_bridges(selection.units)
 			_cue("attack")
 			announce(_first_player(), "attack")
 			_mark(foe.global_position, "attack")
 		return &"attack" if hit > 0 else &"none"
+	if tech != null and ground != Vector3.INF:
+		var span_id: StringName = tech.nearest_bridge(ground, 6.0)
+		if span_id != &"":
+			return _order_bridge(span_id)
 	if ground == Vector3.INF:
 		return &"none"
 	var sent: int = _send(ground, false, queue)
@@ -456,6 +468,7 @@ func _send(ground: Vector3, hunt: bool, queue: bool = false) -> int:
 			sent += 1
 			continue
 		mover.attack_target = null
+		mover.set_meta("bridge_id", "")
 		mover.set_meta("hunt", hunt)
 		if hunt:
 			mover.set_meta("hunt_goal", ground)
@@ -467,6 +480,55 @@ func _drop_hunt(list: Array[RTSUnit]) -> void:
 	for u: RTSUnit in list:
 		if is_instance_valid(u):
 			u.set_meta("hunt", false)
+
+func _clear_bridges(list: Array[RTSUnit]) -> void:
+	for u: RTSUnit in list:
+		if is_instance_valid(u):
+			u.set_meta("bridge_id", "")
+
+func _order_bridge(id: StringName) -> StringName:
+	var at: Vector3 = tech.site_pos(id)
+	var hit: int = 0
+	for u: RTSUnit in selection.units:
+		if not is_instance_valid(u) or not u.is_alive():
+			continue
+		u.attack_target = null
+		u.set_meta("hunt", false)
+		u.set_meta("bridge_id", str(id))
+		u.set_meta("bridge_cool", 0.0)
+		var route: PackedVector3Array = nav_for_unit(u).find_path(u.global_position, at)
+		if not route.is_empty():
+			u.set_path(route)
+		hit += 1
+	if hit <= 0:
+		return &"none"
+	_cue("attack")
+	announce(_first_player(), "attack")
+	_mark(at, "attack")
+	return &"attack"
+
+func _press_bridge(u: RTSUnit, delta: float) -> void:
+	var raw: String = str(u.get_meta("bridge_id", ""))
+	if raw == "" or tech == null:
+		return
+	var id: StringName = StringName(raw)
+	if not tech.bridge_alive(id):
+		u.set_meta("bridge_id", "")
+		return
+	var at: Vector3 = tech.site_pos(id)
+	var dist: float = Vector2(u.global_position.x, u.global_position.z).distance_to(Vector2(at.x, at.z))
+	if dist > u.attack_range + 0.4:
+		return
+	u.path = PackedVector3Array()
+	u.attack_target = null
+	var cool: float = float(u.get_meta("bridge_cool", 0.0)) - delta
+	if cool > 0.0:
+		u.set_meta("bridge_cool", cool)
+		return
+	u.set_meta("bridge_cool", u.attack_interval)
+	var dealt: float = u.attack_damage * u.damage_mult
+	if tech.harm_bridge(id, dealt) and on_bridge_ruined.is_valid():
+		on_bridge_ruined.call(id)
 
 ## Ctrl stores the current selection in 1-9. A plain number recalls it.
 func bind_group(index: int, store: bool) -> int:
@@ -502,6 +564,7 @@ func halt_selected() -> void:
 			live.append(u)
 	RTSOrders.stop(live)
 	_drop_hunt(live)
+	_clear_bridges(live)
 	group_note = "Halt"
 	group_note_t = 1.4
 
@@ -850,6 +913,7 @@ func tick(delta: float) -> void:
 			continue
 		_tick_ability(u, delta)
 		_press_hunt(u)
+		_press_bridge(u, delta)
 		var before: Vector3 = u.global_position
 		u.advance(delta)
 		_keep_domain(u, before)

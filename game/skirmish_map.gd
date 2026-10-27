@@ -29,6 +29,7 @@ func _ready() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, _map_name(), rally, Callable(self, "fire_ability"), grid, cam)
 	hud.use_goods(sim.goods)
+	hud.use_tech(sim.tech)
 	outcome.mount(self, ui_layer)
 	sight.bind(grid)
 	hud.use_sight(sight)
@@ -246,7 +247,7 @@ func _blurb() -> String:
 	if map_id == "ten_degree_atolls":
 		return "Islands in deep water. Shoals are the crossings. The enemy builds, expands, and attacks."
 	if map_id == "mekong_delta":
-		return "Canals cut the paddies. Bridges are the crossings. The enemy builds, expands, and attacks."
+		return "Canals cut the paddies. Right-click a bridge to drop it. The enemy builds, expands, and attacks."
 	if map_id == "chiang_rai":
 		return "A larger field. Fords cross the river. The enemy builds, expands, and attacks."
 	return "Highland cliffs block the climb. The road is open ground. The enemy builds, expands, and attacks."
@@ -255,6 +256,7 @@ func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	field.bind_faction(self, cam, SMFront.current())
 	field.use_domain(grid)
+	field.bind_tech(sim.tech, Callable(self, "_bridge_down"))
 	field.attach_box(ui_layer)
 	var kinds: Array[StringName] = SMFront.kinds()
 	var cells: Array[Vector2i] = _player_cells()
@@ -266,8 +268,12 @@ func _arm_units() -> void:
 	raider.bind_plan(sim.goods, sim.tech, _plan_a(), _plan_b(), _plan_site(), _plan_name())
 	_extra_sides()
 
+func _bridge_down(id: StringName) -> void:
+	sim.collapse_bridge(id, field, self)
+	_say("Bridge down")
+
 func tick_world(delta: float) -> void:
-	sim.tick_live(delta, roster.economy, field)
+	sim.tick_live(delta, roster.economy, field, raider.economy)
 	sim.show_collectors(self)
 	side.yard.cool_super(delta)
 	sim.protocols.cool(delta)

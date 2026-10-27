@@ -77,6 +77,7 @@ func _run() -> void:
 	await H.section("test_sm_goal", test_sm_goal)
 	await H.section("test_sm_command", test_sm_command)
 	await H.section("test_sm_pick", test_sm_pick)
+	await H.section("test_sm_monsoon", test_sm_monsoon)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2747,6 +2748,108 @@ func test_sm_pick() -> void:
 	scene.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"
+	SMFront.faction_id = "gtfc"
+
+func test_sm_monsoon() -> void:
+	var sky: SMSight = SMSight.new()
+	sky.advance_weather(8.0)
+	check(sky.weather_name == "Monsoon" and is_equal_approx(sky.ground_drag(), 0.55) and sky.unit_radius(false) < SMSight.UNIT_RADIUS and is_equal_approx(sky.unit_radius(true), SMSight.UNIT_RADIUS), "monsoon muddies the ground and shortens sight unless a radar is held")
+	sky.advance_weather(8.0)
+	check(sky.weather_name == "Strait Haze" and is_equal_approx(sky.ground_drag(), 1.0) and sky.hazy and not sky.monsoon, "the cycle then names Strait Haze and the mud lifts")
+	sky.force_weather(true)
+	check(sky.weather_name == "Strait Haze" and sky.unit_radius(false) < SMSight.UNIT_RADIUS and is_equal_approx(sky.unit_radius(true), SMSight.UNIT_RADIUS), "forcing haze still means Strait Haze")
+	var clear_u: RTSUnit = RTSUnit.new()
+	clear_u.speed = 10.0
+	clear_u.position = Vector3.ZERO
+	clear_u.set_path(PackedVector3Array([Vector3(40.0, 0.0, 0.0)]))
+	root.add_child(clear_u)
+	var mud_u: RTSUnit = RTSUnit.new()
+	mud_u.speed = 10.0
+	mud_u.position = Vector3.ZERO
+	mud_u.set_meta("weather_drag", 0.55)
+	mud_u.set_path(PackedVector3Array([Vector3(40.0, 0.0, 0.0)]))
+	root.add_child(mud_u)
+	clear_u.advance(1.0)
+	mud_u.advance(1.0)
+	check(is_equal_approx(clear_u.position.x, 10.0) and is_equal_approx(mud_u.position.x, 5.5), "monsoon cuts a ground step to just over half")
+	clear_u.free()
+	mud_u.free()
+	check(SMGuide.howto_text().contains("Monsoon") and SMGuide.howto_text().contains("bridge") and SMGuide.howto_text().contains("CH-4"), "the how-to names monsoon, bridges, and the black market")
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/mekong_delta.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var book: SMSight = scene.get("sight") as SMSight
+	book.force_monsoon(true)
+	SMSight.update_match(book, field, scene as Node3D, sim.tech, scene.get("raider") as SMRaider)
+	(scene.get("hud") as SMHud).refresh()
+	var walker: RTSUnit = field.units_of(0)[0]
+	check(_hud_text(scene, "HudWeather") == "Monsoon", "the hud names the monsoon")
+	check(is_equal_approx(float(walker.get_meta("weather_drag", 1.0)), 0.55), "monsoon slows the company on the field")
+	var span: Vector3 = sim.tech.site_pos(&"bridge_a")
+	walker.global_position = span + Vector3(-6.0, 0.0, 0.0)
+	walker.attack_damage = 80.0
+	field.select_only([walker])
+	var ordered: StringName = field.command_at(span, Vector2(-8000.0, -8000.0), Callable(self, "_proj"))
+	check(ordered == &"attack" and str(walker.get_meta("bridge_id", "")) == "bridge_a", "right-click orders a Mekong bridge")
+	var fell: bool = false
+	for _step: int in 8:
+		field.tick(0.2)
+		if not sim.tech.bridge_alive(&"bridge_a"):
+			fell = true
+			break
+	var deep: int = SMDomainGrid.Domain.DEEP
+	var land: int = SMDomainGrid.Domain.LAND
+	check(fell and sim.grid.domain_at_cell(Vector2i(13, 14)) == deep and sim.grid.domain_at_cell(Vector2i(13, 15)) == deep, "the north span falls into the canal")
+	var plate: MeshInstance3D = scene.get_node_or_null("Bridge_bridge_a") as MeshInstance3D
+	var deck: MeshInstance3D = scene.get_node_or_null("BridgeWest") as MeshInstance3D
+	var box: BoxMesh = deck.mesh as BoxMesh if deck != null else null
+	check(sim.grid.domain_at_cell(Vector2i(13, 16)) == land and sim.grid.domain_at_cell(Vector2i(13, 17)) == land and plate != null and plate.position.y < 0.0 and deck != null and deck.visible and box != null and is_equal_approx(box.size.z, 8.0), "the south span stays up and the fallen deck sinks")
+	var south: Vector3 = sim.tech.site_pos(&"bridge_b")
+	walker.global_position = south + Vector3(-6.0, 0.0, 0.0)
+	field.select_only([walker])
+	field.command_at(south, Vector2(-8000.0, -8000.0), Callable(self, "_proj"))
+	for _south_step: int in 8:
+		field.tick(0.2)
+		if not sim.tech.bridge_alive(&"bridge_b"):
+			break
+	var west: Vector3 = sim.grid.cell_center(Vector2i(4, 16))
+	var east: Vector3 = sim.grid.cell_center(Vector2i(20, 16))
+	check(not sim.tech.bridge_alive(&"bridge_b") and deck != null and not deck.visible, "both west spans drop and the deck is gone")
+	check(field.nav_ground.find_path(west, east).is_empty() and field.nav_amphib.find_path(west, east).size() > 0, "ground stops at the open canal and a boat still crosses")
+	var fresh: SMDomainGrid = SMDomainGrid.mekong_delta_layout()
+	check(fresh.domain_at_cell(Vector2i(13, 15)) == land and fresh.domain_at_cell(Vector2i(27, 16)) == land, "a fresh Mekong layout still keeps both bridges")
+	scene.free()
+	await process_frame
+	var sop: Node = (load("res://game/sop_ruak.tscn") as PackedScene).instantiate()
+	root.add_child(sop)
+	await process_frame
+	check(sop.find_child("Import_ch4", true, false) == null, "imports stay hidden until a bazaar is held")
+	var sop_sim: SMMatch = sop.get("sim") as SMMatch
+	sop_sim.tech.capture(&"bazaar", 0)
+	(sop.get("hud") as SMHud).refresh()
+	var buy: Button = sop.find_child("Import_ch4", true, false) as Button
+	check(buy != null and buy.visible and buy.text == "CH-4", "a captured bazaar lists the CH-4")
+	var sop_field: SMPointer = sop.get("field") as SMPointer
+	var purse: SMRoster = sop.get("roster") as SMRoster
+	var before_n: int = sop_field.count_team(0)
+	var before_c: int = purse.economy.credits(0)
+	buy.pressed.emit()
+	var company: Array[RTSUnit] = sop_field.units_of(0)
+	var bought: RTSUnit = company[company.size() - 1]
+	check(sop_field.count_team(0) == before_n + 1 and purse.economy.credits(0) == before_c - 340 and sop_field.name_of(bought) == "CH-4" and str(bought.get_meta("locomotion", "")) == "air", "buying the CH-4 spends 340 and spawns it")
+	var raider: SMRaider = sop.get("raider") as SMRaider
+	raider.economy.set_credits(1, 200)
+	var skim_before: int = purse.economy.credits(0)
+	var cyber_before: int = sop_sim.tech.income_of(&"cyber_a")
+	sop.call("tick_world", 1.0)
+	var skim_got: int = purse.economy.credits(0) - skim_before
+	var cyber_gain: int = sop_sim.tech.income_of(&"cyber_a") - cyber_before
+	check(raider.economy.credits(1) == 190 and sop_sim.tech.siphon_of(&"bazaar") == 10 and skim_got == 10 + cyber_gain, "the bazaar skims five percent of the enemy purse")
+	sop.free()
+	await process_frame
 	SMFront.faction_id = "gtfc"
 
 func test_sm_boot() -> void:
