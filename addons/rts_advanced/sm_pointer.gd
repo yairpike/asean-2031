@@ -43,6 +43,7 @@ var last_pick_ms: int = 0
 var hover_at: Vector2 = Vector2.INF
 const FX = preload("res://addons/rts_advanced/sm_fx.gd")
 const Cast = preload("res://addons/rts_advanced/sm_cast.gd")
+const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
 const F_COOLDOWN: float = 3.0
 const BEAM_TIME: float = 1.5
 
@@ -145,10 +146,10 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	u.attack_interval = 0.8
 	u.position = at
 	_apply_catalog(u, kind)
-	var body: MeshInstance3D = _body_mesh(team, kind)
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = _body_color(team, kind)
-	body.material_override = mat
+	var row: Dictionary = _unit_row(kind)
+	var role: String = "infantry" if row.is_empty() else str(row.get("role", ""))
+	var loco: String = "ground" if row.is_empty() else str(row.get("locomotion", "ground"))
+	var body: MeshInstance3D = Forms.dress_unit(str(kind), role, loco, _body_color(team, kind))
 	u.add_child(body)
 	var ring: MeshInstance3D = MeshInstance3D.new()
 	ring.name = "Ring"
@@ -201,7 +202,7 @@ func _add_vitals(u: RTSUnit, team: int) -> void:
 	var flash: BoxMesh = BoxMesh.new()
 	flash.size = Vector3(0.22, 0.22, 0.5)
 	muzzle.mesh = flash
-	muzzle.position = Vector3(0.0, 1.15, 0.85)
+	muzzle.position = Forms.muzzle_pos(str(u.get_node("Body").get_meta("form", "truck")))
 	muzzle.visible = false
 	muzzle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var glow: StandardMaterial3D = StandardMaterial3D.new()
@@ -319,33 +320,6 @@ func _tagged(unit: Dictionary, tag: String) -> bool:
 		if str(item) == tag:
 			return true
 	return false
-
-func _body_mesh(_team: int, kind: StringName) -> MeshInstance3D:
-	var body: MeshInstance3D = MeshInstance3D.new()
-	body.name = "Body"
-	var category: String = category_of(kind)
-	if category == "infantry":
-		var cap: CapsuleMesh = CapsuleMesh.new()
-		cap.radius = 0.32
-		cap.height = 2.15
-		body.mesh = cap
-		body.position = Vector3(0, 1.08, 0)
-	elif category == "aircraft":
-		var wedge: PrismMesh = PrismMesh.new()
-		wedge.size = Vector3(2.8, 0.40, 3.6)
-		body.mesh = wedge
-		body.position = Vector3(0, 1.55, 0)
-	elif category == "boat":
-		var hull: BoxMesh = BoxMesh.new()
-		hull.size = Vector3(1.1, 0.62, 3.6)
-		body.mesh = hull
-		body.position = Vector3(0, 0.36, 0)
-	else:
-		var wide: BoxMesh = BoxMesh.new()
-		wide.size = Vector3(3.4, 1.25, 2.0)
-		body.mesh = wide
-		body.position = Vector3(0, 0.65, 0)
-	return body
 
 func units_of(team: int) -> Array[RTSUnit]:
 	var out: Array[RTSUnit] = []
@@ -790,7 +764,7 @@ func apply_status(u: RTSUnit, status: String, duration: float) -> void:
 	var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
 	if body != null:
 		body.scale = Vector3.ONE
-		body.material_override = null
+	Forms.paint_status(body, null)
 	u.speed_scale = 1.0
 	u.incoming_mult = 1.0
 	u.set_meta("frozen", false)
@@ -800,8 +774,7 @@ func apply_status(u: RTSUnit, status: String, duration: float) -> void:
 		u.set_meta("frozen", true)
 		u.speed_scale = 0.0
 		u.stop()
-		if body != null:
-			body.material_override = FX.ice_material()
+		Forms.paint_status(body, FX.ice_material())
 	elif status == "shrunk":
 		u.speed_scale = 2.0
 		u.incoming_mult = 0.5
@@ -924,6 +897,7 @@ func tick(delta: float) -> void:
 		var before: Vector3 = u.global_position
 		u.advance(delta)
 		_keep_domain(u, before)
+		Forms.animate(u, delta)
 		var ring: Node3D = u.get_node_or_null("Ring") as Node3D
 		if ring != null:
 			ring.visible = u.selected

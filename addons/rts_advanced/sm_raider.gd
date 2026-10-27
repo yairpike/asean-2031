@@ -2,6 +2,8 @@ class_name SMRaider
 extends RefCounted
 ## The skirmish enemy builds a yard, claims a ruby node, and attacks.
 
+const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
+
 var yard: SMBuildYard = SMBuildYard.new()
 var goods: SMCommodityNet = SMCommodityNet.new()
 var economy: RTSEconomy = RTSEconomy.new()
@@ -141,11 +143,12 @@ func _nearest(from: Vector3, group: Array[RTSUnit]) -> RTSUnit:
 func _marker(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	mi.name = node_name
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	mi.mesh = mesh
 	mi.position = pos
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
+	if not Forms.dress_structure(mi, size, color):
+		var mesh: BoxMesh = BoxMesh.new()
+		mesh.size = size
+		mi.mesh = mesh
+		var mat: StandardMaterial3D = StandardMaterial3D.new()
+		mat.albedo_color = color
+		mi.material_override = mat
 	host.add_child(mi)

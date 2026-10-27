@@ -2,6 +2,7 @@ class_name SMSide
 extends RefCounted
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
+const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
 ## Build-style buttons for the faction chosen on the boot screen.
 
 var faction_id: String = "gtfc"
@@ -235,12 +236,13 @@ func _say(text: String) -> void:
 func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	mi.name = node_name
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	mi.mesh = mesh
 	mi.position = pos
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
+	if not Forms.dress_structure(mi, size, color):
+		var mesh: BoxMesh = BoxMesh.new()
+		mesh.size = size
+		mi.mesh = mesh
+		var mat: StandardMaterial3D = StandardMaterial3D.new()
+		mat.albedo_color = color
+		mi.material_override = mat
 	host.add_child(mi)
 	return mi

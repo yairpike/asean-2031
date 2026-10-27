@@ -2,6 +2,7 @@ extends Node3D
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
 const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
+const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
 ## Phillips Channel. Two land masses, a deep channel, shallow crossings.
 ## RA3-style sidebar with cameo placeholders. The far shore builds, expands, and attacks.
 
@@ -190,13 +191,14 @@ func _say(text: String) -> void:
 func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	mi.name = node_name
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	mi.mesh = mesh
 	mi.position = pos
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
+	if not Forms.dress_structure(mi, size, color):
+		var mesh: BoxMesh = BoxMesh.new()
+		mesh.size = size
+		mi.mesh = mesh
+		var mat: StandardMaterial3D = StandardMaterial3D.new()
+		mat.albedo_color = color
+		mi.material_override = mat
 	add_child(mi)
 
 func _capsule(node_name: String, pos: Vector3, color: Color) -> void:
