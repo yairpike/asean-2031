@@ -49,6 +49,7 @@ func _run() -> void:
 	await H.section("test_sm_phillips", test_sm_phillips)
 	await H.section("test_sm_bots", test_sm_bots)
 	await H.section("test_sm_mission", test_sm_mission)
+	await H.section("test_sm_sop_ruak", test_sm_sop_ruak)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -775,6 +776,8 @@ func test_sm_phillips() -> void:
 	var b: Vector2 = _proj(friends[1].global_position)
 	var boxed: int = field.select_drag(Rect2(a, b - a).abs().grow(4.0), Callable(self, "_proj"))
 	check(boxed >= 2, "a drag box selects several friendlies")
+	check(_gtfc_names(field), "phillips labels the six GTFC placeholders")
+	check(field.name_of(foes[0]) == "Enemy", "phillips labels the enemy")
 	scene.free()
 	await process_frame
 
@@ -811,6 +814,8 @@ func test_sm_mission() -> void:
 	var before: float = foe.hp
 	var struck: int = int(scene.call("fire_secondary"))
 	check(struck > 0 and foe.hp < before, "F strikes an enemy on the raid")
+	check(_gtfc_names(field), "the raid labels the six GTFC placeholders")
+	check(field.name_of(foe) == "Enemy", "the raid labels the enemy")
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
 	await process_frame
@@ -820,3 +825,49 @@ func test_sm_mission() -> void:
 	boot.free()
 	scene.free()
 	await process_frame
+
+func test_sm_sop_ruak() -> void:
+	var grid: SMDomainGrid = SMDomainGrid.sop_ruak_layout()
+	var land: int = SMDomainGrid.Domain.LAND
+	var deep: int = SMDomainGrid.Domain.DEEP
+	check(grid.domain_at_cell(Vector2i(8, 24)) == land and grid.domain_at_cell(Vector2i(28, 24)) == land and grid.domain_at_cell(Vector2i(18, 6)) == land, "sop ruak has three land sectors")
+	check(grid.domain_at_cell(Vector2i(17, 28)) == deep and grid.domain_at_cell(Vector2i(8, 8)) == deep and grid.domain_at_cell(Vector2i(27, 8)) == deep, "a Y of deep water splits the shores")
+	check(grid.domain_at_cell(Vector2i(17, 24)) == land and grid.domain_at_cell(Vector2i(10, 10)) == land and grid.domain_at_cell(Vector2i(24, 10)) == land, "a ford crosses each arm of the river")
+	var scene: Node = (load("res://game/sop_ruak.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(scene.get_node_or_null("WestSector") is MeshInstance3D and scene.get_node_or_null("EastSector") is MeshInstance3D and scene.get_node_or_null("NorthSector") is MeshInstance3D and scene.get_node_or_null("RiverStem") is MeshInstance3D, "sop ruak shows three shores and the river")
+	var field: SMPointer = scene.get("field") as SMPointer
+	var east_path: PackedVector3Array = field.nav.find_path(grid.cell_center(Vector2i(8, 24)), grid.cell_center(Vector2i(28, 24)))
+	var north_path: PackedVector3Array = field.nav.find_path(grid.cell_center(Vector2i(8, 24)), grid.cell_center(Vector2i(18, 6)))
+	check(east_path.size() > 0 and north_path.size() > 0, "fords link the west shore to the east and the north")
+	check(_gtfc_names(field), "sop ruak labels the six GTFC placeholders")
+	check(field.name_of(field.units_of(1)[0]) == "Enemy", "sop ruak labels the enemy")
+	check(scene.find_child("SelectionBox", true, false) != null, "sop ruak shows a selection box")
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	check(picked == friends[0] and field.selection.count() == 1, "left click selects one friendly unit")
+	var north: Vector3 = grid.cell_center(Vector2i(18, 6))
+	var moved: StringName = field.command_at(north, _proj(north), Callable(self, "_proj"))
+	check(moved == &"move" and friends[0].is_moving(), "right click on ground moves the selection")
+	var foes: Array[RTSUnit] = field.units_of(1)
+	var attacked: StringName = field.command_at(foes[0].global_position, _proj(foes[0].global_position), Callable(self, "_proj"))
+	check(attacked == &"attack" and friends[0].attack_target == foes[0], "right click on an enemy attacks")
+	check(bool(scene.call("fire_ability")), "F fires the sop ruak ability")
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	var button: Button = boot.find_child("SopRuakButton", true, false) as Button
+	check(button != null and button.text == "Sop Ruak (river skirmish)", "boot names the river skirmish")
+	boot.free()
+	scene.free()
+	await process_frame
+
+func _gtfc_names(field: SMPointer) -> bool:
+	var names: PackedStringArray = PackedStringArray()
+	for u: RTSUnit in field.units_of(0):
+		names.append(field.name_of(u))
+	for need: String in ["Militia", "Slag Hauler", "Ruby Lancer", "Amber Tank", "Monsoon Tube", "Channel Skiff"]:
+		if not names.has(need):
+			return false
+	return true

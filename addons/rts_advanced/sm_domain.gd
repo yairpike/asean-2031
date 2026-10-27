@@ -88,3 +88,25 @@ static func phillips_layout() -> SMDomainGrid:
 	g.fill_rect(Rect2i(4, 10, 4, 3), Domain.CLIFF)
 	g.fill_rect(Rect2i(18, 10, 4, 2), Domain.AIR)
 	return g
+
+## Sop Ruak: three land sectors split by a Y of deep water, with a ford on each arm.
+static func sop_ruak_layout() -> SMDomainGrid:
+	var g: SMDomainGrid = SMDomainGrid.new(36, 36, 4.0, Vector3(-72.0, 0.0, -72.0))
+	g.fill_rect(Rect2i(16, 16, 4, 17), Domain.DEEP)
+	for i: int in range(1, 15):
+		var lx: int = 16 - i
+		var ly: int = 16 - i
+		g.set_domain(Vector2i(lx, ly), Domain.DEEP)
+		g.set_domain(Vector2i(lx + 1, ly), Domain.DEEP)
+		g.set_domain(Vector2i(lx, ly + 1), Domain.DEEP)
+		g.set_domain(Vector2i(lx + 1, ly + 1), Domain.DEEP)
+		var rx: int = 19 + i
+		var ry: int = 16 - i
+		g.set_domain(Vector2i(rx, ry), Domain.DEEP)
+		g.set_domain(Vector2i(rx - 1, ry), Domain.DEEP)
+		g.set_domain(Vector2i(rx, ry + 1), Domain.DEEP)
+		g.set_domain(Vector2i(rx - 1, ry + 1), Domain.DEEP)
+	g.fill_rect(Rect2i(16, 24, 4, 2), Domain.LAND)
+	g.fill_rect(Rect2i(9, 9, 4, 4), Domain.LAND)
+	g.fill_rect(Rect2i(23, 9, 4, 4), Domain.LAND)
+	return g

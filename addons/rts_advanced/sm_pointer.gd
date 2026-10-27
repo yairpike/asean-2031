@@ -7,6 +7,7 @@ const PLAYER: int = 0
 const ENEMY: int = 1
 const PICK_PX: float = 28.0
 const ATTACK_M: float = 2.2
+const GTFC_KINDS: Array[StringName] = [&"militia", &"slag_hauler", &"ruby_lancer", &"amber_tank", &"monsoon_tube", &"channel_skiff"]
 
 var teams: RTSTeams = RTSTeams.new()
 var nav: RTSGridNav
@@ -60,20 +61,10 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	u.attack_range = 8.0
 	u.attack_interval = 0.8
 	u.position = at
-	var body: MeshInstance3D = MeshInstance3D.new()
-	if team == PLAYER:
-		var cap: CapsuleMesh = CapsuleMesh.new()
-		cap.radius = 0.45
-		cap.height = 1.6
-		body.mesh = cap
-		body.position = Vector3(0, 0.8, 0)
-	else:
-		var box_mesh: BoxMesh = BoxMesh.new()
-		box_mesh.size = Vector3(1.15, 1.25, 1.15)
-		body.mesh = box_mesh
-		body.position = Vector3(0, 0.62, 0)
+	_apply_catalog(u, kind)
+	var body: MeshInstance3D = _body_mesh(team, kind)
 	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = teams.color_of(team)
+	mat.albedo_color = _body_color(team, kind)
 	body.material_override = mat
 	u.add_child(body)
 	var ring: MeshInstance3D = MeshInstance3D.new()
@@ -90,15 +81,77 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	ring.visible = false
 	u.add_child(ring)
 	var tag: Label3D = Label3D.new()
-	tag.text = "GTFC" if team == PLAYER else "Enemy"
-	tag.font_size = 42
-	tag.position = Vector3(0, 2.3, 0)
+	tag.name = "NameTag"
+	tag.text = unit_label(team, kind)
+	tag.font_size = 48
+	tag.pixel_size = 0.02
+	tag.outline_size = 12
+	tag.outline_modulate = Color(0.02, 0.02, 0.03)
+	tag.position = Vector3(0, 2.7, 0)
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	tag.modulate = Color(0.96, 0.93, 0.82)
+	tag.modulate = Color(0.97, 0.94, 0.84)
 	u.add_child(tag)
 	host.add_child(u)
 	units.append(u)
 	return u
+
+func unit_label(team: int, kind: StringName) -> String:
+	if team != PLAYER:
+		return "Enemy"
+	var data: Dictionary = SMCatalog.faction("gtfc")
+	for unit: Dictionary in SMCatalog.units_of(data):
+		if str(unit.get("id", "")) == str(kind):
+			return str(unit.get("display_name", "GTFC"))
+	return "GTFC"
+
+func name_of(u: RTSUnit) -> String:
+	if not is_instance_valid(u):
+		return ""
+	var tag: Label3D = u.get_node_or_null("NameTag") as Label3D
+	if tag == null:
+		return ""
+	return tag.text
+
+func _apply_catalog(u: RTSUnit, kind: StringName) -> void:
+	var data: Dictionary = SMCatalog.faction("gtfc")
+	for unit: Dictionary in SMCatalog.units_of(data):
+		if str(unit.get("id", "")) != str(kind):
+			continue
+		u.max_hp = float(unit.get("hp", u.max_hp))
+		u.speed = float(unit.get("speed", u.speed))
+		u.attack_damage = float(unit.get("weapon_damage", u.attack_damage))
+		return
+
+func _body_color(team: int, kind: StringName) -> Color:
+	if team != PLAYER:
+		return teams.color_of(team)
+	if kind == &"slag_hauler" or kind == &"amber_tank" or kind == &"channel_skiff":
+		return Color(0.88, 0.62, 0.12)
+	return Color(0.72, 0.12, 0.18)
+
+func _body_mesh(team: int, kind: StringName) -> MeshInstance3D:
+	var body: MeshInstance3D = MeshInstance3D.new()
+	if team != PLAYER or kind == &"amber_tank" or kind == &"slag_hauler" or kind == &"monsoon_tube" or kind == &"channel_skiff":
+		var box_mesh: BoxMesh = BoxMesh.new()
+		if kind == &"monsoon_tube":
+			box_mesh.size = Vector3(0.7, 0.7, 2.6)
+		elif kind == &"channel_skiff":
+			box_mesh.size = Vector3(1.2, 0.45, 2.3)
+		elif kind == &"amber_tank":
+			box_mesh.size = Vector3(1.7, 0.9, 2.3)
+		elif kind == &"slag_hauler":
+			box_mesh.size = Vector3(1.4, 1.0, 2.2)
+		else:
+			box_mesh.size = Vector3(1.15, 1.25, 1.15)
+		body.mesh = box_mesh
+		body.position = Vector3(0, box_mesh.size.y * 0.5, 0)
+	else:
+		var cap: CapsuleMesh = CapsuleMesh.new()
+		cap.radius = 0.4 if kind == &"ruby_lancer" else 0.45
+		cap.height = 1.8 if kind == &"ruby_lancer" else 1.6
+		body.mesh = cap
+		body.position = Vector3(0, 0.85, 0)
+	return body
 
 func units_of(team: int) -> Array[RTSUnit]:
 	var out: Array[RTSUnit] = []

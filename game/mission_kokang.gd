@@ -80,9 +80,9 @@ func _arm_units() -> void:
 	field.bind(self, cam)
 	field.use_open(16, 12, 2.0, Vector3(-16.0, 0.0, -12.0))
 	field.attach_box(ui_layer)
-	field.spawn(SMPointer.PLAYER, Vector3(-2.0, 0.0, -3.0), &"militia")
-	field.spawn(SMPointer.PLAYER, Vector3(0.0, 0.0, -3.0), &"militia")
-	field.spawn(SMPointer.PLAYER, Vector3(2.0, 0.0, -4.0), &"militia")
+	var kinds: Array[StringName] = SMPointer.GTFC_KINDS
+	for i: int in kinds.size():
+		field.spawn(SMPointer.PLAYER, Vector3(-6.0 + float(i) * 2.0, 0.0, -4.0), kinds[i])
 	field.spawn(SMPointer.ENEMY, Vector3(8.0, 0.0, -2.0), &"raider")
 	field.spawn(SMPointer.ENEMY, Vector3(9.0, 0.0, 3.0), &"raider")
 

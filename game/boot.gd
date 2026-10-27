@@ -21,22 +21,24 @@ func _ready() -> void:
 	scroll.add_child(box)
 
 	_heading(box, "Shattered Monsoon", 32)
-	_body(box, "You play GTFC (crimson / amber) in Phillips Channel and in the Kokang raid. Greybox is a systems demo and has no player faction.")
+	_body(box, "You play GTFC (crimson / amber) in Phillips Channel, Sop Ruak, and the Kokang raid. Greybox is a systems demo and has no player faction.")
 
 	_link(box, "Greybox (systems demo)", "res://game/greybox.tscn", "GreyboxButton")
 	_hint(box, "Look at the build styles, commodity nodes, and jammer. Camera only. No select, move, attack, or F.")
 	_link(box, "Phillips Channel (1v1 skirmish)", "res://game/phillips_channel.tscn", "PhillipsButton")
-	_hint(box, "GTFC versus enemies on the far shore. Select your squad, then right click.")
+	_hint(box, "GTFC versus enemies on the far shore. Names float on each unit. Select, then right click.")
+	_link(box, "Sop Ruak (river skirmish)", "res://game/sop_ruak.tscn", "SopRuakButton")
+	_hint(box, "GTFC versus a passive enemy. Three shores split by a Y-shaped river. Same orders as Phillips Channel.")
 	_link(box, "Kokang raid (mission 1)", "res://game/mission_kokang.tscn", "MissionButton")
-	_hint(box, "GTFC night raid. Select the squad, right click to move or attack, and press F to strike.")
+	_hint(box, "GTFC night raid. Names float on the squad. Select, right click, and press F to strike.")
 
 	_heading(box, "Controls that work", 22)
-	_body(box, "Select. On Phillips Channel and the Kokang raid, left click a crimson GTFC unit. Drag a box around several. Greybox has no units to select.")
+	_body(box, "Select. On Phillips Channel, Sop Ruak, and the Kokang raid, left click a named GTFC unit. Drag a box around several. Greybox has no units to select.")
 	_body(box, "Move. Right click open ground. The selection walks there. Greybox has no move order.")
-	_body(box, "Attack. Right click an enemy (cyan box). The selection attacks it. On Phillips Channel, Engage still runs the scripted fight as well.")
-	_body(box, "F ability. On Phillips Channel, press F or click Ability (F). That toggles one unit and smart-casts the closest ready unit. On the Kokang raid, press F and the squad strikes the nearest enemy. Greybox ignores F.")
+	_body(box, "Attack. Right click an enemy labeled Enemy. The selection attacks it. On Phillips Channel, Engage still runs the scripted fight as well.")
+	_body(box, "F ability. On Phillips Channel and Sop Ruak, press F or click Ability (F). That toggles one unit and smart-casts the closest ready unit. On the Kokang raid, press F and the squad strikes the nearest enemy. Greybox ignores F.")
 	_body(box, "Camera. On every mode, move the pointer to a screen edge to pan, roll the wheel to zoom toward the cursor, and drag with the middle mouse button to orbit.")
-	_body(box, "Phillips Channel buttons: Build pipeline, Cross channel, Ability (F), Engage, and one shot each of Logistics, Arsenal, and Oracle. Kokang raid buttons: Raise scaffold, Ruby night shift, Secure rare earth.")
+	_body(box, "Phillips Channel buttons: Build pipeline, Cross channel, Ability (F), Engage, and one shot each of Logistics, Arsenal, and Oracle. Sop Ruak has Ability (F). Kokang raid buttons: Raise scaffold, Ruby night shift, Secure rare earth.")
 
 func _heading(box: VBoxContainer, text: String, size: int) -> void:
 	var title: Label = Label.new()

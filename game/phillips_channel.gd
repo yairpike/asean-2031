@@ -45,7 +45,7 @@ func _world() -> void:
 	cam.bounds = Rect2(-90, -60, 180, 120)
 	cam.distance = 48.0
 	cam.edge_pan_px = 20.0
-	cam.focus = Vector3(-20, 0, 0)
+	cam.focus = Vector3(-58, 0, -12)
 	add_child(cam)
 	cam.current = true
 
@@ -126,8 +126,10 @@ func _arm_units() -> void:
 	field.bind(self, cam)
 	field.use_domain(sim.grid)
 	field.attach_box(ui_layer)
-	for cell: Vector2i in [Vector2i(2, 12), Vector2i(2, 14), Vector2i(3, 15), Vector2i(8, 14)]:
-		field.spawn(SMPointer.PLAYER, sim.grid.cell_center(cell), &"militia")
+	var kinds: Array[StringName] = SMPointer.GTFC_KINDS
+	var cells: Array[Vector2i] = [Vector2i(1, 8), Vector2i(3, 8), Vector2i(5, 8), Vector2i(8, 8), Vector2i(10, 8), Vector2i(12, 8)]
+	for i: int in kinds.size():
+		field.spawn(SMPointer.PLAYER, sim.grid.cell_center(cells[i]), kinds[i])
 	for cell: Vector2i in [Vector2i(30, 12), Vector2i(31, 14), Vector2i(33, 11)]:
 		field.spawn(SMPointer.ENEMY, sim.grid.cell_center(cell), &"raider")
 
