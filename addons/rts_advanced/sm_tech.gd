@@ -1,0 +1,102 @@
+class_name SMTechNet
+extends RefCounted
+## Capturable tech. Imports are flags on the bazaar, not unit meshes.
+
+const CYBER: StringName = &"cyber_scam"
+const BAZAAR: StringName = &"arms_bazaar"
+const CLINIC: StringName = &"field_clinic"
+const RADAR: StringName = &"hydro_radar"
+
+var sites: Array[Dictionary] = []
+var import_flags: Dictionary = {}
+
+func add_site(id: StringName, kind: StringName, pos: Vector3) -> void:
+	sites.append({
+		"id": id,
+		"kind": kind,
+		"pos": pos,
+		"owner": -1,
+		"income": 0,
+		"siphoned": 0,
+		"healed": 0.0,
+	})
+
+func _find(id: StringName) -> int:
+	for i: int in sites.size():
+		if StringName(str(sites[i]["id"])) == id:
+			return i
+	return -1
+
+func capture(id: StringName, team: int) -> bool:
+	var i: int = _find(id)
+	if i < 0:
+		return false
+	var site: Dictionary = sites[i]
+	site["owner"] = team
+	sites[i] = site
+	return true
+
+func owner_of(id: StringName) -> int:
+	var i: int = _find(id)
+	if i < 0:
+		return -1
+	return int(sites[i]["owner"])
+
+func advance(delta: float, economy: RTSEconomy, enemy: int) -> void:
+	for i: int in sites.size():
+		var site: Dictionary = sites[i]
+		var owner: int = int(site["owner"])
+		if owner < 0:
+			continue
+		var kind: StringName = StringName(str(site["kind"]))
+		if kind == CYBER:
+			var gain: int = int(roundf(12.0 * delta))
+			if gain > 0:
+				economy.earn(owner, gain)
+				site["income"] = int(site["income"]) + gain
+			var steal: int = mini(int(roundf(4.0 * delta)), economy.credits(enemy))
+			if steal > 0 and economy.try_spend(enemy, steal):
+				economy.earn(owner, steal)
+				site["siphoned"] = int(site["siphoned"]) + steal
+		elif kind == CLINIC:
+			site["healed"] = float(site["healed"]) + 6.0 * delta
+		sites[i] = site
+
+func income_of(id: StringName) -> int:
+	var i: int = _find(id)
+	if i < 0:
+		return 0
+	return int(sites[i]["income"])
+
+func siphon_of(id: StringName) -> int:
+	var i: int = _find(id)
+	if i < 0:
+		return 0
+	return int(sites[i]["siphoned"])
+
+func discount(team: int, tag: String) -> float:
+	if tag != "drone" and tag != "infantry":
+		return 1.0
+	for i: int in sites.size():
+		if StringName(str(sites[i]["kind"])) == BAZAAR and int(sites[i]["owner"]) == team:
+			return 0.7
+	return 1.0
+
+func reveals_water(team: int) -> bool:
+	for i: int in sites.size():
+		if StringName(str(sites[i]["kind"])) == RADAR and int(sites[i]["owner"]) == team:
+			return true
+	return false
+
+func clinic_healed(team: int) -> float:
+	var total: float = 0.0
+	for i: int in sites.size():
+		if StringName(str(sites[i]["kind"])) == CLINIC and int(sites[i]["owner"]) == team:
+			total += float(sites[i]["healed"])
+	return total
+
+func set_import(flag: String, on: bool) -> void:
+	import_flags[flag] = on
+
+func import_open(flag: String) -> bool:
+	return bool(import_flags.get(flag, false))
