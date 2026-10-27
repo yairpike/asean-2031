@@ -65,14 +65,6 @@ func stop() -> void:
 func take_damage(amount: float) -> void:
 	if not is_alive():
 		return
-	if bool(get_meta("frozen", false)) and amount >= 8.0:
-		set_meta("shattered", true)
-		hp = 0.0
-		path = PackedVector3Array()
-		if occupancy != null:
-			occupancy.call("remove_unit", get_instance_id())
-		died.emit(self)
-		return
 	hp = maxf(0.0, hp - amount * incoming_mult)
 	if hp <= 0.0:
 		path = PackedVector3Array()
@@ -99,10 +91,9 @@ func advance(delta: float) -> void:
 				var dealt: float = attack_damage * damage_mult
 				if shot_filter.is_valid():
 					dealt = float(shot_filter.call(self, attack_target, dealt))
-				var victim: RTSUnit = _pull_shot(attack_target)
-				fired.emit(self, victim)
+				fired.emit(self, attack_target)
 				if dealt > 0.0:
-					victim.take_damage(dealt)
+					attack_target.take_damage(dealt)
 			return
 		if path.is_empty():   # chase: head straight for a target that moved
 			path = PackedVector3Array([attack_target.global_position])
@@ -140,33 +131,6 @@ func look_at_flat(p: Vector3) -> void:
 	var d: Vector3 = Vector3(p.x - position.x, 0.0, p.z - position.z)
 	if d.length_squared() > 0.0001:
 		rotation.y = atan2(-d.x, -d.z)
-
-## Black-hole armor on a living teammate within 10m takes the shot instead.
-func _pull_shot(victim: RTSUnit) -> RTSUnit:
-	if victim == null or not is_instance_valid(victim):
-		return victim
-	if str(victim.get_meta("status", "")) == "black_hole":
-		return victim
-	var parent_node: Node = victim.get_parent()
-	if parent_node == null:
-		return victim
-	var best: RTSUnit = null
-	var best_d: float = 10.0
-	for child: Node in parent_node.get_children():
-		var other: RTSUnit = child as RTSUnit
-		if other == null or other == victim or not other.is_alive():
-			continue
-		if other.team != victim.team:
-			continue
-		if str(other.get_meta("status", "")) != "black_hole":
-			continue
-		var dist: float = _flat(victim.global_position).distance_to(_flat(other.global_position))
-		if dist <= best_d:
-			best_d = dist
-			best = other
-	if best == null:
-		return victim
-	return best
 
 static func _flat(v: Vector3) -> Vector2:
 	return Vector2(v.x, v.z)

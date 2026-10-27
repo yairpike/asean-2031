@@ -206,8 +206,32 @@ func test_unit() -> void:
 	check(not e.is_alive() and e.hp == 0.0 and dead[0], "dies once at 0 hp")
 	u.advance(0.1)
 	check(u.attack_target == null, "drops dead targets")
+	var src: String = FileAccess.get_file_as_string("res://addons/rts_advanced/rts_unit.gd")
+	var plain: bool = src.sha256_text() == "bb00b36d76c56a1410d0252028bf8fc39080c7e7bdf526c0bbbf0bda0618d9be"
+	plain = plain and not src.contains("_pull_shot") and not src.contains("shattered") and not src.contains("black_hole")
+	var statue: RTSUnit = _unit(0, Vector3(40, 0, 0))
+	statue.hp = 40.0
+	statue.set_meta("frozen", true)
+	statue.take_damage(8.0)
+	var armor: RTSUnit = _unit(0, Vector3(44, 0, 0))
+	armor.set_meta("status", "black_hole")
+	armor.incoming_mult = 0.2
+	var buddy: RTSUnit = _unit(0, Vector3(48, 0, 0))
+	buddy.hp = 80.0
+	var gun: RTSUnit = _unit(1, Vector3(70, 0, 0))
+	gun.attack_damage = 10.0
+	gun.attack_range = 40.0
+	gun.attack_target = buddy
+	gun._cooldown = 0.0
+	var armor_hp: float = armor.hp
+	gun.advance(0.2)
+	check(plain and statue.is_alive() and is_equal_approx(statue.hp, 32.0) and not bool(statue.get_meta("shattered", false)) and is_equal_approx(buddy.hp, 70.0) and is_equal_approx(armor.hp, armor_hp), "core unit matches the pre-shatter script and does not pull shots")
 	u.free()
 	e.free()
+	statue.free()
+	armor.free()
+	buddy.free()
+	gun.free()
 
 func test_selection() -> void:
 	var a: RTSUnit = _unit(0, Vector3(1, 0, 1), &"tank")
@@ -1647,8 +1671,10 @@ func test_sm_field() -> void:
 	puller.attack_range = 40.0
 	puller.attack_target = buddy
 	puller._cooldown = 0.0
+	var shot_named: Array[RTSUnit] = []
+	puller.fired.connect(func(_src: RTSUnit, tgt: RTSUnit) -> void: shot_named.append(tgt))
 	puller.advance(0.2)
-	check(is_equal_approx(buddy.hp, 80.0) and is_equal_approx(well.hp, hole_before - 2.0), "black-hole armor pulls a nearby shot")
+	check(is_equal_approx(buddy.hp, 80.0) and is_equal_approx(well.hp, hole_before - 2.0) and shot_named.size() == 1 and shot_named[0] == buddy, "black-hole armor pulls a nearby shot and the fired signal still names the aimed unit")
 	var bug: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(-8.0, 0.0, 22.0), &"raider")
 	field.apply_status(bug, "shrunk", 4.0)
 	var walker: RTSUnit = field.spawn(SMPointer.PLAYER, bug.global_position + Vector3(-1.2, 0.0, 0.0), &"militia")

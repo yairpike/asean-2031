@@ -3,6 +3,7 @@ extends RefCounted
 ## Click controls for a match: left click and drag select friendlies,
 ## right click ground to move, right click an enemy to attack.
 
+const StatusUnit = preload("res://addons/rts_advanced/sm_status.gd")
 const PLAYER: int = 0
 const ENEMY: int = 1
 const PICK_PX: float = 28.0
@@ -145,7 +146,7 @@ func project_point(p: Vector3) -> Vector2:
 	return cam.unproject_position(p)
 
 func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
-	var u: RTSUnit = RTSUnit.new()
+	var u: RTSUnit = StatusUnit.new() as RTSUnit
 	u.team = team
 	u.unit_type = kind
 	u.speed = 8.0
@@ -160,7 +161,8 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	var loco: String = "ground" if row.is_empty() else str(row.get("locomotion", "ground"))
 	visual_node = null
 	unit_made.emit(u, team, str(kind), role, loco, _body_color(team, kind), unit_label(team, kind))
-	u.shot_filter = Callable(self, "filter_shot")
+	u.set_meta("jammer", Callable(self, "filter_shot"))
+	u.shot_filter = Callable(u, "guard_shot")
 	u.fired.connect(_on_shot)
 	host.add_child(u)
 	u.set_meta("seen_hp", u.hp)
