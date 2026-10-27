@@ -56,6 +56,7 @@ func _run() -> void:
 	await H.section("test_sm_roster", test_sm_roster)
 	await H.section("test_sm_campaign", test_sm_campaign)
 	await H.section("test_sm_hud", test_sm_hud)
+	await H.section("test_sm_outcome", test_sm_outcome)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1170,6 +1171,93 @@ func _hud_map(path: String, map_name: String) -> void:
 	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudPower").begins_with("Power ") and _hud_text(scene, "HudSelection") == "Nothing selected" and scene.find_child("CompanyList", true, false) == null and terrain_ok and mm.covers_focus(), "%s shows faction, power, an empty selection, and the minimap" % map_name)
 	scene.free()
 	await process_frame
+
+func test_sm_outcome() -> void:
+	SMFront.faction_id = "gtfc"
+	var empty: SMOutcome = SMOutcome.new()
+	empty.consider(0, 0, 0, 0)
+	check(not empty.over, "an empty start does not end the match")
+	empty.consider(4, 0, 0, 0)
+	empty.consider(0, 0, 0, 0)
+	check(not empty.over and empty.saw_player and not empty.saw_enemy, "a side that never appeared cannot win or lose")
+	var stay: SMOutcome = SMOutcome.new()
+	stay.consider(6, 0, 3, 0)
+	check(not stay.over, "both sides on the field keep the match open")
+	stay.consider(0, 1, 3, 1)
+	check(not stay.over, "a living building keeps a side in the match")
+	stay.consider(0, 0, 3, 1)
+	check(stay.over and not stay.victory, "losing every unit and building is a defeat")
+	var win: SMOutcome = SMOutcome.new()
+	win.consider(6, 0, 3, 1)
+	win.consider(6, 0, 0, 1)
+	check(not win.over, "enemy units can fall while a building still stands")
+	win.consider(6, 0, 0, 0)
+	check(win.over and win.victory, "clearing the last enemy building is a victory")
+	var paths: PackedStringArray = PackedStringArray([
+		"res://game/phillips_channel.tscn",
+		"res://game/sop_ruak.tscn",
+		"res://game/burma_road.tscn",
+		"res://game/ten_degree_atolls.tscn",
+		"res://game/mekong_delta.tscn",
+		"res://game/chiang_rai.tscn",
+		"res://game/nmrf_yard.tscn",
+		"res://game/mvd_yard.tscn",
+	])
+	for path: String in paths:
+		await _outcome_open(path)
+	await _outcome_defeat("res://game/phillips_channel.tscn")
+	await _outcome_victory("res://game/sop_ruak.tscn")
+	SMFront.faction_id = "gtfc"
+
+func _outcome_open(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var end: SMOutcome = scene.get("outcome") as SMOutcome
+	var banner: Label = scene.find_child("MatchBanner", true, false) as Label
+	var back: Button = scene.find_child("BootMenuButton", true, false) as Button
+	var banner_hidden: bool = banner != null and not banner.is_visible_in_tree()
+	var back_hidden: bool = back != null and back.text == "Boot menu" and not back.is_visible_in_tree()
+	check(end != null and not end.over and banner_hidden and back_hidden, "%s stays open until a side is wiped out" % path.get_file())
+	scene.free()
+	await process_frame
+
+func _outcome_defeat(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	_wipe(field.units_of(SMPointer.PLAYER))
+	await process_frame
+	var end: SMOutcome = scene.get("outcome") as SMOutcome
+	var banner: Label = scene.find_child("MatchBanner", true, false) as Label
+	var back: Button = scene.find_child("BootMenuButton", true, false) as Button
+	check(end.over and not end.victory and banner.text == "Defeat" and banner.is_visible_in_tree(), "a wiped player sees Defeat")
+	check(back.is_visible_in_tree() and back.text == "Boot menu", "defeat offers the boot menu")
+	scene.free()
+	await process_frame
+
+func _outcome_victory(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var raider: SMRaider = scene.get("raider") as SMRaider
+	_wipe(field.units_of(SMPointer.ENEMY))
+	await process_frame
+	var end: SMOutcome = scene.get("outcome") as SMOutcome
+	check(not end.over and raider.yard.living_count() > 0, "a standing enemy building holds the match open")
+	raider.yard.damage_structure(&"enemy_yard", 100000.0)
+	await process_frame
+	var banner: Label = scene.find_child("MatchBanner", true, false) as Label
+	var back: Button = scene.find_child("BootMenuButton", true, false) as Button
+	check(end.over and end.victory and banner.text == "Victory" and banner.is_visible_in_tree() and back.is_visible_in_tree(), "clearing the last building shows Victory")
+	scene.free()
+	await process_frame
+
+func _wipe(units: Array[RTSUnit]) -> void:
+	for u: RTSUnit in units:
+		u.take_damage(100000.0)
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"

@@ -179,6 +179,7 @@ func _load_buildings(data: Dictionary) -> void:
 			yard.building_tier[id] = int(item.get("tier", 1))
 			yard.building_time[id] = float(item.get("time", 4.0))
 			building_hp[id] = float(item.get("hp", 200.0))
+			yard.structure_max[id] = building_hp[id]
 
 func _say(text: String) -> void:
 	if status != null:

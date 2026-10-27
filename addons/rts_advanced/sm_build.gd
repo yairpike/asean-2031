@@ -36,6 +36,9 @@ var packer_id: int = 1
 var unpacked: bool = false
 var factory_tier: Dictionary[StringName, int] = {}
 var grid: SMDomainGrid
+var structure_hp: Dictionary[StringName, float] = {}
+var structure_max: Dictionary[StringName, float] = {}
+var structure_pos: Dictionary[StringName, Vector3] = {}
 
 func inside(pos: Vector3) -> bool:
 	return Vector2(pos.x, pos.z).distance_to(Vector2(center.x, center.z)) <= radius
@@ -99,6 +102,9 @@ func place_finished(id: StringName, pos: Vector3) -> bool:
 	ready.erase(id)
 	placed.append(id)
 	finished.append(id)
+	structure_pos[id] = pos
+	if not structure_hp.has(id):
+		structure_hp[id] = _max_hp(id)
 	return true
 
 func move_packer(to: Vector3) -> bool:
@@ -115,6 +121,9 @@ func unpack(factory: StringName) -> bool:
 	unpacked = true
 	factory_tier[factory] = 1
 	finished.append(factory)
+	structure_pos[factory] = packer_pos
+	if not structure_hp.has(factory):
+		structure_hp[factory] = _max_hp(factory)
 	return true
 
 func upgrade_factory(factory: StringName) -> bool:
@@ -152,6 +161,95 @@ func _advance_scaffold(delta: float) -> void:
 	if scaffold_progress >= scaffold_time and scaffold_time > 0.0:
 		var done: StringName = scaffold_id
 		finished.append(done)
+		structure_pos[done] = scaffold_pos
+		structure_hp[done] = maxf(scaffold_hp, 1.0)
+		structure_max[done] = maxf(scaffold_max_hp, structure_hp[done])
 		scaffold_id = &""
 		scaffold_active = false
 		vulnerable = false
+
+func living_count() -> int:
+	var total: int = 0
+	if scaffold_active and scaffold_hp > 0.0:
+		total += 1
+	for id: StringName in finished:
+		if _stored_hp(id) > 0.0:
+			total += 1
+	if packer_alive():
+		total += 1
+	return total
+
+func packer_alive() -> bool:
+	if style != Style.MOBILE or unpacked:
+		return false
+	if not structure_hp.has(&"packer"):
+		return true
+	return structure_hp[&"packer"] > 0.0
+
+func damage_structure(id: StringName, amount: float) -> void:
+	if amount <= 0.0:
+		return
+	if scaffold_active and id == scaffold_id:
+		damage_scaffold(amount)
+		return
+	if id == &"packer" and style == Style.MOBILE and not unpacked:
+		if not structure_hp.has(&"packer"):
+			structure_hp[&"packer"] = _max_hp(&"packer")
+		structure_hp[&"packer"] = maxf(0.0, structure_hp[&"packer"] - amount)
+		return
+	if not finished.has(id):
+		return
+	if not structure_hp.has(id):
+		structure_hp[id] = _max_hp(id)
+	structure_hp[id] = maxf(0.0, structure_hp[id] - amount)
+
+func nearest_living(from: Vector3) -> StringName:
+	var best: StringName = &""
+	var best_d: float = INF
+	if scaffold_active and scaffold_hp > 0.0:
+		var scaffold_d: float = from.distance_to(scaffold_pos)
+		if scaffold_d < best_d:
+			best_d = scaffold_d
+			best = scaffold_id
+	for id: StringName in finished:
+		if _stored_hp(id) <= 0.0:
+			continue
+		var built_d: float = from.distance_to(position_of(id))
+		if built_d < best_d:
+			best_d = built_d
+			best = id
+	if packer_alive():
+		var packer_d: float = from.distance_to(packer_pos)
+		if packer_d < best_d:
+			best = &"packer"
+	return best
+
+func structure_alive(id: StringName) -> bool:
+	if id == &"packer":
+		return packer_alive()
+	if scaffold_active and id == scaffold_id and scaffold_hp > 0.0:
+		return true
+	if finished.has(id):
+		return _stored_hp(id) > 0.0
+	return false
+
+func position_of(id: StringName) -> Vector3:
+	if scaffold_active and id == scaffold_id:
+		return scaffold_pos
+	if id == &"packer":
+		return packer_pos
+	if structure_pos.has(id):
+		return structure_pos[id]
+	return center
+
+func _stored_hp(id: StringName) -> float:
+	if structure_hp.has(id):
+		return structure_hp[id]
+	return 1.0
+
+func _max_hp(id: StringName) -> float:
+	if structure_max.has(id):
+		return maxf(structure_max[id], 1.0)
+	if id == &"packer":
+		return 400.0
+	return 200.0

@@ -9,6 +9,7 @@ var raider: SMRaider = SMRaider.new()
 var roster: SMRoster = SMRoster.new()
 var side: SMSide = SMSide.new()
 var hud: SMHud = SMHud.new()
+var outcome: SMOutcome = SMOutcome.new()
 var status: Label
 var ui_layer: CanvasLayer
 
@@ -23,6 +24,7 @@ func _ready() -> void:
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, "Sop Ruak", rally, Callable(self, "fire_ability"), grid, cam)
+	outcome.mount(self, ui_layer)
 
 func train_unit() -> String:
 	var done: StringName = roster.train_and_finish(SMFront.train_kind())
@@ -129,6 +131,9 @@ func _process(delta: float) -> void:
 	raider.show_markers(self)
 	field.tick(delta)
 	hud.refresh()
+	var players: Array[SMBuildYard] = [side.yard, sim.yard]
+	var foes: Array[SMBuildYard] = [raider.yard]
+	outcome.tick(field, players, foes, delta)
 
 func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera

@@ -11,6 +11,7 @@ var raider: SMRaider = SMRaider.new()
 var roster: SMRoster = SMRoster.new()
 var yard: SMBuildYard = SMBuildYard.new()
 var economy: RTSEconomy = RTSEconomy.new()
+var outcome: SMOutcome = SMOutcome.new()
 var status: Label
 var ui_layer: CanvasLayer
 var packer_mesh: MeshInstance3D
@@ -25,6 +26,7 @@ func _ready() -> void:
 	_world()
 	_ui()
 	_arm_units()
+	outcome.mount(self, ui_layer)
 
 func train_unit() -> String:
 	var id: StringName = &"cyan_sentry" if faction_id == "mvd" else &"olive_ranger"
@@ -253,6 +255,9 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	var players: Array[SMBuildYard] = [yard]
+	var foes: Array[SMBuildYard] = [raider.yard]
+	outcome.tick(field, players, foes, delta)
 
 func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
