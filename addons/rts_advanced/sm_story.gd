@@ -163,8 +163,8 @@ func bind_mission(p_host: Node3D, id: String, p_field: SMPointer, p_side: SMSide
 	elif id == "ghosts_of_patani":
 		_kill = true
 		ew = SMEwField.new()
-		ew.radius = 10.0
-		ew.penalty = 0.25
+		ew.radius = 1000.0
+		ew.penalty = 0.4
 		var foe: RTSUnit = _first_enemy()
 		ew.center = foe.global_position if foe != null else Vector3(6.0, 0.0, 3.0)
 		field.ew = ew

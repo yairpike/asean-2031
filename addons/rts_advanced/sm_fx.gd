@@ -54,7 +54,78 @@ static func _place(host: Node3D, node_name: String, at: Vector3, mesh: Mesh, mat
 	body.position = at
 	body.material_override = mat
 	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	body.visible = false
 	host.add_child(body)
+
+static func drive(host: Node3D, field: SMPointer, goods: SMCommodityNet, ew: SMEwField) -> void:
+	if host == null:
+		return
+	var painter: bool = false
+	var leech: bool = false
+	var fiber: bool = false
+	var prism: bool = false
+	var aegis: bool = false
+	var slag: bool = false
+	var painter_at: Vector3 = Vector3(-6.0, 1.4, -8.0)
+	var leech_at: Vector3 = Vector3(-3.4, 1.4, -8.0)
+	var fiber_at: Vector3 = Vector3(-0.8, 1.4, -8.0)
+	var prism_at: Vector3 = Vector3(1.8, 1.4, -8.0)
+	var aegis_at: Vector3 = Vector3(5.0, 1.6, -8.0)
+	var slag_at: Vector3 = Vector3(-8.0, 0.12, -4.0)
+	if field != null:
+		for u: RTSUnit in field.units:
+			if not is_instance_valid(u) or not u.is_alive():
+				continue
+			var kind: String = str(u.get_meta("beam_kind", ""))
+			var spot: Vector3 = u.global_position + Vector3(0.0, 1.3, 0.0)
+			if kind == "painter":
+				painter = true
+				painter_at = spot
+			elif kind == "leech":
+				leech = true
+				leech_at = spot
+			elif kind == "fiber":
+				fiber = true
+				fiber_at = spot
+			elif kind == "prism":
+				prism = true
+				prism_at = spot
+			if bool(u.get_meta("aegis", false)):
+				aegis = true
+				aegis_at = u.global_position + Vector3(0.0, 1.6, 0.0)
+			if bool(u.get_meta("slagged", false)):
+				slag = true
+				slag_at = u.global_position + Vector3(0.0, 0.12, 0.0)
+			elif goods != null and field.is_infantry(u) and goods.harm_infantry(u.global_position, bool(u.get_meta("shielded", false)), 1.0) > 0.0:
+				slag = true
+				slag_at = u.global_position + Vector3(0.0, 0.12, 0.0)
+	var night: bool = false
+	var night_at: Vector3 = Vector3(8.0, 1.3, -4.0)
+	if goods != null:
+		for node: Dictionary in goods.nodes:
+			if bool(node.get("night", false)):
+				night = true
+				night_at = (node.get("pos", night_at) as Vector3) + Vector3(0.0, 1.3, 0.0)
+	var jam: bool = ew != null and ew.active
+	var jam_at: Vector3 = Vector3(8.0, 1.4, -6.0)
+	if jam:
+		jam_at = ew.center + Vector3(0.0, 1.4, 0.0)
+	_show(host, "BeamPainter", painter, painter_at)
+	_show(host, "BeamLeech", leech, leech_at)
+	_show(host, "BeamFiber", fiber, fiber_at)
+	_show(host, "BeamPrism", prism, prism_at)
+	_show(host, "AegisDome", aegis, aegis_at)
+	_show(host, "JammerDome", jam, jam_at)
+	_show(host, "RubyCone", night, night_at)
+	_show(host, "SlagPool", slag, slag_at)
+
+static func _show(host: Node3D, node_name: String, on: bool, at: Vector3) -> void:
+	var body: MeshInstance3D = host.get_node_or_null(node_name) as MeshInstance3D
+	if body == null:
+		return
+	body.visible = on
+	if on:
+		body.global_position = at
 
 static func _tint(color: Color) -> StandardMaterial3D:
 	var mat: StandardMaterial3D = StandardMaterial3D.new()

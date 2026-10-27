@@ -17,6 +17,7 @@ var drain_per_sec: int = 5
 var tech_order: Array[StringName] = []
 var building_tier: Dictionary[StringName, int] = {}
 var building_time: Dictionary[StringName, float] = {}
+var building_role: Dictionary[StringName, String] = {}
 var finished: Array[StringName] = []
 var scaffold_id: StringName = &""
 var scaffold_pos: Vector3 = Vector3.ZERO
@@ -27,6 +28,7 @@ var scaffold_max_hp: float = 0.0
 var scaffold_active: bool = false
 var vulnerable: bool = false
 var drained: int = 0
+var scaffold_spent: int = 0
 var queue: Array[StringName] = []
 var queue_progress: float = 0.0
 var ready: Array[StringName] = []
@@ -63,6 +65,7 @@ func load_catalog(data: Dictionary) -> void:
 				var id: StringName = StringName(str(row.get("id", "")))
 				building_tier[id] = int(row.get("tier", 1))
 				building_time[id] = float(row.get("time", 4.0))
+				building_role[id] = str(row.get("role", ""))
 				structure_max[id] = float(row.get("hp", 200.0))
 				if bool(row.get("water", false)):
 					water_marked[id] = true
@@ -128,6 +131,7 @@ func begin_scaffold(id: StringName, pos: Vector3, hp: float) -> bool:
 	scaffold_max_hp = hp
 	scaffold_hp = hp
 	scaffold_active = true
+	scaffold_spent = 0
 	vulnerable = true
 	return true
 
@@ -139,6 +143,7 @@ func damage_scaffold(amount: float) -> void:
 		scaffold_active = false
 		vulnerable = false
 		scaffold_id = &""
+		scaffold_spent = 0
 
 func buy_clearance(level: int, cost: int) -> bool:
 	if style != Style.INTERNAL:
@@ -148,7 +153,10 @@ func buy_clearance(level: int, cost: int) -> bool:
 	if economy == null or not economy.try_spend(team, cost):
 		return false
 	clearance = level
-	radius += 6.0
+	if level == 2:
+		radius = 45.0
+	elif level == 3:
+		radius = 65.0
 	return true
 
 func queue_internal(id: StringName) -> bool:
@@ -156,6 +164,29 @@ func queue_internal(id: StringName) -> bool:
 		return false
 	queue.append(id)
 	return true
+
+func cancel_internal() -> StringName:
+	if style != Style.INTERNAL or queue.is_empty():
+		return &""
+	var i: int = queue.size() - 1
+	var id: StringName = queue[i]
+	queue.remove_at(i)
+	if i == 0:
+		queue_progress = 0.0
+	return id
+
+func abort_scaffold() -> int:
+	if not scaffold_active:
+		return 0
+	var refund: int = scaffold_spent
+	if economy != null and refund > 0:
+		economy.earn(team, refund)
+	drained = maxi(0, drained - refund)
+	scaffold_spent = 0
+	scaffold_active = false
+	vulnerable = false
+	scaffold_id = &""
+	return refund
 
 func place_finished(id: StringName, pos: Vector3) -> bool:
 	if style != Style.INTERNAL or not ready.has(id) or not inside(pos):
@@ -220,6 +251,7 @@ func _advance_scaffold(delta: float) -> void:
 		if not economy.try_spend(team, cost):
 			return
 		drained += cost
+		scaffold_spent += cost
 	scaffold_progress += delta
 	if scaffold_progress >= scaffold_time and scaffold_time > 0.0:
 		var done: StringName = scaffold_id
@@ -231,6 +263,7 @@ func _advance_scaffold(delta: float) -> void:
 		scaffold_id = &""
 		scaffold_active = false
 		vulnerable = false
+		scaffold_spent = 0
 
 func living_count() -> int:
 	var total: int = 0

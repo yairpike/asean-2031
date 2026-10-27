@@ -1,4 +1,6 @@
 extends Node3D
+
+const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
 ## GTFC night raid. Scaffold, ruby night shift, one rare-earth node. Text briefing.
 
 var mission: SMMission = SMMission.new()
@@ -150,6 +152,7 @@ func _process(delta: float) -> void:
 	cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
 	story.tick(delta)
+	Fx.drive(self, field, null, field.ew)
 	field.place_beacon(story.beacon())
 	if story.lost:
 		if status != null and status.text != "Objective failed":

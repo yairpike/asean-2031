@@ -3,6 +3,7 @@ extends RefCounted
 ## Finished story missions, one id per line in user://campaign.save.
 
 const PATH: String = "user://campaign.save"
+const IDB_JS: String = "(function(payload){if(!self.indexedDB)return;var openReq=indexedDB.open('asean2031',1);openReq.onupgradeneeded=function(){openReq.result.createObjectStore('saves');};openReq.onsuccess=function(){var tx=openReq.result.transaction('saves','readwrite');tx.objectStore('saves').put(payload,'campaign');};})(%s);"
 
 static func clear() -> void:
 	var abs_path: String = ProjectSettings.globalize_path(PATH)
@@ -33,3 +34,14 @@ static func mark(id: String) -> void:
 	for item: String in have:
 		handle.store_line(item)
 	handle.close()
+	_mirror_web(have)
+
+static func idb_script() -> String:
+	return IDB_JS
+
+static func _mirror_web(have: PackedStringArray) -> void:
+	if not OS.has_feature("web"):
+		return
+	var payload: String = JSON.stringify(have)
+	var js: String = IDB_JS % JSON.stringify(payload)
+	JavaScriptBridge.eval(js)

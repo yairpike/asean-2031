@@ -560,14 +560,14 @@ func test_sm_build() -> void:
 	mvd.building_time[&"siege"] = 2.0
 	check(not mvd.queue_internal(&"bay"), "clearance 1 cannot queue tier 2")
 	check(not mvd.buy_clearance(3, 50), "clearance 3 before 2 is refused")
-	check(mvd.buy_clearance(2, 50) and mvd.radius == 16.0, "clearance 2 grows the radius")
+	check(mvd.buy_clearance(2, 50) and mvd.radius == 45.0, "clearance 2 grows the radius")
 	check(mvd.queue_internal(&"bay"), "tier 2 queues inside the hub")
 	check(mvd.placed.is_empty(), "the hub has not placed the shell yet")
 	mvd.advance(2.0)
 	check(mvd.ready.has(&"bay"), "the hub finishes the building")
-	check(not mvd.place_finished(&"bay", Vector3(30, 0, 0)), "place rejects a point outside the radius")
+	check(not mvd.place_finished(&"bay", Vector3(50, 0, 0)), "place rejects a point outside the radius")
 	check(mvd.place_finished(&"bay", Vector3(12, 0, 0)), "place accepts a point inside the grown radius")
-	check(mvd.buy_clearance(3, 50) and mvd.clearance == 3, "clearance 3 unlocks the next tier")
+	check(mvd.buy_clearance(3, 50) and mvd.clearance == 3 and mvd.radius == 65.0, "clearance 3 unlocks the next tier")
 	check(mvd.queue_internal(&"siege"), "tier 3 queues after clearance 3")
 	var grid: SMDomainGrid = SMDomainGrid.new(8, 8, 2.0, Vector3.ZERO)
 	grid.set_domain(Vector2i(3, 0), SMDomainGrid.Domain.DEEP)
@@ -599,13 +599,13 @@ func test_sm_nodes() -> void:
 	check(net.snap_refinery(&"s", 0), "refinery snaps to a node")
 	check(net.has_collector(&"s"), "one collector spawns")
 	check(not net.snap_refinery(&"s", 1), "a second refinery on the same node is rejected")
-	check(net.advance(4.0, econ) == 10, "the collector loop pays")
+	check(net.advance(4.0, econ) == 250, "the collector loop pays")
 	check(not net.set_night_shift(&"s", true), "slag has no night shift")
 	check(net.set_night_shift(&"u", true) and net.visible_through_fog(&"u"), "ruby night shift is visible through fog")
 	check(net.set_night_shift(&"j", true) and net.night_on(&"j"), "jade night shift toggles")
 	check(net.snap_refinery(&"u", 0), "ruby refinery")
 	var before: int = econ.credits(0)
-	check(net.advance(2.0, econ) == 10 and econ.credits(0) - before == 10, "night shift pays a full loop in half the time")
+	check(net.advance(2.0, econ) == 250 and econ.credits(0) - before == 250, "night shift pays a full loop in half the time")
 	check(net.snap_refinery(&"r", 0), "rare-earth refinery")
 	var credits_before: int = econ.credits(0)
 	net.advance(4.0, econ)
@@ -614,6 +614,10 @@ func test_sm_nodes() -> void:
 	check(not net.try_spend_stock(0, 2), "tier-3 gear cannot spend stock it lacks")
 	check(net.try_spend_stock(0, 1) and net.stock_of(0) == 0, "rare-earth stock spends")
 	check(net.harm_infantry(Vector3(3, 0, 0), false, 1.0) == 8.0, "adjacent water harms unshielded infantry")
+	var bullion: SMCommodityNet = SMCommodityNet.new()
+	var bullion_econ: RTSEconomy = RTSEconomy.new()
+	bullion.add_node(&"bar", SMCommodityNet.KIND_BULLION, Vector3.ZERO, 10, false)
+	check(bullion.snap_refinery(&"bar", 0) and bullion.advance(4.0, bullion_econ) == 400, "a bullion trip pays 400")
 	check(net.harm_infantry(Vector3(3, 0, 0), true, 1.0) == 0.0, "shielded infantry are spared")
 
 func test_sm_tech() -> void:
@@ -627,10 +631,10 @@ func test_sm_tech() -> void:
 	tech.add_site(&"r", SMTechNet.RADAR, Vector3(6, 0, 0))
 	check(tech.capture(&"c", 0), "cyber compound captures")
 	tech.advance(1.0, econ, 1)
-	check(tech.income_of(&"c") == 12 and tech.siphon_of(&"c") == 4, "cyber income and siphon")
+	check(tech.income_of(&"c") == 25 and tech.siphon_of(&"c") == 4, "cyber income and siphon")
 	check(econ.credits(1) == 96, "the siphon takes enemy credits")
 	check(tech.capture(&"b", 0), "arms bazaar captures")
-	check(is_equal_approx(tech.discount(0, "drone"), 0.7) and is_equal_approx(tech.discount(0, "infantry"), 0.7), "bazaar discounts drones and infantry")
+	check(is_equal_approx(tech.discount(0, "drone"), 0.8) and is_equal_approx(tech.discount(0, "infantry"), 0.8), "bazaar discounts drones and infantry")
 	check(tech.discount(0, "armor") == 1.0, "bazaar leaves other tags alone")
 	tech.set_import("rotary_slot", true)
 	check(tech.import_open("rotary_slot"), "an import slot is a data flag")
@@ -693,6 +697,8 @@ func _on_test_domain(_unit_id: int, from_domain: int, to_domain: int) -> void:
 	_domain_seen.append(to_domain)
 
 func test_sm_ew() -> void:
+	var fresh: SMEwField = SMEwField.new()
+	check(is_equal_approx(fresh.radius, 1000.0) and is_equal_approx(fresh.penalty, 0.4) and is_equal_approx(fresh.accuracy(Vector3(500, 0, 0), SMEwField.GPS), 0.4), "the jammer covers a thousand meters at a sixty percent penalty")
 	var ew: SMEwField = SMEwField.new()
 	ew.center = Vector3.ZERO
 	ew.radius = 10.0
@@ -847,7 +853,7 @@ func test_sm_mission() -> void:
 	var before: float = foe.hp
 	var struck: int = int(scene.call("fire_secondary"))
 	check(struck > 0 and foe.hp < before, "F strikes an enemy on the raid")
-	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudCredits") == "Credits 50000" and _hud_text(scene, "HudPower") == "Power 90" and _hud_text(scene, "HudMap") == SMCampaign.title_of("kokang") and _hud_text(scene, "HudSelection") == "Nothing selected", "the raid shows faction, credits, power, and the mission name")
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudCredits") == "Credits 50000" and _hud_text(scene, "HudPower") == "Power 0/0" and _hud_text(scene, "HudMap") == SMCampaign.title_of("kokang") and _hud_text(scene, "HudSelection") == "Nothing selected", "the raid shows faction, credits, power, and the mission name")
 	var raid_map: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
 	if raid_map != null:
 		raid_map.sample()
@@ -970,7 +976,7 @@ func test_sm_factions() -> void:
 	check(myard.style == SMBuildYard.Style.INTERNAL, "mvd uses the internal queue")
 	var before_radius: float = myard.radius
 	check(not myard.queue_internal(&"drone_bay"), "tier 2 waits on clearance")
-	check(bool(mvd.call("buy_clearance")) and myard.clearance == 2 and myard.radius == before_radius + 6.0, "clearance 2 widens the pad")
+	check(is_equal_approx(before_radius, 25.0) and bool(mvd.call("buy_clearance")) and myard.clearance == 2 and myard.radius == 45.0, "clearance 2 widens the pad")
 	check(bool(mvd.call("queue_hub")), "the hub finishes inside the queue")
 	check(bool(mvd.call("place_hub")) and myard.finished.has(&"command_hub"), "the hub places inside the radius")
 	check(bool(mvd.call("buy_clearance")) and myard.clearance == 3, "clearance 3 follows clearance 2")
@@ -1081,7 +1087,7 @@ func test_sm_hud() -> void:
 	await process_frame
 	check(_hud_text(scene, "HudFaction") == "GTFC", "phillips names the faction")
 	check(_hud_text(scene, "HudCredits") == "Credits 50000", "phillips shows credits")
-	check(_hud_text(scene, "HudPower") == "Power 90", "phillips shows army power")
+	check(_hud_text(scene, "HudPower") == "Power 0/0", "phillips shows army power")
 	check(_hud_text(scene, "HudMap") == "Phillips Channel", "phillips names the map")
 	check(_hud_text(scene, "HudSelection") == "Nothing selected", "phillips says when nothing is selected")
 	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
@@ -1106,7 +1112,22 @@ func test_sm_hud() -> void:
 	check(yard.finished.has(&"scaffold_yard") and yard.style == SMBuildYard.Style.SCAFFOLD and purse.economy.credits(0) == 49980 and scene.get_node_or_null("Built_scaffold_yard") is MeshInstance3D, "a building click raises a scaffold yard")
 	var before: int = field.count_team(0)
 	trained.pressed.emit()
-	check(field.count_team(0) == before + 1 and purse.economy.credits(0) == 49900 and _hud_text(scene, "HudPower") == "Power 98", "a unit click trains it and spends credits")
+	check(field.count_team(0) == before + 1 and purse.economy.credits(0) == 49900 and _hud_text(scene, "HudPower") == "Power 0/0", "a unit click trains it and spends credits")
+	var cancel: Button = scene.find_child("CancelQueue", true, false) as Button
+	check(yard.begin_scaffold(&"salween_hydro", yard.center, 200.0), "a second scaffold can start")
+	yard.advance(1.0)
+	var during: int = purse.economy.credits(0)
+	cancel.pressed.emit()
+	check(cancel != null and not yard.scaffold_active and purse.economy.credits(0) == during + 5 and _hud_text(scene, "HudBuild") == "cancelled", "cancel refunds the scaffold in progress")
+	yard.finished.append(&"barracks")
+	(scene.get("hud") as SMHud).refresh()
+	var blocked_n: int = field.count_team(0)
+	var blocked_c: int = purse.economy.credits(0)
+	trained.pressed.emit()
+	check(field.count_team(0) == blocked_n and purse.economy.credits(0) == blocked_c and _hud_text(scene, "HudPower") == "Power 0/30" and _hud_text(scene, "HudBuild") == "low power", "low power stops production")
+	yard.finished.append(&"salween_hydro")
+	trained.pressed.emit()
+	check(field.count_team(0) == blocked_n + 1 and purse.economy.credits(0) == blocked_c - 80 and _hud_text(scene, "HudPower") == "Power 100/30", "a plant restores production")
 	scene.free()
 	await _hud_map("res://game/sop_ruak.tscn", "Sop Ruak")
 	await _hud_map("res://game/burma_road.tscn", "Burma Road")
@@ -1354,6 +1375,8 @@ func _sight_radar(path: String) -> void:
 	tech.capture(&"radar", 0)
 	SMSight.update_match(book, scene.get("field") as SMPointer, scene as Node3D, tech, scene.get("raider") as SMRaider)
 	check(yard.visible and book.sees(yard.global_position), "a captured hydro radar reveals the enemy yard")
+	var channel: Vector3 = grid.cell_center(Vector2i(20, 2))
+	check(book.river_lit and book.sees(channel) and grid.domain_at(channel) == SMDomainGrid.Domain.DEEP, "hydro radar lights the river corridor")
 	var corner: Vector2i = Vector2i(0, 23)
 	check(not book.sees(grid.cell_center(corner)) and book.cell_state(corner) == SMSight.HIDDEN, "ground outside the radar stays hidden")
 	scene.free()
@@ -1475,12 +1498,12 @@ func test_sm_field() -> void:
 	var standing: bool = sim.goods.has_collector(&"slag_west")
 	check((standing or sim.goods.snap_refinery(&"slag_west", 0)) and roster.economy.credits(0) == before, "claiming Golden Slag does not pay until the loop finishes")
 	scene.call("tick_world", 4.0)
-	check(roster.economy.credits(0) == before + 20, "a Phillips tick pays a claimed node")
+	check(roster.economy.credits(0) == before + 250, "a Phillips tick pays a claimed node")
 	var night_before: int = roster.economy.credits(0)
 	sim.goods.add_node(&"ruby_night", SMCommodityNet.KIND_RUBY, Vector3(48.0, 0.0, 20.0), 15, false)
 	check(sim.goods.snap_refinery(&"ruby_night", 0) and sim.goods.set_night_shift(&"ruby_night", true), "night shift arms a ruby node")
 	scene.call("tick_world", 2.0)
-	check(roster.economy.credits(0) == night_before + 15, "night shift pays ruby in half a loop")
+	check(roster.economy.credits(0) == night_before + 250, "night shift pays ruby in half a loop")
 	check(sim.goods.snap_refinery(&"rare_shore", 0), "a rare-earth node can be claimed")
 	scene.call("tick_world", 4.0)
 	check(sim.goods.stock_of(0) >= 1, "rare-earth stock grows on a Phillips tick")
@@ -1507,7 +1530,7 @@ func test_sm_field() -> void:
 	var cost_before: int = roster.economy.credits(0)
 	var trained: Button = scene.find_child("Train_militia", true, false) as Button
 	trained.pressed.emit()
-	check(trained != null and roster.economy.credits(0) == cost_before - 56, "a captured bazaar discounts a trained infantry unit")
+	check(trained != null and roster.economy.credits(0) == cost_before - 64, "a captured bazaar discounts a trained infantry unit")
 	scene.free()
 	await process_frame
 
@@ -1523,9 +1546,20 @@ func _sites(path: String, nodes: int, cyber: int, bazaar: int, clinic: int, rada
 	var scene: Node = (load(path) as PackedScene).instantiate()
 	root.add_child(scene)
 	await process_frame
+	var sim: SMMatch = scene.get("sim") as SMMatch
 	check(_site_counts(scene, nodes, cyber, bazaar, clinic, radar, salvage, derrick, bridge), "%s has its blueprint nodes" % path.get_file())
+	if path.ends_with("chiang_rai.tscn"):
+		var gar: int = _prefix_count(scene, "Garrison_")
+		var gid: StringName = &""
+		for site: Dictionary in sim.tech.sites:
+			if StringName(str(site.get("kind", ""))) == SMTechNet.GARRISON:
+				gid = StringName(str(site.get("id", "")))
+				break
+		var held: bool = sim.tech.capture(gid, 0)
+		scene.call("tick_world", 1.0)
+		check(gar == 4 and held and sim.tech.income_of(gid) >= 8, "chiang rai has four civilian garrisons")
 	if path.ends_with("sop_ruak.tscn"):
-		var sim: SMMatch = scene.get("sim") as SMMatch
+		sim = scene.get("sim") as SMMatch
 		var roster: SMRoster = scene.get("roster") as SMRoster
 		var before: int = roster.economy.credits(0)
 		var id: StringName = _paying_node(sim)
@@ -1739,7 +1773,7 @@ func _named_f(faction: String, id: String, display: String, ability: String, sta
 	field.select_only([u])
 	var fired: bool = field.cast_f(u.global_position) != ""
 	var after: float = _stat_of(u, stat)
-	var ok: bool = u != null and field.name_of(u) == display and str(u.get_meta("ability", "")) == ability and ability != "" and fired and not is_equal_approx(before, after)
+	var ok: bool = u != null and field.name_of(u) == display and str(u.get_meta("ability", "")) == ability and ability != "" and fired and not is_equal_approx(before, after) and str(u.get_meta("f_effect", "")) == ability
 	host.free()
 	return ok
 
@@ -1905,6 +1939,24 @@ func test_sm_fx() -> void:
 		mat = body.material_override as ShaderMaterial
 	var ice_on: bool = mat != null and mat.shader != null and mat.shader.resource_path.ends_with("cryo_freeze_overlay.gdshader")
 	check(bool(foe.get_meta("frozen")) and ice_on, "freezing a unit on the cryo mission shows the ice shader")
+	var fx: Script = preload("res://addons/rts_advanced/sm_fx.gd")
+	var painter: MeshInstance3D = scene.find_child("BeamPainter", true, false) as MeshInstance3D
+	var dome: MeshInstance3D = scene.find_child("AegisDome", true, false) as MeshInstance3D
+	var cone: MeshInstance3D = scene.find_child("RubyCone", true, false) as MeshInstance3D
+	var pool: MeshInstance3D = scene.find_child("SlagPool", true, false) as MeshInstance3D
+	var jam: MeshInstance3D = scene.find_child("JammerDome", true, false) as MeshInstance3D
+	var caster: RTSUnit = field.units_of(0)[0]
+	caster.set_meta("beam_kind", "painter")
+	caster.set_meta("aegis", true)
+	caster.set_meta("slagged", true)
+	var night_goods: SMCommodityNet = SMCommodityNet.new()
+	night_goods.add_node(&"ruby", SMCommodityNet.KIND_RUBY, Vector3(3.0, 0.0, 0.0), 10, false)
+	night_goods.set_night_shift(&"ruby", true)
+	var jammer: SMEwField = SMEwField.new()
+	jammer.center = Vector3(4.0, 0.0, 2.0)
+	jammer.active = true
+	fx.drive(scene as Node3D, field, night_goods, jammer)
+	check(painter != null and painter.visible and dome != null and dome.visible and cone != null and cone.visible and pool != null and pool.visible and jam != null and jam.visible, "status drives the beams, domes, night cone, and slag pool")
 	scene.call("finish_objective")
 	check(bool(foe.get_meta("frozen")), "completing the cryo mission freezes a unit")
 	scene.free()
@@ -2370,6 +2422,10 @@ func test_sm_web() -> void:
 	_meet_story(scene, "tachileik")
 	await process_frame
 	check(FileAccess.file_exists("user://campaign.save") and SMSave.has("tachileik") and not SMSave.has("kokang"), "a campaign save appears after the objective")
+	var root_dir: String = ProjectSettings.globalize_path("res://")
+	var brotli: String = FileAccess.get_file_as_string(root_dir.path_join("tools/brotli_host.conf"))
+	check(SMSave.idb_script().contains("indexedDB"), "campaign saves mirror into IndexedDB on the web")
+	check(brotli.contains("brotli") and brotli.contains("wasm"), "the web host config turns Brotli on for the pack")
 	scene.free()
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
@@ -2774,7 +2830,7 @@ func test_sm_monsoon() -> void:
 	check(is_equal_approx(clear_u.position.x, 10.0) and is_equal_approx(mud_u.position.x, 5.5), "monsoon cuts a ground step to just over half")
 	clear_u.free()
 	mud_u.free()
-	check(SMGuide.howto_text().contains("Monsoon") and SMGuide.howto_text().contains("bridge") and SMGuide.howto_text().contains("CH-4"), "the how-to names monsoon, bridges, and the black market")
+	check(SMGuide.howto_text().contains("Monsoon") and SMGuide.howto_text().contains("bridge") and SMGuide.howto_text().contains("CH-4") and SMGuide.howto_text().contains("Low power") and SMGuide.howto_text().contains("Cancel") and SMGuide.howto_text().contains("river"), "the how-to names monsoon, bridges, and the black market")
 	SMFront.faction_id = "gtfc"
 	var scene: Node = (load("res://game/mekong_delta.tscn") as PackedScene).instantiate()
 	root.add_child(scene)

@@ -1,4 +1,7 @@
 extends Node3D
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
+const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
 ## Sop Ruak. Three land sectors split by a Y-shaped river.
 ## GTFC versus one enemy across a Y-shaped river. Same pointer controls as Phillips Channel.
 
@@ -35,6 +38,8 @@ func _ready() -> void:
 	SMSight.update_match(sight, field, self, sim.tech, raider)
 
 func train_unit() -> String:
+	if not Power.online(side.yard):
+		return ""
 	var done: StringName = roster.train_and_finish(SMFront.train_kind())
 	if done == &"":
 		return ""
@@ -160,6 +165,7 @@ func _process(delta: float) -> void:
 	tick_world(delta)
 	sight.advance_weather(delta)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	Fx.drive(self, field, sim.goods, sim.ew)
 	hud.refresh()
 	var players: Array[SMBuildYard] = [side.yard, sim.yard]
 	var foes: Array[SMBuildYard] = [raider.yard]

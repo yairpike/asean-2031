@@ -46,11 +46,16 @@ fi
 if ! grep -q 'serviceWorker.register("sw.js")' "$DEST/index.html"; then
   sed -i 's#</body>#<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script></body>#' "$DEST/index.html"
 fi
+cp "$ROOT/tools/brotli_host.conf" "$DEST/brotli_host.conf"
+if ! grep -q "brotli" "$DEST/brotli_host.conf" || ! grep -q "wasm" "$DEST/brotli_host.conf"; then
+  echo "finish_web_export: brotli host config is missing"
+  exit 1
+fi
 if ! grep -q "GODOT_THREADS_ENABLED = false" "$DEST/index.html"; then
   echo "finish_web_export: export is not single-threaded"
   exit 1
 fi
-for f in index.html index.wasm index.pck index.manifest.json sw.js manifest.webmanifest; do
+for f in index.html index.wasm index.pck index.manifest.json sw.js manifest.webmanifest brotli_host.conf; do
   if [ ! -f "$DEST/$f" ]; then
     echo "finish_web_export: missing $f"
     exit 1

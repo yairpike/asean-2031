@@ -1,5 +1,7 @@
 class_name SMSide
 extends RefCounted
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
 ## Build-style buttons for the faction chosen on the boot screen.
 
 var faction_id: String = "gtfc"
@@ -29,6 +31,7 @@ func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector
 	if style_name == "internal":
 		yard.style = SMBuildYard.Style.INTERNAL
 		yard.clearance = 1
+		yard.radius = 25.0
 		hub_mesh = _slab("HubShell", SMPointer.building_at(center + Vector3(4.0, 0.0, 0.0)), SMPointer.BUILDING_SIZE, Color.html("#26BFD1"))
 		hub_mesh.visible = false
 	elif style_name == "mobile":
@@ -40,6 +43,10 @@ func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector
 		yard.style = SMBuildYard.Style.SCAFFOLD
 
 func order_building(id: StringName) -> String:
+	var role: String = str(yard.building_role.get(id, ""))
+	if not Power.allows(yard, role):
+		_say("low power")
+		return "low power"
 	if yard.style == SMBuildYard.Style.SCAFFOLD:
 		return _order_scaffold(id)
 	if yard.style == SMBuildYard.Style.INTERNAL:
@@ -78,6 +85,15 @@ func queue_hub() -> bool:
 		yard.advance(5.0)
 	_say("hub ready to place" if ok and yard.ready.has(&"command_hub") else "hub not queued")
 	return ok and yard.ready.has(&"command_hub")
+
+func cancel_order() -> String:
+	var was_scaffold: bool = yard.scaffold_active
+	yard.abort_scaffold()
+	if was_scaffold or yard.cancel_internal() != &"":
+		_say("cancelled")
+		return "cancelled"
+	_say("nothing to cancel")
+	return "nothing to cancel"
 
 func buy_clearance() -> bool:
 	if faction_id != "mvd":

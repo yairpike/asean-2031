@@ -1,4 +1,7 @@
 extends Node3D
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
+const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
 ## NMRF mobile packer, or MVD internal queue with clearance.
 ## Same pointer controls as Sop Ruak. Six named placeholders.
 
@@ -32,6 +35,8 @@ func _ready() -> void:
 	SMSight.update_match(sight, field, self, sim.tech, raider)
 
 func train_unit() -> String:
+	if not Power.online(yard):
+		return ""
 	var id: StringName = &"cyan_sentry" if faction_id == "mvd" else &"olive_ranger"
 	var done: StringName = roster.train_and_finish(id)
 	if done == &"":
@@ -111,6 +116,7 @@ func _prepare_yard() -> void:
 	if faction_id == "mvd":
 		yard.style = SMBuildYard.Style.INTERNAL
 		yard.clearance = 1
+		yard.radius = 25.0
 	else:
 		yard.style = SMBuildYard.Style.MOBILE
 		yard.grid = grid
@@ -266,6 +272,7 @@ func _process(delta: float) -> void:
 	field.place_beacon(field.enemy_anchor())
 	sight.advance_weather(delta)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	Fx.drive(self, field, sim.goods, sim.ew)
 	var players: Array[SMBuildYard] = [yard]
 	var foes: Array[SMBuildYard] = [raider.yard]
 	outcome.tick(field, players, foes, delta)

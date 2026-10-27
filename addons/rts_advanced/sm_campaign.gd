@@ -302,8 +302,8 @@ func _channel_crossing() -> bool:
 func _jammer_drill() -> bool:
 	var ew: SMEwField = SMEwField.new()
 	ew.center = Vector3.ZERO
-	ew.radius = 10.0
-	ew.penalty = 0.25
+	ew.radius = 1000.0
+	ew.penalty = 0.4
 	var inside: Vector3 = Vector3(2.0, 0.0, 0.0)
 	return ew.accuracy(inside, SMEwField.GPS) < 1.0 and ew.accuracy(inside, SMEwField.FIBER) == 1.0
 
@@ -322,7 +322,7 @@ func _arms_bazaar() -> bool:
 	tech.add_site(&"bazaar", SMTechNet.BAZAAR, Vector3.ZERO)
 	if not tech.capture(&"bazaar", 0):
 		return false
-	return is_equal_approx(tech.discount(0, "infantry"), 0.7) and is_equal_approx(tech.discount(0, "drone"), 0.7)
+	return is_equal_approx(tech.discount(0, "infantry"), 0.8) and is_equal_approx(tech.discount(0, "drone"), 0.8)
 
 func _field_clinic() -> bool:
 	var economy: RTSEconomy = RTSEconomy.new()

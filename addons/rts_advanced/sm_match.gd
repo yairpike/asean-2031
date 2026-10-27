@@ -48,7 +48,6 @@ func setup_phillips(faction: String = "gtfc") -> void:
 	abilities = SMAbilities.new()
 	ew = SMEwField.new()
 	ew.center = grid.cell_center(Vector2i(10, 6))
-	ew.radius = 10.0
 	protocols = SMProtocols.new()
 	audio = SMAudioDirector.new()
 	domain_log.clear()
@@ -195,7 +194,7 @@ func run_bot(bot: SMBot) -> Dictionary:
 		frozen = frozen or abilities.status_of(2) == SMAbilities.ST_FROZEN
 	if bot.personality == &"bo_mya":
 		var drone_cost: int = int(roundf(100.0 * tech.discount(player, "drone")))
-		fired = fired and drone_cost == 70
+		fired = fired and drone_cost == 80
 	audio.set_combat(true)
 	audio.advance(1.1)
 	var target: int = 2 if abilities.index_of(2) >= 0 else -1
@@ -466,6 +465,10 @@ func _sites_chiang() -> void:
 	tech.add_site(&"cyber_d", SMTechNet.CYBER, grid.cell_center(Vector2i(46, 30)))
 	tech.add_site(&"bazaar_a", SMTechNet.BAZAAR, grid.cell_center(Vector2i(12, 22)))
 	tech.add_site(&"bazaar_b", SMTechNet.BAZAAR, grid.cell_center(Vector2i(42, 24)))
+	tech.add_site(&"garrison_a", SMTechNet.GARRISON, grid.cell_center(Vector2i(12, 4)))
+	tech.add_site(&"garrison_b", SMTechNet.GARRISON, grid.cell_center(Vector2i(24, 16)))
+	tech.add_site(&"garrison_c", SMTechNet.GARRISON, grid.cell_center(Vector2i(38, 36)))
+	tech.add_site(&"garrison_d", SMTechNet.GARRISON, grid.cell_center(Vector2i(52, 10)))
 
 func _node(id: StringName, kind: StringName, cell: Vector2i, rate: int, water: bool) -> void:
 	goods.add_node(id, kind, grid.cell_center(cell), rate, water)
@@ -488,6 +491,8 @@ func _site_prefix(kind: StringName) -> String:
 		return "Derrick_"
 	if kind == SMTechNet.BRIDGE:
 		return "Bridge_"
+	if kind == SMTechNet.GARRISON:
+		return "Garrison_"
 	return "Tech_"
 
 func _site_color(kind: StringName) -> Color:
@@ -503,6 +508,8 @@ func _site_color(kind: StringName) -> Color:
 		return Color(0.35, 0.32, 0.28)
 	if kind == SMTechNet.BRIDGE:
 		return Color(0.42, 0.38, 0.32)
+	if kind == SMTechNet.GARRISON:
+		return Color(0.62, 0.58, 0.5)
 	return Color(0.4, 0.28, 0.18)
 
 func _site_mesh(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:

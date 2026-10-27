@@ -9,6 +9,7 @@ const RADAR: StringName = &"hydro_radar"
 const SALVAGE: StringName = &"salvage"
 const DERRICK: StringName = &"derrick"
 const BRIDGE: StringName = &"bridge"
+const GARRISON: StringName = &"garrison"
 const VISION_RADIUS: float = 24.0
 const BRIDGE_HP: int = 80
 const BAZAAR_CUT: float = 0.05
@@ -76,7 +77,7 @@ func advance(delta: float, economy: RTSEconomy, enemy: int) -> void:
 			continue
 		var kind: StringName = StringName(str(site["kind"]))
 		if kind == CYBER:
-			var gain: int = int(roundf(12.0 * delta))
+			var gain: int = int(roundf(25.0 * delta))
 			if gain > 0:
 				economy.earn(owner, gain)
 				site["income"] = int(site["income"]) + gain
@@ -86,6 +87,11 @@ func advance(delta: float, economy: RTSEconomy, enemy: int) -> void:
 				site["siphoned"] = int(site["siphoned"]) + steal
 		elif kind == CLINIC:
 			site["healed"] = float(site["healed"]) + 6.0 * delta
+		elif kind == GARRISON:
+			var pay: int = int(roundf(8.0 * delta))
+			if pay > 0:
+				economy.earn(owner, pay)
+				site["income"] = int(site["income"]) + pay
 		sites[i] = site
 
 func income_of(id: StringName) -> int:
@@ -105,7 +111,7 @@ func discount(team: int, tag: String) -> float:
 		return 1.0
 	for i: int in sites.size():
 		if StringName(str(sites[i]["kind"])) == BAZAAR and int(sites[i]["owner"]) == team:
-			return 0.7
+			return 0.8
 	return 1.0
 
 func holds(kind: StringName, team: int) -> bool:

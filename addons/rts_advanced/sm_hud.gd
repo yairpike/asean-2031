@@ -1,5 +1,7 @@
 class_name SMHud
 extends RefCounted
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
 ## In-match readout. Primitive controls and a flat minimap. No map mesh, no art.
 
 var field: SMPointer
@@ -103,7 +105,7 @@ func refresh() -> void:
 		purse = roster.economy.credits(0)
 	_measure_purse()
 	credits_label.text = "Credits %d" % purse
-	power_label.text = "Power %d" % _power()
+	power_label.text = Power.readout(side.yard if side != null else null)
 	map_label.text = map_name
 	if weather_label != null:
 		var sky: String = "Clear"
@@ -231,6 +233,7 @@ func _column(layer: CanvasLayer) -> void:
 	if side != null and side.yard.super_name != "":
 		var super_tip: String = "%s. Area hit, then it cools down." % side.yard.super_name
 		_button(box, "Super_%s" % str(side.yard.super_id), side.yard.super_name, _super, super_tip, "ability")
+	_button(box, "CancelQueue", "Cancel", _cancel, "Cancel the building in progress and refund what it has spent.", "ui")
 	_header(box, "GroupUnits", "Units")
 	for unit: Dictionary in SMCatalog.units_of(data):
 		var uid: StringName = StringName(str(unit.get("id", "")))
@@ -302,8 +305,26 @@ func _import(id: StringName) -> void:
 		build_label.text = field.name_of(u)
 	refresh()
 
+func _cancel() -> void:
+	var note: String = ""
+	if roster != null and roster.queue != null and not roster.queue.items.is_empty():
+		roster.queue.cancel(roster.economy)
+		note = "cancelled"
+	if side != null:
+		var built: String = side.cancel_order()
+		if note == "":
+			note = built
+	if build_label != null:
+		build_label.text = note if note != "" else "nothing to cancel"
+	refresh()
+
 func _train(id: StringName) -> void:
 	if roster == null or field == null:
+		return
+	if side != null and not Power.online(side.yard):
+		if build_label != null:
+			build_label.text = "low power"
+		refresh()
 		return
 	var done: StringName = roster.train_and_finish(id)
 	if done == &"":
@@ -321,14 +342,6 @@ func _ability() -> void:
 	if on_ability.is_valid():
 		on_ability.call()
 	refresh()
-
-func _power() -> int:
-	if field == null:
-		return 0
-	var total: int = 0
-	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
-		total += int(round(u.attack_damage))
-	return total
 
 func _selection_line() -> String:
 	var base: String = "Nothing selected"

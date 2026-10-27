@@ -22,6 +22,7 @@ var weather_t: float = 0.0
 var hazy: bool = false
 var monsoon: bool = false
 var weather_name: String = "Clear"
+var river_lit: bool = false
 
 func bind(p_grid: SMDomainGrid) -> void:
 	grid = p_grid
@@ -70,6 +71,7 @@ func begin() -> void:
 	seers.clear()
 	radii.clear()
 	posts.clear()
+	river_lit = false
 
 func add_seer(at: Vector3, radius: float) -> void:
 	seers.append(at)
@@ -87,10 +89,37 @@ func commit() -> void:
 				explored[_index(Vector2i(x, y))] = 1
 
 func sees(at: Vector3) -> bool:
+	if river_lit and _on_corridor(at):
+		return true
 	for i: int in seers.size():
 		if _flat(at, seers[i]) <= radii[i]:
 			return true
 	return false
+
+func _on_corridor(at: Vector3) -> bool:
+	if grid == null:
+		return false
+	var cell: Vector2i = grid.cell_at(at)
+	if not grid.in_bounds(cell):
+		return false
+	if _wet(grid.domain_at_cell(cell)):
+		return true
+	var east: Vector2i = cell + Vector2i(1, 0)
+	var west: Vector2i = cell + Vector2i(-1, 0)
+	var south: Vector2i = cell + Vector2i(0, 1)
+	var north: Vector2i = cell + Vector2i(0, -1)
+	if grid.in_bounds(east) and _wet(grid.domain_at_cell(east)):
+		return true
+	if grid.in_bounds(west) and _wet(grid.domain_at_cell(west)):
+		return true
+	if grid.in_bounds(south) and _wet(grid.domain_at_cell(south)):
+		return true
+	if grid.in_bounds(north) and _wet(grid.domain_at_cell(north)):
+		return true
+	return false
+
+func _wet(domain: int) -> bool:
+	return domain == SMDomainGrid.Domain.SHALLOW or domain == SMDomainGrid.Domain.DEEP
 
 func cell_state(cell: Vector2i) -> int:
 	if grid == null or not grid.in_bounds(cell):
@@ -157,6 +186,7 @@ static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: S
 		if is_instance_valid(u) and u.is_alive() and field.teams.are_allies(SMPointer.PLAYER, u.team):
 			sight.add_seer(u.global_position, reach)
 	if radar_held:
+		sight.river_lit = true
 		for at: Vector3 in tech.vision_points(SMPointer.PLAYER):
 			sight.add_seer(at, SMTechNet.VISION_RADIUS)
 	if raider != null and raider.yard != null and raider.yard.living_count() > 0:

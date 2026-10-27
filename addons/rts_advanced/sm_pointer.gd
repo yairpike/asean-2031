@@ -41,6 +41,7 @@ var line_formation: bool = false
 var last_pick: int = 0
 var last_pick_ms: int = 0
 const FX = preload("res://addons/rts_advanced/sm_fx.gd")
+const Cast = preload("res://addons/rts_advanced/sm_cast.gd")
 const F_COOLDOWN: float = 3.0
 const BEAM_TIME: float = 1.5
 
@@ -765,6 +766,7 @@ func cast_f(aim: Vector3) -> String:
 func apply_named_f(u: RTSUnit) -> bool:
 	if not is_instance_valid(u):
 		return false
+	Cast.apply(self, u)
 	var stat: String = str(u.get_meta("f_stat", "damage"))
 	if stat == "speed":
 		u.speed_scale += 0.4
@@ -776,6 +778,8 @@ func apply_named_f(u: RTSUnit) -> bool:
 	else:
 		u.damage_mult += 0.25
 	u.set_meta("f_stat_changed", stat)
+	if str(u.get_meta("f_effect", "")) == "":
+		u.set_meta("f_effect", str(u.get_meta("ability", "")))
 	return true
 
 func apply_status(u: RTSUnit, status: String, duration: float) -> void:

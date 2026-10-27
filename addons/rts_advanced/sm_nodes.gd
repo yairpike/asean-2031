@@ -134,13 +134,18 @@ func advance(delta: float, economy: RTSEconomy) -> int:
 			if kind == KIND_RARE:
 				rare_stock[owner] = rare_stock.get(owner, 0) + 1
 			else:
-				var amount: int = int(node["rate"])
+				var amount: int = _credit_payout(kind)
 				economy.earn(owner, amount)
 				paid += amount
 				node["paid"] = int(node["paid"]) + amount
 		node["loop_t"] = t
 		nodes[i] = node
 	return paid
+
+func _credit_payout(kind: StringName) -> int:
+	if kind == KIND_BULLION:
+		return 400
+	return 250
 
 func paid_of(id: StringName) -> int:
 	var i: int = find(id)

@@ -10,8 +10,8 @@ const HOP: int = 3
 const NONE: int = 4
 
 var center: Vector3 = Vector3.ZERO
-var radius: float = 12.0
-var penalty: float = 0.25
+var radius: float = 1000.0
+var penalty: float = 0.4
 var active: bool = true
 
 static func guidance_of(name: String) -> int:

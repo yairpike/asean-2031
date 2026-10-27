@@ -1,4 +1,7 @@
 extends Node3D
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
+const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
 ## Phillips Channel. Two land masses, a deep channel, shallow crossings.
 ## RA3-style sidebar with cameo placeholders. The far shore builds, expands, and attacks.
 
@@ -131,6 +134,8 @@ func _action(row: HBoxContainer, caption: String, fn: Callable) -> void:
 	row.add_child(b)
 
 func train_unit() -> String:
+	if not Power.online(side.yard):
+		return ""
 	var done: StringName = roster.train_and_finish(SMFront.train_kind())
 	if done == &"":
 		return ""
@@ -219,6 +224,7 @@ func _process(delta: float) -> void:
 	tick_world(delta)
 	sight.advance_weather(delta)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	Fx.drive(self, field, sim.goods, sim.ew)
 	hud.refresh()
 	var players: Array[SMBuildYard] = [side.yard, sim.yard]
 	var foes: Array[SMBuildYard] = [raider.yard]
