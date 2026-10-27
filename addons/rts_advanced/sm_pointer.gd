@@ -873,7 +873,7 @@ func announce(u: RTSUnit, cue: String) -> void:
 	if on_line.is_valid():
 		on_line.call(text)
 	if on_bark.is_valid():
-		var pitch: float = 1.35 if str(u.get_meta("status", "")) == "shrunk" else 1.0
+		var pitch: float = 1.6 if str(u.get_meta("status", "")) == "shrunk" else 1.0
 		on_bark.call(pitch, str(u.unit_type), cue)
 
 func _first_player() -> RTSUnit:
@@ -927,7 +927,19 @@ func _bar_fit(u: RTSUnit) -> float:
 	var view: Vector2 = vp.get_visible_rect().size
 	var dist: float = cam.global_position.distance_to(u.global_position)
 	var cap: float = minf(view.x * 0.16, 120.0)
-	return RTSCamera.screen_fit(view, cam.fov, dist, 2.0, cap)
+	return _screen_span(view, cam.fov, dist, 2.0, cap)
+
+func _screen_span(viewport: Vector2, fov_deg: float, dist: float, world_span: float, cap_px: float) -> float:
+	if viewport.y < 64.0 or dist < 0.25 or world_span <= 0.0 or cap_px < 1.0:
+		return 1.0
+	var fov: float = fov_deg if fov_deg > 1.0 else 75.0
+	var half: float = tan(deg_to_rad(fov) * 0.5)
+	if half < 0.001:
+		return 1.0
+	var px: float = world_span * viewport.y / (2.0 * half * dist)
+	if px <= cap_px:
+		return 1.0
+	return cap_px / px
 
 func _paint_vitals(u: RTSUnit, delta: float) -> void:
 	var bar: MeshInstance3D = u.get_node_or_null("HealthBar") as MeshInstance3D

@@ -28,6 +28,8 @@ var muster_at: Vector3 = Vector3.ZERO
 var home_point: Vector3 = Vector3.ZERO
 var home_set: bool = false
 var clock: float = 0.0
+var react_scale: float = 1.0
+var _react_hold: float = 0.0
 var rocket_mult: float = 1.0
 var last_note: String = ""
 var _navs: Dictionary[String, RTSGridNav] = {}
@@ -73,12 +75,17 @@ func direct(units: Array[RTSUnit], foes: Array[RTSUnit], grid: SMDomainGrid, nav
 		_open_with_scout(ready, live, grid, nav_for, home, teams)
 		return
 	if not wave_sent:
-		if clock < 2.5 and not _huddled(ready):
+		if clock < 2.5 * react_scale and not _huddled(ready):
 			return
 		_send_wave(ready, live, grid, nav_for, teams)
 		wave_sent = true
 		scout_before_wave = true
 		return
+	if react_scale > 1.01:
+		_react_hold -= delta
+		if _react_hold > 0.0:
+			return
+		_react_hold = 0.4 * (react_scale - 1.0)
 	_press_wave(ready, live, grid, nav_for, teams)
 
 func restore_node(goods: SMCommodityNet, id: StringName, team: int) -> bool:

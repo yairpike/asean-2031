@@ -52,6 +52,7 @@ func _ready() -> void:
 	add_child(gear)
 	preload("res://game/settings_panel.gd").attach(self)
 	preload("res://game/match_settings.gd").apply_scene(self)
+	mark_difficulty()
 	preload("res://game/match_audio.gd").arm(self, "menu")
 
 func _skirmish() -> void:
@@ -72,6 +73,7 @@ func _skirmish() -> void:
 	hint.position = Vector2(48, 268)
 	hint.add_theme_color_override("font_color", Color(0.62, 0.66, 0.7))
 	skirmish_panel.add_child(hint)
+	_difficulty_row(skirmish_panel, "Skirmish", Vector2(48, 308))
 	var grey: Button = Button.new()
 	grey.name = "GreyboxButton"
 	grey.text = "Greybox"
@@ -104,6 +106,7 @@ func _campaign() -> void:
 	note.position = Vector2(48, 8)
 	note.add_theme_color_override("font_color", Color(0.7, 0.74, 0.78))
 	campaign_panel.add_child(note)
+	_difficulty_row(campaign_panel, "Campaign", Vector2(48, 492))
 	var acts: PackedStringArray = SMCampaign.act_ids()
 	for i: int in acts.size():
 		var act: String = acts[i]
@@ -119,7 +122,7 @@ func _campaign() -> void:
 		var scroll: ScrollContainer = ScrollContainer.new()
 		scroll.name = _act_list_name(act)
 		scroll.position = Vector2(268, 48)
-		scroll.size = Vector2(960, 470)
+		scroll.size = Vector2(960, 430)
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		var box: VBoxContainer = VBoxContainer.new()
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -380,6 +383,45 @@ func _mark_factions() -> void:
 		var edge: Color = Color(0.86, 0.7, 0.32) if on else Color(0.3, 0.32, 0.36)
 		_style_button(card, fill, edge, on)
 
+func _difficulty_row(parent: Control, prefix: String, at: Vector2) -> void:
+	var label: Label = Label.new()
+	label.name = prefix + "DiffLabel"
+	label.text = "Difficulty"
+	label.position = at
+	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_color_override("font_color", Color(0.9, 0.91, 0.93))
+	parent.add_child(label)
+	var names: PackedStringArray = PackedStringArray(["Easy", "Normal", "Hard"])
+	for i: int in names.size():
+		var b: Button = Button.new()
+		b.name = prefix + "Diff" + names[i]
+		b.text = names[i]
+		b.position = at + Vector2(120.0 + float(i) * 112.0, -6.0)
+		b.custom_minimum_size = Vector2(104, 40)
+		b.add_theme_font_size_override("font_size", 16)
+		var id: String = names[i].to_lower()
+		b.pressed.connect(_pick_difficulty.bind(id))
+		parent.add_child(b)
+	mark_difficulty()
+
+func _pick_difficulty(id: String) -> void:
+	preload("res://game/match_settings.gd").set_difficulty(id)
+	mark_difficulty()
+
+func mark_difficulty() -> void:
+	var current: String = str(preload("res://game/match_settings.gd").difficulty)
+	var names: PackedStringArray = PackedStringArray(["Easy", "Normal", "Hard"])
+	var prefixes: PackedStringArray = PackedStringArray(["Skirmish", "Campaign"])
+	for prefix: String in prefixes:
+		for caption: String in names:
+			var b: Button = find_child(prefix + "Diff" + caption, true, false) as Button
+			if b == null:
+				continue
+			var on: bool = caption.to_lower() == current
+			var fill: Color = Color(0.28, 0.2, 0.1) if on else Color(0.12, 0.13, 0.16)
+			var edge: Color = Color(0.9, 0.72, 0.28) if on else Color(0.32, 0.34, 0.38)
+			_style_button(b, fill, edge, on)
+
 func _refresh_playing() -> void:
 	if playing_label != null:
 		playing_label.text = "Next skirmish: %s" % SMFront.banner()
@@ -548,6 +590,20 @@ func _place_skirmish(size: Vector2, panel_h: float) -> void:
 	if grey != null:
 		grey.position = Vector2(gap, panel_h - 116.0)
 		grey.custom_minimum_size = Vector2(140, 44)
+	var diff_names: PackedStringArray = PackedStringArray(["SkirmishDiffEasy", "SkirmishDiffNormal", "SkirmishDiffHard"])
+	var bw: float = (size.x - gap * 4.0) / 3.0
+	for slot: int in diff_names.size():
+		var choice: Control = find_child(diff_names[slot], true, false) as Control
+		_remember(choice)
+		if choice == null:
+			continue
+		choice.position = Vector2(gap + float(slot) * (bw + gap), panel_h - 176.0)
+		choice.custom_minimum_size = Vector2(bw, 48)
+		choice.size = Vector2(bw, 48)
+	var diff_label: Control = find_child("SkirmishDiffLabel", true, false) as Control
+	_remember(diff_label)
+	if diff_label != null:
+		diff_label.visible = false
 
 func _place_campaign(size: Vector2, panel_h: float) -> void:
 	var acts: PackedStringArray = PackedStringArray(["ActI", "ActII", "ActIII"])
@@ -568,7 +624,7 @@ func _place_campaign(size: Vector2, panel_h: float) -> void:
 		if scroll == null:
 			continue
 		scroll.position = Vector2(gap, 56.0)
-		scroll.size = Vector2(size.x - gap * 2.0, panel_h - 64.0)
+		scroll.size = Vector2(size.x - gap * 2.0, panel_h - 128.0)
 		if scroll.get_child_count() > 0:
 			var inner: Control = scroll.get_child(0) as Control
 			_remember(inner)
@@ -580,6 +636,20 @@ func _place_campaign(size: Vector2, panel_h: float) -> void:
 		if row == null:
 			continue
 		row.custom_minimum_size = Vector2(size.x - 32.0, 48)
+	var camp_names: PackedStringArray = PackedStringArray(["CampaignDiffEasy", "CampaignDiffNormal", "CampaignDiffHard"])
+	var camp_w: float = (size.x - gap * 4.0) / 3.0
+	for slot: int in camp_names.size():
+		var choice: Control = find_child(camp_names[slot], true, false) as Control
+		_remember(choice)
+		if choice == null:
+			continue
+		choice.position = Vector2(gap + float(slot) * (camp_w + gap), panel_h - 60.0)
+		choice.custom_minimum_size = Vector2(camp_w, 48)
+		choice.size = Vector2(camp_w, 48)
+	var camp_label: Control = find_child("CampaignDiffLabel", true, false) as Control
+	_remember(camp_label)
+	if camp_label != null:
+		camp_label.visible = false
 
 func _place_factions(size: Vector2) -> void:
 	var cards: PackedStringArray = PackedStringArray(["FactionGtfc", "FactionNmrf", "FactionMvd"])

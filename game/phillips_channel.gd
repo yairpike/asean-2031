@@ -133,6 +133,7 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.ENEMY, sim.grid.cell_center(cell), &"raider")
 	raider.attach(field, sim.grid.cell_center(Vector2i(30, 12)))
 	raider.bind_plan(sim.goods, sim.tech, &"bullion_east", &"bullion_north", &"cyber", "Bo Mya")
+	preload("res://game/match_settings.gd").apply_raider(raider)
 
 func _action(row: HBoxContainer, caption: String, fn: Callable) -> void:
 	var b: Button = Button.new()

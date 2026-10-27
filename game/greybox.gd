@@ -40,6 +40,10 @@ func _ready() -> void:
 	add_child(layer)
 	preload("res://game/settings_panel.gd").attach(layer)
 	preload("res://game/match_settings.gd").apply_scene(self)
+	var fitter: Node = Node.new()
+	fitter.name = "CameraFit"
+	fitter.set_script(preload("res://game/camera_fit.gd"))
+	add_child(fitter)
 
 func _process(delta: float) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera

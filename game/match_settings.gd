@@ -11,6 +11,7 @@ static var master: float = 1.0
 static var sfx: float = 1.0
 static var pan: float = 1.0
 static var edge: bool = true
+static var difficulty: String = "normal"
 static var lock: String = ""
 
 static func hold(q: String) -> void:
@@ -87,6 +88,34 @@ static func set_edge(on: bool) -> void:
 	edge = on
 	_write()
 
+static func set_difficulty(id: String) -> void:
+	ensure()
+	if id == "easy" or id == "hard":
+		difficulty = id
+	else:
+		difficulty = "normal"
+	_write()
+
+static func pace() -> Dictionary:
+	ensure()
+	if difficulty == "easy":
+		return {"income": 0.55, "wave_time": 1.7, "wave_size": 0.55, "react": 1.75, "hp": 0.7, "damage": 0.65}
+	if difficulty == "hard":
+		return {"income": 2.4, "wave_time": 0.12, "wave_size": 2.0, "react": 0.45, "hp": 1.45, "damage": 1.4}
+	return {"income": 1.0, "wave_time": 1.0, "wave_size": 1.0, "react": 1.0, "hp": 1.0, "damage": 1.0}
+
+static func apply_raider(raider: SMRaider) -> void:
+	if raider == null:
+		return
+	var row: Dictionary = pace()
+	raider.apply_pace(float(row["income"]), float(row["wave_time"]), float(row["wave_size"]), float(row["react"]))
+
+static func apply_story(story: SMStory) -> void:
+	if story == null:
+		return
+	var row: Dictionary = pace()
+	story.prepare_foe(float(row["hp"]), float(row["damage"]))
+
 static func cue_db(base: float) -> float:
 	ensure()
 	if sfx <= 0.001:
@@ -126,6 +155,11 @@ static func _read() -> void:
 	sfx = clampf(float(cfg.get_value("game", "sfx", 1.0)), 0.0, 1.0)
 	pan = clampf(float(cfg.get_value("game", "pan", 1.0)), 0.4, 2.2)
 	edge = bool(cfg.get_value("game", "edge", true))
+	var stored_diff: String = str(cfg.get_value("game", "difficulty", "normal"))
+	if stored_diff == "easy" or stored_diff == "hard":
+		difficulty = stored_diff
+	else:
+		difficulty = "normal"
 
 static func _write() -> void:
 	var cfg: ConfigFile = ConfigFile.new()
@@ -134,6 +168,7 @@ static func _write() -> void:
 	cfg.set_value("game", "sfx", sfx)
 	cfg.set_value("game", "pan", pan)
 	cfg.set_value("game", "edge", edge)
+	cfg.set_value("game", "difficulty", difficulty)
 	cfg.save(PATH)
 	_mirror()
 
@@ -146,6 +181,7 @@ static func _mirror() -> void:
 		"sfx": sfx,
 		"pan": pan,
 		"edge": edge,
+		"difficulty": difficulty,
 	}
 	var body: String = JSON.stringify(payload)
 	JavaScriptBridge.eval(IDB_JS % JSON.stringify(body))

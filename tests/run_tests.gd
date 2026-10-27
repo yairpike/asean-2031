@@ -16,6 +16,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	Settings.hold("high")
+	Settings.set_difficulty("normal")
 	H = Harness.new()
 	if Harness.selftest_mode() == "crash":
 		await H.section("harness_crash_selftest", H.crash_selftest)
@@ -83,6 +84,7 @@ func _run() -> void:
 	await H.section("test_sm_pick", test_sm_pick)
 	await H.section("test_sm_monsoon", test_sm_monsoon)
 	await H.section("test_sm_settings", test_sm_settings)
+	await H.section("test_sm_difficulty", test_sm_difficulty)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2580,20 +2582,23 @@ func test_sm_guide() -> void:
 	var fit_cam: RTSCamera = RTSCamera.new()
 	fit_holder.add_child(fit_cam)
 	fit_cam.distance = 18.0
-	fit_cam.fit_view(Vector2(1280, 720))
+	var fit_script: GDScript = load("res://game/camera_fit.gd") as GDScript
+	fit_script.call("fit", fit_cam, Vector2(1280, 720))
 	check(absf(fit_cam.distance - 18.0) < 0.01, "a wide view keeps the authored camera distance")
-	fit_cam.fit_view(Vector2(412, 915))
+	fit_script.call("fit", fit_cam, Vector2(412, 915))
 	check(fit_cam.distance > 30.0 and fit_cam.distance <= fit_cam.zoom_max, "a tall view pulls the camera back")
 	fit_cam.zoom(1.0)
 	var zoomed: float = fit_cam.distance
-	fit_cam.fit_view(Vector2(390, 844))
+	fit_script.call("fit", fit_cam, Vector2(390, 844))
 	check(absf(fit_cam.distance - zoomed) < 0.01, "a portrait zoom sticks until the frame flips")
-	fit_cam.fit_view(Vector2(1280, 720))
+	fit_script.call("fit", fit_cam, Vector2(1280, 720))
 	check(absf(fit_cam.distance - 18.0) < 0.01, "returning to landscape restores the authored distance")
-	var desktop_bar: float = RTSCamera.screen_fit(Vector2(1280, 720), 75.0, 30.0, 2.0, 120.0)
-	var close_bar: float = RTSCamera.screen_fit(Vector2(412, 915), 75.0, 4.0, 2.0, 65.0)
-	var desktop_pole: float = RTSCamera.screen_fit(Vector2(1280, 720), 75.0, 24.0, 7.0, 720.0 * 0.28)
-	var close_pole: float = RTSCamera.screen_fit(Vector2(412, 915), 75.0, 12.0, 7.0, 915.0 * 0.28)
+	var cam_src: String = FileAccess.get_file_as_string("res://addons/rts_advanced/rts_camera.gd")
+	check(not cam_src.contains("fit_view") and not cam_src.contains("screen_fit") and not cam_src.contains("authored_distance") and not cam_src.contains("fit_key"), "the core camera keeps its original fields")
+	var desktop_bar: float = float(fit_script.call("span", Vector2(1280, 720), 75.0, 30.0, 2.0, 120.0))
+	var close_bar: float = float(fit_script.call("span", Vector2(412, 915), 75.0, 4.0, 2.0, 65.0))
+	var desktop_pole: float = float(fit_script.call("span", Vector2(1280, 720), 75.0, 24.0, 7.0, 720.0 * 0.28))
+	var close_pole: float = float(fit_script.call("span", Vector2(412, 915), 75.0, 12.0, 7.0, 915.0 * 0.28))
 	check(absf(desktop_bar - 1.0) < 0.001 and desktop_pole > 0.99, "desktop health bars and the objective marker stay full size")
 	check(close_bar < 0.5 and close_bar > 0.05 and close_pole < 0.85 and close_pole > 0.05, "a close portrait marker shrinks to the screen")
 	fit_holder.free()
@@ -2691,7 +2696,7 @@ func test_sm_bark() -> void:
 	unit.set_meta("status", "shrunk")
 	field.announce(unit, "hurt")
 	var voice: AudioStreamPlayer = scene.find_child("BarkPlayer", true, false) as AudioStreamPlayer
-	check(voice != null and absf(voice.pitch_scale - 1.35) < 0.01, "a shrunk unit barks higher")
+	check(voice != null and absf(voice.pitch_scale - 1.6) < 0.01, "a shrunk unit barks higher")
 	var other: RTSUnit = _unit_kind(field, 0, "slag_hauler")
 	other.take_damage(other.max_hp)
 	field.tick(0.05)
@@ -3418,6 +3423,69 @@ func _gtfc_names(field: SMPointer) -> bool:
 			return false
 	return true
 
+func test_sm_difficulty() -> void:
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	var skirmish_hard: Button = boot.find_child("SkirmishDiffHard", true, false) as Button
+	var campaign_easy: Button = boot.find_child("CampaignDiffEasy", true, false) as Button
+	check(boot.find_child("SkirmishDiffEasy", true, false) != null and boot.find_child("SkirmishDiffNormal", true, false) != null and skirmish_hard != null, "skirmish offers Easy, Normal, and Hard")
+	check(campaign_easy != null and boot.find_child("CampaignDiffNormal", true, false) != null and boot.find_child("CampaignDiffHard", true, false) != null, "campaign offers Easy, Normal, and Hard")
+	skirmish_hard.pressed.emit()
+	check(Settings.difficulty == "hard", "a skirmish choice saves Hard")
+	campaign_easy.pressed.emit()
+	Settings.reread()
+	check(Settings.difficulty == "easy", "a campaign choice saves Easy")
+	boot.free()
+	await process_frame
+	var hard_hp: float = await _foe_stat("hard", "hp")
+	var easy_hp: float = await _foe_stat("easy", "hp")
+	var hard_dmg: float = await _foe_stat("hard", "damage")
+	var easy_dmg: float = await _foe_stat("easy", "damage")
+	check(hard_hp > 100.0 and easy_hp < 100.0 and hard_hp > easy_hp and hard_dmg > easy_dmg, "campaign enemies are tougher on Hard than on Easy")
+	var hard_life: float = await _company_life("hard", 180.0)
+	var easy_cap: float = minf(180.0, hard_life + 45.0)
+	var easy_life: float = await _company_life("easy", easy_cap)
+	check(easy_life > hard_life + 15.0, "easy lasts longer than hard for a passive player")
+	Settings.set_difficulty("normal")
+	SMFront.faction_id = "gtfc"
+
+func _foe_stat(diff: String, which: String) -> float:
+	Settings.set_difficulty(diff)
+	SMCampaign.selected = "tachileik"
+	var scene: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var best: float = 0.0
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		var value: float = u.max_hp if which == "hp" else u.attack_damage
+		if value > best:
+			best = value
+	scene.free()
+	await process_frame
+	return best
+
+func _company_life(diff: String, cap: float) -> float:
+	Settings.set_difficulty(diff)
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/burma_road.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var lived: float = 0.0
+	while lived < cap:
+		scene._process(0.5)
+		lived += 0.5
+		var field: SMPointer = scene.get("field") as SMPointer
+		var end: SMOutcome = scene.get("outcome") as SMOutcome
+		var standing: bool = field.units_of(SMPointer.PLAYER).size() > 0
+		var defeated: bool = end != null and end.over and not end.victory
+		if not standing or defeated:
+			break
+	scene.free()
+	await process_frame
+	return lived
+
 func test_sm_settings() -> void:
 	var banned: PackedStringArray = PackedStringArray([
 		"MeshInstance3D.new", "MultiMesh.new", "MultiMeshInstance3D.new",
@@ -3452,8 +3520,9 @@ func test_sm_settings() -> void:
 	Settings.set_sfx(0.25)
 	Settings.set_pan(1.6)
 	Settings.set_edge(false)
+	Settings.set_difficulty("hard")
 	Settings.reread()
-	check(Settings.graphics == "low" and is_equal_approx(Settings.master, 0.4) and is_equal_approx(Settings.sfx, 0.25) and is_equal_approx(Settings.pan, 1.6) and not Settings.edge, "settings round-trip through user://")
+	check(Settings.graphics == "low" and is_equal_approx(Settings.master, 0.4) and is_equal_approx(Settings.sfx, 0.25) and is_equal_approx(Settings.pan, 1.6) and not Settings.edge and Settings.difficulty == "hard", "settings round-trip through user://")
 	check(Settings.idb_script().contains("indexedDB") and Settings.idb_script().contains("settings"), "settings mirror into IndexedDB on the web")
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
@@ -3487,4 +3556,7 @@ func test_sm_settings() -> void:
 	Settings.set_sfx(1.0)
 	Settings.set_pan(1.0)
 	Settings.set_edge(true)
+	Settings.set_difficulty("normal")
 	Settings.hold("high")
+	var web_script: GDScript = load("res://addons/rts_advanced/sm_web.gd") as GDScript
+	check(int(web_script.call("pointer_mode", true)) == Input.MOUSE_MODE_CONFINED and int(web_script.call("pointer_mode", false)) == Input.MOUSE_MODE_VISIBLE, "a match keeps the pointer inside the window")

@@ -9,6 +9,9 @@ signal banner_made(parent: Node3D, node_name: String, text: String, size: int, p
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
 const ALIVE_CAP: int = 18
 const THREAT_M: float = 14.0
+const BASE_PURSE: int = 3000
+const BASE_WAVE_AT: Array[float] = [0.0, 150.0, 270.0, 390.0, 510.0, 660.0]
+const BASE_WAVE_N: Array[int] = [1, 2, 2, 3, 4, 18]
 
 var yard: SMBuildYard = SMBuildYard.new()
 var goods: SMCommodityNet = SMCommodityNet.new()
@@ -50,6 +53,9 @@ var train_catalog: Dictionary[StringName, Dictionary] = {}
 var unit_rows: Dictionary[StringName, Dictionary] = {}
 var committed: Dictionary[int, bool] = {}
 var wrecked: Dictionary[StringName, bool] = {}
+var income_scale: float = 1.0
+var react_scale: float = 1.0
+var _income_frac: float = 0.0
 
 func attach(p_field: SMPointer, center: Vector3) -> void:
 	field = p_field
@@ -102,12 +108,31 @@ func bind_plan(goods_net: SMCommodityNet, tech: SMTechNet, first: StringName, se
 	personality_name = who
 	brain = SMBot.new(SMBot.id_of(who))
 
+func apply_pace(income: float, wave_time: float, wave_size: float, react: float) -> void:
+	income_scale = clampf(income, 0.25, 4.0)
+	react_scale = clampf(react, 0.25, 3.0)
+	var time_scale: float = clampf(wave_time, 0.08, 3.0)
+	var size_scale: float = clampf(wave_size, 0.25, 4.0)
+	wave_at.clear()
+	wave_n.clear()
+	for i: int in BASE_WAVE_AT.size():
+		wave_at.append(BASE_WAVE_AT[i] * time_scale)
+		wave_n.append(maxi(1, int(round(float(BASE_WAVE_N[i]) * size_scale))))
+	if economy != null:
+		economy.set_credits(SMPointer.ENEMY, int(round(float(BASE_PURSE) * income_scale)))
+	if brain != null:
+		brain.react_scale = react_scale
+	_retune_units()
+
 func tick(delta: float) -> void:
 	if field == null:
 		return
 	_step = delta
 	clock += delta
 	_ensure_brain()
+	if brain != null:
+		brain.react_scale = react_scale
+	_grant_income(delta)
 	_arm_macro()
 	_build()
 	_bury()
@@ -173,7 +198,7 @@ func _arm_macro() -> void:
 			continue
 		yard.tech_order.append(id)
 		yard.building_tier[id] = tier
-		yard.building_time[id] = float(row.get("time", 5.0))
+		yard.building_time[id] = float(row.get("time", 5.0)) * _tempo()
 		yard.building_role[id] = role
 		yard.structure_max[id] = float(row.get("hp", 220.0))
 		macro_ids.append(id)
@@ -196,7 +221,7 @@ func _arm_macro() -> void:
 		if uid == &"" or cost <= 0:
 			continue
 		unit_rows[uid] = unit
-		var spec: Dictionary = {"cost": cost, "time": float(unit.get("time", 3.0))}
+		var spec: Dictionary = {"cost": cost, "time": float(unit.get("time", 3.0)) * _tempo()}
 		train_catalog[uid] = spec
 		if urole == "infantry" and cost < best_inf:
 			best_inf = cost
@@ -209,6 +234,38 @@ func _arm_macro() -> void:
 			naval_unit = uid
 	if queue != null:
 		queue.catalog = train_catalog
+
+func _tempo() -> float:
+	if is_equal_approx(income_scale, 1.0):
+		return 1.0
+	return clampf(1.0 / income_scale, 0.35, 2.4)
+
+func _grant_income(delta: float) -> void:
+	if economy == null or is_equal_approx(income_scale, 1.0):
+		return
+	_income_frac += 28.0 * (income_scale - 1.0) * delta
+	if _income_frac >= 1.0:
+		var grant: int = int(_income_frac)
+		_income_frac -= float(grant)
+		economy.earn(SMPointer.ENEMY, grant)
+	elif _income_frac <= -1.0:
+		var drain: int = int(-_income_frac)
+		_income_frac += float(drain)
+		economy.try_spend(SMPointer.ENEMY, drain)
+
+func _retune_units() -> void:
+	if field == null:
+		return
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if is_instance_valid(u):
+			_pace_interval(u)
+
+func _pace_interval(u: RTSUnit) -> void:
+	if u == null:
+		return
+	if not u.has_meta(&"base_interval"):
+		u.set_meta(&"base_interval", u.attack_interval)
+	u.attack_interval = float(u.get_meta(&"base_interval")) * react_scale
 
 func _has_water() -> bool:
 	if field == null or field.domain == null:
@@ -300,6 +357,7 @@ func _paint_unit(u: RTSUnit, kind: StringName) -> void:
 	u.set_meta("role", str(row.get("role", "")))
 	u.set_meta("ability", str(row.get("ability", "")))
 	u.set_meta("f_stat", str(row.get("f_stat", "damage")))
+	_pace_interval(u)
 
 func _release() -> void:
 	if _player_at_base():

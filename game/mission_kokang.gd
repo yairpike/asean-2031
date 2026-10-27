@@ -116,7 +116,9 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.PLAYER, Vector3(-6.0 + float(i) * 2.0, 0.0, -4.0), kinds[i])
 	field.spawn(SMPointer.ENEMY, Vector3(8.0, 0.0, -2.0), &"raider")
 	field.spawn(SMPointer.ENEMY, Vector3(9.0, 0.0, 3.0), &"raider")
+	preload("res://game/match_settings.gd").apply_story(story)
 	story.bind_raid(self, mission, field, side)
+	story.scale_field()
 
 func fire_secondary() -> int:
 	var n: int = field.secondary_strike()

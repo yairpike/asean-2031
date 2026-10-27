@@ -255,6 +255,7 @@ func _arm_units() -> void:
 	for cell: Vector2i in [Vector2i(30, 12), Vector2i(31, 14), Vector2i(33, 11)]:
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
 	raider.attach(field, grid.cell_center(Vector2i(30, 12)))
+	preload("res://game/match_settings.gd").apply_raider(raider)
 
 func _say(text: String) -> void:
 	if status != null:

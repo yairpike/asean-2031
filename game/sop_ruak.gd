@@ -121,6 +121,7 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
 	raider.attach(field, grid.cell_center(Vector2i(26, 22)))
 	raider.bind_plan(sim.goods, sim.tech, &"bullion_a", &"bullion_b", &"cyber_b", "Iskandar")
+	preload("res://game/match_settings.gd").apply_raider(raider)
 
 func _bridge_down(id: StringName) -> void:
 	sim.collapse_bridge(id, field, self)

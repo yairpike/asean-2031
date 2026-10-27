@@ -31,9 +31,9 @@ func _ready() -> void:
 	anchor_right = 0.5
 	anchor_bottom = 0.5
 	offset_left = -270.0
-	offset_top = -230.0
+	offset_top = -250.0
 	offset_right = 270.0
-	offset_bottom = 230.0
+	offset_bottom = 270.0
 	var shade: ColorRect = ColorRect.new()
 	shade.color = Color(0.06, 0.07, 0.09, 0.96)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -77,17 +77,28 @@ func _ready() -> void:
 	edge_box.add_theme_font_size_override("font_size", 16)
 	edge_box.toggled.connect(_on_edge)
 	add_child(edge_box)
+	var diff_label: Label = _caption("Difficulty", Vector2(28, 336))
+	add_child(diff_label)
+	var easy: Button = _choice("SettingsDiffEasy", "Easy", Vector2(28, 368))
+	var normal: Button = _choice("SettingsDiffNormal", "Normal", Vector2(168, 368))
+	var hard: Button = _choice("SettingsDiffHard", "Hard", Vector2(308, 368))
+	easy.pressed.connect(_pick_difficulty.bind("easy"))
+	normal.pressed.connect(_pick_difficulty.bind("normal"))
+	hard.pressed.connect(_pick_difficulty.bind("hard"))
+	add_child(easy)
+	add_child(normal)
+	add_child(hard)
 	var close: Button = Button.new()
 	close.name = "SettingsClose"
 	close.text = "Close"
-	close.position = Vector2(360, 360)
+	close.position = Vector2(360, 428)
 	close.custom_minimum_size = Vector2(140, 44)
 	close.add_theme_font_size_override("font_size", 18)
 	close.pressed.connect(_close)
 	add_child(close)
 	var note: Label = Label.new()
 	note.text = "Low drops trees, rain, fog, and shadows."
-	note.position = Vector2(28, 372)
+	note.position = Vector2(28, 484)
 	note.add_theme_font_size_override("font_size", 14)
 	note.add_theme_color_override("font_color", Color(0.7, 0.74, 0.78))
 	add_child(note)
@@ -112,6 +123,7 @@ func pull() -> void:
 	sfx_slider.value = Settings.sfx
 	pan_slider.value = Settings.pan
 	edge_box.button_pressed = Settings.edge
+	_mark_difficulty()
 	_paint_readouts()
 	_syncing = false
 
@@ -142,6 +154,26 @@ func _on_pan(v: float) -> void:
 	Settings.set_pan(v)
 	_paint_readouts()
 	_apply()
+
+func _pick_difficulty(id: String) -> void:
+	if _syncing:
+		return
+	Settings.set_difficulty(id)
+	_mark_difficulty()
+	var scene: Node = get_tree().current_scene if get_tree() != null else null
+	if scene != null and scene.has_method("mark_difficulty"):
+		scene.call("mark_difficulty")
+
+func _mark_difficulty() -> void:
+	var easy: Button = get_node_or_null("SettingsDiffEasy") as Button
+	var normal: Button = get_node_or_null("SettingsDiffNormal") as Button
+	var hard: Button = get_node_or_null("SettingsDiffHard") as Button
+	if easy != null:
+		easy.disabled = Settings.difficulty == "easy"
+	if normal != null:
+		normal.disabled = Settings.difficulty == "normal"
+	if hard != null:
+		hard.disabled = Settings.difficulty == "hard"
 
 func _on_edge(on: bool) -> void:
 	if _syncing:

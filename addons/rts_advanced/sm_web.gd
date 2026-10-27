@@ -70,10 +70,8 @@ func _fit_view() -> void:
 	if vp == null:
 		return
 	var size: Vector2 = vp.get_visible_rect().size
-	var cam: Camera3D = vp.get_camera_3d()
-	if cam is RTSCamera:
-		(cam as RTSCamera).fit_view(size)
 	var scene: Node = get_tree().current_scene
+	_confine(scene)
 	if scene != null and scene.has_method("layout_for"):
 		scene.call("layout_for", size)
 	if _tracked != null and (_tracked.layer_node == null or not is_instance_valid(_tracked.layer_node)):
@@ -82,6 +80,17 @@ func _fit_view() -> void:
 		_tracked = _seek_hud(scene)
 	if _tracked != null:
 		_tracked.layout_for(size)
+
+static func pointer_mode(in_match: bool) -> int:
+	if in_match:
+		return Input.MOUSE_MODE_CONFINED
+	return Input.MOUSE_MODE_VISIBLE
+
+func _confine(scene: Node) -> void:
+	var in_match: bool = scene is Node3D
+	var mode: int = pointer_mode(in_match)
+	if Input.mouse_mode != mode:
+		Input.mouse_mode = mode
 
 func _seek_hud(scene: Node) -> SMHud:
 	if scene == null:

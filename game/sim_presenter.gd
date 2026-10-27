@@ -40,6 +40,11 @@ static func follow(host: Node) -> void:
 		hud.set_meta("view_bound", true)
 		hud.layer_mounted.connect(_on_layer)
 	Clips.arm(host, "match")
+	if host.get_node_or_null("CameraFit") == null:
+		var fitter: Node = Node.new()
+		fitter.name = "CameraFit"
+		fitter.set_script(preload("res://game/camera_fit.gd"))
+		host.add_child(fitter)
 
 static func follow_pointer(field: SMPointer) -> void:
 	if field == null or bool(field.get_meta("view_bound", false)):

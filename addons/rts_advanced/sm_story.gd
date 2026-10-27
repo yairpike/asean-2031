@@ -22,6 +22,8 @@ var abilities: SMAbilities
 var ew: SMEwField
 var sight: SMSight
 var sail: SMBuildYard
+var foe_hp: float = 1.0
+var foe_dmg: float = 1.0
 var host: Node3D
 var pad: Vector3 = Vector3(10.0, 0.0, -6.0)
 var far_shore: Vector3 = Vector3(12.0, 0.0, 2.0)
@@ -88,6 +90,23 @@ static func ending_of(id: String) -> String:
 	if id == "shattered_monsoon":
 		return "destroy: both enemy superweapons are destroyed"
 	return ""
+
+func prepare_foe(hp_scale: float, dmg_scale: float) -> void:
+	foe_hp = maxf(0.2, hp_scale)
+	foe_dmg = maxf(0.2, dmg_scale)
+
+func scale_field() -> void:
+	if field == null:
+		return
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if not is_instance_valid(u) or bool(u.get_meta(&"foe_scaled", false)):
+			continue
+		if not is_equal_approx(foe_hp, 1.0):
+			u.max_hp = maxf(1.0, u.max_hp * foe_hp)
+			u.hp = u.max_hp
+		if not is_equal_approx(foe_dmg, 1.0):
+			u.attack_damage *= foe_dmg
+		u.set_meta(&"foe_scaled", true)
 
 func bind_mission(p_host: Node3D, id: String, p_field: SMPointer, p_side: SMSide, p_roster: SMRoster, layer: CanvasLayer, grid: SMDomainGrid) -> void:
 	host = p_host
@@ -725,10 +744,16 @@ func _spawn_duty(team: int, at: Vector3, kind: StringName, duty: String, label: 
 func _paint(u: RTSUnit, duty: String, label: String, hp: float, speed: float, damage: float) -> void:
 	if u == null:
 		return
-	u.max_hp = hp
-	u.hp = hp
+	var use_hp: float = hp
+	var use_dmg: float = damage
+	if u.team == SMPointer.ENEMY:
+		use_hp = hp * foe_hp
+		use_dmg = damage * foe_dmg
+		u.set_meta(&"foe_scaled", true)
+	u.max_hp = use_hp
+	u.hp = use_hp
 	u.speed = speed
-	u.attack_damage = damage
+	u.attack_damage = use_dmg
 	u.attack_interval = 1.0
 	u.attack_range = 12.0 if speed <= 0.0 else 8.0
 	u.set_meta("duty", duty)

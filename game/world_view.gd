@@ -249,7 +249,7 @@ static func place_beacon(host: Node3D, at: Vector3) -> void:
 		var view: Vector2 = cam.get_viewport().get_visible_rect().size
 		var dist: float = cam.global_position.distance_to(Vector3(at.x, 3.6, at.z))
 		var cap: float = view.y * 0.28
-		y_scale = RTSCamera.screen_fit(view, cam.fov, dist, 7.0, cap)
+		y_scale = preload("res://game/camera_fit.gd").span(view, cam.fov, dist, 7.0, cap)
 	pole.scale = Vector3(pulse, y_scale, pulse)
 	if y_scale < 0.999:
 		pole.position = Vector3(at.x, 0.1 + 3.5 * y_scale, at.z)

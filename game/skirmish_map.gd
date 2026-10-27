@@ -267,6 +267,7 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
 	raider.attach(field, grid.cell_center(_enemy_cells()[0]))
 	raider.bind_plan(sim.goods, sim.tech, _plan_a(), _plan_b(), _plan_site(), _plan_name())
+	preload("res://game/match_settings.gd").apply_raider(raider)
 	_extra_sides()
 
 func _bridge_down(id: StringName) -> void:

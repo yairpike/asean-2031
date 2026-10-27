@@ -135,7 +135,9 @@ func _arm_units() -> void:
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, Vector3(-6.0 + float(i) * 2.4, 0.0, -2.0), kinds[i])
 	field.spawn(SMPointer.ENEMY, Vector3(6.0, 0.0, 3.0), &"raider")
+	preload("res://game/match_settings.gd").apply_story(story)
 	story.bind_mission(self, mission_id, field, side, roster, ui_layer, grid)
+	story.scale_field()
 
 func _say(text: String) -> void:
 	if status != null:
