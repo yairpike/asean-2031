@@ -123,9 +123,10 @@ func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], 
 					_hide(best_id)
 		elif not u.is_moving():
 			var path: PackedVector3Array = PackedVector3Array()
-			if field.nav != null:
-				path = field.nav.find_path(u.global_position, best_pos)
-			if path.is_empty():
+			var used: RTSGridNav = field.nav_for_unit(u)
+			if used != null:
+				path = used.find_path(u.global_position, best_pos)
+			if path.is_empty() and field.domain == null:
 				path = PackedVector3Array([best_pos])
 			u.set_path(path)
 

@@ -3,6 +3,9 @@ extends RefCounted
 ## Fog for a skirmish. Explored ground stays dim. Current sight is clear.
 
 const UNIT_RADIUS: float = 18.0
+const CYCLE: float = 24.0
+const HAZE_AT: float = 12.0
+const HAZE_SIGHT: float = 0.35
 const HIDDEN: int = 0
 const DIM: int = 1
 const CLEAR: int = 2
@@ -13,12 +16,29 @@ var radii: Array[float] = []
 var posts: Array[Vector3] = []
 var explored: PackedByteArray = PackedByteArray()
 var veil: MeshInstance3D
+var weather_t: float = 0.0
+var hazy: bool = false
+var weather_name: String = "Clear"
 
 func bind(p_grid: SMDomainGrid) -> void:
 	grid = p_grid
 	explored = PackedByteArray()
 	explored.resize(grid.cols * grid.rows)
 	explored.fill(0)
+
+func advance_weather(delta: float) -> void:
+	weather_t += delta
+	hazy = fmod(weather_t, CYCLE) >= HAZE_AT
+	weather_name = "Strait Haze" if hazy else "Clear"
+
+func force_weather(p_hazy: bool) -> void:
+	hazy = p_hazy
+	weather_name = "Strait Haze" if hazy else "Clear"
+
+func unit_radius(radar_held: bool) -> float:
+	if hazy and not radar_held:
+		return UNIT_RADIUS * HAZE_SIGHT
+	return UNIT_RADIUS
 
 func begin() -> void:
 	seers.clear()
@@ -105,9 +125,11 @@ static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: S
 	if sight == null or field == null:
 		return
 	sight.begin()
+	var radar_held: bool = tech != null and tech.reveals_water(SMPointer.PLAYER)
+	var reach: float = sight.unit_radius(radar_held)
 	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
-		sight.add_seer(u.global_position, UNIT_RADIUS)
-	if tech != null and tech.reveals_water(SMPointer.PLAYER):
+		sight.add_seer(u.global_position, reach)
+	if radar_held:
 		for at: Vector3 in tech.vision_points(SMPointer.PLAYER):
 			sight.add_seer(at, SMTechNet.VISION_RADIUS)
 	if raider != null and raider.yard != null and raider.yard.living_count() > 0:

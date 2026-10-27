@@ -61,6 +61,7 @@ func _run() -> void:
 	await H.section("test_sm_shapes", test_sm_shapes)
 	await H.section("test_sm_field", test_sm_field)
 	await H.section("test_sm_sites", test_sm_sites)
+	await H.section("test_sm_haze", test_sm_haze)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1553,6 +1554,35 @@ func _prefix_count(scene: Node, prefix: String) -> int:
 		if str(child.name).begins_with(prefix):
 			n += 1
 	return n
+
+func test_sm_haze() -> void:
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var book: SMSight = scene.get("sight") as SMSight
+	var west: Vector3 = sim.grid.cell_center(Vector2i(8, 12))
+	var east: Vector3 = sim.grid.cell_center(Vector2i(30, 12))
+	check(field.nav_ground.find_path(west, east).is_empty(), "a ground path across the Phillips channel fails")
+	check(field.nav_amphib.find_path(west, east).size() > 0, "a boat path across the Phillips channel succeeds")
+	check(field.nav_naval.find_path(west, east).size() > 0, "a naval path uses the deep channel")
+	var player: RTSUnit = field.units_of(0)[0]
+	var enemy: RTSUnit = field.units_of(1)[0]
+	player.global_position = west
+	enemy.global_position = west + Vector3(10.0, 0.0, 0.0)
+	book.force_weather(false)
+	SMSight.update_match(book, field, scene as Node3D, sim.tech, scene.get("raider") as SMRaider)
+	check(book.sees(enemy.global_position) and enemy.visible, "clear weather shows a unit inside normal sight")
+	book.force_weather(true)
+	SMSight.update_match(book, field, scene as Node3D, sim.tech, scene.get("raider") as SMRaider)
+	check(not book.sees(enemy.global_position) and not enemy.visible, "a haze tick hides a unit inside the shortened sight")
+	sim.tech.add_site(&"haze_radar", SMTechNet.RADAR, enemy.global_position)
+	sim.tech.capture(&"haze_radar", 0)
+	SMSight.update_match(book, field, scene as Node3D, sim.tech, scene.get("raider") as SMRaider)
+	check(book.sees(enemy.global_position) and enemy.visible, "a captured radar reveals the unit the haze hid")
+	scene.free()
+	await process_frame
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"

@@ -12,6 +12,7 @@ var faction_label: Label
 var credits_label: Label
 var power_label: Label
 var map_label: Label
+var weather_label: Label
 var selection_label: Label
 var build_label: Label
 var minimap: SMMinimap
@@ -37,6 +38,7 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	credits_label = _label(top, "HudCredits", Vector2(180, 8), 18)
 	power_label = _label(top, "HudPower", Vector2(460, 8), 18)
 	map_label = _label(top, "HudMap", Vector2(700, 8), 18)
+	weather_label = _label(top, "HudWeather", Vector2(980, 8), 16)
 	minimap = SMMinimap.new()
 	minimap.name = "Minimap"
 	minimap.position = Vector2(12, 48)
@@ -67,6 +69,11 @@ func refresh() -> void:
 	credits_label.text = "Credits %d" % purse
 	power_label.text = "Power %d" % _power()
 	map_label.text = map_name
+	if weather_label != null:
+		var sky: String = "Clear"
+		if minimap != null and minimap.sight != null:
+			sky = minimap.sight.weather_name
+		weather_label.text = sky
 	selection_label.text = _selection_line()
 	if minimap != null:
 		minimap.sample()

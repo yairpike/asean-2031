@@ -17,6 +17,11 @@ var faction_id: String = "gtfc"
 var primary_color: Color = Color(0.72, 0.12, 0.18)
 var accent_color: Color = Color(0.88, 0.62, 0.12)
 var nav: RTSGridNav
+var nav_ground: RTSGridNav
+var nav_amphib: RTSGridNav
+var nav_naval: RTSGridNav
+var nav_air: RTSGridNav
+var domain: SMDomainGrid
 var selection: RTSSelection = RTSSelection.new()
 var units: Array[RTSUnit] = []
 var box: RTSSelectionBox
@@ -51,13 +56,46 @@ func bind_faction(p_host: Node3D, p_cam: RTSCamera, faction: String) -> void:
 		teams.add_team(ENEMY, Color(0.12, 0.62, 0.7))
 
 func use_domain(grid: SMDomainGrid) -> void:
-	nav = RTSGridNav.new(grid.cols, grid.rows, grid.cell_size, grid.origin)
+	domain = grid
+	nav_ground = _nav_for_loco(grid, SMDomainGrid.Loco.GROUND)
+	nav_amphib = _nav_for_loco(grid, SMDomainGrid.Loco.AMPHIBIOUS)
+	nav_naval = _nav_for_loco(grid, SMDomainGrid.Loco.NAVAL)
+	nav_air = _nav_for_loco(grid, SMDomainGrid.Loco.AIR)
+	nav = nav_amphib
+
+func _nav_for_loco(grid: SMDomainGrid, loco: int) -> RTSGridNav:
+	var built: RTSGridNav = RTSGridNav.new(grid.cols, grid.rows, grid.cell_size, grid.origin)
 	for y: int in range(grid.rows):
 		for x: int in range(grid.cols):
-			var domain: int = grid.domain_at_cell(Vector2i(x, y))
-			var open: bool = domain == SMDomainGrid.Domain.LAND or domain == SMDomainGrid.Domain.SHALLOW
-			if not open:
-				nav.set_blocked(Vector2i(x, y), true)
+			if not grid.can_enter(grid.domain_at_cell(Vector2i(x, y)), loco):
+				built.set_blocked(Vector2i(x, y), true)
+	return built
+
+func nav_for_unit(u: RTSUnit) -> RTSGridNav:
+	var loco: String = "ground"
+	if is_instance_valid(u):
+		loco = str(u.get_meta("locomotion", "ground"))
+	if loco == "naval" and nav_naval != null:
+		return nav_naval
+	if loco == "amphibious" and nav_amphib != null:
+		return nav_amphib
+	if loco == "air" and nav_air != null:
+		return nav_air
+	if nav_ground != null:
+		return nav_ground
+	return nav
+
+func loco_id(u: RTSUnit) -> int:
+	var loco: String = "ground"
+	if is_instance_valid(u):
+		loco = str(u.get_meta("locomotion", "ground"))
+	if loco == "amphibious":
+		return SMDomainGrid.Loco.AMPHIBIOUS
+	if loco == "naval":
+		return SMDomainGrid.Loco.NAVAL
+	if loco == "air":
+		return SMDomainGrid.Loco.AIR
+	return SMDomainGrid.Loco.GROUND
 
 func use_open(cols: int, rows: int, cell: float, origin: Vector3) -> void:
 	nav = RTSGridNav.new(cols, rows, cell, origin)
@@ -253,12 +291,39 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 		return &"none"
 	var foe: RTSUnit = enemy_near(screen, ground, project_fn)
 	if foe != null:
-		var hit: int = RTSOrders.attack(selection.units, foe, nav, teams)
+		var hit: int = 0
+		for u: RTSUnit in selection.units:
+			if is_instance_valid(u) and u.is_alive():
+				var one: Array[RTSUnit] = [u]
+				hit += RTSOrders.attack(one, foe, nav_for_unit(u), teams)
 		return &"attack" if hit > 0 else &"none"
 	if ground == Vector3.INF:
 		return &"none"
-	var slots: Array[Vector3] = RTSOrders.move(selection.units, ground, nav)
-	return &"move" if not slots.is_empty() else &"none"
+	var live: Array[RTSUnit] = []
+	for u: RTSUnit in selection.units:
+		if is_instance_valid(u) and u.is_alive():
+			live.append(u)
+	if live.is_empty():
+		return &"none"
+	var center: Vector3 = Vector3.ZERO
+	var positions: Array[Vector3] = []
+	for u: RTSUnit in live:
+		center += u.global_position
+		positions.append(u.global_position)
+	center /= float(live.size())
+	var slots: Array[Vector3] = RTSFormation.box(center, ground, live.size(), 2.0)
+	var pick: Array[int] = RTSFormation.assign(positions, slots)
+	var sent: int = 0
+	for i: int in live.size():
+		var mover: RTSUnit = live[i]
+		var slot: Vector3 = slots[pick[i]]
+		var route: PackedVector3Array = nav_for_unit(mover).find_path(mover.global_position, slot)
+		if route.is_empty():
+			continue
+		mover.attack_target = null
+		mover.set_path(route)
+		sent += 1
+	return &"move" if sent > 0 else &"none"
 
 func enemy_near(screen: Vector2, ground: Vector3, project_fn: Callable) -> RTSUnit:
 	var best: RTSUnit = null
@@ -394,6 +459,16 @@ func filter_shot(u: RTSUnit, _target: RTSUnit, amount: float) -> float:
 	var scale: float = ew.accuracy(u.global_position, guidance, bool(u.get_meta("fiber_on", false)), bool(u.get_meta("hop_on", false)))
 	return amount * scale
 
+func _keep_domain(u: RTSUnit, before: Vector3) -> void:
+	if domain == null or not is_instance_valid(u):
+		return
+	var loco: int = loco_id(u)
+	var from_ok: bool = domain.can_enter(domain.domain_at(before), loco)
+	var to_ok: bool = domain.can_enter(domain.domain_at(u.global_position), loco)
+	if from_ok and not to_ok:
+		u.global_position = before
+		u.path = PackedVector3Array()
+
 func is_infantry(u: RTSUnit) -> bool:
 	if not is_instance_valid(u):
 		return false
@@ -479,7 +554,9 @@ func tick(delta: float) -> void:
 			u.queue_free()
 			continue
 		_tick_ability(u, delta)
+		var before: Vector3 = u.global_position
 		u.advance(delta)
+		_keep_domain(u, before)
 		var ring: Node3D = u.get_node_or_null("Ring") as Node3D
 		if ring != null:
 			ring.visible = u.selected

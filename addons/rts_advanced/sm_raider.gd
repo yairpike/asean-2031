@@ -69,7 +69,10 @@ func _attack() -> void:
 	var squad: Array[RTSUnit] = []
 	for u: RTSUnit in foes:
 		squad.append(u)
-	var hit: int = RTSOrders.attack(squad, target, field.nav, field.teams)
+	var hit: int = 0
+	for u: RTSUnit in squad:
+		var one: Array[RTSUnit] = [u]
+		hit += RTSOrders.attack(one, target, field.nav_for_unit(u), field.teams)
 	if hit > 0:
 		attacked = true
 
