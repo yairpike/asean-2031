@@ -431,6 +431,168 @@ func _style_button(b: Button, fill: Color, edge: Color, strong: bool) -> void:
 	b.add_theme_color_override("font_disabled_color", Color(0.45, 0.47, 0.5))
 	b.add_theme_color_override("font_hover_color", Color(1, 1, 1))
 
+var _phone: bool = false
+var _phone_size: Vector2 = Vector2.ZERO
+
+## Portrait boot. Desktop positions stay put, so the headless menu checks keep their coordinates.
+func layout_for(size: Vector2) -> void:
+	var want: bool = size.y > size.x + 4.0
+	if want == _phone and (not want or _phone_size.is_equal_approx(size)):
+		return
+	_phone = want
+	_phone_size = size
+	if not want:
+		_restore_boot(self)
+		return
+	_place_boot(size)
+
+func _remember(node: Control) -> void:
+	if node == null or node.has_meta("desk_pos"):
+		return
+	node.set_meta("desk_pos", node.position)
+	node.set_meta("desk_size", node.size)
+	node.set_meta("desk_min", node.custom_minimum_size)
+
+func _restore_boot(node: Node) -> void:
+	var control: Control = node as Control
+	if control != null and control.has_meta("desk_pos"):
+		control.position = control.get_meta("desk_pos")
+		control.size = control.get_meta("desk_size")
+		control.custom_minimum_size = control.get_meta("desk_min")
+	for child: Node in node.get_children():
+		_restore_boot(child)
+
+func _place_boot(size: Vector2) -> void:
+	var title: Control = find_child("GameTitle", true, false) as Control
+	_remember(title)
+	if title != null:
+		title.position = Vector2(12, 8)
+	var gear: Control = find_child("SettingsButton", true, false) as Control
+	_remember(gear)
+	if gear != null:
+		gear.position = Vector2(size.x - 116.0, 6.0)
+		gear.custom_minimum_size = Vector2(104, 48)
+		gear.size = Vector2(104, 48)
+	var gap: float = 8.0
+	var tab_w: float = (size.x - gap * 4.0) / 3.0
+	var tabs: PackedStringArray = PackedStringArray(["TabSkirmish", "TabCampaign", "TabFaction"])
+	for i: int in tabs.size():
+		var tab: Control = find_child(tabs[i], true, false) as Control
+		_remember(tab)
+		if tab == null:
+			continue
+		tab.position = Vector2(gap + float(i) * (tab_w + gap), 56.0)
+		tab.custom_minimum_size = Vector2(tab_w, 48)
+		tab.size = Vector2(tab_w, 48)
+	var panels: PackedStringArray = PackedStringArray(["PanelSkirmish", "PanelCampaign", "PanelFaction"])
+	var panel_h: float = size.y - 168.0
+	for panel_name: String in panels:
+		var panel: Control = find_child(panel_name, true, false) as Control
+		_remember(panel)
+		if panel == null:
+			continue
+		panel.position = Vector2(0, 112)
+		panel.size = Vector2(size.x, panel_h)
+	var bar: Control = find_child("ControlBar", true, false) as Control
+	_remember(bar)
+	if bar != null:
+		bar.position = Vector2(8, size.y - 40.0)
+		bar.size = Vector2(size.x - 16.0, 28)
+		bar.clip_text = true
+	for child: Node in get_children():
+		var rect: ColorRect = child as ColorRect
+		if rect == null or rect.anchor_right > 0.5:
+			continue
+		_remember(rect)
+		rect.position = Vector2(0, size.y - 48.0)
+		rect.size = Vector2(size.x, 48)
+	_place_skirmish(size, panel_h)
+	_place_campaign(size, panel_h)
+	_place_factions(size)
+
+func _place_skirmish(size: Vector2, panel_h: float) -> void:
+	var names: PackedStringArray = PackedStringArray([
+		"CardPhillips", "CardSopRuak", "CardBurma", "CardAtolls", "CardMekong", "CardChiang",
+	])
+	var gap: float = 8.0
+	var card_w: float = size.x - gap * 2.0
+	var card_h: float = 58.0
+	for i: int in names.size():
+		var card: Control = find_child(names[i], true, false) as Control
+		_remember(card)
+		if card == null:
+			continue
+		card.position = Vector2(gap, gap + float(i) * (card_h + gap))
+		card.custom_minimum_size = Vector2(card_w, card_h)
+		card.size = Vector2(card_w, card_h)
+	var skirmish: Node = find_child("PanelSkirmish", true, false)
+	if skirmish != null:
+		for child: Node in skirmish.get_children():
+			var note: Label = child as Label
+			if note == null or str(note.name) == "PlayingAs":
+				continue
+			_remember(note)
+			note.visible = false
+	var playing: Control = find_child("PlayingAs", true, false) as Control
+	_remember(playing)
+	if playing != null:
+		playing.position = Vector2(gap, gap + float(names.size()) * (card_h + gap))
+	var play: Control = find_child("PlayButton", true, false) as Control
+	_remember(play)
+	if play != null:
+		play.position = Vector2(gap, panel_h - 64.0)
+		play.custom_minimum_size = Vector2(size.x - gap * 2.0, 52)
+		play.size = Vector2(size.x - gap * 2.0, 52)
+	var grey: Control = find_child("GreyboxButton", true, false) as Control
+	_remember(grey)
+	if grey != null:
+		grey.position = Vector2(gap, panel_h - 116.0)
+		grey.custom_minimum_size = Vector2(140, 44)
+
+func _place_campaign(size: Vector2, panel_h: float) -> void:
+	var acts: PackedStringArray = PackedStringArray(["ActI", "ActII", "ActIII"])
+	var lists: PackedStringArray = PackedStringArray(["ActIMissions", "ActIIMissions", "ActIIIMissions"])
+	var gap: float = 8.0
+	var tab_w: float = (size.x - gap * 4.0) / 3.0
+	for i: int in acts.size():
+		var act: Control = find_child(acts[i], true, false) as Control
+		_remember(act)
+		if act == null:
+			continue
+		act.position = Vector2(gap + float(i) * (tab_w + gap), 4.0)
+		act.custom_minimum_size = Vector2(tab_w, 48)
+		act.size = Vector2(tab_w, 48)
+	for list_name: String in lists:
+		var scroll: Control = find_child(list_name, true, false) as Control
+		_remember(scroll)
+		if scroll == null:
+			continue
+		scroll.position = Vector2(gap, 56.0)
+		scroll.size = Vector2(size.x - gap * 2.0, panel_h - 64.0)
+		if scroll.get_child_count() > 0:
+			var inner: Control = scroll.get_child(0) as Control
+			_remember(inner)
+			if inner != null:
+				inner.custom_minimum_size = Vector2(size.x - 32.0, 0)
+	for mission_id: String in SMCampaign.ids():
+		var row: Control = find_child("Mission_%s" % mission_id, true, false) as Control
+		_remember(row)
+		if row == null:
+			continue
+		row.custom_minimum_size = Vector2(size.x - 32.0, 48)
+
+func _place_factions(size: Vector2) -> void:
+	var cards: PackedStringArray = PackedStringArray(["FactionGtfc", "FactionNmrf", "FactionMvd"])
+	var gap: float = 8.0
+	for i: int in cards.size():
+		var card: Control = find_child(cards[i], true, false) as Control
+		_remember(card)
+		if card == null:
+			continue
+		card.position = Vector2(gap, gap + float(i) * 128.0)
+		card.custom_minimum_size = Vector2(size.x - gap * 2.0, 116)
+		card.size = Vector2(size.x - gap * 2.0, 116)
+
 func _box(fill: Color, edge: Color, width: int) -> StyleBoxFlat:
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = fill

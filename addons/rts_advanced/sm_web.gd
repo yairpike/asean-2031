@@ -1,5 +1,10 @@
 extends Node
-## Browser limits: no MSAA, no shadows, no glow, and a 60 fps cap.
+## Browser limits, plus a portrait layout that follows the window and the screen scale.
+
+var _applied_phys: Vector2i = Vector2i(-1, -1)
+var _applied_dpi: float = -1.0
+var _applied_factor: float = 1.0
+var _tracked: SMHud
 
 func _ready() -> void:
 	if not OS.has_feature("web"):
@@ -12,6 +17,12 @@ func _ready() -> void:
 	vp.msaa_2d = Viewport.MSAA_DISABLED
 	vp.msaa_3d = Viewport.MSAA_DISABLED
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+
+func _process(_delta: float) -> void:
+	if not OS.has_feature("web"):
+		return
+	_fit_display()
+	_fit_view()
 
 func _on_node(node: Node) -> void:
 	quiet_node(node)
@@ -27,3 +38,59 @@ static func quiet_node(node: Node) -> void:
 		world.environment.ssao_enabled = false
 		world.environment.ssil_enabled = false
 		world.environment.sdfgi_enabled = false
+
+func _fit_display() -> void:
+	var reported: Vector2i = DisplayServer.window_get_size()
+	var dpi: float = DisplayServer.screen_get_scale()
+	if dpi < 1.0:
+		dpi = 1.0
+	var phys: Vector2i = reported
+	if _applied_factor > 1.01 and _applied_phys.x > 0:
+		var grown: Vector2i = Vector2i(int(round(float(reported.x) * _applied_factor)), int(round(float(reported.y) * _applied_factor)))
+		if grown == _applied_phys:
+			phys = _applied_phys
+	if phys == _applied_phys and is_equal_approx(dpi, _applied_dpi):
+		return
+	var factor: float = 1.0
+	if phys.y > phys.x:
+		factor = dpi
+	elif float(phys.y) > 720.0:
+		factor = minf(float(phys.y) / 720.0, dpi)
+	if factor < 1.0:
+		factor = 1.0
+	_applied_phys = phys
+	_applied_dpi = dpi
+	_applied_factor = factor
+	var win: Window = get_window()
+	if win != null and not is_equal_approx(win.content_scale_factor, factor):
+		win.content_scale_factor = factor
+
+func _fit_view() -> void:
+	var vp: Viewport = get_viewport()
+	if vp == null:
+		return
+	var size: Vector2 = vp.get_visible_rect().size
+	var cam: Camera3D = vp.get_camera_3d()
+	if cam is RTSCamera:
+		(cam as RTSCamera).fit_view(size)
+	var scene: Node = get_tree().current_scene
+	if scene != null and scene.has_method("layout_for"):
+		scene.call("layout_for", size)
+	if _tracked != null and (_tracked.layer_node == null or not is_instance_valid(_tracked.layer_node)):
+		_tracked = null
+	if _tracked == null:
+		_tracked = _seek_hud(scene)
+	if _tracked != null:
+		_tracked.layout_for(size)
+
+func _seek_hud(scene: Node) -> SMHud:
+	if scene == null:
+		return null
+	var layers: Array[Node] = scene.find_children("", "CanvasLayer", true, false)
+	for node: Node in layers:
+		if not node.has_meta("hud"):
+			continue
+		var hud: SMHud = node.get_meta("hud") as SMHud
+		if hud != null:
+			return hud
+	return null

@@ -918,11 +918,28 @@ func _paint_names(alive: Array[RTSUnit]) -> void:
 			show_name = true
 		tag.visible = show_name
 
+func _bar_fit(u: RTSUnit) -> float:
+	if cam == null or u == null:
+		return 1.0
+	var vp: Viewport = cam.get_viewport()
+	if vp == null:
+		return 1.0
+	var view: Vector2 = vp.get_visible_rect().size
+	var dist: float = cam.global_position.distance_to(u.global_position)
+	var cap: float = minf(view.x * 0.16, 120.0)
+	return RTSCamera.screen_fit(view, cam.fov, dist, 2.0, cap)
+
 func _paint_vitals(u: RTSUnit, delta: float) -> void:
 	var bar: MeshInstance3D = u.get_node_or_null("HealthBar") as MeshInstance3D
 	if bar != null:
 		var ratio: float = clampf(u.hp / maxf(u.max_hp, 1.0), 0.0, 1.0)
+		var fit: float = _bar_fit(u)
 		bar.scale = Vector3(maxf(0.04, ratio), 1.0, 1.0)
+		var slab: BoxMesh = bar.mesh as BoxMesh
+		if slab != null:
+			var want: Vector3 = Vector3(2.0 * fit, 0.16 * fit, 0.1)
+			if slab.size.distance_to(want) > 0.01:
+				slab.size = want
 		var ink: StandardMaterial3D = bar.material_override as StandardMaterial3D
 		if ink != null and u.team == PLAYER and ratio < 0.35:
 			ink.albedo_color = Color(0.92, 0.55, 0.18)

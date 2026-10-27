@@ -15,6 +15,8 @@ extends Camera3D
 
 var focus: Vector3 = Vector3.ZERO
 var distance: float = 30.0
+var authored_distance: float = -1.0
+var fit_key: int = -1
 
 func _ready() -> void:
 	apply()
@@ -40,6 +42,38 @@ func zoom(steps: float) -> void:
 func focus_on(p: Vector3) -> void:
 	focus = p
 	apply()
+
+## Portrait frames pull back so a pillar and a health bar do not fill the glass.
+## Landscape and desktop keep the distance the mission authored. A later zoom sticks
+## until the frame flips between tall and wide.
+func fit_view(viewport_size: Vector2) -> void:
+	if authored_distance < 0.0:
+		authored_distance = distance
+	var tall: bool = viewport_size.y > viewport_size.x + 4.0
+	var key: int = 1 if tall else 0
+	if key == fit_key:
+		return
+	fit_key = key
+	var next: float = authored_distance
+	if tall and viewport_size.x > 1.0:
+		var pull: float = clampf(viewport_size.y / viewport_size.x, 1.0, 2.5)
+		next = clampf(authored_distance * pull, zoom_min, zoom_max)
+	distance = next
+	apply()
+
+## How much to shrink a world-space span so it stays within `cap_px` on screen.
+## Returns 1 when the span already fits, which is the desktop case.
+static func screen_fit(viewport: Vector2, fov_deg: float, dist: float, world_span: float, cap_px: float) -> float:
+	if viewport.y < 64.0 or dist < 0.25 or world_span <= 0.0 or cap_px < 1.0:
+		return 1.0
+	var fov: float = fov_deg if fov_deg > 1.0 else 75.0
+	var half: float = tan(deg_to_rad(fov) * 0.5)
+	if half < 0.001:
+		return 1.0
+	var px: float = world_span * viewport.y / (2.0 * half * dist)
+	if px <= cap_px:
+		return 1.0
+	return cap_px / px
 
 func apply() -> void:
 	focus.x = clampf(focus.x, bounds.position.x, bounds.end.x)

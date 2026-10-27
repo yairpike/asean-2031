@@ -48,6 +48,19 @@ var _shown_weather: String = ""
 var _shown_faction: String = ""
 var _shown_map: String = ""
 var _shown_selection: String = ""
+var layer_node: CanvasLayer
+var phone: bool = false
+var phone_tab: String = "buildings"
+var drawer_open: bool = false
+var phone_sheet: float = 280.0
+var hint_closed: bool = false
+var mission_open: bool = false
+var _layout_key: Vector2i = Vector2i(-1, -1)
+var phone_drawer: Control
+var phone_body: Control
+var mission_fold: Button
+var mission_panel: Control
+var rotate_banner: Control
 
 func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: SMSide, p_map: String, p_rally: Vector3, ability: Callable, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	field = p_field
@@ -104,6 +117,7 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 		field.on_cue = Callable(sfx, "play")
 		field.on_line = Callable(self, "show_line")
 		field.on_bark = Callable(sfx, "bark")
+	layer_node = layer
 	layer.set_meta("hud", self)
 	if field != null:
 		field.place_rally(rally)
@@ -134,11 +148,11 @@ func refresh() -> void:
 	_measure_purse()
 	if purse != _shown_credits:
 		_shown_credits = purse
-		credits_label.text = "Credits %d" % purse
+		credits_label.text = ("%d" % purse) if phone else ("Credits %d" % purse)
 	var pair: Vector2i = Power.tally(side.yard if side != null else null)
 	if pair != _shown_power:
 		_shown_power = pair
-		power_label.text = "Power %d/%d" % [pair.x, pair.y]
+		power_label.text = ("%d/%d" % [pair.x, pair.y]) if phone else ("Power %d/%d" % [pair.x, pair.y])
 	if map_name != _shown_map:
 		_shown_map = map_name
 		map_label.text = map_name
@@ -158,6 +172,7 @@ func refresh() -> void:
 	_paint_tip()
 	_paint_radio()
 	_sync_card()
+	_paint_mission_fold()
 	if minimap != null:
 		var now: int = Time.get_ticks_msec()
 		if _map_ms <= 0 or now - _map_ms >= 250:
@@ -325,14 +340,15 @@ func _sync_imports() -> void:
 			var caption: String = str(unit.get("display_name", str(uid)))
 			_button(sidebar, "Import_%s" % str(uid), caption, _import.bind(uid), SMGuide.unit_tip(unit), "ui")
 		imports_ready = true
+	var show_imports: bool = open and (not phone or phone_tab == "buildings")
 	var header: Node = sidebar.get_node_or_null("GroupImports")
 	if header != null:
-		header.visible = open
+		header.visible = show_imports
 	if not imports_ready:
 		return
 	for child: Node in sidebar.get_children():
 		if str(child.name).begins_with("Import_"):
-			(child as CanvasItem).visible = open
+			(child as CanvasItem).visible = show_imports
 
 func _import(id: StringName) -> void:
 	if roster == null or field == null or tech == null or not tech.holds(SMTechNet.BAZAAR, SMPointer.PLAYER):
@@ -605,8 +621,8 @@ func _button(box: VBoxContainer, node_name: String, text: String, fn: Callable, 
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.custom_minimum_size = Vector2(0, 40)
-	b.add_theme_font_size_override("font_size", 14)
+	b.custom_minimum_size = Vector2(0, 48 if phone else 40)
+	b.add_theme_font_size_override("font_size", 16 if phone else 14)
 	b.mouse_entered.connect(_enter_tip.bind(tip))
 	b.mouse_exited.connect(_exit_tip)
 	b.pressed.connect(_press_cue.bind(fn, cue))
@@ -679,7 +695,7 @@ func _sync_card() -> void:
 	if unit_card != null:
 		unit_card.visible = busy
 	if match_strip != null:
-		match_strip.visible = not busy
+		match_strip.visible = not busy and not phone
 
 func _dock(node: Control, left: float, top: float, right: float, bottom: float, anchor_l: float, anchor_t: float, anchor_r: float, anchor_b: float) -> void:
 	node.anchor_left = anchor_l
@@ -690,3 +706,491 @@ func _dock(node: Control, left: float, top: float, right: float, bottom: float, 
 	node.offset_top = top
 	node.offset_right = right
 	node.offset_bottom = bottom
+
+## Portrait only. Landscape and desktop keep the right-hand column.
+func layout_for(size: Vector2) -> void:
+	if layer_node == null:
+		return
+	var want: bool = size.y > size.x + 4.0
+	var key: Vector2i = Vector2i(int(round(size.x)), int(round(size.y)))
+	if want == phone and key == _layout_key:
+		_paint_mission_fold()
+		return
+	var was: bool = phone or phone_drawer != null
+	if was:
+		_leave_phone()
+	phone = want
+	_layout_key = key
+	if phone:
+		_enter_phone(size)
+	_shown_credits = -999999
+	_shown_power = Vector2i(-1, -1)
+	_shown_faction = ""
+	_shown_map = ""
+	_shown_weather = ""
+	refresh()
+
+func _enter_phone(size: Vector2) -> void:
+	phone_sheet = clampf(size.y * 0.38, 240.0, 380.0)
+	drawer_open = false
+	mission_open = false
+	_compact_top()
+	_build_drawer(size)
+	_build_mission(size)
+	_build_hint(size)
+	_place_phone_chrome(size)
+	_apply_phone_tab()
+
+func _leave_phone() -> void:
+	var names: PackedStringArray = PackedStringArray([
+		"CommandColumn", "ColumnShade", "Protocols", "ProtocolsToggle", "HelpButton",
+		"Minimap", "TopBar", "UnitCard", "MatchStrip", "HowToOverlay", "TipPanel",
+		"Briefing", "Status", "MissionBoot", "MissionHeading", "ObjectiveButton", "HowToClose",
+	])
+	for node_name: String in names:
+		var node: Control = _phone_node(node_name)
+		_restore(node)
+	if sidebar != null:
+		for child: Node in sidebar.get_children():
+			_restore(child as Control)
+	var grid: Node = _protocol_grid()
+	if grid != null:
+		for child: Node in grid.get_children():
+			_restore(child as Control)
+	if weather_label != null:
+		weather_label.visible = true
+	if faction_label != null:
+		_restore(faction_label)
+	if credits_label != null:
+		_restore(credits_label)
+	if power_label != null:
+		_restore(power_label)
+	if map_label != null:
+		_restore(map_label)
+	if weather_label != null:
+		_restore(weather_label)
+	var row: Control = _top_row()
+	_restore(row)
+	_free_phone(phone_drawer)
+	_free_phone(mission_fold)
+	_free_phone(mission_panel)
+	_free_phone(rotate_banner)
+	var guide: Node = _phone_node("PhoneGuide")
+	_free_phone(guide as Control)
+	phone_drawer = null
+	phone_body = null
+	mission_fold = null
+	mission_panel = null
+	rotate_banner = null
+	phone = false
+
+func _compact_top() -> void:
+	var top: Control = _phone_node("TopBar")
+	_snap(top)
+	if top != null:
+		top.offset_bottom = 32.0
+	var row: Control = _top_row()
+	_snap(row)
+	if row != null:
+		row.offset_top = 2.0
+		row.offset_bottom = -2.0
+	_phone_font(faction_label, 14)
+	_phone_font(credits_label, 14)
+	_phone_font(power_label, 14)
+	_phone_font(map_label, 14)
+	if weather_label != null:
+		_snap(weather_label)
+		weather_label.visible = false
+
+func _build_drawer(size: Vector2) -> void:
+	var drawer: PanelContainer = PanelContainer.new()
+	drawer.name = "PhoneDrawer"
+	drawer.z_index = 20
+	drawer.mouse_filter = Control.MOUSE_FILTER_STOP
+	drawer.add_theme_stylebox_override("panel", _tab_style())
+	_dock(drawer, 0.0, -68.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+	layer_node.add_child(drawer)
+	phone_drawer = drawer
+	var stack: VBoxContainer = VBoxContainer.new()
+	stack.name = "PhoneStack"
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stack.add_theme_constant_override("separation", 0)
+	drawer.add_child(stack)
+	var body: Control = Control.new()
+	body.name = "PhoneBody"
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.visible = false
+	stack.add_child(body)
+	phone_body = body
+	var tabs: HBoxContainer = HBoxContainer.new()
+	tabs.name = "PhoneTabs"
+	tabs.custom_minimum_size = Vector2(0, 56)
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tabs.add_theme_constant_override("separation", 6)
+	stack.add_child(tabs)
+	_tab_button(tabs, "PhoneTabBuildings", "Buildings", "buildings")
+	_tab_button(tabs, "PhoneTabUnits", "Units", "units")
+	_tab_button(tabs, "PhoneTabProtocols", "Protocols", "protocols")
+	var column: Control = _phone_node("CommandColumn")
+	_snap(column)
+	if column != null:
+		column.reparent(body, false)
+		_dock(column, 6.0, 6.0, -6.0, -6.0, 0.0, 0.0, 1.0, 1.0)
+	var shade: Control = _phone_node("ColumnShade")
+	_snap(shade)
+	if shade != null:
+		shade.visible = false
+	if sidebar != null:
+		for child: Node in sidebar.get_children():
+			var control: Control = child as Control
+			if control == null:
+				continue
+			_snap(control)
+			var wide: Button = child as Button
+			if wide == null:
+				continue
+			wide.custom_minimum_size = Vector2(0, 48)
+			wide.add_theme_font_size_override("font_size", 16)
+	var protocols: Control = _phone_node("Protocols")
+	_snap(protocols)
+	if protocols != null:
+		protocols.reparent(body, false)
+		_dock(protocols, 6.0, 6.0, -6.0, -6.0, 0.0, 0.0, 1.0, 1.0)
+		protocols.visible = false
+	var grid: Node = _protocol_grid()
+	if grid != null:
+		for child: Node in grid.get_children():
+			var proto: Button = child as Button
+			if proto == null:
+				continue
+			_snap(proto)
+			proto.custom_minimum_size = Vector2(148, 48)
+			proto.add_theme_font_size_override("font_size", 15)
+	var toggle: Control = _phone_node("ProtocolsToggle")
+	_snap(toggle)
+	if toggle != null:
+		toggle.visible = false
+	var help: Control = _phone_node("HelpButton")
+	_snap(help)
+	if help != null:
+		help.visible = false
+
+func _build_mission(size: Vector2) -> void:
+	var fold: Button = Button.new()
+	fold.name = "MissionFold"
+	fold.clip_text = true
+	fold.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	fold.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	fold.custom_minimum_size = Vector2(0, 48)
+	fold.add_theme_font_size_override("font_size", 15)
+	fold.z_index = 16
+	fold.pressed.connect(_toggle_mission)
+	_dock(fold, 8.0, 36.0, -78.0, 84.0, 0.0, 0.0, 1.0, 0.0)
+	layer_node.add_child(fold)
+	mission_fold = fold
+	var guide: Button = Button.new()
+	guide.name = "PhoneGuide"
+	guide.text = "Guide"
+	guide.custom_minimum_size = Vector2(64, 48)
+	guide.add_theme_font_size_override("font_size", 15)
+	guide.z_index = 16
+	guide.pressed.connect(_toggle_guide)
+	_dock(guide, -72.0, 36.0, -8.0, 84.0, 1.0, 0.0, 1.0, 0.0)
+	layer_node.add_child(guide)
+	var panel: PanelContainer = PanelContainer.new()
+	panel.name = "MissionPanel"
+	panel.visible = false
+	panel.z_index = 17
+	panel.clip_contents = true
+	panel.add_theme_stylebox_override("panel", _sheet_style())
+	_dock(panel, 8.0, 88.0, -8.0, 360.0, 0.0, 0.0, 1.0, 0.0)
+	layer_node.add_child(panel)
+	mission_panel = panel
+	var box: VBoxContainer = VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 6)
+	panel.add_child(box)
+	_adopt_mission(box, "MissionHeading")
+	_adopt_mission(box, "Briefing")
+	_adopt_mission(box, "Status")
+	_adopt_mission(box, "MissionBoot")
+	var boot: Button = _phone_node("MissionBoot") as Button
+	if boot != null:
+		boot.custom_minimum_size = Vector2(160, 48)
+	var overlay: Control = _phone_node("HowToOverlay")
+	_snap(overlay)
+	if overlay != null:
+		_dock(overlay, 12.0, 40.0, -12.0, -64.0, 0.0, 0.0, 1.0, 1.0)
+	var close: Button = layer_node.find_child("HowToClose", true, false) as Button
+	if close != null:
+		_snap(close)
+		close.custom_minimum_size = Vector2(160, 48)
+
+func _build_hint(size: Vector2) -> void:
+	if hint_closed:
+		return
+	var banner: PanelContainer = PanelContainer.new()
+	banner.name = "RotateHint"
+	banner.z_index = 18
+	banner.mouse_filter = Control.MOUSE_FILTER_STOP
+	banner.add_theme_stylebox_override("panel", _hint_style())
+	_dock(banner, 8.0, 86.0, -8.0, 158.0, 0.0, 0.0, 1.0, 0.0)
+	layer_node.add_child(banner)
+	rotate_banner = banner
+	var row: HBoxContainer = HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 8)
+	banner.add_child(row)
+	var label: Label = Label.new()
+	label.name = "RotateHintText"
+	label.text = "Rotate to landscape for the best experience"
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.clip_text = false
+	label.custom_minimum_size = Vector2(180, 48)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_color_override("font_color", Color(0.98, 0.95, 0.86))
+	row.add_child(label)
+	var dismiss: Button = Button.new()
+	dismiss.name = "RotateHintDismiss"
+	dismiss.text = "OK"
+	dismiss.custom_minimum_size = Vector2(64, 48)
+	dismiss.add_theme_font_size_override("font_size", 16)
+	dismiss.pressed.connect(_dismiss_hint)
+	row.add_child(dismiss)
+
+func _place_phone_chrome(size: Vector2) -> void:
+	var map: Control = _phone_node("Minimap")
+	_snap(map)
+	if map != null:
+		map.position = Vector2(8, 166)
+		map.size = Vector2(108, 72)
+		map.custom_minimum_size = Vector2(108, 72)
+	var card: Control = _phone_node("UnitCard")
+	_snap(card)
+	var strip: Control = _phone_node("MatchStrip")
+	_snap(strip)
+	_seat_cards(size)
+	var tip: Control = _phone_node("TipPanel")
+	_snap(tip)
+	if tip != null:
+		_dock(tip, 8.0, -168.0, -8.0, -60.0, 0.0, 1.0, 1.0, 1.0)
+
+func _seat_cards(size: Vector2) -> void:
+	var sheet: float = phone_sheet if drawer_open else 68.0
+	var card: Control = _phone_node("UnitCard")
+	if card != null:
+		_dock(card, 124.0, -(sheet + 78.0), -8.0, -(sheet + 6.0), 0.0, 1.0, 1.0, 1.0)
+	var strip: Control = _phone_node("MatchStrip")
+	if strip != null:
+		_dock(strip, 124.0, -(sheet + 40.0), -8.0, -(sheet + 6.0), 0.0, 1.0, 1.0, 1.0)
+
+func _tab_button(row: HBoxContainer, node_name: String, caption: String, which: String) -> void:
+	var button: Button = Button.new()
+	button.name = node_name
+	button.text = caption
+	button.clip_text = true
+	button.custom_minimum_size = Vector2(0, 56)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", 16)
+	button.pressed.connect(_show_phone_tab.bind(which))
+	row.add_child(button)
+
+func _show_phone_tab(which: String) -> void:
+	if drawer_open and phone_tab == which:
+		drawer_open = false
+	else:
+		phone_tab = which
+		drawer_open = true
+	_apply_phone_tab()
+	if layer_node != null:
+		_seat_cards(layer_node.get_viewport().get_visible_rect().size)
+
+func _apply_phone_tab() -> void:
+	if phone_drawer != null:
+		var sheet: float = phone_sheet if drawer_open else 68.0
+		phone_drawer.offset_top = -sheet
+	if phone_body != null:
+		phone_body.visible = drawer_open
+	var column: CanvasItem = _phone_node("CommandColumn")
+	var protocols: CanvasItem = _phone_node("Protocols")
+	var show_proto: bool = phone_tab == "protocols"
+	if protocols != null:
+		protocols.visible = drawer_open and show_proto
+	if column != null:
+		column.visible = drawer_open and not show_proto
+	if sidebar == null:
+		return
+	for child: Node in sidebar.get_children():
+		var item: CanvasItem = child as CanvasItem
+		if item == null:
+			continue
+		item.visible = _phone_shows(str(child.name))
+	_sync_imports()
+
+func _phone_shows(node_name: String) -> bool:
+	if node_name == "HudTitle" or node_name == "GroupAbility":
+		return false
+	if phone_tab == "units":
+		return node_name == "GroupUnits" or node_name.begins_with("Train_") or node_name == "AbilityButton"
+	if phone_tab == "buildings":
+		if node_name == "GroupBuildings" or node_name == "CancelQueue" or node_name == "MovePacker":
+			return true
+		if node_name.begins_with("Build_") or node_name.begins_with("Super_"):
+			return true
+		if node_name == "GroupImports" or node_name.begins_with("Import_"):
+			return true
+	return false
+
+func _toggle_mission() -> void:
+	mission_open = not mission_open
+	if mission_panel != null:
+		mission_panel.visible = mission_open
+	if rotate_banner != null:
+		rotate_banner.visible = not mission_open and not hint_closed
+	var map: CanvasItem = _phone_node("Minimap")
+	if map != null:
+		map.visible = not mission_open
+	_paint_mission_fold()
+
+func _dismiss_hint() -> void:
+	hint_closed = true
+	if rotate_banner != null:
+		rotate_banner.visible = false
+
+func _paint_mission_fold() -> void:
+	if mission_fold == null:
+		return
+	if mission_open:
+		mission_fold.text = "Hide mission"
+		return
+	var line: String = "Mission"
+	var status: Label = _phone_node("Status") as Label
+	if status != null and status.text != "":
+		line = status.text
+	mission_fold.text = line
+
+func _adopt_mission(box: VBoxContainer, node_name: String) -> void:
+	var node: Control = _phone_node(node_name)
+	if node == null:
+		return
+	_snap(node)
+	node.reparent(box, false)
+	node.position = Vector2.ZERO
+	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	node.custom_minimum_size = Vector2(0, 44)
+	var line: Label = node as Label
+	if line != null:
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.clip_text = false
+	var tap: Button = node as Button
+	if tap != null:
+		tap.clip_text = false
+
+func _phone_font(label: Label, size: int) -> void:
+	if label == null:
+		return
+	_snap(label)
+	label.add_theme_font_size_override("font_size", size)
+
+func _phone_node(node_name: String) -> Control:
+	if layer_node == null:
+		return null
+	return layer_node.find_child(node_name, true, false) as Control
+
+func _protocol_grid() -> Node:
+	var protocols: Node = _phone_node("Protocols")
+	if protocols == null or protocols.get_child_count() == 0:
+		return null
+	return protocols.get_child(0)
+
+func _top_row() -> Control:
+	var top: Node = _phone_node("TopBar")
+	if top == null:
+		return null
+	for child: Node in top.get_children():
+		if child is HBoxContainer:
+			return child as Control
+	return null
+
+func _tab_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = _sheet_style()
+	style.content_margin_left = 4
+	style.content_margin_right = 4
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	return style
+
+func _hint_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = _sheet_style()
+	style.bg_color = Color(0.14, 0.16, 0.2, 0.96)
+	style.border_color = Color(0.86, 0.72, 0.36)
+	style.set_border_width_all(1)
+	return style
+
+func _sheet_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.06, 0.08, 0.94)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	return style
+
+func _snap(node: Control) -> void:
+	if node == null or node.has_meta("desk_snap"):
+		return
+	var font: int = -1
+	if node.has_theme_font_size_override("font_size"):
+		font = node.get_theme_font_size("font_size")
+	node.set_meta("desk_snap", {
+		"parent": node.get_parent(),
+		"pos": node.position,
+		"size": node.size,
+		"min": node.custom_minimum_size,
+		"al": node.anchor_left,
+		"at": node.anchor_top,
+		"ar": node.anchor_right,
+		"ab": node.anchor_bottom,
+		"ol": node.offset_left,
+		"ot": node.offset_top,
+		"right": node.offset_right,
+		"ob": node.offset_bottom,
+		"vis": node.visible,
+		"font": font,
+	})
+
+func _restore(node: Control) -> void:
+	if node == null or not is_instance_valid(node) or not node.has_meta("desk_snap"):
+		return
+	var snap: Dictionary = node.get_meta("desk_snap")
+	var parent: Node = snap.get("parent") as Node
+	if parent != null and is_instance_valid(parent) and node.get_parent() != parent:
+		node.reparent(parent, false)
+	node.anchor_left = float(snap.get("al", 0.0))
+	node.anchor_top = float(snap.get("at", 0.0))
+	node.anchor_right = float(snap.get("ar", 0.0))
+	node.anchor_bottom = float(snap.get("ab", 0.0))
+	node.offset_left = float(snap.get("ol", 0.0))
+	node.offset_top = float(snap.get("ot", 0.0))
+	node.offset_right = float(snap.get("right", 0.0))
+	node.offset_bottom = float(snap.get("ob", 0.0))
+	node.position = snap.get("pos", Vector2.ZERO) as Vector2
+	node.size = snap.get("size", node.size) as Vector2
+	node.custom_minimum_size = snap.get("min", Vector2.ZERO) as Vector2
+	node.visible = bool(snap.get("vis", true))
+	var font: int = int(snap.get("font", -1))
+	if font > 0:
+		node.add_theme_font_size_override("font_size", font)
+
+func _free_phone(node: Control) -> void:
+	if node != null and is_instance_valid(node):
+		var parent: Node = node.get_parent()
+		if parent != null:
+			parent.remove_child(node)
+		node.queue_free()

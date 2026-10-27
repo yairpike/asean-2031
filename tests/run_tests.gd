@@ -2575,6 +2575,28 @@ func test_sm_guide() -> void:
 	check(buildings != null and buildings.theme_type_variation == "Header" and header_font != null and str(header_font.resource_path).contains("Warheed"), "section headers use the theme font")
 	var match_cam: RTSCamera = scene.get_node_or_null("Camera") as RTSCamera
 	check(match_cam != null and match_cam.distance <= 32.0, "the match camera starts close to the company")
+	var fit_holder: Node3D = Node3D.new()
+	root.add_child(fit_holder)
+	var fit_cam: RTSCamera = RTSCamera.new()
+	fit_holder.add_child(fit_cam)
+	fit_cam.distance = 18.0
+	fit_cam.fit_view(Vector2(1280, 720))
+	check(absf(fit_cam.distance - 18.0) < 0.01, "a wide view keeps the authored camera distance")
+	fit_cam.fit_view(Vector2(412, 915))
+	check(fit_cam.distance > 30.0 and fit_cam.distance <= fit_cam.zoom_max, "a tall view pulls the camera back")
+	fit_cam.zoom(1.0)
+	var zoomed: float = fit_cam.distance
+	fit_cam.fit_view(Vector2(390, 844))
+	check(absf(fit_cam.distance - zoomed) < 0.01, "a portrait zoom sticks until the frame flips")
+	fit_cam.fit_view(Vector2(1280, 720))
+	check(absf(fit_cam.distance - 18.0) < 0.01, "returning to landscape restores the authored distance")
+	var desktop_bar: float = RTSCamera.screen_fit(Vector2(1280, 720), 75.0, 30.0, 2.0, 120.0)
+	var close_bar: float = RTSCamera.screen_fit(Vector2(412, 915), 75.0, 4.0, 2.0, 65.0)
+	var desktop_pole: float = RTSCamera.screen_fit(Vector2(1280, 720), 75.0, 24.0, 7.0, 720.0 * 0.28)
+	var close_pole: float = RTSCamera.screen_fit(Vector2(412, 915), 75.0, 12.0, 7.0, 915.0 * 0.28)
+	check(absf(desktop_bar - 1.0) < 0.001 and desktop_pole > 0.99, "desktop health bars and the objective marker stay full size")
+	check(close_bar < 0.5 and close_bar > 0.05 and close_pole < 0.85 and close_pole > 0.05, "a close portrait marker shrinks to the screen")
+	fit_holder.free()
 	close.pressed.emit()
 	check(overlay != null and not overlay.visible, "Got it hides the how-to overlay")
 	var help: Button = scene.find_child("HelpButton", true, false) as Button

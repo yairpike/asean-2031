@@ -243,8 +243,18 @@ static func place_beacon(host: Node3D, at: Vector3) -> void:
 		pole.material_override = ink
 		host.add_child(pole)
 	var pulse: float = 1.0 + 0.12 * sin(float(Time.get_ticks_msec()) * 0.005)
-	pole.scale = Vector3(pulse, 1.0, pulse)
-	pole.position = Vector3(at.x, 3.6, at.z)
+	var y_scale: float = 1.0
+	var cam: Camera3D = host.get_node_or_null("Camera") as Camera3D
+	if cam != null and cam.get_viewport() != null:
+		var view: Vector2 = cam.get_viewport().get_visible_rect().size
+		var dist: float = cam.global_position.distance_to(Vector3(at.x, 3.6, at.z))
+		var cap: float = view.y * 0.28
+		y_scale = RTSCamera.screen_fit(view, cam.fov, dist, 7.0, cap)
+	pole.scale = Vector3(pulse, y_scale, pulse)
+	if y_scale < 0.999:
+		pole.position = Vector3(at.x, 0.1 + 3.5 * y_scale, at.z)
+	else:
+		pole.position = Vector3(at.x, 3.6, at.z)
 	pole.visible = true
 
 static func place_rally(host: Node3D, at: Vector3) -> void:
