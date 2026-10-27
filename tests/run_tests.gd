@@ -49,6 +49,20 @@ func _run() -> void:
 	await H.section("test_sm_phillips", test_sm_phillips)
 	await H.section("test_sm_bots", test_sm_bots)
 	await H.section("test_sm_mission", test_sm_mission)
+	await H.section("test_sm_sop_ruak", test_sm_sop_ruak)
+	await H.section("test_sm_maps", test_sm_maps)
+	await H.section("test_sm_factions", test_sm_factions)
+	await H.section("test_sm_raider", test_sm_raider)
+	await H.section("test_sm_roster", test_sm_roster)
+	await H.section("test_sm_campaign", test_sm_campaign)
+	await H.section("test_sm_hud", test_sm_hud)
+	await H.section("test_sm_outcome", test_sm_outcome)
+	await H.section("test_sm_sight", test_sm_sight)
+	await H.section("test_sm_shapes", test_sm_shapes)
+	await H.section("test_sm_field", test_sm_field)
+	await H.section("test_sm_sites", test_sm_sites)
+	await H.section("test_sm_haze", test_sm_haze)
+	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -682,7 +696,7 @@ func test_sm_catalog() -> void:
 	for id: String in ["gtfc", "mvd", "nmrf"]:
 		var data: Dictionary = SMCatalog.faction(id)
 		var units: Array[Dictionary] = SMCatalog.units_of(data)
-		check(units.size() == 6, "%s has six units" % id)
+		check(units.size() == 16, "%s fields sixteen catalog units" % id)
 		for unit: Dictionary in units:
 			check(SMCatalog.entry_ok(unit), "%s %s has a weapon and one secondary" % [id, str(unit.get("id", ""))])
 	var gtfc: Dictionary = SMCatalog.faction("gtfc")
@@ -698,7 +712,10 @@ func test_sm_catalog() -> void:
 	var market: Dictionary = SMCatalog.faction("black_market")
 	var flags: Dictionary = market["import_flags"]
 	check(bool(flags.get("rotary_slot", false)) and bool(flags.get("strike_slot", false)) and bool(flags.get("spotter_slot", false)), "black-market imports are flags")
-	check(SMCatalog.units_of(market).is_empty(), "black market ships no unit meshes")
+	var market_units: Array[Dictionary] = SMCatalog.units_of(market)
+	check(market_units.size() == 4, "black market air is in the catalog")
+	for unit: Dictionary in market_units:
+		check(SMCatalog.entry_ok(unit), "black market %s has a weapon and one secondary" % str(unit.get("id", "")))
 	var banned: PackedStringArray = PackedStringArray(["opium", "heroin", "cocaine", "fentanyl", "yaba", "methamphetamine"])
 	var hits: PackedStringArray = PackedStringArray()
 	for faction_id: String in ["gtfc", "mvd", "nmrf", "black_market"]:
@@ -748,17 +765,31 @@ func test_sm_phillips() -> void:
 	var bar: Node = scene.find_child("Protocols", true, false)
 	check(side != null, "command sidebar is present")
 	check(bar != null, "protocols bar is present")
-	var cameos: int = 0
-	for child: Node in side.get_children():
-		if str(child.name).begins_with("Cameo"):
-			cameos += 1
-	check(cameos == 6, "six cameo placeholders")
+	check(scene.find_child("GroupBuildings", true, false) != null and scene.find_child("GroupUnits", true, false) != null and scene.find_child("GroupAbility", true, false) != null, "the command column groups buildings, units, and ability")
 	check(bool(scene.call("scripted_playthrough")), "phillips playthrough finishes")
 	var played: SMMatch = scene.get("sim") as SMMatch
 	check(played.finished and played.winner == 0, "the passive opponent is defeated")
 	check(played.pipeline_ok and played.claimed, "the base is up and a node is claimed")
 	check(played.f_smart == 11 and played.f_toggles == 1, "F fires a smart-cast and a toggle")
 	check(played.domain_log.size() >= 2, "an amphibious unit crossed the channel")
+	var field: SMPointer = scene.get("field") as SMPointer
+	check(field != null and field.count_team(0) >= 3 and field.count_team(1) >= 2, "phillips places friendly and enemy units")
+	check(scene.find_child("SelectionBox", true, false) != null, "phillips shows a selection box")
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	check(picked == friends[0] and field.selection.count() == 1, "left click selects one friendly unit")
+	var step: Vector3 = friends[0].global_position + Vector3(0, 0, 8)
+	var moved: StringName = field.command_at(step, _proj(step), Callable(self, "_proj"))
+	check(moved == &"move" and friends[0].is_moving(), "right click on ground moves the selection")
+	var foes: Array[RTSUnit] = field.units_of(1)
+	var attacked: StringName = field.command_at(foes[0].global_position, _proj(foes[0].global_position), Callable(self, "_proj"))
+	check(attacked == &"attack" and friends[0].attack_target == foes[0], "right click on an enemy attacks")
+	var a: Vector2 = _proj(friends[0].global_position)
+	var b: Vector2 = _proj(friends[1].global_position)
+	var boxed: int = field.select_drag(Rect2(a, b - a).abs().grow(4.0), Callable(self, "_proj"))
+	check(boxed >= 2, "a drag box selects several friendlies")
+	check(_gtfc_names(field), "phillips labels the six GTFC placeholders")
+	check(field.name_of(foes[0]) == "Enemy", "phillips labels the enemy")
 	scene.free()
 	await process_frame
 
@@ -788,12 +819,997 @@ func test_sm_mission() -> void:
 	var raid: SMMission = scene.get("mission") as SMMission
 	check(raid.won and raid.ruby_paid >= 30 and raid.goods.stock_of(0) >= 1, "night-shift ruby income and rare-earth stock")
 	check(raid.yard.finished.has(&"scaffold_yard"), "the scaffold yard finishes")
+	var field: SMPointer = scene.get("field") as SMPointer
+	check(field != null and field.count_team(0) >= 2 and field.count_team(1) >= 1, "the raid places a squad and an enemy")
+	check(scene.find_child("SelectionBox", true, false) != null, "the raid shows a selection box")
+	var foe: RTSUnit = field.units_of(1)[0]
+	var before: float = foe.hp
+	var struck: int = int(scene.call("fire_secondary"))
+	check(struck > 0 and foe.hp < before, "F strikes an enemy on the raid")
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudCredits") == "Credits 50000" and _hud_text(scene, "HudPower") == "Power 90" and _hud_text(scene, "HudMap") == SMCampaign.title_of("kokang") and _hud_text(scene, "HudSelection") == "Nothing selected", "the raid shows faction, credits, power, and the mission name")
+	var raid_map: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	if raid_map != null:
+		raid_map.sample()
+	var raid_cam: RTSCamera = scene.get_node("Camera") as RTSCamera
+	check(scene.find_child("CompanyList", true, false) == null and raid_map != null and raid_map.saw_land and not raid_map.saw_water and raid_map.player_dots == field.count_team(0) and raid_map.enemy_dots == field.count_team(1) and raid_map.covers_focus() and raid_cam != null, "the raid minimap shows land, your units, enemies, and the camera")
+	check(_click_east(scene), "clicking the raid minimap moves the camera")
+	var raid_build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+	var raid_train: Button = scene.find_child("Train_militia", true, false) as Button
+	var raid_ability: Button = scene.find_child("AbilityButton", true, false) as Button
+	check(raid_build != null and raid_train != null and raid_ability != null and raid_ability.text == "Ability (F)" and scene.find_child("GroupBuildings", true, false) != null and scene.find_child("GroupUnits", true, false) != null and scene.find_child("GroupAbility", true, false) != null, "the raid command column builds, trains, and uses F")
+	check(_gtfc_names(field), "the raid labels the six GTFC placeholders")
+	check(field.name_of(foe) == "Enemy", "the raid labels the enemy")
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
 	await process_frame
 	check(boot.find_child("GreyboxButton", true, false) != null, "boot offers the greybox")
-	check(boot.find_child("PhillipsButton", true, false) != null, "boot offers Phillips Channel")
-	check(boot.find_child("MissionButton", true, false) != null, "boot offers the night raid")
+	check(boot.find_child("CardPhillips", true, false) != null, "boot offers Phillips Channel")
+	var raid_button: Button = boot.find_child("Mission_kokang", true, false) as Button
+	check(raid_button != null and raid_button.text == "Kokang raid (mission 1)", "boot offers the night raid")
 	boot.free()
 	scene.free()
 	await process_frame
+
+func test_sm_sop_ruak() -> void:
+	var grid: SMDomainGrid = SMDomainGrid.sop_ruak_layout()
+	var land: int = SMDomainGrid.Domain.LAND
+	var deep: int = SMDomainGrid.Domain.DEEP
+	check(grid.domain_at_cell(Vector2i(8, 24)) == land and grid.domain_at_cell(Vector2i(28, 24)) == land and grid.domain_at_cell(Vector2i(18, 6)) == land, "sop ruak has three land sectors")
+	check(grid.domain_at_cell(Vector2i(17, 28)) == deep and grid.domain_at_cell(Vector2i(8, 8)) == deep and grid.domain_at_cell(Vector2i(27, 8)) == deep, "a Y of deep water splits the shores")
+	check(grid.domain_at_cell(Vector2i(17, 24)) == land and grid.domain_at_cell(Vector2i(10, 10)) == land and grid.domain_at_cell(Vector2i(24, 10)) == land, "a ford crosses each arm of the river")
+	var scene: Node = (load("res://game/sop_ruak.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(scene.get_node_or_null("WestSector") is MeshInstance3D and scene.get_node_or_null("EastSector") is MeshInstance3D and scene.get_node_or_null("NorthSector") is MeshInstance3D and scene.get_node_or_null("RiverStem") is MeshInstance3D, "sop ruak shows three shores and the river")
+	var field: SMPointer = scene.get("field") as SMPointer
+	var east_path: PackedVector3Array = field.nav.find_path(grid.cell_center(Vector2i(8, 24)), grid.cell_center(Vector2i(28, 24)))
+	var north_path: PackedVector3Array = field.nav.find_path(grid.cell_center(Vector2i(8, 24)), grid.cell_center(Vector2i(18, 6)))
+	check(east_path.size() > 0 and north_path.size() > 0, "fords link the west shore to the east and the north")
+	check(_gtfc_names(field), "sop ruak labels the six GTFC placeholders")
+	check(field.name_of(field.units_of(1)[0]) == "Enemy", "sop ruak labels the enemy")
+	check(scene.find_child("SelectionBox", true, false) != null, "sop ruak shows a selection box")
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	check(picked == friends[0] and field.selection.count() == 1, "left click selects one friendly unit")
+	var north: Vector3 = grid.cell_center(Vector2i(18, 6))
+	var moved: StringName = field.command_at(north, _proj(north), Callable(self, "_proj"))
+	check(moved == &"move" and friends[0].is_moving(), "right click on ground moves the selection")
+	var foes: Array[RTSUnit] = field.units_of(1)
+	var attacked: StringName = field.command_at(foes[0].global_position, _proj(foes[0].global_position), Callable(self, "_proj"))
+	check(attacked == &"attack" and friends[0].attack_target == foes[0], "right click on an enemy attacks")
+	check(bool(scene.call("fire_ability")), "F fires the sop ruak ability")
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	check(_card_line(boot, "CardSopRuak", "Sop Ruak", "River"), "boot names the river skirmish")
+	boot.free()
+	scene.free()
+	await process_frame
+
+func test_sm_maps() -> void:
+	var land: int = SMDomainGrid.Domain.LAND
+	var deep: int = SMDomainGrid.Domain.DEEP
+	var cliff: int = SMDomainGrid.Domain.CLIFF
+	var shallow: int = SMDomainGrid.Domain.SHALLOW
+	var burma: SMDomainGrid = SMDomainGrid.burma_road_layout()
+	check(burma.domain_at_cell(Vector2i(2, 2)) == cliff and burma.domain_at_cell(Vector2i(18, 4)) == cliff, "burma highlands and the wall are cliffs")
+	check(burma.domain_at_cell(Vector2i(18, 13)) == land and burma.domain_at_cell(Vector2i(4, 14)) == land and burma.domain_at_cell(Vector2i(34, 14)) == land, "the burma road is land between the shores")
+	var atolls: SMDomainGrid = SMDomainGrid.ten_degree_atolls_layout()
+	check(atolls.domain_at_cell(Vector2i(0, 0)) == deep and atolls.domain_at_cell(Vector2i(18, 30)) == deep, "the atolls sit in deep water")
+	check(atolls.domain_at_cell(Vector2i(4, 17)) == land and atolls.domain_at_cell(Vector2i(28, 17)) == land and atolls.domain_at_cell(Vector2i(16, 4)) == land, "three atoll islands are land")
+	check(atolls.domain_at_cell(Vector2i(14, 17)) == shallow and atolls.domain_at_cell(Vector2i(17, 10)) == shallow, "shoals link the atolls")
+	var mekong: SMDomainGrid = SMDomainGrid.mekong_delta_layout()
+	check(mekong.domain_at_cell(Vector2i(13, 4)) == deep and mekong.domain_at_cell(Vector2i(27, 28)) == deep, "mekong canals are deep water")
+	check(mekong.domain_at_cell(Vector2i(13, 15)) == land and mekong.domain_at_cell(Vector2i(27, 16)) == land and mekong.domain_at_cell(Vector2i(4, 16)) == land, "bridges and paddies stay land")
+	var chiang: SMDomainGrid = SMDomainGrid.chiang_rai_layout()
+	check(chiang.cols > burma.cols and chiang.rows > mekong.rows, "chiang rai is the larger map")
+	check(chiang.domain_at_cell(Vector2i(27, 2)) == deep and chiang.domain_at_cell(Vector2i(8, 7)) == cliff, "chiang rai has a river and a siege wall")
+	check(chiang.domain_at_cell(Vector2i(27, 10)) == land and chiang.domain_at_cell(Vector2i(27, 30)) == land and chiang.domain_at_cell(Vector2i(8, 34)) == land and chiang.domain_at_cell(Vector2i(46, 8)) == land, "fords and both camps on chiang rai are land")
+	await _play_map("res://game/burma_road.tscn", "HighlandWest", "Road", Vector2i(4, 14), Vector2i(34, 14), Vector2i(10, 20))
+	await _play_map("res://game/ten_degree_atolls.tscn", "WestIsle", "Sea", Vector2i(4, 17), Vector2i(28, 17), Vector2i(6, 18))
+	await _play_map("res://game/mekong_delta.tscn", "CanalWest", "BridgeWest", Vector2i(4, 16), Vector2i(34, 16), Vector2i(6, 20))
+	await _play_map("res://game/chiang_rai.tscn", "SiegeRiver", "WallWest", Vector2i(8, 34), Vector2i(46, 8), Vector2i(10, 34))
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	check(_card_line(boot, "CardBurma", "Burma Road", "Land"), "boot names Burma Road")
+	check(_card_line(boot, "CardAtolls", "Ten Degree Atolls", "Water"), "boot names Ten Degree Atolls")
+	check(_card_line(boot, "CardMekong", "Mekong Delta", "River"), "boot names the Mekong Delta")
+	check(_card_line(boot, "CardChiang", "Siege of Chiang Rai", "River"), "boot names the Siege of Chiang Rai")
+	boot.free()
+	await process_frame
+
+func test_sm_factions() -> void:
+	var nmrf: Node = (load("res://game/nmrf_yard.tscn") as PackedScene).instantiate()
+	root.add_child(nmrf)
+	await process_frame
+	check(nmrf.get_node_or_null("OliveGround") is MeshInstance3D and nmrf.get_node_or_null("PackerCore") is MeshInstance3D, "nmrf shows the mobile core")
+	var nfield: SMPointer = nmrf.get("field") as SMPointer
+	check(_has_names(nfield, PackedStringArray(["River Rifle", "Sampan", "Emerald Gunboat", "Mangrove Tube", "Packer", "Jade Skiff"])), "nmrf labels its six units")
+	check(nfield.name_of(nfield.units_of(1)[0]) == "Enemy", "nmrf labels the enemy")
+	check(_orders(nmrf, nfield), "nmrf select, move, attack, and F")
+	var nyard: SMBuildYard = nmrf.get("yard") as SMBuildYard
+	check(nyard.style == SMBuildYard.Style.MOBILE, "nmrf uses the mobile packer")
+	check(bool(nmrf.call("move_packer")), "the packer sails")
+	check(nyard.grid.unit_domain(nyard.packer_id) == SMDomainGrid.Domain.SHALLOW, "the packer enters shallow water")
+	check(bool(nmrf.call("unpack_core")) and nyard.factory_level(&"gun_wharf") == 1, "the wharf unpacks")
+	check(bool(nmrf.call("upgrade_wharf")) and nyard.factory_level(&"gun_wharf") == 2, "the wharf upgrades")
+	var nfriends: Array[RTSUnit] = nfield.units_of(0)
+	check(_albedo(nfriends[0]) == Color.html("#5A6824") and _albedo(nfriends[1]) == Color.html("#1F9E66"), "nmrf is olive and emerald")
+	nmrf.free()
+	var mvd: Node = (load("res://game/mvd_yard.tscn") as PackedScene).instantiate()
+	root.add_child(mvd)
+	await process_frame
+	check(mvd.get_node_or_null("CharcoalPad") is MeshInstance3D and mvd.get_node_or_null("HubShell") is MeshInstance3D, "mvd shows the internal pad")
+	var mfield: SMPointer = mvd.get("field") as SMPointer
+	check(_has_names(mfield, PackedStringArray(["Clearance Trooper", "Hub Drone", "Charcoal APC", "Cyan IFV", "Relay Van", "River Drone"])), "mvd labels its six units")
+	check(mfield.name_of(mfield.units_of(1)[0]) == "Enemy", "mvd labels the enemy")
+	check(_orders(mvd, mfield), "mvd select, move, attack, and F")
+	var myard: SMBuildYard = mvd.get("yard") as SMBuildYard
+	check(myard.style == SMBuildYard.Style.INTERNAL, "mvd uses the internal queue")
+	var before_radius: float = myard.radius
+	check(not myard.queue_internal(&"drone_bay"), "tier 2 waits on clearance")
+	check(bool(mvd.call("buy_clearance")) and myard.clearance == 2 and myard.radius == before_radius + 6.0, "clearance 2 widens the pad")
+	check(bool(mvd.call("queue_hub")), "the hub finishes inside the queue")
+	check(bool(mvd.call("place_hub")) and myard.finished.has(&"command_hub"), "the hub places inside the radius")
+	check(bool(mvd.call("buy_clearance")) and myard.clearance == 3, "clearance 3 follows clearance 2")
+	var mfriends: Array[RTSUnit] = mfield.units_of(0)
+	check(_albedo(mfriends[0]) == Color.html("#2A2E32") and _albedo(mfriends[1]) == Color.html("#26BFD1"), "mvd is charcoal and cyan")
+	check(mfield.teams.color_of(1) != Color.html("#26BFD1"), "the mvd enemy is not painted cyan")
+	mvd.free()
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	check(_faction_line(boot, "FactionNmrf", "NMRF", "Mobile core", "#5A6824") and boot.find_child("NmrfYardButton", true, false) != null, "boot offers NMRF")
+	check(_faction_line(boot, "FactionMvd", "MVD", "Internal queue", "#2A2E32") and boot.find_child("MvdYardButton", true, false) != null, "boot offers MVD")
+	boot.free()
+	await process_frame
+
+func test_sm_raider() -> void:
+	var paths: PackedStringArray = PackedStringArray([
+		"res://game/phillips_channel.tscn",
+		"res://game/sop_ruak.tscn",
+		"res://game/burma_road.tscn",
+		"res://game/ten_degree_atolls.tscn",
+		"res://game/mekong_delta.tscn",
+		"res://game/chiang_rai.tscn",
+		"res://game/nmrf_yard.tscn",
+		"res://game/mvd_yard.tscn",
+	])
+	for path: String in paths:
+		await _enemy_fights(path)
+
+func test_sm_roster() -> void:
+	var failed: PackedStringArray = PackedStringArray()
+	var total: int = 0
+	for faction_id: String in ["gtfc", "mvd", "nmrf", "black_market"]:
+		var roster: SMRoster = SMRoster.new()
+		roster.setup(faction_id)
+		for unit: Dictionary in SMCatalog.units_of(SMCatalog.faction(faction_id)):
+			total += 1
+			var id: StringName = StringName(str(unit.get("id", "")))
+			if roster.train_and_finish(id) != id:
+				failed.append("%s:%s" % [faction_id, str(id)])
+	check(total == 52 and failed.is_empty(), "all 52 catalog units train through production %s" % [failed])
+	check(_spawned("gtfc", &"crimson_sapper", "Crimson Sapper", "rifle", "smart_cast", 9.0), "gtfc sapper spawns with a weapon and a secondary")
+	check(_spawned("mvd", &"cyan_sentry", "Cyan Sentry", "carbine", "group_toggle", 9.0), "mvd sentry spawns with a weapon and a secondary")
+	check(_spawned("nmrf", &"olive_ranger", "Olive Ranger", "rifle", "group_toggle", 8.0), "nmrf ranger spawns with a weapon and a secondary")
+	check(_spawned("black_market", &"ch4", "CH-4", "autocannon", "smart_cast", 14.0), "CH-4 spawns from production")
+	check(_spawned("black_market", &"su30", "Su-30", "cannon", "group_toggle", 26.0), "Su-30 spawns from production")
+	check(_spawned("black_market", &"orlan10", "Orlan-10", "camera", "channeled_beam", 4.0), "Orlan-10 spawns from production")
+	var phillips_name: String = await _trained("res://game/phillips_channel.tscn")
+	check(phillips_name == "Crimson Sapper", "phillips trains a catalog unit onto the field")
+	var burma_name: String = await _trained("res://game/burma_road.tscn")
+	check(burma_name == "Crimson Sapper", "burma road trains a catalog unit onto the field")
+	var nmrf_name: String = await _trained("res://game/nmrf_yard.tscn")
+	check(nmrf_name == "Olive Ranger", "nmrf trains a catalog unit onto the field")
+	var mvd_name: String = await _trained("res://game/mvd_yard.tscn")
+	check(mvd_name == "Cyan Sentry", "mvd trains a catalog unit onto the field")
+
+func test_sm_campaign() -> void:
+	var ids: PackedStringArray = SMCampaign.ids()
+	check(ids.size() == 14, "fourteen campaign missions follow Kokang")
+	var camp: SMCampaign = SMCampaign.new()
+	for id: String in ids:
+		var brief: String = SMCampaign.briefing_of(id)
+		var lower: String = brief.to_lower()
+		check(brief != "" and not lower.contains("fmv") and not lower.contains("video"), "%s is a text briefing" % id)
+		check(camp.play(id), "%s can be finished" % id)
+	SMCampaign.selected = "mae_sai"
+	var scene: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(str(scene.get("briefing_text")).contains("Mae Sai"), "the mission scene shows the Mae Sai briefing")
+	check(bool(scene.call("scripted_playthrough")), "the mission scene can be finished")
+	check(scene.find_child("SelectionBox", true, false) != null, "the mission scene has select controls")
+	var friends: Array[RTSUnit] = (scene.get("field") as SMPointer).units_of(0)
+	var picked: RTSUnit = (scene.get("field") as SMPointer).select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	check(picked == friends[0], "left click selects on a campaign mission")
+	(scene.get("hud") as SMHud).refresh()
+	check(_hud_text(scene, "HudSelection") == "Militia    HP 80/80    F group toggle", "the mission selection shows name, health, and its F ability")
+	check(_click_east(scene), "clicking the mission minimap moves the camera")
+	var mission_build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+	mission_build.pressed.emit()
+	var mission_yard: SMBuildYard = (scene.get("side") as SMSide).yard
+	var mission_purse: SMRoster = scene.get("roster") as SMRoster
+	check(mission_yard.finished.has(&"scaffold_yard") and mission_yard.style == SMBuildYard.Style.SCAFFOLD and mission_purse.economy.credits(0) == 49980, "a mission building click raises a scaffold yard")
+	scene.free()
+	for id: String in ids:
+		SMCampaign.selected = id
+		var mission_scene: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+		root.add_child(mission_scene)
+		await process_frame
+		check(_campaign_hud(mission_scene, id), "%s shows the in-match hud" % id)
+		mission_scene.free()
+		await process_frame
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	for id: String in ids:
+		var button: Button = boot.find_child("Mission_%s" % id, true, false) as Button
+		check(button != null and button.text == SMCampaign.title_of(id), "boot lists %s" % id)
+	boot.free()
+	await process_frame
+
+func test_sm_hud() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(_hud_text(scene, "HudFaction") == "GTFC", "phillips names the faction")
+	check(_hud_text(scene, "HudCredits") == "Credits 50000", "phillips shows credits")
+	check(_hud_text(scene, "HudPower") == "Power 90", "phillips shows army power")
+	check(_hud_text(scene, "HudMap") == "Phillips Channel", "phillips names the map")
+	check(_hud_text(scene, "HudSelection") == "Nothing selected", "phillips says when nothing is selected")
+	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+	var trained: Button = scene.find_child("Train_militia", true, false) as Button
+	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
+	check(built != null and trained != null and ability != null and ability.text == "Ability (F)", "phillips can build, train, and use F")
+	var field: SMPointer = scene.get("field") as SMPointer
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	check(scene.find_child("CompanyList", true, false) == null and mm != null, "phillips uses a minimap instead of a name list")
+	mm.sample()
+	check(mm.terrain_kind(Vector2i(2, 8)) == "land" and mm.terrain_kind(Vector2i(18, 12)) == "water" and mm.saw_land and mm.saw_water, "the minimap draws land and water")
+	check(mm.player_dots == field.count_team(0) and mm.player_dots >= 6 and mm.enemy_dots == 0 and field.count_team(1) >= 1, "the minimap shows your units and hides enemies outside sight")
+	check(mm.camera_rect.size.x > 1.0 and mm.covers_focus(), "the minimap draws the camera rectangle")
+	check(_click_east(scene), "clicking the minimap moves the camera")
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	(scene.get("hud") as SMHud).refresh()
+	check(picked == friends[0] and _hud_text(scene, "HudSelection") == "Militia    HP 80/80    F group toggle", "the selection shows name, health, and its F ability")
+	var purse: SMRoster = scene.get("roster") as SMRoster
+	built.pressed.emit()
+	var yard: SMBuildYard = (scene.get("side") as SMSide).yard
+	check(yard.finished.has(&"scaffold_yard") and yard.style == SMBuildYard.Style.SCAFFOLD and purse.economy.credits(0) == 49980 and scene.get_node_or_null("Built_scaffold_yard") is MeshInstance3D, "a building click raises a scaffold yard")
+	var before: int = field.count_team(0)
+	trained.pressed.emit()
+	check(field.count_team(0) == before + 1 and purse.economy.credits(0) == 49900 and _hud_text(scene, "HudPower") == "Power 98", "a unit click trains it and spends credits")
+	scene.free()
+	await _hud_map("res://game/sop_ruak.tscn", "Sop Ruak")
+	await _hud_map("res://game/burma_road.tscn", "Burma Road")
+	await _hud_map("res://game/ten_degree_atolls.tscn", "Ten Degree Atolls")
+	await _hud_map("res://game/mekong_delta.tscn", "Mekong Delta")
+	await _hud_map("res://game/chiang_rai.tscn", "Siege of Chiang Rai")
+	SMFront.faction_id = "nmrf"
+	var burma: Node = (load("res://game/burma_road.tscn") as PackedScene).instantiate()
+	root.add_child(burma)
+	await process_frame
+	check(_hud_text(burma, "HudFaction") == "NMRF", "the hud follows the selected faction")
+	var packer: Button = burma.find_child("MovePacker", true, false) as Button
+	var nmrf_side: SMSide = burma.get("side") as SMSide
+	var origin: Vector3 = nmrf_side.yard.packer_pos
+	packer.pressed.emit()
+	check(packer != null and nmrf_side.yard.packer_pos != origin and nmrf_side.yard.style == SMBuildYard.Style.MOBILE, "the packer button uses the mobile build")
+	var wharf: Button = burma.find_child("Build_gun_wharf", true, false) as Button
+	wharf.pressed.emit()
+	check(nmrf_side.yard.finished.has(&"gun_wharf"), "a wharf click unpacks the mobile core")
+	burma.free()
+	SMFront.faction_id = "mvd"
+	var atoll: Node = (load("res://game/ten_degree_atolls.tscn") as PackedScene).instantiate()
+	root.add_child(atoll)
+	await process_frame
+	var hub: Button = atoll.find_child("Build_command_hub", true, false) as Button
+	hub.pressed.emit()
+	var mvd_side: SMSide = atoll.get("side") as SMSide
+	check(_hud_text(atoll, "HudFaction") == "MVD" and mvd_side.yard.style == SMBuildYard.Style.INTERNAL and mvd_side.yard.finished.has(&"command_hub"), "a hub click uses the internal queue")
+	atoll.free()
+	SMFront.faction_id = "gtfc"
+	check(SMFront.current() == "gtfc", "the hud test restores GTFC")
+	await process_frame
+
+func _click_east(scene: Node) -> bool:
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	var cam: RTSCamera = scene.get_node_or_null("Camera") as RTSCamera
+	if mm == null or cam == null:
+		return false
+	var before_x: float = cam.focus.x
+	var click: InputEventMouseButton = InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = Vector2(mm.map_size().x - 2.0, mm.map_size().y * 0.5)
+	mm._gui_input(click)
+	return cam.focus.x > before_x + 8.0
+
+func _campaign_hud(scene: Node, id: String) -> bool:
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	if mm == null or scene.find_child("CompanyList", true, false) != null:
+		return false
+	mm.sample()
+	var field: SMPointer = scene.get("field") as SMPointer
+	var cam: RTSCamera = scene.get_node_or_null("Camera") as RTSCamera
+	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+	var trained: Button = scene.find_child("Train_militia", true, false) as Button
+	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
+	if field == null or cam == null or built == null or trained == null or ability == null or ability.text != "Ability (F)":
+		return false
+	if scene.find_child("GroupBuildings", true, false) == null or scene.find_child("GroupUnits", true, false) == null or scene.find_child("GroupAbility", true, false) == null:
+		return false
+	if _hud_text(scene, "HudFaction") != "GTFC" or _hud_text(scene, "HudCredits") != "Credits 50000":
+		return false
+	if not _hud_text(scene, "HudPower").begins_with("Power ") or _hud_text(scene, "HudMap") != SMCampaign.title_of(id):
+		return false
+	if _hud_text(scene, "HudSelection") != "Nothing selected":
+		return false
+	if not mm.saw_land or mm.saw_water:
+		return false
+	if mm.player_dots != field.count_team(0) or mm.enemy_dots != field.count_team(1):
+		return false
+	if mm.camera_rect.size.x <= 1.0 or not mm.covers_focus():
+		return false
+	return true
+
+func _hud_text(scene: Node, node_name: String) -> String:
+	var label: Label = scene.find_child(node_name, true, false) as Label
+	if label == null:
+		return ""
+	return label.text
+
+func _hud_map(path: String, map_name: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(_hud_text(scene, "HudMap") == map_name, "%s names the map on the hud" % map_name)
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	if mm != null:
+		mm.sample()
+	var terrain_ok: bool = mm != null and mm.saw_land and (map_name == "Burma Road" or mm.saw_water)
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudPower").begins_with("Power ") and _hud_text(scene, "HudSelection") == "Nothing selected" and scene.find_child("CompanyList", true, false) == null and terrain_ok and mm.covers_focus(), "%s shows faction, power, an empty selection, and the minimap" % map_name)
+	scene.free()
+	await process_frame
+
+func test_sm_outcome() -> void:
+	SMFront.faction_id = "gtfc"
+	var empty: SMOutcome = SMOutcome.new()
+	empty.consider(0, 0, 0, 0)
+	check(not empty.over, "an empty start does not end the match")
+	empty.consider(4, 0, 0, 0)
+	empty.consider(0, 0, 0, 0)
+	check(not empty.over and empty.saw_player and not empty.saw_enemy, "a side that never appeared cannot win or lose")
+	var stay: SMOutcome = SMOutcome.new()
+	stay.consider(6, 0, 3, 0)
+	check(not stay.over, "both sides on the field keep the match open")
+	stay.consider(0, 1, 3, 1)
+	check(not stay.over, "a living building keeps a side in the match")
+	stay.consider(0, 0, 3, 1)
+	check(stay.over and not stay.victory, "losing every unit and building is a defeat")
+	var win: SMOutcome = SMOutcome.new()
+	win.consider(6, 0, 3, 1)
+	win.consider(6, 0, 0, 1)
+	check(not win.over, "enemy units can fall while a building still stands")
+	win.consider(6, 0, 0, 0)
+	check(win.over and win.victory, "clearing the last enemy building is a victory")
+	var paths: PackedStringArray = PackedStringArray([
+		"res://game/phillips_channel.tscn",
+		"res://game/sop_ruak.tscn",
+		"res://game/burma_road.tscn",
+		"res://game/ten_degree_atolls.tscn",
+		"res://game/mekong_delta.tscn",
+		"res://game/chiang_rai.tscn",
+		"res://game/nmrf_yard.tscn",
+		"res://game/mvd_yard.tscn",
+	])
+	for path: String in paths:
+		await _outcome_open(path)
+	await _outcome_defeat("res://game/phillips_channel.tscn")
+	await _outcome_victory("res://game/sop_ruak.tscn")
+	SMFront.faction_id = "gtfc"
+
+func _outcome_open(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var end: SMOutcome = scene.get("outcome") as SMOutcome
+	var banner: Label = scene.find_child("MatchBanner", true, false) as Label
+	var back: Button = scene.find_child("BootMenuButton", true, false) as Button
+	var banner_hidden: bool = banner != null and not banner.is_visible_in_tree()
+	var back_hidden: bool = back != null and back.text == "Boot menu" and not back.is_visible_in_tree()
+	check(end != null and not end.over and banner_hidden and back_hidden, "%s stays open until a side is wiped out" % path.get_file())
+	scene.free()
+	await process_frame
+
+func _outcome_defeat(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	_wipe(field.units_of(SMPointer.PLAYER))
+	await process_frame
+	var end: SMOutcome = scene.get("outcome") as SMOutcome
+	var banner: Label = scene.find_child("MatchBanner", true, false) as Label
+	var back: Button = scene.find_child("BootMenuButton", true, false) as Button
+	check(end.over and not end.victory and banner.text == "Defeat" and banner.is_visible_in_tree(), "a wiped player sees Defeat")
+	check(back.is_visible_in_tree() and back.text == "Boot menu", "defeat offers the boot menu")
+	scene.free()
+	await process_frame
+
+func _outcome_victory(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var raider: SMRaider = scene.get("raider") as SMRaider
+	_wipe(field.units_of(SMPointer.ENEMY))
+	await process_frame
+	var end: SMOutcome = scene.get("outcome") as SMOutcome
+	check(not end.over and raider.yard.living_count() > 0, "a standing enemy building holds the match open")
+	raider.yard.damage_structure(&"enemy_yard", 100000.0)
+	await process_frame
+	var banner: Label = scene.find_child("MatchBanner", true, false) as Label
+	var back: Button = scene.find_child("BootMenuButton", true, false) as Button
+	check(end.over and end.victory and banner.text == "Victory" and banner.is_visible_in_tree() and back.is_visible_in_tree(), "clearing the last building shows Victory")
+	scene.free()
+	await process_frame
+
+func _wipe(units: Array[RTSUnit]) -> void:
+	for u: RTSUnit in units:
+		u.take_damage(100000.0)
+
+func test_sm_sight() -> void:
+	var grid: SMDomainGrid = SMDomainGrid.new(10, 10, 4.0, Vector3.ZERO)
+	var book: SMSight = SMSight.new()
+	book.bind(grid)
+	var home: Vector3 = grid.cell_center(Vector2i(1, 1))
+	var far: Vector3 = grid.cell_center(Vector2i(8, 8))
+	book.begin()
+	book.add_seer(home, SMSight.UNIT_RADIUS)
+	book.commit()
+	check(book.sees(home + Vector3(4.0, 0.0, 0.0)) and not book.sees(far), "unit sight reaches 18m and not the far shore")
+	check(book.cell_state(Vector2i(1, 1)) == SMSight.CLEAR and book.cell_state(Vector2i(8, 8)) == SMSight.HIDDEN, "unseen ground stays hidden")
+	book.begin()
+	book.add_seer(grid.cell_center(Vector2i(8, 1)), 3.0)
+	book.commit()
+	check(book.cell_state(Vector2i(1, 1)) == SMSight.DIM and book.cell_state(Vector2i(8, 8)) == SMSight.HIDDEN, "explored ground stays dim")
+	book.begin()
+	book.add_seer(home, SMSight.UNIT_RADIUS)
+	book.add_seer(far, SMTechNet.VISION_RADIUS)
+	book.commit()
+	check(book.sees(far) and book.cell_state(Vector2i(8, 8)) == SMSight.CLEAR, "hydro radar reveals its radius")
+	var paths: PackedStringArray = PackedStringArray([
+		"res://game/phillips_channel.tscn",
+		"res://game/sop_ruak.tscn",
+		"res://game/burma_road.tscn",
+		"res://game/ten_degree_atolls.tscn",
+		"res://game/mekong_delta.tscn",
+		"res://game/chiang_rai.tscn",
+		"res://game/nmrf_yard.tscn",
+		"res://game/mvd_yard.tscn",
+	])
+	for path: String in paths:
+		await _sight_open(path)
+	await _sight_radar("res://game/phillips_channel.tscn")
+
+func _sight_open(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var book: SMSight = scene.get("sight") as SMSight
+	var friends_ok: bool = field != null and field.count_team(0) > 0
+	if field != null:
+		for u: RTSUnit in field.units_of(0):
+			friends_ok = friends_ok and u.visible
+	var foes_hidden: bool = true
+	if field != null:
+		for u: RTSUnit in field.units_of(1):
+			foes_hidden = foes_hidden and not u.visible and book != null and not book.sees(u.global_position)
+	var yard: Node3D = scene.get_node_or_null("EnemyYard") as Node3D
+	var veil: Node = scene.get_node_or_null("FogVeil")
+	check(book != null and veil != null and friends_ok and foes_hidden and yard != null and not yard.visible, "%s hides enemies outside sight" % path.get_file())
+	scene.free()
+	await process_frame
+
+func _sight_radar(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var book: SMSight = scene.get("sight") as SMSight
+	var yard: Node3D = scene.get_node("EnemyYard") as Node3D
+	var tech: SMTechNet = (scene.get("sim") as SMMatch).tech
+	var grid: SMDomainGrid = (scene.get("sim") as SMMatch).grid
+	tech.add_site(&"radar", SMTechNet.RADAR, yard.global_position)
+	tech.capture(&"radar", 0)
+	SMSight.update_match(book, scene.get("field") as SMPointer, scene as Node3D, tech, scene.get("raider") as SMRaider)
+	check(yard.visible and book.sees(yard.global_position), "a captured hydro radar reveals the enemy yard")
+	var corner: Vector2i = Vector2i(0, 23)
+	check(not book.sees(grid.cell_center(corner)) and book.cell_state(corner) == SMSight.HIDDEN, "ground outside the radar stays hidden")
+	scene.free()
+	await process_frame
+
+func test_sm_shapes() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	check(_shape_is(field, 0, "militia", "capsule") and _shape_is(field, 0, "ruby_lancer", "capsule"), "infantry is a thin capsule")
+	check(_shape_is(field, 0, "slag_hauler", "wide") and _shape_is(field, 0, "amber_tank", "wide") and _shape_is(field, 0, "monsoon_tube", "wide"), "vehicles are a wide box")
+	check(_shape_is(field, 0, "channel_skiff", "hull"), "boats are a long hull")
+	check(_shape_is(field, 1, "raider", "capsule"), "enemy soldiers are a thin capsule")
+	check(field.name_of(_unit_kind(field, 0, "militia")) == "Militia", "the floating name stays")
+	var player_yard: BoxMesh = (scene.get_node("PlayerYard") as MeshInstance3D).mesh as BoxMesh
+	var enemy_yard: BoxMesh = (scene.get_node("EnemyYard") as MeshInstance3D).mesh as BoxMesh
+	check(_taller(player_yard) and _taller(enemy_yard), "yard buildings are a taller block")
+	var side: SMSide = scene.get("side") as SMSide
+	side.order_building(&"scaffold_yard")
+	var built: MeshInstance3D = scene.get_node_or_null("Built_scaffold_yard") as MeshInstance3D
+	var built_mesh: BoxMesh = null
+	if built != null:
+		built_mesh = built.mesh as BoxMesh
+	check(_taller(built_mesh), "a finished building is a taller block")
+	field.faction_id = "mvd"
+	var gunship: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(-40, 0, -20), &"cyan_gunship")
+	check(_mesh_kind(gunship) == "wedge", "aircraft is a flat wedge")
+	var tint: Color = _albedo(_unit_kind(field, 0, "militia"))
+	check(tint.r > 0.6 and tint.g < 0.3, "unit color stays with the faction")
+	scene.free()
+	await process_frame
+	var mvd: Node = (load("res://game/mvd_yard.tscn") as PackedScene).instantiate()
+	root.add_child(mvd)
+	await process_frame
+	var mfield: SMPointer = mvd.get("field") as SMPointer
+	check(_shape_is(mfield, 0, "clearance_trooper", "capsule"), "mvd infantry is a thin capsule")
+	check(_shape_is(mfield, 0, "hub_drone", "wedge") and _shape_is(mfield, 0, "river_drone", "wedge"), "mvd aircraft is a flat wedge")
+	check(_shape_is(mfield, 0, "charcoal_apc", "wide"), "mvd vehicles are a wide box")
+	check(_taller((mvd.get_node("HubShell") as MeshInstance3D).mesh as BoxMesh), "the mvd hub is a taller block")
+	mvd.free()
+	await process_frame
+	var nmrf: Node = (load("res://game/nmrf_yard.tscn") as PackedScene).instantiate()
+	root.add_child(nmrf)
+	await process_frame
+	var nfield: SMPointer = nmrf.get("field") as SMPointer
+	check(_shape_is(nfield, 0, "river_rifle", "capsule"), "nmrf infantry is a thin capsule")
+	check(_shape_is(nfield, 0, "sampan", "hull") and _shape_is(nfield, 0, "emerald_gunboat", "hull"), "nmrf boats are a long hull")
+	check(_shape_is(nfield, 0, "packer", "wide"), "the packer unit is a wide box")
+	check(_taller((nmrf.get_node("PackerCore") as MeshInstance3D).mesh as BoxMesh), "the packer building is a taller block")
+	nmrf.free()
+	await process_frame
+	SMFront.faction_id = "gtfc"
+
+func test_sm_field() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var roster: SMRoster = scene.get("roster") as SMRoster
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var foes: Array[RTSUnit] = field.units_of(1)
+	var militia: RTSUnit = friends[0]
+	var slag: RTSUnit = friends[1]
+	var ruby: RTSUnit = friends[2]
+	var shooter: RTSUnit = friends[3]
+	var tube: RTSUnit = friends[4]
+	var skiff: RTSUnit = friends[5]
+	field.select_only([militia])
+	check(field.cast_f(militia.global_position) == "toggle" and bool(militia.get_meta("toggled")), "a group toggle flips the selected unit")
+	field.select_only([slag, ruby])
+	check(field.cast_f(slag.global_position) == "smart" and int(slag.get_meta("fired_f", 0)) == 1 and int(ruby.get_meta("fired_f", 0)) == 0, "one F press fires only the closer smart-cast unit")
+	field.select_only([tube])
+	check(field.cast_f(tube.global_position) == "beam" and bool(tube.get_meta("channeling")), "a channeled beam starts on the selected tube")
+	field.tick(1.6)
+	check(int(tube.get_meta("beam_done")) == 1 and bool(foes[0].get_meta("frozen", false)), "a finished beam freezes the nearest enemy")
+	shooter.global_position = sim.ew.center
+	shooter.set_meta("guidance", "gps")
+	shooter.set_meta("fiber_on", false)
+	shooter.attack_range = 30.0
+	var victim: RTSUnit = foes[1]
+	victim.global_position = sim.ew.center + Vector3(3.0, 0.0, 0.0)
+	victim.hp = 200.0
+	shooter.attack_target = victim
+	shooter._cooldown = 0.0
+	var jammed_before: float = victim.hp
+	shooter.advance(0.3)
+	check(is_equal_approx(jammed_before - victim.hp, shooter.attack_damage * sim.ew.penalty), "the jammer cuts a GPS shot")
+	shooter.set_meta("fiber_on", true)
+	shooter._cooldown = 0.0
+	var fiber_before: float = victim.hp
+	shooter.advance(0.3)
+	check(is_equal_approx(fiber_before - victim.hp, shooter.attack_damage), "a fiber link ignores the jammer")
+	shooter.set_meta("fiber_on", false)
+	shooter.set_meta("guidance", "hop")
+	shooter._cooldown = 0.0
+	var hop_before: float = victim.hp
+	shooter.advance(0.3)
+	check(is_equal_approx(hop_before - victim.hp, shooter.attack_damage), "a hop link ignores the jammer")
+	shooter.attack_target = null
+	field.apply_status(skiff, "frozen", 3.0)
+	skiff.set_path(PackedVector3Array([skiff.global_position + Vector3(8.0, 0.0, 0.0)]))
+	var frozen_at: Vector3 = skiff.global_position
+	field.tick(0.4)
+	check(bool(skiff.get_meta("frozen")) and skiff.global_position.is_equal_approx(frozen_at), "frozen stops the unit")
+	field.apply_status(skiff, "shrunk", 3.0)
+	var body: MeshInstance3D = skiff.get_node_or_null("Body") as MeshInstance3D
+	var shrink_hp: float = skiff.hp
+	skiff.take_damage(10.0)
+	check(body != null and body.scale.x < 0.6 and skiff.speed_scale > 1.5 and is_equal_approx(skiff.hp, shrink_hp - 5.0), "shrunk scales the mesh and halves incoming damage")
+	field.apply_status(skiff, "black_hole", 3.0)
+	var hole_hp: float = skiff.hp
+	skiff.take_damage(10.0)
+	check(is_equal_approx(skiff.hp, hole_hp - 2.0), "black-hole armor cuts incoming damage")
+	var before: int = roster.economy.credits(0)
+	check(sim.goods.snap_refinery(&"slag_west", 0) and roster.economy.credits(0) == before, "claiming Golden Slag does not pay until the loop finishes")
+	scene.call("tick_world", 4.0)
+	check(roster.economy.credits(0) == before + 20, "a Phillips tick pays a claimed node")
+	var night_before: int = roster.economy.credits(0)
+	sim.goods.add_node(&"ruby_night", SMCommodityNet.KIND_RUBY, Vector3(48.0, 0.0, 20.0), 15, false)
+	check(sim.goods.snap_refinery(&"ruby_night", 0) and sim.goods.set_night_shift(&"ruby_night", true), "night shift arms a ruby node")
+	scene.call("tick_world", 2.0)
+	check(roster.economy.credits(0) == night_before + 15, "night shift pays ruby in half a loop")
+	check(sim.goods.snap_refinery(&"rare_shore", 0), "a rare-earth node can be claimed")
+	scene.call("tick_world", 4.0)
+	check(sim.goods.stock_of(0) >= 1, "rare-earth stock grows on a Phillips tick")
+	var rare_i: int = sim.goods.find(&"rare_shore")
+	var rare_node: Dictionary = sim.goods.nodes[rare_i]
+	militia.global_position = rare_node["pos"] as Vector3
+	var wet: float = militia.hp
+	scene.call("tick_world", 1.0)
+	check(militia.hp < wet, "water beside rare earth harms infantry")
+	militia.global_position = Vector3(-70.0, 0.0, -30.0)
+	sim.tech.capture(&"cyber", 0)
+	roster.economy.set_credits(1, 80)
+	var siphon_before: int = roster.economy.credits(0)
+	scene.call("tick_world", 1.0)
+	check(roster.economy.credits(0) > siphon_before and sim.tech.siphon_of(&"cyber") > 0, "cyber siphon pays during a Phillips tick")
+	sim.tech.add_site(&"clinic", SMTechNet.CLINIC, Vector3(-70.0, 0.0, -30.0))
+	sim.tech.capture(&"clinic", 0)
+	militia.hp = maxf(1.0, militia.max_hp - 30.0)
+	var hurt: float = militia.hp
+	scene.call("tick_world", 1.0)
+	check(militia.hp > hurt and sim.tech.clinic_healed(0) > 0.0, "a clinic heals infantry during a Phillips tick")
+	sim.tech.add_site(&"bazaar", SMTechNet.BAZAAR, Vector3.ZERO)
+	sim.tech.capture(&"bazaar", 0)
+	var cost_before: int = roster.economy.credits(0)
+	var trained: Button = scene.find_child("Train_militia", true, false) as Button
+	trained.pressed.emit()
+	check(trained != null and roster.economy.credits(0) == cost_before - 56, "a captured bazaar discounts a trained infantry unit")
+	scene.free()
+	await process_frame
+
+func test_sm_sites() -> void:
+	await _sites("res://game/phillips_channel.tscn", 8, 2, 0, 0, 0, 1, 0, 0)
+	await _sites("res://game/sop_ruak.tscn", 12, 3, 1, 0, 0, 0, 0, 0)
+	await _sites("res://game/burma_road.tscn", 8, 0, 2, 0, 2, 0, 0, 0)
+	await _sites("res://game/ten_degree_atolls.tscn", 16, 0, 0, 0, 2, 0, 4, 0)
+	await _sites("res://game/mekong_delta.tscn", 14, 2, 0, 2, 0, 0, 0, 4)
+	await _sites("res://game/chiang_rai.tscn", 24, 4, 2, 0, 0, 0, 0, 0)
+
+func _sites(path: String, nodes: int, cyber: int, bazaar: int, clinic: int, radar: int, salvage: int, derrick: int, bridge: int) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(_site_counts(scene, nodes, cyber, bazaar, clinic, radar, salvage, derrick, bridge), "%s has its blueprint nodes" % path.get_file())
+	if path.ends_with("sop_ruak.tscn"):
+		var sim: SMMatch = scene.get("sim") as SMMatch
+		var roster: SMRoster = scene.get("roster") as SMRoster
+		var before: int = roster.economy.credits(0)
+		var id: StringName = _paying_node(sim)
+		var claimed: bool = sim.goods.snap_refinery(id, 0)
+		scene.call("tick_world", 4.0)
+		var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+		if mm != null:
+			mm.sample()
+		var collector: Node = scene.get_node_or_null("Collector_%s" % str(id))
+		check(claimed and roster.economy.credits(0) > before and collector != null and mm != null and mm.claimed_dots >= 1, "claiming a Sop Ruak node pays, spawns a collector, and marks the minimap")
+	scene.free()
+	await process_frame
+
+func _paying_node(sim: SMMatch) -> StringName:
+	for node: Dictionary in sim.goods.nodes:
+		if int(node.get("rate", 0)) > 0:
+			return StringName(str(node.get("id", "")))
+	return &""
+
+func _site_counts(scene: Node, nodes: int, cyber: int, bazaar: int, clinic: int, radar: int, salvage: int, derrick: int, bridge: int) -> bool:
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var field: SMPointer = scene.get("field") as SMPointer
+	if sim == null or field == null:
+		return false
+	if sim.goods.nodes.size() != nodes:
+		return false
+	if _site_kind(sim, SMTechNet.CYBER) != cyber or _site_kind(sim, SMTechNet.BAZAAR) != bazaar:
+		return false
+	if _site_kind(sim, SMTechNet.CLINIC) != clinic or _site_kind(sim, SMTechNet.RADAR) != radar:
+		return false
+	if _site_kind(sim, SMTechNet.SALVAGE) != salvage or _site_kind(sim, SMTechNet.DERRICK) != derrick or _site_kind(sim, SMTechNet.BRIDGE) != bridge:
+		return false
+	if _prefix_count(scene, "Node_") != nodes:
+		return false
+	if _prefix_count(scene, "Tech_") != cyber + bazaar + clinic + radar:
+		return false
+	if _prefix_count(scene, "Salvage_") != salvage or _prefix_count(scene, "Derrick_") != derrick or _prefix_count(scene, "Bridge_") != bridge:
+		return false
+	return field.count_team(0) >= 1 and field.count_team(1) >= 1
+
+func _site_kind(sim: SMMatch, kind: StringName) -> int:
+	var n: int = 0
+	for site: Dictionary in sim.tech.sites:
+		if StringName(str(site.get("kind", ""))) == kind:
+			n += 1
+	return n
+
+func _prefix_count(scene: Node, prefix: String) -> int:
+	var n: int = 0
+	for child: Node in scene.get_children():
+		if str(child.name).begins_with(prefix):
+			n += 1
+	return n
+
+func test_sm_haze() -> void:
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var book: SMSight = scene.get("sight") as SMSight
+	var west: Vector3 = sim.grid.cell_center(Vector2i(8, 12))
+	var east: Vector3 = sim.grid.cell_center(Vector2i(30, 12))
+	check(field.nav_ground.find_path(west, east).is_empty(), "a ground path across the Phillips channel fails")
+	check(field.nav_amphib.find_path(west, east).size() > 0, "a boat path across the Phillips channel succeeds")
+	check(field.nav_naval.find_path(west, east).size() > 0, "a naval path uses the deep channel")
+	var player: RTSUnit = field.units_of(0)[0]
+	var enemy: RTSUnit = field.units_of(1)[0]
+	player.global_position = west
+	enemy.global_position = west + Vector3(10.0, 0.0, 0.0)
+	book.force_weather(false)
+	SMSight.update_match(book, field, scene as Node3D, sim.tech, scene.get("raider") as SMRaider)
+	check(book.sees(enemy.global_position) and enemy.visible, "clear weather shows a unit inside normal sight")
+	book.force_weather(true)
+	SMSight.update_match(book, field, scene as Node3D, sim.tech, scene.get("raider") as SMRaider)
+	check(not book.sees(enemy.global_position) and not enemy.visible, "a haze tick hides a unit inside the shortened sight")
+	sim.tech.add_site(&"haze_radar", SMTechNet.RADAR, enemy.global_position)
+	sim.tech.capture(&"haze_radar", 0)
+	SMSight.update_match(book, field, scene as Node3D, sim.tech, scene.get("raider") as SMRaider)
+	check(book.sees(enemy.global_position) and enemy.visible, "a captured radar reveals the unit the haze hid")
+	scene.free()
+	await process_frame
+
+func test_sm_boot() -> void:
+	SMFront.faction_id = "gtfc"
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	check(boot.find_child("TabSkirmish", true, false) != null and boot.find_child("TabCampaign", true, false) != null and boot.find_child("TabFaction", true, false) != null, "boot has three tabs")
+	check(_bar_ok(boot), "the control bar lists select, move, ability, pan, and zoom")
+	var play: Button = boot.find_child("PlayButton", true, false) as Button
+	check(play != null and play.disabled, "play waits for a map")
+	check(_card_line(boot, "CardPhillips", "Phillips Channel", "Water"), "phillips is a water card")
+	check(_card_line(boot, "CardSopRuak", "Sop Ruak", "River"), "sop ruak is a river card")
+	check(_card_line(boot, "CardBurma", "Burma Road", "Land"), "burma road is a land card")
+	check(_card_line(boot, "CardAtolls", "Ten Degree Atolls", "Water"), "the atolls are a water card")
+	check(_card_line(boot, "CardMekong", "Mekong Delta", "River"), "the mekong is a river card")
+	check(_card_line(boot, "CardChiang", "Siege of Chiang Rai", "River"), "chiang rai is a river card")
+	var burma_card: Button = boot.find_child("CardBurma", true, false) as Button
+	burma_card.pressed.emit()
+	check(str(boot.get("selected_map")).contains("burma_road") and not play.disabled, "a card arms play")
+	check(boot.find_child("GreyboxButton", true, false) != null, "greybox stays on the skirmish tab")
+	var campaign: Button = boot.find_child("TabCampaign", true, false) as Button
+	campaign.pressed.emit()
+	var act1: Control = boot.find_child("ActIMissions", true, false) as Control
+	var act2: Control = boot.find_child("ActIIMissions", true, false) as Control
+	var act3: Control = boot.find_child("ActIIIMissions", true, false) as Control
+	check(act1 != null and act1.is_visible_in_tree() and act2 != null and not act2.is_visible_in_tree() and act3 != null and not act3.is_visible_in_tree(), "only the selected act is listed")
+	check(_bar_ok(boot), "the control bar stays up on campaign")
+	var act2_button: Button = boot.find_child("ActII", true, false) as Button
+	act2_button.pressed.emit()
+	check(act2.is_visible_in_tree() and not act1.is_visible_in_tree(), "act two replaces act one")
+	var crossing: Button = boot.find_child("Mission_channel_crossing", true, false) as Button
+	var crossing_brief: Label = boot.find_child("Brief_channel_crossing", true, false) as Label
+	check(crossing != null and crossing.text == SMCampaign.title_of("channel_crossing") and crossing_brief != null and crossing_brief.text == SMCampaign.briefing_of("channel_crossing") and crossing.is_visible_in_tree(), "act two shows the crossing briefing")
+	var faction_tab: Button = boot.find_child("TabFaction", true, false) as Button
+	faction_tab.pressed.emit()
+	check(_faction_line(boot, "FactionGtfc", "GTFC", "Scaffold yard", "#B81E2D"), "gtfc shows its color and build style")
+	check(_faction_line(boot, "FactionNmrf", "NMRF", "Mobile core", "#5A6824"), "nmrf shows its color and build style")
+	check(_faction_line(boot, "FactionMvd", "MVD", "Internal queue", "#2A2E32"), "mvd shows its color and build style")
+	var pick: Button = boot.find_child("FactionNmrf", true, false) as Button
+	pick.pressed.emit()
+	check(SMFront.faction_id == "nmrf", "the next skirmish uses the selected faction")
+	check(_bar_ok(boot), "the control bar stays up on faction")
+	boot.free()
+	var scene: Node = (load("res://game/burma_road.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	check(_has_names(field, PackedStringArray(["River Rifle", "Sampan", "Emerald Gunboat", "Mangrove Tube", "Packer", "Jade Skiff"])), "burma plays the selected nmrf side")
+	check(scene.find_child("MovePacker", true, false) != null, "nmrf skirmish can move the packer")
+	check(str(scene.call("train_unit")) == "Olive Ranger", "nmrf skirmish trains an nmrf unit")
+	scene.free()
+	SMFront.faction_id = "gtfc"
+	check(SMFront.current() == "gtfc", "faction selection resets")
+	await process_frame
+
+func _spawned(faction: String, id: StringName, display: String, weapon: String, secondary: String, damage: float) -> bool:
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var cam: RTSCamera = RTSCamera.new()
+	host.add_child(cam)
+	var field: SMPointer = SMPointer.new()
+	field.bind_faction(host, cam, faction)
+	field.use_open(8, 8, 2.0, Vector3.ZERO)
+	var roster: SMRoster = SMRoster.new()
+	roster.setup(faction)
+	var made: StringName = roster.train_and_finish(id)
+	var u: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3.ZERO, id)
+	var ok: bool = made == id and field.name_of(u) == display and str(u.get_meta("weapon")) == weapon and str(u.get_meta("secondary")) == secondary and is_equal_approx(u.attack_damage, damage)
+	host.free()
+	return ok
+
+func _trained(path: String) -> String:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var before: int = field.count_team(0)
+	var label: String = str(scene.call("train_unit"))
+	var grew: bool = field.count_team(0) == before + 1
+	scene.free()
+	await process_frame
+	if not grew:
+		return ""
+	return label
+
+func _enemy_fights(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var raider: SMRaider = scene.get("raider") as SMRaider
+	var field: SMPointer = scene.get("field") as SMPointer
+	var foe: RTSUnit = field.units_of(1)[0]
+	var label: String = path.get_file()
+	check(raider != null and raider.built and raider.yard.finished.has(&"enemy_yard") and scene.get_node_or_null("EnemyYard") is MeshInstance3D, "%s enemy builds a yard" % label)
+	check(raider.expanded and raider.goods.has_collector(raider.node_id) and scene.get_node_or_null("EnemyClaim") is MeshInstance3D, "%s enemy expands onto a ruby node" % label)
+	check(raider.attacked and foe.attack_target != null and foe.attack_target.team == 0 and (foe.is_moving() or foe.attack_target.hp < foe.attack_target.max_hp), "%s enemy attacks the player" % label)
+	scene.free()
+	await process_frame
+
+func _orders(scene: Node, field: SMPointer) -> bool:
+	if scene.find_child("SelectionBox", true, false) == null:
+		return false
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	if picked != friends[0] or field.selection.count() != 1:
+		return false
+	var grid: SMDomainGrid = scene.get("grid") as SMDomainGrid
+	var step: Vector3 = grid.cell_center(Vector2i(2, 6))
+	if field.command_at(step, _proj(step), Callable(self, "_proj")) != &"move" or not friends[0].is_moving():
+		return false
+	var foes: Array[RTSUnit] = field.units_of(1)
+	if field.command_at(foes[0].global_position, _proj(foes[0].global_position), Callable(self, "_proj")) != &"attack":
+		return false
+	if friends[0].attack_target != foes[0]:
+		return false
+	return bool(scene.call("fire_ability"))
+
+func _has_names(field: SMPointer, need: PackedStringArray) -> bool:
+	var names: PackedStringArray = PackedStringArray()
+	for u: RTSUnit in field.units_of(0):
+		names.append(field.name_of(u))
+	for item: String in need:
+		if not names.has(item):
+			return false
+	return true
+
+func _unit_kind(field: SMPointer, team: int, kind: String) -> RTSUnit:
+	for u: RTSUnit in field.units_of(team):
+		if str(u.unit_type) == kind:
+			return u
+	return null
+
+func _mesh_kind(u: RTSUnit) -> String:
+	if u == null:
+		return ""
+	var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
+	if body == null or body.mesh == null or u.get_node_or_null("NameTag") == null:
+		return ""
+	if body.mesh is CapsuleMesh:
+		var cap: CapsuleMesh = body.mesh as CapsuleMesh
+		if cap.radius <= 0.34 and cap.height >= 1.4:
+			return "capsule"
+		return "fat"
+	if body.mesh is PrismMesh:
+		var prism: PrismMesh = body.mesh as PrismMesh
+		if prism.size.y <= 0.45 and prism.size.z > prism.size.y * 3.0:
+			return "wedge"
+		return "prism"
+	if body.mesh is BoxMesh:
+		var box: BoxMesh = body.mesh as BoxMesh
+		if box.size.z >= box.size.x * 3.0 and box.size.y < box.size.x:
+			return "hull"
+		if box.size.x > box.size.z and box.size.x > box.size.y:
+			return "wide"
+		return "box"
+	return ""
+
+func _shape_is(field: SMPointer, team: int, kind: String, want: String) -> bool:
+	return _mesh_kind(_unit_kind(field, team, kind)) == want
+
+func _taller(box: BoxMesh) -> bool:
+	return box != null and box.size.y > box.size.x and box.size.y > box.size.z
+
+func _albedo(u: RTSUnit) -> Color:
+	var body: MeshInstance3D = u.get_child(0) as MeshInstance3D
+	var mat: StandardMaterial3D = body.material_override as StandardMaterial3D
+	return mat.albedo_color
+
+func _card_line(boot: Node, node_name: String, map_name: String, terrain: String) -> bool:
+	var card: Button = boot.find_child(node_name, true, false) as Button
+	if card == null:
+		return false
+	var title: Label = card.find_child("Title", true, false) as Label
+	var line: Label = card.find_child("Terrain", true, false) as Label
+	if title == null or line == null:
+		return false
+	return title.text == map_name and line.text == terrain
+
+func _faction_line(boot: Node, node_name: String, faction_name: String, style: String, hex: String) -> bool:
+	var card: Button = boot.find_child(node_name, true, false) as Button
+	if card == null:
+		return false
+	var title: Label = card.find_child("Title", true, false) as Label
+	var style_label: Label = card.find_child("Style", true, false) as Label
+	var swatch: ColorRect = card.find_child("Primary", true, false) as ColorRect
+	if title == null or style_label == null or swatch == null:
+		return false
+	return title.text == faction_name and style_label.text == style and swatch.color == Color.html(hex)
+
+func _bar_ok(boot: Node) -> bool:
+	var bar: Label = boot.find_child("ControlBar", true, false) as Label
+	if bar == null or not bar.is_visible_in_tree():
+		return false
+	var text: String = bar.text
+	return text.contains("Left click selects") and text.contains("Right click moves or attacks") and text.contains("F ability") and text.contains("Edge pan") and text.contains("Wheel zoom")
+
+func _play_map(path: String, mesh_a: String, mesh_b: String, from_cell: Vector2i, to_cell: Vector2i, move_cell: Vector2i) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(scene.get_node_or_null(mesh_a) is MeshInstance3D and scene.get_node_or_null(mesh_b) is MeshInstance3D, "%s shows its terrain" % path.get_file())
+	var field: SMPointer = scene.get("field") as SMPointer
+	var grid: SMDomainGrid = scene.get("grid") as SMDomainGrid
+	var route: PackedVector3Array = field.nav.find_path(grid.cell_center(from_cell), grid.cell_center(to_cell))
+	check(route.size() > 0, "%s path reaches the enemy shore" % path.get_file())
+	check(_gtfc_names(field), "%s labels the six GTFC placeholders" % path.get_file())
+	check(field.name_of(field.units_of(1)[0]) == "Enemy", "%s labels the enemy" % path.get_file())
+	check(scene.find_child("SelectionBox", true, false) != null, "%s shows a selection box" % path.get_file())
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	check(picked == friends[0] and field.selection.count() == 1, "%s left click selects" % path.get_file())
+	var step: Vector3 = grid.cell_center(move_cell)
+	var moved: StringName = field.command_at(step, _proj(step), Callable(self, "_proj"))
+	check(moved == &"move" and friends[0].is_moving(), "%s right click moves" % path.get_file())
+	var foes: Array[RTSUnit] = field.units_of(1)
+	var attacked: StringName = field.command_at(foes[0].global_position, _proj(foes[0].global_position), Callable(self, "_proj"))
+	check(attacked == &"attack" and friends[0].attack_target == foes[0], "%s right click attacks" % path.get_file())
+	check(bool(scene.call("fire_ability")), "%s F fires the ability" % path.get_file())
+	check(field.count_team(1) >= 1 and str(scene.get("map_id")) != "", "%s is GTFC versus one enemy" % path.get_file())
+	scene.free()
+	await process_frame
+
+func _gtfc_names(field: SMPointer) -> bool:
+	var names: PackedStringArray = PackedStringArray()
+	for u: RTSUnit in field.units_of(0):
+		names.append(field.name_of(u))
+	for need: String in ["Militia", "Slag Hauler", "Ruby Lancer", "Amber Tank", "Monsoon Tube", "Channel Skiff"]:
+		if not names.has(need):
+			return false
+	return true

@@ -6,6 +6,10 @@ const CYBER: StringName = &"cyber_scam"
 const BAZAAR: StringName = &"arms_bazaar"
 const CLINIC: StringName = &"field_clinic"
 const RADAR: StringName = &"hydro_radar"
+const SALVAGE: StringName = &"salvage"
+const DERRICK: StringName = &"derrick"
+const BRIDGE: StringName = &"bridge"
+const VISION_RADIUS: float = 24.0
 
 var sites: Array[Dictionary] = []
 var import_flags: Dictionary = {}
@@ -83,10 +87,14 @@ func discount(team: int, tag: String) -> float:
 	return 1.0
 
 func reveals_water(team: int) -> bool:
+	return not vision_points(team).is_empty()
+
+func vision_points(team: int) -> Array[Vector3]:
+	var out: Array[Vector3] = []
 	for i: int in sites.size():
 		if StringName(str(sites[i]["kind"])) == RADAR and int(sites[i]["owner"]) == team:
-			return true
-	return false
+			out.append(sites[i]["pos"] as Vector3)
+	return out
 
 func clinic_healed(team: int) -> float:
 	var total: float = 0.0

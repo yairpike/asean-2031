@@ -88,3 +88,64 @@ static func phillips_layout() -> SMDomainGrid:
 	g.fill_rect(Rect2i(4, 10, 4, 3), Domain.CLIFF)
 	g.fill_rect(Rect2i(18, 10, 4, 2), Domain.AIR)
 	return g
+
+## Sop Ruak: three land sectors split by a Y of deep water, with a ford on each arm.
+static func sop_ruak_layout() -> SMDomainGrid:
+	var g: SMDomainGrid = SMDomainGrid.new(36, 36, 4.0, Vector3(-72.0, 0.0, -72.0))
+	g.fill_rect(Rect2i(16, 16, 4, 17), Domain.DEEP)
+	for i: int in range(1, 15):
+		var lx: int = 16 - i
+		var ly: int = 16 - i
+		g.set_domain(Vector2i(lx, ly), Domain.DEEP)
+		g.set_domain(Vector2i(lx + 1, ly), Domain.DEEP)
+		g.set_domain(Vector2i(lx, ly + 1), Domain.DEEP)
+		g.set_domain(Vector2i(lx + 1, ly + 1), Domain.DEEP)
+		var rx: int = 19 + i
+		var ry: int = 16 - i
+		g.set_domain(Vector2i(rx, ry), Domain.DEEP)
+		g.set_domain(Vector2i(rx - 1, ry), Domain.DEEP)
+		g.set_domain(Vector2i(rx, ry + 1), Domain.DEEP)
+		g.set_domain(Vector2i(rx - 1, ry + 1), Domain.DEEP)
+	g.fill_rect(Rect2i(16, 24, 4, 2), Domain.LAND)
+	g.fill_rect(Rect2i(9, 9, 4, 4), Domain.LAND)
+	g.fill_rect(Rect2i(23, 9, 4, 4), Domain.LAND)
+	return g
+
+## Burma Road: highland cliffs with one land road cut through the wall.
+static func burma_road_layout() -> SMDomainGrid:
+	var g: SMDomainGrid = SMDomainGrid.new(40, 28, 4.0, Vector3(-80.0, 0.0, -56.0))
+	g.fill_rect(Rect2i(0, 0, 12, 8), Domain.CLIFF)
+	g.fill_rect(Rect2i(28, 20, 12, 8), Domain.CLIFF)
+	g.fill_rect(Rect2i(16, 0, 8, 28), Domain.CLIFF)
+	g.fill_rect(Rect2i(16, 12, 8, 4), Domain.LAND)
+	return g
+
+## Ten Degree Atolls: land islands in deep water, joined by shallow shoals.
+static func ten_degree_atolls_layout() -> SMDomainGrid:
+	var g: SMDomainGrid = SMDomainGrid.new(36, 36, 4.0, Vector3(-72.0, 0.0, -72.0))
+	g.fill_rect(Rect2i(0, 0, 36, 36), Domain.DEEP)
+	g.fill_rect(Rect2i(10, 16, 16, 4), Domain.SHALLOW)
+	g.fill_rect(Rect2i(16, 8, 4, 8), Domain.SHALLOW)
+	g.fill_rect(Rect2i(2, 14, 8, 8), Domain.LAND)
+	g.fill_rect(Rect2i(26, 14, 8, 8), Domain.LAND)
+	g.fill_rect(Rect2i(14, 2, 8, 6), Domain.LAND)
+	return g
+
+## Mekong Delta: two deep canals with a land bridge on each.
+static func mekong_delta_layout() -> SMDomainGrid:
+	var g: SMDomainGrid = SMDomainGrid.new(40, 32, 4.0, Vector3(-80.0, 0.0, -64.0))
+	g.fill_rect(Rect2i(12, 0, 3, 32), Domain.DEEP)
+	g.fill_rect(Rect2i(26, 0, 3, 32), Domain.DEEP)
+	g.fill_rect(Rect2i(12, 14, 3, 4), Domain.LAND)
+	g.fill_rect(Rect2i(26, 14, 3, 4), Domain.LAND)
+	return g
+
+## Siege of Chiang Rai: a wider field, a river, two fords, and a siege wall.
+static func chiang_rai_layout() -> SMDomainGrid:
+	var g: SMDomainGrid = SMDomainGrid.new(56, 40, 4.0, Vector3(-112.0, 0.0, -80.0))
+	g.fill_rect(Rect2i(26, 0, 4, 40), Domain.DEEP)
+	g.fill_rect(Rect2i(26, 8, 4, 4), Domain.LAND)
+	g.fill_rect(Rect2i(26, 28, 4, 4), Domain.LAND)
+	g.fill_rect(Rect2i(6, 6, 8, 3), Domain.CLIFF)
+	g.fill_rect(Rect2i(42, 30, 8, 3), Domain.CLIFF)
+	return g

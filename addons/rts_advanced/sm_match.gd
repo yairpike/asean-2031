@@ -43,13 +43,8 @@ func setup_phillips(faction: String = "gtfc") -> void:
 	yard.building_tier[&"scaffold_yard"] = 1
 	yard.building_tier[&"barracks"] = 1
 	goods = SMCommodityNet.new()
-	goods.add_node(&"slag_west", SMCommodityNet.KIND_SLAG, grid.cell_center(Vector2i(8, 8)), 20, false)
-	goods.add_node(&"rare_shore", SMCommodityNet.KIND_RARE, grid.cell_center(Vector2i(13, 12)), 0, true)
-	goods.add_node(&"ruby_east", SMCommodityNet.KIND_RUBY, grid.cell_center(Vector2i(30, 8)), 15, false)
-	goods.add_node(&"jade_west", SMCommodityNet.KIND_JADE, grid.cell_center(Vector2i(5, 18)), 15, false)
-	goods.add_node(&"bullion_east", SMCommodityNet.KIND_BULLION, grid.cell_center(Vector2i(32, 16)), 25, false)
 	tech = SMTechNet.new()
-	tech.add_site(&"cyber", SMTechNet.CYBER, grid.cell_center(Vector2i(28, 18)))
+	_sites_phillips()
 	abilities = SMAbilities.new()
 	ew = SMEwField.new()
 	ew.center = grid.cell_center(Vector2i(10, 6))
@@ -225,3 +220,236 @@ func run_bot(bot: SMBot) -> Dictionary:
 		"faction": bot.faction_id,
 		"refinery_target": bot.refinery_target,
 	}
+
+func place_sites(map_id: String, p_grid: SMDomainGrid) -> void:
+	grid = p_grid
+	goods = SMCommodityNet.new()
+	tech = SMTechNet.new()
+	if map_id == "sop_ruak":
+		_sites_sop()
+	elif map_id == "burma_road":
+		_sites_burma()
+	elif map_id == "ten_degree_atolls":
+		_sites_atolls()
+	elif map_id == "mekong_delta":
+		_sites_mekong()
+	elif map_id == "chiang_rai":
+		_sites_chiang()
+	else:
+		_sites_phillips()
+
+func tick_live(delta: float, purse: RTSEconomy, squad: SMPointer) -> void:
+	goods.advance(delta, purse)
+	tech.advance(delta, purse, SMPointer.ENEMY)
+	if squad == null:
+		return
+	if _owns(SMTechNet.CLINIC):
+		for u: RTSUnit in squad.units_of(SMPointer.PLAYER):
+			if squad.is_infantry(u) and u.hp < u.max_hp:
+				u.hp = minf(u.max_hp, u.hp + 2.0 * delta)
+	for u: RTSUnit in squad.units:
+		if not is_instance_valid(u) or not u.is_alive() or not squad.is_infantry(u):
+			continue
+		var harm: float = goods.harm_infantry(u.global_position, bool(u.get_meta("shielded", false)), delta)
+		if harm > 0.0:
+			u.take_damage(harm)
+
+func show_collectors(host: Node3D) -> void:
+	if host == null:
+		return
+	for node: Dictionary in goods.nodes:
+		var node_name: String = "Collector_%s" % str(node.get("id", ""))
+		var have: Node = host.get_node_or_null(node_name)
+		if bool(node.get("collector", false)):
+			if have == null:
+				var spot: Vector3 = node.get("pos", Vector3.ZERO) as Vector3
+				_site_mesh(host, node_name, spot + Vector3(0.0, 0.85, 0.0), Vector3(0.38, 0.7, 0.38), Color(0.95, 0.82, 0.28))
+		elif have != null:
+			have.queue_free()
+
+func paint_sites(host: Node3D) -> void:
+	if host == null:
+		return
+	for node: Dictionary in goods.nodes:
+		var spot: Vector3 = node.get("pos", Vector3.ZERO) as Vector3
+		_site_mesh(host, "Node_%s" % str(node.get("id", "")), spot + Vector3(0.0, 0.35, 0.0), Vector3(1.15, 0.4, 1.15), _node_color(StringName(str(node.get("kind", "")))))
+	for site: Dictionary in tech.sites:
+		var kind: StringName = StringName(str(site.get("kind", "")))
+		var spot: Vector3 = site.get("pos", Vector3.ZERO) as Vector3
+		var node_name: String = "%s%s" % [_site_prefix(kind), str(site.get("id", ""))]
+		var size: Vector3 = Vector3(1.3, 1.5, 1.3)
+		if kind == SMTechNet.BRIDGE:
+			size = Vector3(2.6, 0.28, 1.1)
+		elif kind == SMTechNet.DERRICK:
+			size = Vector3(0.36, 2.3, 0.36)
+		elif kind == SMTechNet.SALVAGE:
+			size = Vector3(1.8, 0.45, 1.1)
+		_site_mesh(host, node_name, spot + Vector3(0.0, size.y * 0.5, 0.0), size, _site_color(kind))
+
+func _owns(kind: StringName) -> bool:
+	for site: Dictionary in tech.sites:
+		if StringName(str(site.get("kind", ""))) == kind and int(site.get("owner", -1)) == player:
+			return true
+	return false
+
+func _sites_phillips() -> void:
+	_node(&"slag_west", SMCommodityNet.KIND_SLAG, Vector2i(8, 8), 20, false)
+	_node(&"slag_north", SMCommodityNet.KIND_SLAG, Vector2i(6, 4), 12, false)
+	_node(&"slag_south", SMCommodityNet.KIND_SLAG, Vector2i(4, 16), 12, false)
+	_node(&"slag_mid", SMCommodityNet.KIND_SLAG, Vector2i(10, 14), 12, false)
+	_node(&"bullion_east", SMCommodityNet.KIND_BULLION, Vector2i(32, 16), 25, false)
+	_node(&"bullion_north", SMCommodityNet.KIND_BULLION, Vector2i(34, 6), 18, false)
+	_node(&"rare_shore", SMCommodityNet.KIND_RARE, Vector2i(13, 12), 0, true)
+	_node(&"rare_ford", SMCommodityNet.KIND_RARE, Vector2i(14, 18), 0, true)
+	tech.add_site(&"cyber", SMTechNet.CYBER, grid.cell_center(Vector2i(28, 18)))
+	tech.add_site(&"cyber_north", SMTechNet.CYBER, grid.cell_center(Vector2i(24, 4)))
+	tech.add_site(&"salvage_wreck", SMTechNet.SALVAGE, grid.cell_center(Vector2i(18, 12)))
+
+func _sites_sop() -> void:
+	_node(&"slag_a", SMCommodityNet.KIND_SLAG, Vector2i(4, 20), 14, false)
+	_node(&"slag_b", SMCommodityNet.KIND_SLAG, Vector2i(8, 30), 14, false)
+	_node(&"slag_c", SMCommodityNet.KIND_SLAG, Vector2i(12, 32), 12, false)
+	_node(&"slag_d", SMCommodityNet.KIND_SLAG, Vector2i(2, 28), 12, false)
+	_node(&"slag_e", SMCommodityNet.KIND_SLAG, Vector2i(14, 24), 12, false)
+	_node(&"slag_f", SMCommodityNet.KIND_SLAG, Vector2i(6, 34), 12, false)
+	_node(&"jade_a", SMCommodityNet.KIND_JADE, Vector2i(4, 6), 15, false)
+	_node(&"jade_b", SMCommodityNet.KIND_JADE, Vector2i(8, 4), 15, false)
+	_node(&"jade_c", SMCommodityNet.KIND_JADE, Vector2i(12, 8), 15, false)
+	_node(&"bullion_a", SMCommodityNet.KIND_BULLION, Vector2i(24, 28), 20, false)
+	_node(&"bullion_b", SMCommodityNet.KIND_BULLION, Vector2i(30, 24), 20, false)
+	_node(&"bullion_c", SMCommodityNet.KIND_BULLION, Vector2i(32, 30), 18, false)
+	tech.add_site(&"cyber_a", SMTechNet.CYBER, grid.cell_center(Vector2i(10, 26)))
+	tech.add_site(&"cyber_b", SMTechNet.CYBER, grid.cell_center(Vector2i(28, 32)))
+	tech.add_site(&"cyber_c", SMTechNet.CYBER, grid.cell_center(Vector2i(6, 10)))
+	tech.add_site(&"bazaar", SMTechNet.BAZAAR, grid.cell_center(Vector2i(12, 22)))
+
+func _sites_burma() -> void:
+	_node(&"ruby_a", SMCommodityNet.KIND_RUBY, Vector2i(2, 12), 15, false)
+	_node(&"ruby_b", SMCommodityNet.KIND_RUBY, Vector2i(6, 18), 15, false)
+	_node(&"ruby_c", SMCommodityNet.KIND_RUBY, Vector2i(10, 22), 15, false)
+	_node(&"ruby_d", SMCommodityNet.KIND_RUBY, Vector2i(30, 6), 15, false)
+	_node(&"jade_a", SMCommodityNet.KIND_JADE, Vector2i(4, 24), 15, false)
+	_node(&"jade_b", SMCommodityNet.KIND_JADE, Vector2i(34, 16), 15, false)
+	_node(&"rare_a", SMCommodityNet.KIND_RARE, Vector2i(12, 16), 0, false)
+	_node(&"rare_b", SMCommodityNet.KIND_RARE, Vector2i(32, 12), 0, false)
+	tech.add_site(&"bazaar_a", SMTechNet.BAZAAR, grid.cell_center(Vector2i(8, 14)))
+	tech.add_site(&"bazaar_b", SMTechNet.BAZAAR, grid.cell_center(Vector2i(34, 8)))
+	tech.add_site(&"radar_a", SMTechNet.RADAR, grid.cell_center(Vector2i(14, 20)))
+	tech.add_site(&"radar_b", SMTechNet.RADAR, grid.cell_center(Vector2i(36, 14)))
+
+func _sites_atolls() -> void:
+	_node(&"isle_a", SMCommodityNet.KIND_SLAG, Vector2i(8, 20), 12, false)
+	_node(&"isle_b", SMCommodityNet.KIND_SLAG, Vector2i(4, 21), 12, false)
+	_node(&"isle_c", SMCommodityNet.KIND_BULLION, Vector2i(9, 16), 16, false)
+	_node(&"isle_d", SMCommodityNet.KIND_SLAG, Vector2i(27, 15), 12, false)
+	_node(&"isle_e", SMCommodityNet.KIND_BULLION, Vector2i(32, 18), 16, false)
+	_node(&"isle_f", SMCommodityNet.KIND_SLAG, Vector2i(28, 20), 12, false)
+	_node(&"isle_g", SMCommodityNet.KIND_JADE, Vector2i(15, 3), 15, false)
+	_node(&"isle_h", SMCommodityNet.KIND_JADE, Vector2i(19, 6), 15, false)
+	_node(&"deep_a", SMCommodityNet.KIND_BULLION, Vector2i(0, 0), 10, true)
+	_node(&"deep_b", SMCommodityNet.KIND_BULLION, Vector2i(10, 2), 10, true)
+	_node(&"deep_c", SMCommodityNet.KIND_SLAG, Vector2i(22, 10), 10, true)
+	_node(&"deep_d", SMCommodityNet.KIND_SLAG, Vector2i(34, 4), 10, true)
+	_node(&"deep_e", SMCommodityNet.KIND_BULLION, Vector2i(5, 28), 10, true)
+	_node(&"deep_f", SMCommodityNet.KIND_BULLION, Vector2i(18, 30), 10, true)
+	_node(&"deep_g", SMCommodityNet.KIND_SLAG, Vector2i(24, 22), 10, true)
+	_node(&"deep_h", SMCommodityNet.KIND_SLAG, Vector2i(33, 32), 10, true)
+	tech.add_site(&"derrick_a", SMTechNet.DERRICK, grid.cell_center(Vector2i(1, 8)))
+	tech.add_site(&"derrick_b", SMTechNet.DERRICK, grid.cell_center(Vector2i(12, 8)))
+	tech.add_site(&"derrick_c", SMTechNet.DERRICK, grid.cell_center(Vector2i(20, 28)))
+	tech.add_site(&"derrick_d", SMTechNet.DERRICK, grid.cell_center(Vector2i(30, 8)))
+	tech.add_site(&"radar_a", SMTechNet.RADAR, grid.cell_center(Vector2i(6, 18)))
+	tech.add_site(&"radar_b", SMTechNet.RADAR, grid.cell_center(Vector2i(30, 16)))
+
+func _sites_mekong() -> void:
+	_node(&"paddy_a", SMCommodityNet.KIND_SLAG, Vector2i(3, 8), 12, false)
+	_node(&"paddy_b", SMCommodityNet.KIND_SLAG, Vector2i(7, 20), 12, false)
+	_node(&"paddy_c", SMCommodityNet.KIND_JADE, Vector2i(5, 26), 14, false)
+	_node(&"paddy_d", SMCommodityNet.KIND_RUBY, Vector2i(9, 12), 14, false)
+	_node(&"paddy_e", SMCommodityNet.KIND_SLAG, Vector2i(16, 6), 12, false)
+	_node(&"paddy_f", SMCommodityNet.KIND_BULLION, Vector2i(20, 22), 18, false)
+	_node(&"paddy_g", SMCommodityNet.KIND_JADE, Vector2i(22, 28), 14, false)
+	_node(&"paddy_h", SMCommodityNet.KIND_RARE, Vector2i(18, 10), 0, true)
+	_node(&"paddy_i", SMCommodityNet.KIND_SLAG, Vector2i(30, 8), 12, false)
+	_node(&"paddy_j", SMCommodityNet.KIND_RUBY, Vector2i(34, 18), 14, false)
+	_node(&"paddy_k", SMCommodityNet.KIND_BULLION, Vector2i(36, 26), 18, false)
+	_node(&"paddy_l", SMCommodityNet.KIND_JADE, Vector2i(32, 4), 14, false)
+	_node(&"paddy_m", SMCommodityNet.KIND_RARE, Vector2i(38, 22), 0, true)
+	_node(&"paddy_n", SMCommodityNet.KIND_SLAG, Vector2i(16, 30), 12, false)
+	tech.add_site(&"clinic_a", SMTechNet.CLINIC, grid.cell_center(Vector2i(6, 16)))
+	tech.add_site(&"clinic_b", SMTechNet.CLINIC, grid.cell_center(Vector2i(33, 14)))
+	tech.add_site(&"cyber_a", SMTechNet.CYBER, grid.cell_center(Vector2i(19, 16)))
+	tech.add_site(&"cyber_b", SMTechNet.CYBER, grid.cell_center(Vector2i(35, 28)))
+	tech.add_site(&"bridge_a", SMTechNet.BRIDGE, grid.cell_center(Vector2i(12, 14)))
+	tech.add_site(&"bridge_b", SMTechNet.BRIDGE, grid.cell_center(Vector2i(12, 17)))
+	tech.add_site(&"bridge_c", SMTechNet.BRIDGE, grid.cell_center(Vector2i(26, 14)))
+	tech.add_site(&"bridge_d", SMTechNet.BRIDGE, grid.cell_center(Vector2i(26, 17)))
+
+func _sites_chiang() -> void:
+	var kinds: Array[StringName] = [SMCommodityNet.KIND_SLAG, SMCommodityNet.KIND_RARE, SMCommodityNet.KIND_JADE, SMCommodityNet.KIND_RUBY]
+	var cells: Array[Vector2i] = [
+		Vector2i(4, 8), Vector2i(8, 12), Vector2i(12, 18), Vector2i(6, 24), Vector2i(10, 30), Vector2i(14, 34),
+		Vector2i(18, 10), Vector2i(20, 20), Vector2i(16, 36), Vector2i(8, 36), Vector2i(2, 16), Vector2i(22, 6),
+		Vector2i(34, 8), Vector2i(38, 14), Vector2i(42, 20), Vector2i(46, 12), Vector2i(36, 26), Vector2i(40, 32),
+		Vector2i(48, 28), Vector2i(50, 16), Vector2i(44, 6), Vector2i(32, 36), Vector2i(52, 34), Vector2i(30, 4),
+	]
+	for i: int in cells.size():
+		var kind: StringName = kinds[i % kinds.size()]
+		var rate: int = 0 if kind == SMCommodityNet.KIND_RARE else 12
+		_node(StringName("chiang_%d" % i), kind, cells[i], rate, kind == SMCommodityNet.KIND_RARE)
+	tech.add_site(&"cyber_a", SMTechNet.CYBER, grid.cell_center(Vector2i(10, 16)))
+	tech.add_site(&"cyber_b", SMTechNet.CYBER, grid.cell_center(Vector2i(18, 28)))
+	tech.add_site(&"cyber_c", SMTechNet.CYBER, grid.cell_center(Vector2i(40, 10)))
+	tech.add_site(&"cyber_d", SMTechNet.CYBER, grid.cell_center(Vector2i(46, 30)))
+	tech.add_site(&"bazaar_a", SMTechNet.BAZAAR, grid.cell_center(Vector2i(12, 22)))
+	tech.add_site(&"bazaar_b", SMTechNet.BAZAAR, grid.cell_center(Vector2i(42, 24)))
+
+func _node(id: StringName, kind: StringName, cell: Vector2i, rate: int, water: bool) -> void:
+	goods.add_node(id, kind, grid.cell_center(cell), rate, water)
+
+func _node_color(kind: StringName) -> Color:
+	if kind == SMCommodityNet.KIND_SLAG:
+		return Color(0.88, 0.62, 0.12)
+	if kind == SMCommodityNet.KIND_RARE:
+		return Color(0.2, 0.62, 0.58)
+	if kind == SMCommodityNet.KIND_RUBY:
+		return Color(0.72, 0.12, 0.18)
+	if kind == SMCommodityNet.KIND_JADE:
+		return Color(0.2, 0.62, 0.36)
+	return Color(0.86, 0.74, 0.28)
+
+func _site_prefix(kind: StringName) -> String:
+	if kind == SMTechNet.SALVAGE:
+		return "Salvage_"
+	if kind == SMTechNet.DERRICK:
+		return "Derrick_"
+	if kind == SMTechNet.BRIDGE:
+		return "Bridge_"
+	return "Tech_"
+
+func _site_color(kind: StringName) -> Color:
+	if kind == SMTechNet.CYBER:
+		return Color(0.45, 0.25, 0.72)
+	if kind == SMTechNet.BAZAAR:
+		return Color(0.72, 0.4, 0.12)
+	if kind == SMTechNet.CLINIC:
+		return Color(0.75, 0.82, 0.86)
+	if kind == SMTechNet.RADAR:
+		return Color(0.25, 0.55, 0.78)
+	if kind == SMTechNet.DERRICK:
+		return Color(0.35, 0.32, 0.28)
+	if kind == SMTechNet.BRIDGE:
+		return Color(0.42, 0.38, 0.32)
+	return Color(0.4, 0.28, 0.18)
+
+func _site_mesh(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
+	var mi: MeshInstance3D = MeshInstance3D.new()
+	mi.name = node_name
+	var mesh: BoxMesh = BoxMesh.new()
+	mesh.size = size
+	mi.mesh = mesh
+	mi.position = pos
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = color
+	mi.material_override = mat
+	host.add_child(mi)
