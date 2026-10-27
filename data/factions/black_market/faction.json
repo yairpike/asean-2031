@@ -53,7 +53,8 @@
       "guidance": "gps",
       "locomotion": "air",
       "tags": [
-        "air"
+        "air",
+        "jet"
       ],
       "ability": "Stand-Off Glide Barrage",
       "f_stat": "damage"

@@ -1,5 +1,6 @@
 extends RefCounted
-## Buildings draw power. A plant covers the draw. Low power stops production.
+## Barracks, the factory, and the naval yard draw power. A plant covers that draw.
+## Airfields, tech centers, refineries, and defenses sit on the same plant.
 
 const PLANT: int = 100
 const DRAW: int = 30
@@ -13,7 +14,7 @@ static func tally(yard: SMBuildYard) -> Vector2i:
 		var role: String = str(yard.building_role.get(id, ""))
 		if role == "power":
 			gen += PLANT
-		elif role != "" and role != "yard":
+		elif role == "barracks" or role == "factory" or role == "naval":
 			use += DRAW
 	return Vector2i(gen, use)
 

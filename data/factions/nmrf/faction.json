@@ -162,7 +162,8 @@
       "guidance": "none",
       "locomotion": "amphibious",
       "tags": [
-        "naval"
+        "naval",
+        "sub"
       ],
       "ability": "Last-Stand Ram",
       "f_stat": "damage"
@@ -242,7 +243,8 @@
       "guidance": "fiber",
       "locomotion": "air",
       "tags": [
-        "air"
+        "air",
+        "jet"
       ],
       "ability": "Submersible or Sky-Jet",
       "f_stat": "speed"
@@ -343,7 +345,8 @@
       "guidance": "none",
       "locomotion": "amphibious",
       "tags": [
-        "artillery"
+        "artillery",
+        "jet"
       ],
       "ability": "Jet Interceptor",
       "f_stat": "speed"
@@ -363,7 +366,8 @@
       "guidance": "none",
       "locomotion": "amphibious",
       "tags": [
-        "infantry"
+        "infantry",
+        "hero"
       ],
       "ability": "Telekinetic Maelstrom",
       "f_stat": "damage"

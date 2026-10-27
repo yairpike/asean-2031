@@ -39,9 +39,14 @@ var power_id: StringName = &""
 var barracks_id: StringName = &""
 var factory_id: StringName = &""
 var naval_id: StringName = &""
+var air_id: StringName = &""
+var tech_id: StringName = &""
 var infantry_id: StringName = &""
 var factory_unit: StringName = &""
 var naval_unit: StringName = &""
+var hero_id: StringName = &""
+var jet_id: StringName = &""
+var sub_id: StringName = &""
 var mix: int = 0
 var wave_i: int = 0
 var raising: StringName = &""
@@ -85,9 +90,14 @@ func attach(p_field: SMPointer, center: Vector3) -> void:
 	barracks_id = &""
 	factory_id = &""
 	naval_id = &""
+	air_id = &""
+	tech_id = &""
 	infantry_id = &""
 	factory_unit = &""
 	naval_unit = &""
+	hero_id = &""
+	jet_id = &""
+	sub_id = &""
 	mix = 0
 	wave_i = 0
 	raising = &""
@@ -177,6 +187,8 @@ func _arm_macro() -> void:
 	var need: Array[String] = ["power", "barracks", "factory"]
 	if _has_water():
 		need.append("naval")
+	need.append("air")
+	need.append("tech")
 	var found: Dictionary = {}
 	var raw: Variant = data.get("buildings", [])
 	if raw is Array:
@@ -211,9 +223,15 @@ func _arm_macro() -> void:
 			factory_id = id
 		elif role == "naval":
 			naval_id = id
+		elif role == "air":
+			air_id = id
+		elif role == "tech":
+			tech_id = id
 	var best_inf: int = 999999
 	var best_fac: int = 999999
 	var best_nav: int = 999999
+	var best_hero: int = 999999
+	var best_jet: int = 999999
 	for unit: Dictionary in SMCatalog.units_of(data):
 		var uid: StringName = StringName(str(unit.get("id", "")))
 		var urole: String = str(unit.get("role", ""))
@@ -223,6 +241,19 @@ func _arm_macro() -> void:
 		unit_rows[uid] = unit
 		var spec: Dictionary = {"cost": cost, "time": float(unit.get("time", 3.0)) * _tempo()}
 		train_catalog[uid] = spec
+		var hero: bool = SMCatalog.has_tag(unit, "hero")
+		var jet: bool = SMCatalog.has_tag(unit, "jet")
+		var sub: bool = SMCatalog.has_tag(unit, "sub")
+		if hero and cost < best_hero:
+			best_hero = cost
+			hero_id = uid
+		if jet and cost < best_jet:
+			best_jet = cost
+			jet_id = uid
+		if sub:
+			sub_id = uid
+		if hero or jet or sub:
+			continue
 		if urole == "infantry" and cost < best_inf:
 			best_inf = cost
 			infantry_id = uid
@@ -327,11 +358,25 @@ func _train() -> void:
 
 func _pick_train() -> StringName:
 	mix += 1
+	if hero_id != &"" and tech_id != &"" and yard.structure_alive(tech_id) and mix % 11 == 0 and _hero_room():
+		return hero_id
+	if jet_id != &"" and air_id != &"" and yard.structure_alive(air_id) and mix % 7 == 0:
+		return jet_id
+	if sub_id != &"" and naval_id != &"" and yard.structure_alive(naval_id) and mix % 6 == 0:
+		return sub_id
 	if factory_unit != &"" and factory_id != &"" and yard.structure_alive(factory_id) and mix % 4 == 0:
 		return factory_unit
 	if naval_unit != &"" and naval_id != &"" and yard.structure_alive(naval_id) and mix % 5 == 0:
 		return naval_unit
 	return infantry_id
+
+func _hero_room() -> bool:
+	if field == null:
+		return false
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if bool(u.get_meta("hero", false)):
+			return false
+	return true
 
 func _on_trained(kind: StringName, _rally: Vector3) -> void:
 	if field == null:
@@ -357,6 +402,7 @@ func _paint_unit(u: RTSUnit, kind: StringName) -> void:
 	u.set_meta("role", str(row.get("role", "")))
 	u.set_meta("ability", str(row.get("ability", "")))
 	u.set_meta("f_stat", str(row.get("f_stat", "damage")))
+	SMCatalog.mark_unit(u, row)
 	_pace_interval(u)
 
 func _release() -> void:

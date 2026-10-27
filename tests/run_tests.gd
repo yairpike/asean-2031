@@ -625,6 +625,11 @@ func test_sm_nodes() -> void:
 	var bullion_econ: RTSEconomy = RTSEconomy.new()
 	bullion.add_node(&"bar", SMCommodityNet.KIND_BULLION, Vector3.ZERO, 10, false)
 	check(bullion.snap_refinery(&"bar", 0) and bullion.advance(4.0, bullion_econ) == 400, "a bullion trip pays 400")
+	var dry: SMCommodityNet = SMCommodityNet.new()
+	var dry_econ: RTSEconomy = RTSEconomy.new()
+	dry.add_node(&"dry", SMCommodityNet.KIND_SLAG, Vector3.ZERO, 10, false)
+	check(dry.set_reserve(&"dry", 250) and dry.snap_refinery(&"dry", 0) and dry.advance(4.0, dry_econ) == 250, "the last full mine trip still pays 250")
+	check(dry.advance(4.0, dry_econ) == 50 and dry.advance(4.0, dry_econ) == 50, "a dry mine trickles 50")
 	check(net.harm_infantry(Vector3(3, 0, 0), true, 1.0) == 0.0, "shielded infantry are spared")
 
 func test_sm_tech() -> void:
@@ -1062,6 +1067,81 @@ func test_sm_roster() -> void:
 	check(nmrf_name == "Sulu Tank-Buster", "nmrf trains a catalog unit onto the field")
 	var mvd_name: String = await _trained("res://game/mvd_yard.tscn")
 	check(mvd_name == "Cu Chi Tunnel Hound", "mvd trains a catalog unit onto the field")
+	await _special_roster()
+
+func _special_roster() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var hero: RTSUnit = _unit_kind(field, 0, "ruby_mortar")
+	var side: SMSide = scene.get("side") as SMSide
+	var before: int = field.count_team(0)
+	var train_hero: Button = scene.find_child("Train_ruby_mortar", true, false) as Button
+	train_hero.pressed.emit()
+	check(hero != null and field.name_of(hero) == "General Bo Mya" and _mesh_kind(hero) == "hero", "a match fields General Bo Mya with a hero mesh")
+	check(field.count_team(0) == before and _hud_text(scene, "HudBuild") == "need a tech center", "a hero waits on the tech center")
+	side.yard.finished.append(&"tech_center")
+	train_hero.pressed.emit()
+	check(field.count_team(0) == before and _hud_text(scene, "HudBuild") == "one hero", "a second hero is refused")
+	var train_jet: Button = scene.find_child("Train_amber_welder", true, false) as Button
+	train_jet.pressed.emit()
+	check(field.count_team(0) == before and _hud_text(scene, "HudBuild") == "need an airfield", "a jet waits on the airfield")
+	side.yard.finished.append(&"airfield")
+	train_jet.pressed.emit()
+	var bomber: RTSUnit = _unit_kind(field, 0, "amber_welder")
+	check(field.count_team(0) == before + 1 and bomber != null and _mesh_kind(bomber) == "jet", "the airfield trains the ag-bomber as a jet")
+	scene.free()
+	await process_frame
+	SMFront.faction_id = "nmrf"
+	var nmrf: Node = (load("res://game/burma_road.tscn") as PackedScene).instantiate()
+	root.add_child(nmrf)
+	await process_frame
+	var nfield: SMPointer = nmrf.get("field") as SMPointer
+	var nside: SMSide = nmrf.get("side") as SMSide
+	var nbefore: int = nfield.count_team(0)
+	var train_sub: Button = nmrf.find_child("Train_sampan", true, false) as Button
+	train_sub.pressed.emit()
+	check(nfield.count_team(0) == nbefore and _hud_text(nmrf, "HudBuild") == "need a naval yard", "a sub waits on the naval yard")
+	nside.yard.finished.append(&"tidal_turbine")
+	nside.yard.finished.append(&"naval_yard")
+	train_sub.pressed.emit()
+	var sub: RTSUnit = _unit_kind(nfield, 0, "sampan")
+	check(nfield.count_team(0) == nbefore + 1 and sub != null and _mesh_kind(sub) == "sub", "the naval yard trains the pocket sub")
+	nmrf.free()
+	await process_frame
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var cam: RTSCamera = RTSCamera.new()
+	host.add_child(cam)
+	var bot_field: SMPointer = SMPointer.new()
+	bot_field.bind_faction(host, cam, "nmrf")
+	bot_field.domain = SMDomainGrid.phillips_layout()
+	var raider: SMRaider = SMRaider.new()
+	raider.attach(bot_field, Vector3.ZERO)
+	raider.brain = SMBot.new(&"iskandar")
+	raider._arm_macro()
+	raider.yard.finished.append(raider.barracks_id)
+	raider.yard.finished.append(raider.factory_id)
+	raider.yard.finished.append(raider.naval_id)
+	raider.yard.finished.append(raider.air_id)
+	raider.yard.finished.append(raider.tech_id)
+	var seen_hero: bool = false
+	var seen_jet: bool = false
+	var seen_sub: bool = false
+	for _step: int in 48:
+		var pick: String = str(raider._pick_train())
+		if pick == str(raider.hero_id) and pick != "":
+			seen_hero = true
+		if pick == str(raider.jet_id) and pick != "":
+			seen_jet = true
+		if pick == str(raider.sub_id) and pick != "":
+			seen_sub = true
+	check(seen_hero and seen_jet and seen_sub, "the bot trains a hero, a jet, and a sub from the right buildings")
+	host.free()
+	await process_frame
+	SMFront.faction_id = "gtfc"
 
 func test_sm_campaign() -> void:
 	var ids: PackedStringArray = SMCampaign.ids()
@@ -1444,7 +1524,7 @@ func test_sm_shapes() -> void:
 		built_mesh = built.mesh
 	check(_tall_mesh(built_mesh), "a finished building is a taller block")
 	field.faction_id = "mvd"
-	var gunship: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(-40, 0, -20), &"cyan_gunship")
+	var gunship: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(-40, 0, -20), &"hub_drone")
 	check(_mesh_kind(gunship) == "heli", "a helicopter is a rotor aircraft")
 	var tint: Color = _albedo(_unit_kind(field, 0, "militia"))
 	check(tint.r > 0.6 and tint.g < 0.3, "unit color stays with the faction")
@@ -1454,7 +1534,8 @@ func test_sm_shapes() -> void:
 	check(skiff.get_node_or_null("Body/Wake") is MeshInstance3D, "a boat keeps a wake")
 	check(gunship.get_node_or_null("Body/Rotor") is MeshInstance3D, "a helicopter keeps a rotor")
 	var jet: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(-44, 0, -28), &"su30")
-	check(_mesh_kind(jet) == "jet", "a jet is a swept airframe")
+	var fighter: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(-48, 0, -24), &"cyan_gunship")
+	check(_mesh_kind(jet) == "jet" and _mesh_kind(fighter) == "jet", "a jet is a swept airframe")
 	var foe: RTSUnit = field.spawn(SMPointer.ENEMY, tank.global_position + Vector3(14.0, 0.0, 0.0), &"raider")
 	tank.attack_range = 40.0
 	tank.attack_target = foe
@@ -1480,7 +1561,7 @@ func test_sm_shapes() -> void:
 	await process_frame
 	var nfield: SMPointer = nmrf.get("field") as SMPointer
 	check(_shape_is(nfield, 0, "river_rifle", "figure"), "nmrf infantry is a low-poly figure")
-	check(_shape_is(nfield, 0, "sampan", "boat") and _shape_is(nfield, 0, "emerald_gunboat", "boat"), "nmrf boats are hulls")
+	check(_shape_is(nfield, 0, "sampan", "sub") and _shape_is(nfield, 0, "emerald_gunboat", "boat"), "a pocket sub is a hull and a surface boat stays a hull")
 	check(_shape_is(nfield, 0, "packer", "truck"), "the packer unit is a truck")
 	check(_tall_mesh((nmrf.get_node("PackerCore") as MeshInstance3D).mesh), "the packer building is a taller block")
 	nmrf.free()
@@ -1549,6 +1630,40 @@ func test_sm_field() -> void:
 	var hole_hp: float = skiff.hp
 	skiff.take_damage(10.0)
 	check(is_equal_approx(skiff.hp, hole_hp - 2.0), "black-hole armor cuts incoming damage")
+	var statue: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(-24.0, 0.0, -18.0), &"militia")
+	field.apply_status(statue, "frozen", 4.0)
+	statue.hp = 40.0
+	statue.take_damage(7.0)
+	check(statue.is_alive() and is_equal_approx(statue.hp, 33.0) and not bool(statue.get_meta("shattered", false)), "a light hit does not shatter a frozen unit")
+	statue.take_damage(8.0)
+	check(not statue.is_alive() and bool(statue.get_meta("shattered", false)), "a heavy hit shatters a frozen unit")
+	var well: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(18.0, 0.0, 12.0), &"amber_tank")
+	var buddy: RTSUnit = field.spawn(SMPointer.PLAYER, well.global_position + Vector3(4.0, 0.0, 0.0), &"militia")
+	field.apply_status(well, "black_hole", 4.0)
+	buddy.hp = 80.0
+	var hole_before: float = well.hp
+	var puller: RTSUnit = field.spawn(SMPointer.ENEMY, well.global_position + Vector3(18.0, 0.0, 0.0), &"raider")
+	puller.attack_damage = 10.0
+	puller.attack_range = 40.0
+	puller.attack_target = buddy
+	puller._cooldown = 0.0
+	puller.advance(0.2)
+	check(is_equal_approx(buddy.hp, 80.0) and is_equal_approx(well.hp, hole_before - 2.0), "black-hole armor pulls a nearby shot")
+	var bug: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(-8.0, 0.0, 22.0), &"raider")
+	field.apply_status(bug, "shrunk", 4.0)
+	var walker: RTSUnit = field.spawn(SMPointer.PLAYER, bug.global_position + Vector3(-1.2, 0.0, 0.0), &"militia")
+	var walker_from: Vector3 = walker.global_position
+	walker.set_path(PackedVector3Array([bug.global_position]))
+	walker.advance(0.4)
+	field._crush_under(walker, walker_from)
+	var crushed: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(8.0, 0.0, 22.0), &"raider")
+	field.apply_status(crushed, "shrunk", 4.0)
+	var tank: RTSUnit = field.spawn(SMPointer.PLAYER, crushed.global_position + Vector3(-1.2, 0.0, 0.0), &"amber_tank")
+	var tank_from: Vector3 = tank.global_position
+	tank.set_path(PackedVector3Array([crushed.global_position]))
+	tank.advance(0.5)
+	field._crush_under(tank, tank_from)
+	check(bug.is_alive() and not crushed.is_alive() and bool(crushed.get_meta("crushed", false)), "a vehicle crushes a shrunk unit and infantry does not")
 	var before: int = roster.economy.credits(0)
 	var standing: bool = sim.goods.has_collector(&"slag_west")
 	check((standing or sim.goods.snap_refinery(&"slag_west", 0)) and roster.economy.credits(0) == before, "claiming Golden Slag does not pay until the loop finishes")
@@ -2025,6 +2140,8 @@ func test_sm_fx() -> void:
 	jammer.active = true
 	fx.drive(scene as Node3D, field, night_goods, jammer)
 	check(painter != null and painter.visible and dome != null and dome.visible and cone != null and cone.visible and pool != null and pool.visible and jam != null and jam.visible, "status drives the beams, domes, night cone, and slag pool")
+	var ribbon: ShaderMaterial = painter.material_override as ShaderMaterial
+	check(painter.mesh is ArrayMesh and ribbon != null and ribbon.shader != null and str(ribbon.shader.resource_path).ends_with("laser_ribbon.gdshader"), "the painter beam is a laser ribbon")
 	scene.call("finish_objective")
 	check(bool(foe.get_meta("frozen")), "completing the cryo mission freezes a unit")
 	scene.free()

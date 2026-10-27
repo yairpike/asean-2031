@@ -71,11 +71,17 @@ static func paint_status(body: MeshInstance3D, mat: Material) -> void:
 
 static func unit_form(kind: String, role: String, loco: String) -> String:
 	var id: String = kind.to_lower()
+	if id == "ruby_mortar" or id == "relay_van" or id == "packer_escort" or role == "hero":
+		return "hero"
+	if id == "sampan" or id.contains("sub"):
+		return "sub"
+	if id == "scaffold_rig":
+		return "airship"
+	if _jet_kind(id):
+		return "jet"
 	if role == "infantry":
 		return "figure"
 	if role == "air" or role == "drone" or loco == "air":
-		if id.contains("su30") or id.contains("jet") or id.contains("bomber") or id.contains("siege_tube") or id.contains("scaffold_rig") or id.contains("bullion"):
-			return "jet"
 		return "heli"
 	if role == "core" or id == "packer":
 		return "truck"
@@ -108,7 +114,16 @@ static func muzzle_pos(form: String) -> Vector3:
 		return Vector3(0.0, 0.9, -1.25)
 	if form == "jet":
 		return Vector3(0.0, 0.72, -2.0)
+	if form == "hero":
+		return Vector3(0.42, 1.35, -0.9)
+	if form == "sub":
+		return Vector3(0.0, 0.55, -1.7)
+	if form == "airship":
+		return Vector3(0.0, 1.35, -1.8)
 	return Vector3(0.0, 0.95, -1.6)
+
+static func _jet_kind(id: String) -> bool:
+	return id == "cyan_gunship" or id == "siege_tube" or id == "su30" or id == "jade_mortar" or id == "jade_skiff" or id == "amber_welder" or id.contains("fighter") or id.contains("bomber")
 
 static func unit_mesh(form: String, accent: Color) -> ArrayMesh:
 	var key: String = "%s|%s|0" % [form, accent.to_html(false)]
@@ -136,6 +151,12 @@ static func unit_mesh(form: String, accent: Color) -> ArrayMesh:
 		_heli(st, accent)
 	elif form == "rotor":
 		_rotor(st)
+	elif form == "hero":
+		_hero(st, accent)
+	elif form == "sub":
+		_sub(st, accent)
+	elif form == "airship":
+		_airship(st, accent)
 	else:
 		_jet(st, accent)
 	var mesh: ArrayMesh = _commit(st)
@@ -358,6 +379,28 @@ static func _rotor(st: SurfaceTool) -> void:
 	_box(st, Vector3(0.0, 0.06, 0.0), Vector3(2.7, 0.05, 0.16), METAL)
 	_box(st, Vector3(0.0, 0.06, 0.0), Vector3(0.16, 0.05, 2.7), METAL)
 	_box(st, Vector3(0.0, 0.02, 0.0), Vector3(0.22, 0.1, 0.22), RUBBER)
+
+static func _hero(st: SurfaceTool, accent: Color) -> void:
+	_box(st, Vector3(-0.18, 0.46, 0.0), Vector3(0.24, 0.92, 0.26), METAL)
+	_box(st, Vector3(0.18, 0.46, 0.0), Vector3(0.24, 0.92, 0.26), METAL)
+	_box(st, Vector3(0.0, 1.28, 0.0), Vector3(0.78, 0.82, 0.4), accent)
+	_box(st, Vector3(-0.48, 1.48, 0.0), Vector3(0.28, 0.22, 0.36), accent)
+	_box(st, Vector3(0.48, 1.48, 0.0), Vector3(0.28, 0.22, 0.36), accent)
+	_box(st, Vector3(0.0, 1.9, -0.02), Vector3(0.32, 0.32, 0.32), Color(0.55, 0.42, 0.34))
+	_box(st, Vector3(0.46, 1.22, -0.35), Vector3(0.12, 0.12, 0.7), METAL)
+
+static func _sub(st: SurfaceTool, accent: Color) -> void:
+	_box(st, Vector3(0.0, 0.42, 0.15), Vector3(0.72, 0.48, 3.4), accent)
+	_box(st, Vector3(0.0, 0.72, -0.35), Vector3(0.42, 0.28, 0.9), METAL)
+	_box(st, Vector3(0.0, 0.95, -0.2), Vector3(0.08, 0.42, 0.08), METAL)
+	_box(st, Vector3(0.0, 0.38, -1.85), Vector3(0.28, 0.28, 0.55), RUBBER)
+	_box(st, Vector3(0.0, 0.55, 1.55), Vector3(0.9, 0.08, 0.55), METAL)
+
+static func _airship(st: SurfaceTool, accent: Color) -> void:
+	_box(st, Vector3(0.0, 1.35, 0.1), Vector3(0.85, 0.7, 3.6), accent)
+	_box(st, Vector3(0.0, 1.35, -1.55), Vector3(0.45, 0.4, 0.7), METAL)
+	_box(st, Vector3(0.0, 0.72, 0.35), Vector3(0.55, 0.38, 0.9), METAL)
+	_box(st, Vector3(0.0, 1.02, 0.35), Vector3(0.06, 0.5, 0.06), RUBBER)
 
 static func _jet(st: SurfaceTool, accent: Color) -> void:
 	_box(st, Vector3(0.0, 0.72, 0.05), Vector3(0.42, 0.32, 3.1), accent)

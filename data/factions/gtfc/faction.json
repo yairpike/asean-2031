@@ -325,7 +325,8 @@
       "guidance": "none",
       "locomotion": "ground",
       "tags": [
-        "artillery"
+        "artillery",
+        "hero"
       ],
       "ability": "Warlord's Bribe",
       "f_stat": "hp"
@@ -365,7 +366,8 @@
       "guidance": "none",
       "locomotion": "air",
       "tags": [
-        "air"
+        "air",
+        "jet"
       ],
       "ability": "Fiber-Optic Tether",
       "f_stat": "damage"

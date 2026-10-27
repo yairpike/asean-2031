@@ -365,6 +365,11 @@ func _import(id: StringName) -> void:
 		_note("cannot import")
 		refresh()
 		return
+	if SMCatalog.has_tag(row, "jet") and not _role_alive("air"):
+		roster.economy.earn(SMPointer.PLAYER, cost)
+		_note("need an airfield")
+		refresh()
+		return
 	var at: Vector3 = rally + Vector3(6.0 + float(field.count_team(SMPointer.PLAYER) % 4) * 2.0, 0.0, 2.0)
 	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, id)
 	_note(field.name_of(u))
@@ -389,6 +394,11 @@ func _train(id: StringName) -> void:
 		_note("low power")
 		refresh()
 		return
+	var blocked: String = _train_block(id)
+	if blocked != "":
+		_note(blocked)
+		refresh()
+		return
 	var done: StringName = roster.train_and_finish(id)
 	if done == &"":
 		_note("cannot train")
@@ -398,6 +408,50 @@ func _train(id: StringName) -> void:
 	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, done)
 	_note(field.name_of(u))
 	refresh()
+
+func _train_block(id: StringName) -> String:
+	var row: Dictionary = _catalog_row(id)
+	if row.is_empty() or side == null:
+		return ""
+	var need: String = SMCatalog.producer(row)
+	if need != "" and not _role_alive(need):
+		if need == "tech":
+			return "need a tech center"
+		if need == "air":
+			return "need an airfield"
+		return "need a naval yard"
+	if SMCatalog.has_tag(row, "hero") and _hero_count(id) >= 1:
+		return "one hero"
+	return ""
+
+func _catalog_row(id: StringName) -> Dictionary:
+	var lists: Array[String] = []
+	if field != null and field.faction_id != "":
+		lists.append(field.faction_id)
+	if not lists.has("black_market"):
+		lists.append("black_market")
+	for faction: String in lists:
+		for unit: Dictionary in SMCatalog.units_of(SMCatalog.faction(faction)):
+			if str(unit.get("id", "")) == str(id):
+				return unit
+	return {}
+
+func _role_alive(role: String) -> bool:
+	if side == null:
+		return false
+	for id: StringName in side.yard.building_role:
+		if str(side.yard.building_role[id]) == role and side.yard.structure_alive(id):
+			return true
+	return false
+
+func _hero_count(id: StringName) -> int:
+	var n: int = 0
+	if field == null:
+		return 0
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if u.unit_type == id and bool(u.get_meta("hero", false)):
+			n += 1
+	return n
 
 func _ability() -> void:
 	if on_ability.is_valid():

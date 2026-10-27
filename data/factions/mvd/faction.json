@@ -220,7 +220,8 @@
       "guidance": "hop",
       "locomotion": "ground",
       "tags": [
-        "infantry"
+        "infantry",
+        "hero"
       ],
       "ability": "Chrono-Phase Recall",
       "f_stat": "speed"
@@ -340,7 +341,8 @@
       "guidance": "gps",
       "locomotion": "air",
       "tags": [
-        "air"
+        "air",
+        "jet"
       ],
       "ability": "Afterburner Return",
       "f_stat": "speed"
@@ -360,7 +362,8 @@
       "guidance": "none",
       "locomotion": "air",
       "tags": [
-        "air"
+        "air",
+        "jet"
       ],
       "ability": "Emergency Evasive Return",
       "f_stat": "speed"

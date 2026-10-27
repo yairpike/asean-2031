@@ -167,6 +167,16 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	units.append(u)
 	return u
 
+func spawn_support(at: Vector3) -> void:
+	var have: Array = []
+	for u: RTSUnit in units:
+		if is_instance_valid(u) and u.team == PLAYER:
+			have.append(u.unit_type)
+	var n: int = 0
+	for id: StringName in SMCatalog.support_ids(faction_id, have):
+		spawn(PLAYER, at + Vector3(2.2 * float(n), 0.0, 3.2), id)
+		n += 1
+
 func _on_shot(unit: RTSUnit, _target: RTSUnit) -> void:
 	if not is_instance_valid(unit):
 		return
@@ -208,6 +218,7 @@ func _apply_catalog(u: RTSUnit, kind: StringName) -> void:
 	u.set_meta("tags", _tag_list(unit))
 	u.set_meta("ability", str(unit.get("ability", "")))
 	u.set_meta("f_stat", str(unit.get("f_stat", "damage")))
+	SMCatalog.mark_unit(u, unit)
 
 func _body_color(team: int, kind: StringName) -> Color:
 	if team != PLAYER:
@@ -684,6 +695,26 @@ func filter_shot(u: RTSUnit, _target: RTSUnit, amount: float) -> float:
 	var scale: float = ew.accuracy(u.global_position, guidance, bool(u.get_meta("fiber_on", false)), bool(u.get_meta("hop_on", false)))
 	return amount * scale
 
+func _crush_under(u: RTSUnit, before: Vector3) -> void:
+	if not is_instance_valid(u) or not u.is_alive():
+		return
+	if not bool(u.get_meta("crusher", false)):
+		return
+	if u.global_position.distance_squared_to(before) <= 0.0001:
+		return
+	for other: RTSUnit in units:
+		if other == u or not is_instance_valid(other) or not other.is_alive():
+			continue
+		if str(other.get_meta("status", "")) != "shrunk":
+			continue
+		if not teams.are_enemies(u.team, other.team):
+			continue
+		var flat: float = Vector2(u.global_position.x, u.global_position.z).distance_to(Vector2(other.global_position.x, other.global_position.z))
+		if flat <= 1.35:
+			other.set_meta("crushed", true)
+			var scale: float = maxf(other.incoming_mult, 0.05)
+			other.take_damage((other.hp + 1.0) / scale)
+
 func _keep_domain(u: RTSUnit, before: Vector3) -> void:
 	if domain == null or not is_instance_valid(u):
 		return
@@ -811,6 +842,7 @@ func tick(delta: float) -> void:
 		_press_bridge(u, delta)
 		var before: Vector3 = u.global_position
 		u.advance(delta)
+		_crush_under(u, before)
 		_keep_domain(u, before)
 		unit_posed.emit(u, delta)
 		var ring: Node3D = u.get_node_or_null("Ring") as Node3D

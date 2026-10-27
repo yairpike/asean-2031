@@ -263,6 +263,7 @@ func _arm_units() -> void:
 	var cells: Array[Vector2i] = _player_cells()
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, grid.cell_center(cells[i]), kinds[i])
+	field.spawn_support(grid.cell_center(cells[0]) + Vector3(0.0, 0.0, 4.0))
 	for cell: Vector2i in _enemy_cells():
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
 	raider.attach(field, grid.cell_center(_enemy_cells()[0]))
