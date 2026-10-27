@@ -62,6 +62,7 @@ func _run() -> void:
 	await H.section("test_sm_field", test_sm_field)
 	await H.section("test_sm_sites", test_sm_sites)
 	await H.section("test_sm_haze", test_sm_haze)
+	await H.section("test_sm_chain", test_sm_chain)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1448,7 +1449,8 @@ func test_sm_field() -> void:
 	skiff.take_damage(10.0)
 	check(is_equal_approx(skiff.hp, hole_hp - 2.0), "black-hole armor cuts incoming damage")
 	var before: int = roster.economy.credits(0)
-	check(sim.goods.snap_refinery(&"slag_west", 0) and roster.economy.credits(0) == before, "claiming Golden Slag does not pay until the loop finishes")
+	var standing: bool = sim.goods.has_collector(&"slag_west")
+	check((standing or sim.goods.snap_refinery(&"slag_west", 0)) and roster.economy.credits(0) == before, "claiming Golden Slag does not pay until the loop finishes")
 	scene.call("tick_world", 4.0)
 	check(roster.economy.credits(0) == before + 20, "a Phillips tick pays a claimed node")
 	var night_before: int = roster.economy.credits(0)
@@ -1583,6 +1585,102 @@ func test_sm_haze() -> void:
 	check(book.sees(enemy.global_position) and enemy.visible, "a captured radar reveals the unit the haze hid")
 	scene.free()
 	await process_frame
+
+func test_sm_chain() -> void:
+	check(_chain_scaffold("gtfc", &"naval_yard", &"seismic_imploder"), "gtfc builds the chain and the imploder hits once")
+	check(_chain_mobile("nmrf", &"tidal_turbine", &"monsoon_decimator"), "nmrf builds the chain and the decimator hits once")
+	check(_chain_internal("mvd", &"naval_yard", &"ion_cryo"), "mvd builds the chain and the collider hits once")
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var roster: SMRoster = scene.get("roster") as SMRoster
+	var walker: RTSUnit = field.units_of(0)[0]
+	var spot: Vector3 = sim.grid.cell_center(Vector2i(6, 4))
+	walker.global_position = spot
+	var purse: int = roster.economy.credits(0)
+	scene.call("tick_world", 0.2)
+	var collector: Node = scene.get_node_or_null("Collector_slag_north")
+	scene.call("tick_world", 4.0)
+	var hydro: Button = scene.find_child("Build_salween_hydro", true, false) as Button
+	var weapon: Button = scene.find_child("Super_seismic_imploder", true, false) as Button
+	var built: int = (scene.get("side") as SMSide).yard.tech_order.size()
+	check(sim.goods.has_collector(&"slag_north") and collector != null and roster.economy.credits(0) > purse, "walking onto a Phillips pad claims it and the node pays")
+	check(built == 10 and hydro != null and hydro.text == "Salween Hydro-Generator" and weapon != null and weapon.text == "Seismic Slag Vacuum Imploder", "the yard lists the chain and the superweapon")
+	scene.free()
+	await process_frame
+
+func _chain_scaffold(faction: String, water_id: StringName, super_id: StringName) -> bool:
+	var yard: SMBuildYard = _chain_yard(faction, SMBuildYard.Style.SCAFFOLD)
+	var econ: RTSEconomy = yard.economy
+	econ.set_credits(0, 100000)
+	yard.drain_per_sec = 1
+	yard.radius = 80.0
+	for i: int in yard.tech_order.size():
+		var id: StringName = yard.tech_order[i]
+		if not yard.begin_scaffold(id, Vector3(float(i) * 3.0, 0.0, 0.0), 120.0):
+			return false
+		yard.advance(float(yard.building_time.get(id, 4.0)))
+		if not yard.finished.has(id):
+			return false
+	return _chain_done(yard, water_id, super_id)
+
+func _chain_internal(faction: String, water_id: StringName, super_id: StringName) -> bool:
+	var yard: SMBuildYard = _chain_yard(faction, SMBuildYard.Style.INTERNAL)
+	yard.economy.set_credits(0, 100000)
+	yard.radius = 40.0
+	yard.clearance = 1
+	for id: StringName in yard.tech_order:
+		var tier: int = int(yard.building_tier.get(id, 1))
+		while yard.clearance < tier:
+			if not yard.buy_clearance(yard.clearance + 1, 50):
+				return false
+		if not yard.queue_internal(id):
+			return false
+		yard.advance(float(yard.building_time.get(id, 4.0)))
+		if not yard.place_finished(id, Vector3(2.0, 0.0, 0.0)):
+			return false
+	return _chain_done(yard, water_id, super_id)
+
+func _chain_mobile(faction: String, water_id: StringName, super_id: StringName) -> bool:
+	var yard: SMBuildYard = _chain_yard(faction, SMBuildYard.Style.MOBILE)
+	var grid: SMDomainGrid = SMDomainGrid.new(8, 8, 4.0, Vector3.ZERO)
+	yard.grid = grid
+	yard.packer_pos = grid.cell_center(Vector2i(1, 1))
+	if yard.tech_order.is_empty() or not yard.unpack(yard.tech_order[0]):
+		return false
+	for i: int in range(1, yard.tech_order.size()):
+		if not yard.place_annex(yard.tech_order[i]):
+			return false
+	return _chain_done(yard, water_id, super_id)
+
+func _chain_yard(faction: String, style: int) -> SMBuildYard:
+	var yard: SMBuildYard = SMBuildYard.new()
+	yard.style = style
+	yard.team = 0
+	yard.economy = RTSEconomy.new()
+	yard.center = Vector3.ZERO
+	yard.load_catalog(SMCatalog.faction(faction))
+	return yard
+
+func _chain_done(yard: SMBuildYard, water_id: StringName, super_id: StringName) -> bool:
+	if yard.finished.size() != 10 or yard.tech_order.size() != 10:
+		return false
+	if not bool(yard.structure_water.get(water_id, false)):
+		return false
+	if yard.super_id != super_id or yard.super_name == "":
+		return false
+	var victims: Array[Dictionary] = [{"pos": Vector3.ZERO, "hp": 100.0}]
+	if yard.fire_super(Vector3.ZERO, victims) != 1:
+		return false
+	var left: float = float(victims[0]["hp"])
+	if left >= 100.0:
+		return false
+	if yard.fire_super(Vector3.ZERO, victims) != 0:
+		return false
+	return is_equal_approx(float(victims[0]["hp"]), left)
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"

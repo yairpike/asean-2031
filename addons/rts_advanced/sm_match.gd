@@ -243,6 +243,11 @@ func tick_live(delta: float, purse: RTSEconomy, squad: SMPointer) -> void:
 	tech.advance(delta, purse, SMPointer.ENEMY)
 	if squad == null:
 		return
+	for u: RTSUnit in squad.units:
+		if not is_instance_valid(u) or not u.is_alive():
+			continue
+		goods.claim_at(u.global_position, u.team, 2.4)
+		tech.capture_at(u.global_position, u.team, 2.4)
 	if _owns(SMTechNet.CLINIC):
 		for u: RTSUnit in squad.units_of(SMPointer.PLAYER):
 			if squad.is_infantry(u) and u.hp < u.max_hp:

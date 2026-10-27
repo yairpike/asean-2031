@@ -180,6 +180,7 @@ func _price_scale(id: StringName) -> float:
 func tick_world(delta: float) -> void:
 	sim.tick_live(delta, roster.economy, field)
 	sim.show_collectors(self)
+	side.yard.cool_super(delta)
 
 func _on_engage() -> void:
 	_say("channel clear" if sim.fight_passive() else "still fighting")

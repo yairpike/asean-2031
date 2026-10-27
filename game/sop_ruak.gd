@@ -118,6 +118,7 @@ func _arm_units() -> void:
 func tick_world(delta: float) -> void:
 	sim.tick_live(delta, roster.economy, field)
 	sim.show_collectors(self)
+	side.yard.cool_super(delta)
 
 func _price_scale(id: StringName) -> float:
 	return sim.tech.discount(SMPointer.PLAYER, roster.unit_tag(id))

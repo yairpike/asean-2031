@@ -4,12 +4,20 @@
   "build_style": "mobile",
   "colors": {"primary": "olive", "accent": "emerald", "primary_hex": "#5A6824", "accent_hex": "#1F9E66"},
   "yard_radius": 12,
-  "tech_order": ["packer", "boat_shed", "gun_wharf"],
+  "tech_order": ["packer", "tidal_turbine", "tide_refinery", "corsair_barracks", "war_factory", "naval_yard", "airfield", "wave_force", "multigunner", "gun_wharf"],
   "buildings": [
-    {"id": "packer", "tier": 1, "time": 3, "cost": 180, "hp": 260},
-    {"id": "boat_shed", "tier": 1, "time": 5, "cost": 160, "hp": 240},
-    {"id": "gun_wharf", "tier": 2, "time": 6, "cost": 240, "hp": 280}
+    {"id": "packer", "display_name": "Construction Yard", "role": "yard", "tier": 1, "time": 3, "cost": 180, "hp": 260},
+    {"id": "tidal_turbine", "display_name": "Offshore Tidal Turbine", "role": "power", "tier": 1, "time": 5, "cost": 180, "hp": 260, "water": true},
+    {"id": "tide_refinery", "display_name": "Tide Refinery", "role": "refinery", "tier": 1, "time": 5, "cost": 160, "hp": 280, "water": true},
+    {"id": "corsair_barracks", "display_name": "Barracks", "role": "barracks", "tier": 1, "time": 5, "cost": 150, "hp": 240},
+    {"id": "war_factory", "display_name": "War Factory", "role": "factory", "tier": 2, "time": 6, "cost": 240, "hp": 320},
+    {"id": "naval_yard", "display_name": "Naval Yard", "role": "naval", "tier": 2, "time": 6, "cost": 240, "hp": 300, "water": true},
+    {"id": "airfield", "display_name": "Airfield", "role": "air", "tier": 2, "time": 6, "cost": 260, "hp": 280},
+    {"id": "wave_force", "display_name": "Wave-Force Turret", "role": "defense", "tier": 1, "time": 4, "cost": 140, "hp": 220, "water": true},
+    {"id": "multigunner", "display_name": "Multigunner", "role": "defense", "tier": 2, "time": 5, "cost": 180, "hp": 240},
+    {"id": "gun_wharf", "display_name": "Gun Wharf", "role": "tech", "tier": 2, "time": 6, "cost": 240, "hp": 280, "water": true}
   ],
+  "superweapon": {"id": "monsoon_decimator", "display_name": "Psionic Monsoon Decimator", "cooldown": 20, "damage": 42, "radius": 9, "water": true},
   "units": [
     {"id": "river_rifle", "display_name": "River Rifle", "cameo": "RFL", "role": "infantry", "cost": 80, "time": 3, "hp": 75, "speed": 5.2, "weapon": "rifle", "weapon_damage": 8, "secondary": "group_toggle", "guidance": "none", "locomotion": "amphibious", "tags": ["infantry"]},
     {"id": "sampan", "display_name": "Sampan", "cameo": "SMP", "role": "boat", "cost": 110, "time": 4, "hp": 100, "speed": 6, "weapon": "mg", "weapon_damage": 7, "secondary": "smart_cast", "guidance": "none", "locomotion": "amphibious", "tags": ["naval"]},

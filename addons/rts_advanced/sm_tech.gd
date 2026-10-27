@@ -31,6 +31,24 @@ func _find(id: StringName) -> int:
 			return i
 	return -1
 
+func capture_at(pos: Vector3, team: int, reach: float) -> StringName:
+	var best_i: int = -1
+	var best_d: float = reach
+	for i: int in sites.size():
+		if int(sites[i]["owner"]) >= 0:
+			continue
+		var spot: Vector3 = sites[i]["pos"]
+		var dist: float = pos.distance_to(spot)
+		if dist <= best_d:
+			best_d = dist
+			best_i = i
+	if best_i < 0:
+		return &""
+	var id: StringName = StringName(str(sites[best_i]["id"]))
+	if capture(id, team):
+		return id
+	return &""
+
 func capture(id: StringName, team: int) -> bool:
 	var i: int = _find(id)
 	if i < 0:

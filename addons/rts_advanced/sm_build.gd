@@ -39,6 +39,67 @@ var grid: SMDomainGrid
 var structure_hp: Dictionary[StringName, float] = {}
 var structure_max: Dictionary[StringName, float] = {}
 var structure_pos: Dictionary[StringName, Vector3] = {}
+var structure_water: Dictionary[StringName, bool] = {}
+var water_marked: Dictionary[StringName, bool] = {}
+var super_id: StringName = &""
+var super_name: String = ""
+var super_damage: float = 0.0
+var super_radius: float = 8.0
+var super_cooldown: float = 20.0
+var super_left: float = 0.0
+var super_water: bool = false
+
+func load_catalog(data: Dictionary) -> void:
+	tech_order.clear()
+	var order: Variant = data.get("tech_order", [])
+	if order is Array:
+		for step: Variant in order:
+			tech_order.append(StringName(str(step)))
+	var raw: Variant = data.get("buildings", [])
+	if raw is Array:
+		for item: Variant in raw:
+			if item is Dictionary:
+				var row: Dictionary = item
+				var id: StringName = StringName(str(row.get("id", "")))
+				building_tier[id] = int(row.get("tier", 1))
+				building_time[id] = float(row.get("time", 4.0))
+				structure_max[id] = float(row.get("hp", 200.0))
+				if bool(row.get("water", false)):
+					water_marked[id] = true
+	var weapon: Variant = data.get("superweapon", {})
+	if weapon is Dictionary:
+		var sw: Dictionary = weapon
+		super_id = StringName(str(sw.get("id", "")))
+		super_name = str(sw.get("display_name", ""))
+		super_damage = float(sw.get("damage", 40.0))
+		super_radius = float(sw.get("radius", 8.0))
+		super_cooldown = float(sw.get("cooldown", 20.0))
+		super_water = bool(sw.get("water", false))
+
+func fire_super(at: Vector3, victims: Array[Dictionary]) -> int:
+	if super_left > 0.0 or super_damage <= 0.0:
+		return 0
+	var hit: int = 0
+	for victim: Dictionary in victims:
+		var pos: Vector3 = victim.get("pos", Vector3.ZERO)
+		if at.distance_to(pos) <= super_radius:
+			victim["hp"] = float(victim.get("hp", 0.0)) - super_damage
+			hit += 1
+	if hit > 0:
+		super_left = super_cooldown
+	return hit
+
+func cool_super(delta: float) -> void:
+	super_left = maxf(0.0, super_left - delta)
+
+func place_annex(id: StringName) -> bool:
+	if style != Style.MOBILE or not unpacked or finished.has(id) or not building_time.has(id):
+		return false
+	finished.append(id)
+	structure_pos[id] = packer_pos
+	structure_hp[id] = _max_hp(id)
+	_note_water(id)
+	return true
 
 func inside(pos: Vector3) -> bool:
 	return Vector2(pos.x, pos.z).distance_to(Vector2(center.x, center.z)) <= radius
@@ -105,6 +166,7 @@ func place_finished(id: StringName, pos: Vector3) -> bool:
 	structure_pos[id] = pos
 	if not structure_hp.has(id):
 		structure_hp[id] = _max_hp(id)
+	_note_water(id)
 	return true
 
 func move_packer(to: Vector3) -> bool:
@@ -124,6 +186,7 @@ func unpack(factory: StringName) -> bool:
 	structure_pos[factory] = packer_pos
 	if not structure_hp.has(factory):
 		structure_hp[factory] = _max_hp(factory)
+	_note_water(factory)
 	return true
 
 func upgrade_factory(factory: StringName) -> bool:
@@ -164,6 +227,7 @@ func _advance_scaffold(delta: float) -> void:
 		structure_pos[done] = scaffold_pos
 		structure_hp[done] = maxf(scaffold_hp, 1.0)
 		structure_max[done] = maxf(scaffold_max_hp, structure_hp[done])
+		_note_water(done)
 		scaffold_id = &""
 		scaffold_active = false
 		vulnerable = false
@@ -246,6 +310,10 @@ func _stored_hp(id: StringName) -> float:
 	if structure_hp.has(id):
 		return structure_hp[id]
 	return 1.0
+
+func _note_water(id: StringName) -> void:
+	if bool(water_marked.get(id, false)):
+		structure_water[id] = true
 
 func _max_hp(id: StringName) -> float:
 	if structure_max.has(id):

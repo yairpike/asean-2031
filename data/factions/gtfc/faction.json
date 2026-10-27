@@ -5,12 +5,20 @@
   "colors": {"primary": "crimson", "accent": "amber", "primary_hex": "#B81E2D", "accent_hex": "#E0A106"},
   "yard_radius": 18,
   "storefront_resources": ["Golden Slag / Aurum-9", "rare earth", "ruby", "jade", "gold bullion"],
-  "tech_order": ["scaffold_yard", "barracks", "armory"],
+  "tech_order": ["scaffold_yard", "salween_hydro", "slag_refinery", "barracks", "war_factory", "naval_yard", "airfield", "slag_pillbox", "flak_slag_mast", "tech_center"],
   "buildings": [
-    {"id": "scaffold_yard", "tier": 1, "time": 4, "cost": 200, "hp": 400},
-    {"id": "barracks", "tier": 1, "time": 5, "cost": 150, "hp": 320},
-    {"id": "armory", "tier": 2, "time": 6, "cost": 220, "hp": 300}
+    {"id": "scaffold_yard", "display_name": "Construction Yard", "role": "yard", "tier": 1, "time": 4, "cost": 200, "hp": 400},
+    {"id": "salween_hydro", "display_name": "Salween Hydro-Generator", "role": "power", "tier": 1, "time": 5, "cost": 180, "hp": 280},
+    {"id": "slag_refinery", "display_name": "Slag Refinery", "role": "refinery", "tier": 1, "time": 5, "cost": 160, "hp": 300},
+    {"id": "barracks", "display_name": "Barracks", "role": "barracks", "tier": 1, "time": 5, "cost": 150, "hp": 320},
+    {"id": "war_factory", "display_name": "War Factory", "role": "factory", "tier": 2, "time": 6, "cost": 240, "hp": 360},
+    {"id": "naval_yard", "display_name": "Naval Yard", "role": "naval", "tier": 2, "time": 6, "cost": 240, "hp": 340, "water": true},
+    {"id": "airfield", "display_name": "Airfield", "role": "air", "tier": 2, "time": 6, "cost": 260, "hp": 300},
+    {"id": "slag_pillbox", "display_name": "Slag Pillbox", "role": "defense", "tier": 1, "time": 4, "cost": 120, "hp": 260},
+    {"id": "flak_slag_mast", "display_name": "Flak-Slag Mast", "role": "defense", "tier": 2, "time": 5, "cost": 180, "hp": 240},
+    {"id": "tech_center", "display_name": "Tech Center", "role": "tech", "tier": 2, "time": 7, "cost": 300, "hp": 320}
   ],
+  "superweapon": {"id": "seismic_imploder", "display_name": "Seismic Slag Vacuum Imploder", "cooldown": 20, "damage": 48, "radius": 8, "water": false},
   "units": [
     {"id": "militia", "display_name": "Militia", "cameo": "MIL", "role": "infantry", "cost": 80, "time": 3, "hp": 80, "speed": 5.5, "weapon": "rifle", "weapon_damage": 8, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
     {"id": "slag_hauler", "display_name": "Slag Hauler", "cameo": "SLAG", "role": "hauler", "cost": 120, "time": 4, "hp": 110, "speed": 6, "weapon": "cab_gun", "weapon_damage": 6, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},

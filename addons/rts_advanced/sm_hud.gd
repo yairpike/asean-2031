@@ -102,7 +102,10 @@ func _column(layer: CanvasLayer) -> void:
 				if str(id) == "":
 					continue
 				var node_name: String = "MovePacker" if str(id) == "packer" else "Build_%s" % str(id)
-				_button(box, node_name, _pretty(str(id)), _order.bind(id))
+				var caption: String = side.building_label(id) if side != null else _pretty(str(id))
+				_button(box, node_name, caption, _order.bind(id))
+	if side != null and side.yard.super_name != "":
+		_button(box, "Super_%s" % str(side.yard.super_id), side.yard.super_name, _super)
 	_header(box, "GroupUnits", "Units")
 	for unit: Dictionary in SMCatalog.units_of(data):
 		var uid: StringName = StringName(str(unit.get("id", "")))
@@ -112,6 +115,14 @@ func _column(layer: CanvasLayer) -> void:
 		_button(box, "Train_%s" % str(uid), caption, _train.bind(uid))
 	_header(box, "GroupAbility", "Ability")
 	_button(box, "AbilityButton", "Ability (F)", _ability)
+
+func _super() -> void:
+	if side == null or field == null:
+		return
+	var hit: int = side.fire_super(field)
+	if build_label != null:
+		build_label.text = side.yard.super_name if hit > 0 else "superweapon cooling"
+	refresh()
 
 func _order(id: StringName) -> void:
 	if side == null:

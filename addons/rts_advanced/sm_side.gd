@@ -10,6 +10,7 @@ var hub_mesh: MeshInstance3D
 var host: Node3D
 var status: Label
 var building_hp: Dictionary[StringName, float] = {}
+var building_names: Dictionary[StringName, String] = {}
 
 func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector3, purse: RTSEconomy, p_faction: String = "") -> void:
 	host = p_host
@@ -162,7 +163,36 @@ func upgrade_factory_named(id: StringName) -> bool:
 	_say("wharf level %d" % yard.factory_level(id) if ok else "wharf not ready")
 	return ok
 
+func building_label(id: StringName) -> String:
+	if building_names.has(id):
+		return building_names[id]
+	return str(id)
+
+func fire_super(field: SMPointer) -> int:
+	if field == null or yard.super_damage <= 0.0 or yard.super_left > 0.0:
+		_say("superweapon cooling")
+		return 0
+	var foes: Array[RTSUnit] = field.units_of(SMPointer.ENEMY)
+	if foes.is_empty():
+		_say("no target")
+		return 0
+	var aim: Vector3 = foes[0].global_position
+	var n: int = 0
+	for u: RTSUnit in foes:
+		if is_instance_valid(u) and u.is_alive() and u.global_position.distance_to(aim) <= yard.super_radius:
+			u.take_damage(yard.super_damage)
+			n += 1
+	if n <= 0:
+		return 0
+	yard.super_left = yard.super_cooldown
+	var size: Vector3 = Vector3(2.2, 7.4, 2.2)
+	_slab("Super_%s" % str(yard.super_id), aim + Vector3(0.0, size.y * 0.5, 0.0), size, Color(0.92, 0.32, 0.12))
+	_say(yard.super_name)
+	return n
+
 func _load_order(data: Dictionary) -> void:
+	if not yard.tech_order.is_empty():
+		return
 	var raw: Variant = data.get("tech_order", [])
 	if not (raw is Array):
 		return
@@ -170,16 +200,17 @@ func _load_order(data: Dictionary) -> void:
 		yard.tech_order.append(StringName(str(step)))
 
 func _load_buildings(data: Dictionary) -> void:
+	yard.load_catalog(data)
 	var raw: Variant = data.get("buildings", [])
 	if not (raw is Array):
 		return
 	for item: Variant in raw:
 		if item is Dictionary:
-			var id: StringName = StringName(str(item.get("id", "")))
-			yard.building_tier[id] = int(item.get("tier", 1))
-			yard.building_time[id] = float(item.get("time", 4.0))
-			building_hp[id] = float(item.get("hp", 200.0))
-			yard.structure_max[id] = building_hp[id]
+			var row: Dictionary = item
+			var id: StringName = StringName(str(row.get("id", "")))
+			building_hp[id] = float(row.get("hp", 200.0))
+			var label: String = str(row.get("display_name", ""))
+			building_names[id] = label if label != "" else str(id)
 
 func _say(text: String) -> void:
 	if status != null:

@@ -57,6 +57,24 @@ func kind_of(id: StringName) -> StringName:
 		return &""
 	return StringName(str(nodes[i]["kind"]))
 
+func claim_at(pos: Vector3, team: int, reach: float) -> StringName:
+	var best_i: int = -1
+	var best_d: float = reach
+	for i: int in nodes.size():
+		if int(nodes[i]["team"]) >= 0:
+			continue
+		var spot: Vector3 = nodes[i]["pos"]
+		var dist: float = pos.distance_to(spot)
+		if dist <= best_d:
+			best_d = dist
+			best_i = i
+	if best_i < 0:
+		return &""
+	var id: StringName = StringName(str(nodes[best_i]["id"]))
+	if snap_refinery(id, team):
+		return id
+	return &""
+
 func snap_refinery(id: StringName, team: int) -> bool:
 	var i: int = find(id)
 	if i < 0:
