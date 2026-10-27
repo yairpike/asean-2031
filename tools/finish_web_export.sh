@@ -17,6 +17,14 @@ path = sys.argv[1]
 data = json.loads(open(path, encoding="utf-8").read())
 data["name"] = "ASEAN 2031"
 data["short_name"] = "ASEAN 2031"
+data["start_url"] = "./index.html"
+data["scope"] = "./"
+icons = data.get("icons", [])
+if isinstance(icons, list):
+    for icon in icons:
+        src = str(icon.get("src", ""))
+        if src.startswith("/"):
+            icon["src"] = src.lstrip("/")
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(data, handle, separators=(",", ":"))
     handle.write("\n")
@@ -35,7 +43,7 @@ if needle in html:
     open(path, "w", encoding="utf-8").write(html)
 PY
 fi
-if ! grep -q "serviceWorker" "$DEST/index.html"; then
+if ! grep -q 'serviceWorker.register("sw.js")' "$DEST/index.html"; then
   sed -i 's#</body>#<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script></body>#' "$DEST/index.html"
 fi
 if ! grep -q "GODOT_THREADS_ENABLED = false" "$DEST/index.html"; then
