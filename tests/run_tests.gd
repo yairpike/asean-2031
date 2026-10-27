@@ -6,6 +6,7 @@ const Harness = preload("res://tests/harness.gd")
 const Forms = preload("res://game/unit_meshes.gd")
 const Settings = preload("res://game/match_settings.gd")
 var H: Harness
+var duel_note: String = ""
 
 func check(cond: bool, msg: String) -> void:
 	H.check(cond, msg)
@@ -850,6 +851,18 @@ func test_sm_bots() -> void:
 	check(bool(tran["frozen"]) and bool(tran["flew"]) and str(tran["faction"]) == "gtfc", "tran uses cryo and air")
 	var bo: Dictionary = played.run_bot(SMBot.new(&"bo_mya"))
 	check(str(bo["faction"]) == "mvd" and bool(bo["fired"]), "bo mya fields drones")
+	var burma_ok: bool = _duel(&"bo_mya", "burma_road", &"iskandar", false)
+	check(burma_ok, "bo mya wins on the burma road (%s)" % duel_note)
+	var sop_ok: bool = _duel(&"bo_mya", "sop_ruak", &"tran", true)
+	check(sop_ok, "bo mya wins across the sop ruak water (%s)" % duel_note)
+	var phillips_ok: bool = _duel(&"iskandar", "phillips", &"bo_mya", true)
+	check(phillips_ok, "iskandar wins on phillips channel (%s)" % duel_note)
+	var atoll_ok: bool = _duel(&"iskandar", "ten_degree_atolls", &"tran", true)
+	check(atoll_ok, "iskandar wins on the atolls (%s)" % duel_note)
+	var mekong_ok: bool = _duel(&"tran", "mekong_delta", &"bo_mya", true)
+	check(mekong_ok, "tran wins over the mekong canals (%s)" % duel_note)
+	var chiang_ok: bool = _duel(&"tran", "chiang_rai", &"iskandar", true)
+	check(chiang_ok, "tran wins over the chiang rai river (%s)" % duel_note)
 
 func test_sm_mission() -> void:
 	var scene: Node = (load("res://game/mission_kokang.tscn") as PackedScene).instantiate()
@@ -3099,6 +3112,17 @@ func _trained(path: String) -> String:
 	if not grew:
 		return ""
 	return label
+
+func _duel(personality: StringName, map_id: String, foe: StringName, needs_water: bool) -> bool:
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var bot: SMBot = SMBot.new(personality)
+	var other: SMBot = SMBot.new(foe)
+	var result: Dictionary = bot.fight(other, map_id, 45.0, host)
+	var ok: bool = bool(result["won"]) and float(result["time"]) <= 45.0 and bool(result["scout_first"]) and bool(result["muster"]) and bool(result["flank"]) and bool(result["retreat"]) and bool(result["rebuilt"]) and bool(result["protocol"]) and bool(result["ability"]) and bool(result["power"]) and (not needs_water or bool(result["water"]))
+	duel_note = "" if ok else bot.last_note
+	host.free()
+	return ok
 
 func _enemy_fights(path: String) -> void:
 	var scene: Node = (load(path) as PackedScene).instantiate()

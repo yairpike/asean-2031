@@ -22,6 +22,8 @@ var plan_site: StringName = &""
 var opened_nodes: int = 0
 var took_tech: bool = false
 var used_f: bool = false
+var brain: SMBot
+var _step: float = 0.0
 
 func attach(p_field: SMPointer, center: Vector3) -> void:
 	field = p_field
@@ -50,12 +52,16 @@ func bind_plan(goods: SMCommodityNet, tech: SMTechNet, first: StringName, second
 	plan_b = second
 	plan_site = site
 	personality_name = who
+	brain = SMBot.new(SMBot.id_of(who))
 
-func tick(_delta: float) -> void:
+func tick(delta: float) -> void:
 	if field == null:
 		return
+	_step = delta
+	_ensure_brain()
 	_build()
 	_expand()
+	_rebuild()
 	_open()
 	_attack()
 
@@ -106,31 +112,42 @@ func _open() -> void:
 		return
 	used_f = field.apply_named_f(foes[0])
 
+func _ensure_brain() -> void:
+	if brain == null:
+		brain = SMBot.new(SMBot.id_of(personality_name))
+
+func _rebuild() -> void:
+	if brain == null or brain.rebuilt > 0:
+		return
+	if goods.has_collector(node_id):
+		brain.restore_node(goods, node_id, SMPointer.ENEMY)
+
 func _attack() -> void:
 	var friends: Array[RTSUnit] = field.units_of(SMPointer.PLAYER)
 	var foes: Array[RTSUnit] = field.units_of(SMPointer.ENEMY)
-	if friends.is_empty() or foes.is_empty():
+	if friends.is_empty() or foes.is_empty() or brain == null:
 		return
-	var target: RTSUnit = _nearest(foes[0].global_position, friends)
-	var squad: Array[RTSUnit] = []
-	for u: RTSUnit in foes:
-		squad.append(u)
-	var hit: int = 0
-	for u: RTSUnit in squad:
-		var one: Array[RTSUnit] = [u]
-		hit += RTSOrders.attack(one, target, field.nav_for_unit(u), field.teams)
-	if hit > 0:
+	brain.direct(foes, friends, field.domain, Callable(self, "_nav_for"), yard.center, field.teams, _step)
+	if brain.scouted:
 		attacked = true
+	if brain.wave_sent and brain.protocols_cast == 0:
+		_cast_wave(foes)
 
-func _nearest(from: Vector3, group: Array[RTSUnit]) -> RTSUnit:
-	var best: RTSUnit = group[0]
-	var best_d: float = from.distance_to(best.global_position)
-	for u: RTSUnit in group:
-		var d: float = from.distance_to(u.global_position)
-		if d < best_d:
-			best_d = d
-			best = u
-	return best
+func _nav_for(u: RTSUnit) -> RTSGridNav:
+	if field == null:
+		return null
+	return field.nav_for_unit(u)
+
+func _cast_wave(foes: Array[RTSUnit]) -> void:
+	var book: SMProtocols = SMProtocols.new()
+	var powers: SMAbilities = SMAbilities.new()
+	if not brain.cast_arsenal(book, economy, SMPointer.ENEMY, powers):
+		return
+	var scale: float = book.damage_mult
+	for u: RTSUnit in foes:
+		if is_instance_valid(u) and not bool(u.get_meta("rocket_pods", false)):
+			u.damage_mult *= scale
+			u.set_meta("rocket_pods", true)
 
 func _marker(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	marker_made.emit(host, node_name, pos, size, color)

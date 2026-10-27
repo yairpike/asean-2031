@@ -93,6 +93,19 @@ func has_collector(id: StringName) -> bool:
 		return false
 	return bool(nodes[i]["collector"])
 
+func release_collector(id: StringName) -> bool:
+	var i: int = find(id)
+	if i < 0:
+		return false
+	var node: Dictionary = nodes[i]
+	if not bool(node["collector"]):
+		return false
+	node["team"] = -1
+	node["collector"] = false
+	node["loop_t"] = 0.0
+	nodes[i] = node
+	return true
+
 func set_night_shift(id: StringName, on: bool) -> bool:
 	var i: int = find(id)
 	if i < 0:
