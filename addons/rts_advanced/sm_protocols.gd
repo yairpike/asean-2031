@@ -1,41 +1,266 @@
 class_name SMProtocols
 extends RefCounted
-## Three branches, one power each. A second cast of the same branch does nothing.
+## Three branches. Each blueprint power is named, has a visible effect, and
+## cannot be cast again until its rule allows it. The first power of a branch
+## is what cast(branch) still fires.
+
+const COOL_POWER: StringName = &"point_defense_drones"
+const COOL_TIME: float = 8.0
 
 var credits_bonus: int = 0
 var damage_mult: float = 1.0
 var cryo_applied: bool = false
+var grinder_speed: float = 1.0
+var night_shift: bool = false
+var swarm_count: int = 0
+var defoliation: bool = false
+var printed: int = 0
+var satellite_lock: bool = false
+var napalm: int = 0
+var discharged: bool = false
+var kamikaze: int = 0
+var point_defense: int = 0
+var ambush: bool = false
+var pirate_haul: int = 0
+var balloons: int = 0
+var assembled: bool = false
+var tech_rank: int = 0
+var bomber: bool = false
+var trade_open: bool = false
+var recon: bool = false
+var spoofed: bool = false
+var bomb_armed: bool = false
+var thermal: bool = false
+var cryo_wave: bool = false
 var cast_count: Dictionary[StringName, int] = {}
+var cool_left: Dictionary[StringName, float] = {}
+var marks: Dictionary[StringName, String] = {}
+
+func power_ids() -> Array[StringName]:
+	var ids: Array[StringName] = []
+	ids.append_array(_logistics())
+	ids.append_array(_arsenal())
+	ids.append_array(_oracle())
+	return ids
+
+func display_name(id: StringName) -> String:
+	if id == &"cash_bounty":
+		return "Cash Bounty"
+	if id == &"grinder_treads":
+		return "Grinder Treads"
+	if id == &"mogok_night_shift":
+		return "Mogok Night-Shift Overdrive"
+	if id == &"thai_border_mass_print":
+		return "Thai Border Mass Print"
+	if id == &"robotic_assembly":
+		return "Robotic Assembly"
+	if id == &"free_trade":
+		return "Free Trade"
+	if id == &"high_technology":
+		return "High Technology"
+	if id == &"advanced_rocket_pods":
+		return "Advanced Rocket Pods"
+	if id == &"magnetic_satellite":
+		return "Magnetic Satellite"
+	if id == &"su30_napalm":
+		return "Su-30 napalm run"
+	if id == &"honorable_discharge":
+		return "Honorable Discharge"
+	if id == &"kamikaze_drone_squadron":
+		return "Kamikaze Drone Squadron"
+	if id == &"point_defense_drones":
+		return "Point-Defense Drones"
+	if id == &"drone_swarm_23":
+		return "23-Drone Swarm"
+	if id == &"toxic_defoliation":
+		return "Toxic Defoliation"
+	if id == &"straits_pirate_raid":
+		return "Straits Pirate Raid"
+	if id == &"balloon_bomb_barrage":
+		return "Balloon Bomb Barrage"
+	if id == &"century_carpet_bomber":
+		return "Century Carpet Bomber"
+	if id == &"cryoshot":
+		return "Cryoshot"
+	if id == &"cryogeddon":
+		return "Cryogeddon"
+	if id == &"satellite_recon":
+		return "Satellite Recon"
+	if id == &"gps_spoofing":
+		return "GPS Spoofing"
+	if id == &"orlan_thermal_scan":
+		return "Orlan Thermal Scan"
+	if id == &"time_bomb":
+		return "Time Bomb"
+	if id == &"sleeper_ambush":
+		return "Sleeper Ambush"
+	return ""
+
+func effect_of(id: StringName) -> String:
+	return str(marks.get(id, ""))
 
 func power_name(branch: StringName) -> StringName:
 	if branch == &"logistics":
-		return &"credit_surge"
+		return &"cash_bounty"
 	if branch == &"arsenal":
-		return &"overcharge"
+		return &"advanced_rocket_pods"
 	if branch == &"oracle":
-		return &"cryo_snap"
+		return &"cryoshot"
 	return &""
 
 func branches() -> Array[StringName]:
 	return [&"logistics", &"arsenal", &"oracle"]
 
 func can_cast(branch: StringName) -> bool:
-	return power_name(branch) != &"" and int(cast_count.get(branch, 0)) == 0
+	var power: StringName = power_name(branch)
+	return power != &"" and can_cast_power(power)
+
+func can_cast_power(id: StringName) -> bool:
+	if display_name(id) == "":
+		return false
+	if id == COOL_POWER:
+		return float(cool_left.get(id, 0.0)) <= 0.0
+	return int(cast_count.get(id, 0)) == 0
 
 func cast(branch: StringName, economy: RTSEconomy, team: int, abilities: SMAbilities, target: int) -> bool:
-	if not can_cast(branch):
-		return false
 	var power: StringName = power_name(branch)
-	if power == &"credit_surge":
+	if power == &"":
+		return false
+	return cast_power(power, economy, team, abilities, target)
+
+func cast_power(id: StringName, economy: RTSEconomy, team: int, abilities: SMAbilities, target: int) -> bool:
+	if not can_cast_power(id):
+		return false
+	_apply(id, economy, team, abilities, target)
+	cast_count[id] = int(cast_count.get(id, 0)) + 1
+	if id == COOL_POWER:
+		cool_left[id] = COOL_TIME
+	return true
+
+func cool(delta: float) -> void:
+	for id: StringName in cool_left.keys():
+		cool_left[id] = maxf(0.0, float(cool_left[id]) - delta)
+
+func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: SMAbilities, say: Callable) -> ScrollContainer:
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "Protocols"
+	scroll.position = Vector2(220, 488)
+	scroll.size = Vector2(800, 112)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 5
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 2)
+	scroll.add_child(grid)
+	for id: StringName in power_ids():
+		var b: Button = Button.new()
+		b.name = "Proto_%s" % str(id)
+		b.text = display_name(id)
+		b.clip_text = true
+		b.custom_minimum_size = Vector2(154, 20)
+		b.add_theme_font_size_override("font_size", 11)
+		b.pressed.connect(_press_power.bind(id, economy, team, abilities, say))
+		grid.add_child(b)
+	layer.add_child(scroll)
+	return scroll
+
+func _press_power(id: StringName, economy: RTSEconomy, team: int, abilities: SMAbilities, say: Callable) -> void:
+	var target: int = -1
+	if abilities != null and abilities.index_of(10) >= 0:
+		target = 10
+	elif abilities != null and abilities.index_of(2) >= 0:
+		target = 2
+	var ok: bool = cast_power(id, economy, team, abilities, target)
+	if say.is_valid():
+		say.call(display_name(id) if ok else "protocol spent")
+
+func _apply(id: StringName, economy: RTSEconomy, team: int, abilities: SMAbilities, target: int) -> void:
+	if id == &"cash_bounty":
 		economy.earn(team, 250)
 		credits_bonus += 250
-	elif power == &"overcharge":
+		marks[id] = "credits +250"
+	elif id == &"grinder_treads":
+		grinder_speed = 1.4
+		marks[id] = "speed 1.4"
+	elif id == &"mogok_night_shift":
+		night_shift = true
+		marks[id] = "night shift"
+	elif id == &"thai_border_mass_print":
+		printed = 8
+		marks[id] = "printed 8"
+	elif id == &"robotic_assembly":
+		assembled = true
+		marks[id] = "assembly"
+	elif id == &"free_trade":
+		trade_open = true
+		marks[id] = "trade open"
+	elif id == &"high_technology":
+		tech_rank = 1
+		marks[id] = "tech 1"
+	elif id == &"advanced_rocket_pods":
 		damage_mult = 1.5
-	elif power == &"cryo_snap":
-		if target >= 0:
+		marks[id] = "damage 1.5"
+	elif id == &"magnetic_satellite":
+		satellite_lock = true
+		marks[id] = "satellite lock"
+	elif id == &"su30_napalm":
+		napalm = 36
+		marks[id] = "napalm 36"
+	elif id == &"honorable_discharge":
+		discharged = true
+		marks[id] = "discharged"
+	elif id == &"kamikaze_drone_squadron":
+		kamikaze = 6
+		marks[id] = "kamikaze 6"
+	elif id == &"point_defense_drones":
+		point_defense += 1
+		marks[id] = "shield %d" % point_defense
+	elif id == &"drone_swarm_23":
+		swarm_count = 23
+		marks[id] = "swarm 23"
+	elif id == &"toxic_defoliation":
+		defoliation = true
+		marks[id] = "defoliation"
+	elif id == &"straits_pirate_raid":
+		pirate_haul = 120
+		marks[id] = "haul 120"
+	elif id == &"balloon_bomb_barrage":
+		balloons = 9
+		marks[id] = "balloons 9"
+	elif id == &"century_carpet_bomber":
+		bomber = true
+		marks[id] = "carpet"
+	elif id == &"cryoshot":
+		if target >= 0 and abilities != null:
 			abilities.apply_status(target, SMAbilities.ST_FROZEN, 5.0)
 		cryo_applied = true
-	else:
-		return false
-	cast_count[branch] = 1
-	return true
+		marks[id] = "frozen"
+	elif id == &"cryogeddon":
+		if target >= 0 and abilities != null:
+			abilities.apply_status(target, SMAbilities.ST_FROZEN, 8.0)
+		cryo_wave = true
+		marks[id] = "cryo wave"
+	elif id == &"satellite_recon":
+		recon = true
+		marks[id] = "recon"
+	elif id == &"gps_spoofing":
+		spoofed = true
+		marks[id] = "spoofed"
+	elif id == &"orlan_thermal_scan":
+		thermal = true
+		marks[id] = "thermal"
+	elif id == &"time_bomb":
+		bomb_armed = true
+		marks[id] = "bomb armed"
+	elif id == &"sleeper_ambush":
+		ambush = true
+		marks[id] = "ambush"
+
+func _logistics() -> Array[StringName]:
+	return [&"cash_bounty", &"grinder_treads", &"mogok_night_shift", &"thai_border_mass_print", &"robotic_assembly", &"free_trade", &"high_technology"]
+
+func _arsenal() -> Array[StringName]:
+	return [&"advanced_rocket_pods", &"magnetic_satellite", &"su30_napalm", &"honorable_discharge", &"kamikaze_drone_squadron", &"point_defense_drones", &"drone_swarm_23", &"toxic_defoliation", &"straits_pirate_raid", &"balloon_bomb_barrage", &"century_carpet_bomber"]
+
+func _oracle() -> Array[StringName]:
+	return [&"cryoshot", &"cryogeddon", &"satellite_recon", &"gps_spoofing", &"orlan_thermal_scan", &"time_bomb", &"sleeper_ambush"]

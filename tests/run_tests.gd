@@ -64,6 +64,7 @@ func _run() -> void:
 	await H.section("test_sm_haze", test_sm_haze)
 	await H.section("test_sm_chain", test_sm_chain)
 	await H.section("test_sm_names", test_sm_names)
+	await H.section("test_sm_protocols", test_sm_protocols)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1747,6 +1748,60 @@ func _train_caption(path: String, node_name: String) -> String:
 	scene.free()
 	await process_frame
 	return text
+
+func test_sm_protocols() -> void:
+	var book: SMProtocols = SMProtocols.new()
+	var ids: Array[StringName] = book.power_ids()
+	check(ids.size() == 25, "the protocol tree names every blueprint power")
+	var economy: RTSEconomy = RTSEconomy.new()
+	economy.set_credits(0, 1000)
+	var abilities: SMAbilities = SMAbilities.new()
+	abilities.add_unit(4, Vector3.ZERO, SMAbilities.TOGGLE, 1.0, 0.5)
+	for id: StringName in ids:
+		var once: bool = book.cast_power(id, economy, 0, abilities, 4)
+		var twice: bool = book.cast_power(id, economy, 0, abilities, 4)
+		check(once and not twice and book.effect_of(id) != "" and book.display_name(id) != "", "%s casts once" % book.display_name(id))
+	check(book.credits_bonus == 250 and is_equal_approx(book.damage_mult, 1.5), "cash bounty pays and rocket pods overcharge")
+	check(book.cryo_applied and abilities.status_of(4) == SMAbilities.ST_FROZEN, "cryoshot freezes the target")
+	check(book.swarm_count == 23 and book.napalm == 36 and book.point_defense == 1, "swarm, napalm, and point defense leave a mark")
+	var shield: SMProtocols = SMProtocols.new()
+	var purse: RTSEconomy = RTSEconomy.new()
+	var book_abilities: SMAbilities = SMAbilities.new()
+	check(shield.cast_power(SMProtocols.COOL_POWER, purse, 0, book_abilities, -1), "point defense casts")
+	check(not shield.cast_power(SMProtocols.COOL_POWER, purse, 0, book_abilities, -1), "point defense is cooling")
+	shield.cool(SMProtocols.COOL_TIME)
+	check(shield.cast_power(SMProtocols.COOL_POWER, purse, 0, book_abilities, -1) and shield.point_defense == 2, "point defense casts again after its cooldown")
+	var legacy: SMProtocols = SMProtocols.new()
+	var legacy_purse: RTSEconomy = RTSEconomy.new()
+	legacy_purse.set_credits(0, 0)
+	var legacy_abilities: SMAbilities = SMAbilities.new()
+	legacy_abilities.add_unit(3, Vector3.ZERO, SMAbilities.TOGGLE, 1.0, 0.5)
+	var first: bool = legacy.cast(&"logistics", legacy_purse, 0, legacy_abilities, 3)
+	var second: bool = legacy.cast(&"arsenal", legacy_purse, 0, legacy_abilities, 3)
+	var third: bool = legacy.cast(&"oracle", legacy_purse, 0, legacy_abilities, 3)
+	var again: bool = legacy.cast(&"logistics", legacy_purse, 0, legacy_abilities, 3)
+	check(first and second and third and not again and legacy.credits_bonus == 250 and is_equal_approx(legacy.damage_mult, 1.5) and legacy_abilities.status_of(3) == SMAbilities.ST_FROZEN, "the three branches still cast once")
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var bar: Node = scene.find_child("Protocols", true, false)
+	check(bar != null, "phillips shows the protocol panel")
+	for id: StringName in ids:
+		var button: Button = scene.find_child("Proto_%s" % str(id), true, false) as Button
+		check(button != null and button.text == book.display_name(id), "phillips lists %s" % book.display_name(id))
+	scene.free()
+	await process_frame
+	for path: String in ["res://game/sop_ruak.tscn", "res://game/burma_road.tscn", "res://game/ten_degree_atolls.tscn", "res://game/mekong_delta.tscn", "res://game/chiang_rai.tscn"]:
+		var map_scene: Node = (load(path) as PackedScene).instantiate()
+		root.add_child(map_scene)
+		await process_frame
+		var map_bar: Node = map_scene.find_child("Protocols", true, false)
+		var buttons: Array[Node] = []
+		if map_bar != null:
+			buttons = map_bar.find_children("*", "Button", true, false)
+		check(map_bar != null and buttons.size() == 25, "%s lists the protocol names" % path.get_file())
+		map_scene.free()
+		await process_frame
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"

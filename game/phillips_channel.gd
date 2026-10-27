@@ -89,14 +89,7 @@ func _ui() -> void:
 	ui_layer = CanvasLayer.new()
 	var layer: CanvasLayer = ui_layer
 	add_child(layer)
-	var bar: HBoxContainer = HBoxContainer.new()
-	bar.name = "Protocols"
-	bar.position = Vector2(250, 48)
-	bar.add_theme_constant_override("separation", 8)
-	layer.add_child(bar)
-	_proto_button(bar, "Logistics", &"logistics")
-	_proto_button(bar, "Arsenal", &"arsenal")
-	_proto_button(bar, "Oracle", &"oracle")
+	sim.protocols.mount_panel(layer, roster.economy, sim.player, sim.abilities, Callable(self, "_say"))
 	var actions: HBoxContainer = HBoxContainer.new()
 	actions.name = "MatchActions"
 	actions.position = Vector2(250, 88)
@@ -127,16 +120,6 @@ func _arm_units() -> void:
 	for cell: Vector2i in [Vector2i(30, 12), Vector2i(31, 14), Vector2i(33, 11)]:
 		field.spawn(SMPointer.ENEMY, sim.grid.cell_center(cell), &"raider")
 	raider.attach(field, sim.grid.cell_center(Vector2i(30, 12)))
-
-func _proto_button(bar: HBoxContainer, caption: String, branch: StringName) -> void:
-	var b: Button = Button.new()
-	b.text = caption
-	b.pressed.connect(func() -> void:
-		var target: int = 10 if sim.abilities.index_of(10) >= 0 else -1
-		var ok: bool = sim.protocols.cast(branch, sim.economy, sim.player, sim.abilities, target)
-		_say("protocol %s" % str(branch) if ok else "protocol spent")
-	)
-	bar.add_child(b)
 
 func _action(row: HBoxContainer, caption: String, fn: Callable) -> void:
 	var b: Button = Button.new()
@@ -181,6 +164,7 @@ func tick_world(delta: float) -> void:
 	sim.tick_live(delta, roster.economy, field)
 	sim.show_collectors(self)
 	side.yard.cool_super(delta)
+	sim.protocols.cool(delta)
 
 func _on_engage() -> void:
 	_say("channel clear" if sim.fight_passive() else "still fighting")

@@ -168,6 +168,7 @@ func _ui() -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.custom_minimum_size = Vector2(760, 24)
 	ui_layer.add_child(status)
+	sim.protocols.mount_panel(ui_layer, roster.economy, SMPointer.PLAYER, sim.abilities, Callable(self, "_say"))
 
 func _map_name() -> String:
 	if map_id == "ten_degree_atolls":
@@ -204,6 +205,7 @@ func tick_world(delta: float) -> void:
 	sim.tick_live(delta, roster.economy, field)
 	sim.show_collectors(self)
 	side.yard.cool_super(delta)
+	sim.protocols.cool(delta)
 
 func _price_scale(id: StringName) -> float:
 	return sim.tech.discount(SMPointer.PLAYER, roster.unit_tag(id))
