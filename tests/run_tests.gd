@@ -50,6 +50,7 @@ func _run() -> void:
 	await H.section("test_sm_bots", test_sm_bots)
 	await H.section("test_sm_mission", test_sm_mission)
 	await H.section("test_sm_sop_ruak", test_sm_sop_ruak)
+	await H.section("test_sm_maps", test_sm_maps)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -860,6 +861,71 @@ func test_sm_sop_ruak() -> void:
 	var button: Button = boot.find_child("SopRuakButton", true, false) as Button
 	check(button != null and button.text == "Sop Ruak (river skirmish)", "boot names the river skirmish")
 	boot.free()
+	scene.free()
+	await process_frame
+
+func test_sm_maps() -> void:
+	var land: int = SMDomainGrid.Domain.LAND
+	var deep: int = SMDomainGrid.Domain.DEEP
+	var cliff: int = SMDomainGrid.Domain.CLIFF
+	var shallow: int = SMDomainGrid.Domain.SHALLOW
+	var burma: SMDomainGrid = SMDomainGrid.burma_road_layout()
+	check(burma.domain_at_cell(Vector2i(2, 2)) == cliff and burma.domain_at_cell(Vector2i(18, 4)) == cliff, "burma highlands and the wall are cliffs")
+	check(burma.domain_at_cell(Vector2i(18, 13)) == land and burma.domain_at_cell(Vector2i(4, 14)) == land and burma.domain_at_cell(Vector2i(34, 14)) == land, "the burma road is land between the shores")
+	var atolls: SMDomainGrid = SMDomainGrid.ten_degree_atolls_layout()
+	check(atolls.domain_at_cell(Vector2i(0, 0)) == deep and atolls.domain_at_cell(Vector2i(18, 30)) == deep, "the atolls sit in deep water")
+	check(atolls.domain_at_cell(Vector2i(4, 17)) == land and atolls.domain_at_cell(Vector2i(28, 17)) == land and atolls.domain_at_cell(Vector2i(16, 4)) == land, "three atoll islands are land")
+	check(atolls.domain_at_cell(Vector2i(14, 17)) == shallow and atolls.domain_at_cell(Vector2i(17, 10)) == shallow, "shoals link the atolls")
+	var mekong: SMDomainGrid = SMDomainGrid.mekong_delta_layout()
+	check(mekong.domain_at_cell(Vector2i(13, 4)) == deep and mekong.domain_at_cell(Vector2i(27, 28)) == deep, "mekong canals are deep water")
+	check(mekong.domain_at_cell(Vector2i(13, 15)) == land and mekong.domain_at_cell(Vector2i(27, 16)) == land and mekong.domain_at_cell(Vector2i(4, 16)) == land, "bridges and paddies stay land")
+	var chiang: SMDomainGrid = SMDomainGrid.chiang_rai_layout()
+	check(chiang.cols > burma.cols and chiang.rows > mekong.rows, "chiang rai is the larger map")
+	check(chiang.domain_at_cell(Vector2i(27, 2)) == deep and chiang.domain_at_cell(Vector2i(8, 7)) == cliff, "chiang rai has a river and a siege wall")
+	check(chiang.domain_at_cell(Vector2i(27, 10)) == land and chiang.domain_at_cell(Vector2i(27, 30)) == land and chiang.domain_at_cell(Vector2i(8, 34)) == land and chiang.domain_at_cell(Vector2i(46, 8)) == land, "fords and both camps on chiang rai are land")
+	await _play_map("res://game/burma_road.tscn", "HighlandWest", "Road", Vector2i(4, 14), Vector2i(34, 14), Vector2i(10, 20))
+	await _play_map("res://game/ten_degree_atolls.tscn", "WestIsle", "Sea", Vector2i(4, 17), Vector2i(28, 17), Vector2i(6, 18))
+	await _play_map("res://game/mekong_delta.tscn", "CanalWest", "BridgeWest", Vector2i(4, 16), Vector2i(34, 16), Vector2i(6, 20))
+	await _play_map("res://game/chiang_rai.tscn", "SiegeRiver", "WallWest", Vector2i(8, 34), Vector2i(46, 8), Vector2i(10, 34))
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	check(_boot_caption(boot, "BurmaRoadButton") == "Burma Road (highland cliffs)", "boot names Burma Road")
+	check(_boot_caption(boot, "AtollsButton") == "Ten Degree Atolls (islands and deep water)", "boot names Ten Degree Atolls")
+	check(_boot_caption(boot, "MekongButton") == "Mekong Delta (canals and bridges)", "boot names the Mekong Delta")
+	check(_boot_caption(boot, "ChiangRaiButton") == "Siege of Chiang Rai (larger team map)", "boot names the Siege of Chiang Rai")
+	boot.free()
+	await process_frame
+
+func _boot_caption(boot: Node, node_name: String) -> String:
+	var button: Button = boot.find_child(node_name, true, false) as Button
+	if button == null:
+		return ""
+	return button.text
+
+func _play_map(path: String, mesh_a: String, mesh_b: String, from_cell: Vector2i, to_cell: Vector2i, move_cell: Vector2i) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(scene.get_node_or_null(mesh_a) is MeshInstance3D and scene.get_node_or_null(mesh_b) is MeshInstance3D, "%s shows its terrain" % path.get_file())
+	var field: SMPointer = scene.get("field") as SMPointer
+	var grid: SMDomainGrid = scene.get("grid") as SMDomainGrid
+	var route: PackedVector3Array = field.nav.find_path(grid.cell_center(from_cell), grid.cell_center(to_cell))
+	check(route.size() > 0, "%s path reaches the enemy shore" % path.get_file())
+	check(_gtfc_names(field), "%s labels the six GTFC placeholders" % path.get_file())
+	check(field.name_of(field.units_of(1)[0]) == "Enemy", "%s labels the enemy" % path.get_file())
+	check(scene.find_child("SelectionBox", true, false) != null, "%s shows a selection box" % path.get_file())
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	check(picked == friends[0] and field.selection.count() == 1, "%s left click selects" % path.get_file())
+	var step: Vector3 = grid.cell_center(move_cell)
+	var moved: StringName = field.command_at(step, _proj(step), Callable(self, "_proj"))
+	check(moved == &"move" and friends[0].is_moving(), "%s right click moves" % path.get_file())
+	var foes: Array[RTSUnit] = field.units_of(1)
+	var attacked: StringName = field.command_at(foes[0].global_position, _proj(foes[0].global_position), Callable(self, "_proj"))
+	check(attacked == &"attack" and friends[0].attack_target == foes[0], "%s right click attacks" % path.get_file())
+	check(bool(scene.call("fire_ability")), "%s F fires the ability" % path.get_file())
+	check(field.count_team(1) >= 1 and str(scene.get("map_id")) != "", "%s is GTFC versus one enemy" % path.get_file())
 	scene.free()
 	await process_frame
 
