@@ -22,6 +22,8 @@ var tutorial_label: Label
 var tip_panel: Control
 var tip_label: Label
 var hover_tip: String = ""
+var radio_label: Label
+var radio_until: int = 0
 
 func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: SMSide, p_map: String, p_rally: Vector3, ability: Callable, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	field = p_field
@@ -61,6 +63,8 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	sfx.mount(layer)
 	if field != null:
 		field.on_cue = Callable(sfx, "play")
+		field.on_line = Callable(self, "show_line")
+		field.on_bark = Callable(sfx, "bark")
 	layer.set_meta("hud", self)
 	refresh()
 
@@ -89,9 +93,23 @@ func refresh() -> void:
 		weather_label.text = sky
 	selection_label.text = _selection_line()
 	_paint_tip()
+	_paint_radio()
 	if minimap != null:
 		minimap.sample()
 		minimap.queue_redraw()
+
+func show_line(text: String) -> void:
+	if radio_label == null:
+		return
+	radio_label.text = text
+	radio_label.visible = text != ""
+	radio_until = Time.get_ticks_msec() + 2800
+
+func _paint_radio() -> void:
+	if radio_label == null or not radio_label.visible:
+		return
+	if Time.get_ticks_msec() > radio_until:
+		radio_label.visible = false
 
 func set_tutorial(text: String) -> void:
 	if tutorial_label == null:
@@ -266,6 +284,15 @@ func _guide(layer: CanvasLayer) -> void:
 	hint.add_theme_font_size_override("font_size", 15)
 	hint.add_theme_color_override("font_color", Color(0.96, 0.94, 0.86))
 	layer.add_child(hint)
+	radio_label = Label.new()
+	radio_label.name = "RadioLine"
+	radio_label.visible = false
+	radio_label.position = Vector2(224, 46)
+	radio_label.custom_minimum_size = Vector2(760, 28)
+	radio_label.z_index = 18
+	radio_label.add_theme_font_size_override("font_size", 18)
+	radio_label.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
+	layer.add_child(radio_label)
 	var panel: PanelContainer = PanelContainer.new()
 	panel.name = "HowToOverlay"
 	panel.position = Vector2(224, 210)

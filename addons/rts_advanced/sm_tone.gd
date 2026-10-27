@@ -13,6 +13,8 @@ static func cue(kind: String) -> AudioStreamWAV:
 		return _tone(360.0, 0.08, 0.35)
 	if kind == "select":
 		return _tone(880.0, 0.05, 0.28)
+	if kind == "bark":
+		return _tone(280.0, 0.11, 0.32)
 	return _tone(520.0, 0.04, 0.22)
 
 static func peak(wav: AudioStreamWAV) -> int:

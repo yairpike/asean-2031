@@ -72,6 +72,7 @@ func _run() -> void:
 	await H.section("test_sm_web", test_sm_web)
 	await H.section("test_sm_boot", test_sm_boot)
 	await H.section("test_sm_guide", test_sm_guide)
+	await H.section("test_sm_bark", test_sm_bark)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2447,6 +2448,45 @@ func test_sm_guide() -> void:
 	var lesson_label: Label = raid.find_child("TutorialPrompt", true, false) as Label
 	check(lesson_label != null and lesson_label.visible and lesson_label.text == lesson, "kokang shows the first-mission lesson")
 	raid.free()
+	await process_frame
+	SMCampaign.selected = "tachileik"
+	SMFront.faction_id = "gtfc"
+
+func test_sm_bark() -> void:
+	check(SMBark.line(&"militia", "select") == "Militia holding.", "militia answers a select")
+	check(SMBark.line(&"slag_hauler", "attack").contains("Drones"), "the drone truck calls its shot")
+	check(SMBark.line(&"slag_dozer", "ability").contains("Salvage"), "the dozer names the salvage leech")
+	check(SMBark.line(&"jade_mortar", "move").contains("Skimming"), "the hover-technical calls a move")
+	check(SMBark.line(&"hub_drone", "hurt").contains("Copter"), "the cryo-copter calls under fire")
+	check(SMBark.line(&"unknown", "select") == "Ready.", "an unnamed unit still answers")
+	check(SMTone.peak(SMTone.cue("bark")) > 1000, "the bark cue is audible")
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var unit: RTSUnit = _unit_kind(field, 0, "militia")
+	var foe: RTSUnit = field.units_of(1)[0]
+	var bar: MeshInstance3D = unit.get_node_or_null("HealthBar") as MeshInstance3D
+	check(bar != null, "a unit carries a health bar")
+	for u: RTSUnit in field.units:
+		u.stop()
+	unit.take_damage(unit.max_hp * 0.5)
+	field.tick(0.05)
+	check(bar.scale.x > 0.3 and bar.scale.x < 0.6, "the health bar shrinks with the hit")
+	unit.fired.emit(unit, foe)
+	var muzzle: MeshInstance3D = unit.get_node_or_null("Muzzle") as MeshInstance3D
+	var flashed: bool = muzzle != null and muzzle.visible
+	field.tick(0.2)
+	check(flashed and muzzle != null and not muzzle.visible, "a shot flashes the muzzle, then it fades")
+	field.announce(unit, "select")
+	var radio: Label = scene.find_child("RadioLine", true, false) as Label
+	check(radio != null and radio.visible and radio.text == "Militia holding.", "select puts the line on the radio")
+	unit.set_meta("status", "shrunk")
+	field.announce(unit, "hurt")
+	var voice: AudioStreamPlayer = scene.find_child("BarkPlayer", true, false) as AudioStreamPlayer
+	check(voice != null and absf(voice.pitch_scale - 1.35) < 0.01, "a shrunk unit barks higher")
+	scene.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"
 	SMFront.faction_id = "gtfc"

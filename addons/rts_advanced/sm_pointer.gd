@@ -29,6 +29,8 @@ var cam: RTSCamera
 var host: Node3D
 var ew: SMEwField
 var on_cue: Callable
+var on_line: Callable
+var on_bark: Callable
 const FX = preload("res://addons/rts_advanced/sm_fx.gd")
 const F_COOLDOWN: float = 3.0
 const BEAM_TIME: float = 1.5
@@ -158,9 +160,48 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	tag.modulate = Color(0.97, 0.94, 0.84)
 	u.add_child(tag)
 	u.shot_filter = Callable(self, "filter_shot")
+	u.fired.connect(_on_shot)
+	_add_vitals(u, team)
+	u.set_meta("seen_hp", u.hp)
 	host.add_child(u)
 	units.append(u)
 	return u
+
+func _add_vitals(u: RTSUnit, team: int) -> void:
+	var bar: MeshInstance3D = MeshInstance3D.new()
+	bar.name = "HealthBar"
+	var slab: BoxMesh = BoxMesh.new()
+	slab.size = Vector3(1.3, 0.14, 0.08)
+	bar.mesh = slab
+	bar.position = Vector3(0.0, 2.35, 0.0)
+	bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var ink: StandardMaterial3D = StandardMaterial3D.new()
+	ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ink.albedo_color = Color(0.35, 0.82, 0.38) if team == PLAYER else Color(0.86, 0.24, 0.2)
+	bar.material_override = ink
+	u.add_child(bar)
+	var muzzle: MeshInstance3D = MeshInstance3D.new()
+	muzzle.name = "Muzzle"
+	var flash: BoxMesh = BoxMesh.new()
+	flash.size = Vector3(0.22, 0.22, 0.5)
+	muzzle.mesh = flash
+	muzzle.position = Vector3(0.0, 1.15, 0.85)
+	muzzle.visible = false
+	muzzle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var glow: StandardMaterial3D = StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.albedo_color = Color(1.0, 0.82, 0.35)
+	muzzle.material_override = glow
+	u.add_child(muzzle)
+
+func _on_shot(unit: RTSUnit, _target: RTSUnit) -> void:
+	if not is_instance_valid(unit):
+		return
+	unit.set_meta("flash_t", 0.14)
+	var muzzle: MeshInstance3D = unit.get_node_or_null("Muzzle") as MeshInstance3D
+	if muzzle != null:
+		muzzle.visible = true
+	_cue("attack")
 
 func unit_label(team: int, kind: StringName) -> String:
 	if team != PLAYER:
@@ -288,6 +329,7 @@ func select_click(screen: Vector2, project_fn: Callable) -> RTSUnit:
 	var picked: RTSUnit = selection.select_at(screen, units, project_fn, false, false, PICK_PX)
 	if picked != null:
 		_cue("select")
+		announce(picked, "select")
 	return picked
 
 func select_drag(rect: Rect2, project_fn: Callable) -> int:
@@ -306,6 +348,7 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 				hit += RTSOrders.attack(one, foe, nav_for_unit(u), teams)
 		if hit > 0:
 			_cue("attack")
+			announce(_first_player(), "attack")
 		return &"attack" if hit > 0 else &"none"
 	if ground == Vector3.INF:
 		return &"none"
@@ -335,6 +378,7 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 		sent += 1
 	if sent > 0:
 		_cue("move")
+		announce(_first_player(), "move")
 	return &"move" if sent > 0 else &"none"
 
 func _cue(kind: String) -> void:
@@ -380,6 +424,8 @@ func secondary_strike() -> int:
 		foe.take_damage(u.attack_damage)
 		u.attack_target = foe
 		n += 1
+	if n > 0 and not squad.is_empty():
+		announce(squad[0], "ability")
 	return n
 
 func select_only(list: Array[RTSUnit]) -> void:
@@ -446,6 +492,8 @@ func cast_f(aim: Vector3) -> String:
 		beam.set_meta("f_ready", F_COOLDOWN)
 		apply_named_f(beam)
 		fired = "beam" if fired == "" else fired + "+beam"
+	if fired != "":
+		announce(_first_player(), "ability")
 	return fired
 
 func apply_named_f(u: RTSUnit) -> bool:
@@ -598,5 +646,45 @@ func tick(delta: float) -> void:
 		var ring: Node3D = u.get_node_or_null("Ring") as Node3D
 		if ring != null:
 			ring.visible = u.selected
+		_paint_vitals(u, delta)
 		alive.append(u)
 	units = alive
+
+func announce(u: RTSUnit, cue: String) -> void:
+	if not is_instance_valid(u) or u.team != PLAYER:
+		return
+	var text: String = SMBark.line(u.unit_type, cue)
+	if on_line.is_valid():
+		on_line.call(text)
+	if on_bark.is_valid():
+		var pitch: float = 1.35 if str(u.get_meta("status", "")) == "shrunk" else 1.0
+		on_bark.call(pitch)
+
+func _first_player() -> RTSUnit:
+	for u: RTSUnit in selection.units:
+		if is_instance_valid(u) and u.is_alive() and u.team == PLAYER:
+			return u
+	return null
+
+func _paint_vitals(u: RTSUnit, delta: float) -> void:
+	var bar: MeshInstance3D = u.get_node_or_null("HealthBar") as MeshInstance3D
+	if bar != null:
+		var ratio: float = clampf(u.hp / maxf(u.max_hp, 1.0), 0.0, 1.0)
+		bar.scale = Vector3(maxf(0.04, ratio), 1.0, 1.0)
+		var ink: StandardMaterial3D = bar.material_override as StandardMaterial3D
+		if ink != null and u.team == PLAYER and ratio < 0.35:
+			ink.albedo_color = Color(0.92, 0.55, 0.18)
+	var flash: float = float(u.get_meta("flash_t", 0.0))
+	if flash > 0.0:
+		flash = maxf(0.0, flash - delta)
+		u.set_meta("flash_t", flash)
+		var muzzle: MeshInstance3D = u.get_node_or_null("Muzzle") as MeshInstance3D
+		if muzzle != null:
+			muzzle.visible = flash > 0.0
+	var seen: float = float(u.get_meta("seen_hp", u.hp))
+	if u.team == PLAYER and u.hp < seen - 0.5:
+		var now: int = Time.get_ticks_msec()
+		if now >= int(u.get_meta("hurt_until", 0)):
+			announce(u, "hurt")
+			u.set_meta("hurt_until", now + 1600)
+	u.set_meta("seen_hp", u.hp)
