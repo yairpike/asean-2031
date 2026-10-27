@@ -4,10 +4,36 @@
 set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="${1:-$ROOT/build/web}"
+# Keep the project worker. Godot's exported worker reloads every open client
+# when it receives "update", which boots a match back to the menu.
+cp "$ROOT/web/sw.js" "$DEST/sw.js"
 if [ -f "$DEST/index.service.worker.js" ]; then
-  cp "$DEST/index.service.worker.js" "$DEST/sw.js"
-else
-  cp "$ROOT/web/sw.js" "$DEST/sw.js"
+  python3 - "$DEST/index.service.worker.js" << 'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = "self.skipWaiting().then(() => self.clients.claim()).then(() => self.clients.matchAll()).then((all) => all.forEach((c) => c.navigate(c.url)));"
+new = "self.skipWaiting().then(() => self.clients.claim());"
+if old in text:
+    text = text.replace(old, new, 1)
+elif "c.navigate(c.url)" in text:
+    raise SystemExit("finish_web_export: service worker navigate hook moved")
+open(path, "w", encoding="utf-8").write(text)
+PY
+fi
+if [ -f "$DEST/index.html" ]; then
+  python3 - "$DEST/index.html" << 'PY'
+import sys
+path = sys.argv[1]
+html = open(path, encoding="utf-8").read()
+old = '"serviceWorker":"index.service.worker.js"'
+new = '"serviceWorker":""'
+if old in html:
+    html = html.replace(old, new, 1)
+elif '"serviceWorker":""' not in html:
+    raise SystemExit("finish_web_export: serviceWorker config moved")
+open(path, "w", encoding="utf-8").write(html)
+PY
 fi
 if [ -f "$DEST/index.manifest.json" ]; then
   python3 - "$DEST/index.manifest.json" << 'PY'

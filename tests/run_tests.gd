@@ -1032,6 +1032,7 @@ func test_sm_raider() -> void:
 	])
 	for path: String in paths:
 		await _enemy_fights(path)
+	await _passive_macro()
 
 func test_sm_roster() -> void:
 	var failed: PackedStringArray = PackedStringArray()
@@ -1325,7 +1326,7 @@ func _outcome_victory(path: String) -> void:
 	await process_frame
 	var end: SMOutcome = scene.get("outcome") as SMOutcome
 	check(not end.over and raider.yard.living_count() > 0, "a standing enemy building holds the match open")
-	raider.yard.damage_structure(&"enemy_yard", 100000.0)
+	_raze_yard(raider.yard)
 	await process_frame
 	var banner: Label = scene.find_child("MatchBanner", true, false) as Label
 	var back: Button = scene.find_child("BootMenuButton", true, false) as Button
@@ -1336,6 +1337,15 @@ func _outcome_victory(path: String) -> void:
 func _wipe(units: Array[RTSUnit]) -> void:
 	for u: RTSUnit in units:
 		u.take_damage(100000.0)
+
+func _raze_yard(yard: SMBuildYard) -> void:
+	var ids: Array[StringName] = []
+	for id: StringName in yard.finished:
+		ids.append(id)
+	if yard.scaffold_active and yard.scaffold_id != &"":
+		ids.append(yard.scaffold_id)
+	for id: StringName in ids:
+		yard.damage_structure(id, 100000.0)
 
 func test_sm_sight() -> void:
 	var grid: SMDomainGrid = SMDomainGrid.new(10, 10, 4.0, Vector3.ZERO)
@@ -1938,6 +1948,7 @@ func test_sm_sides() -> void:
 	var atoll_end: SMOutcome = atolls.get("outcome") as SMOutcome
 	check(not atoll_end.over, "one living allied enemy keeps the atolls open")
 	_wipe(atoll_field.units_of(3))
+	_raze_yard(atoll_raider.yard)
 	await process_frame
 	check(atoll_end.over and atoll_end.victory, "wiping one atoll alliance ends the match")
 	atolls.free()
@@ -1960,7 +1971,7 @@ func test_sm_sides() -> void:
 	_wipe(chiang_field.units_of(3))
 	_wipe(chiang_field.units_of(5))
 	var chiang_raider: SMRaider = chiang.get("raider") as SMRaider
-	chiang_raider.yard.damage_structure(&"enemy_yard", 100000.0)
+	_raze_yard(chiang_raider.yard)
 	await process_frame
 	var chiang_end: SMOutcome = chiang.get("outcome") as SMOutcome
 	check(chiang_end.over and chiang_end.victory, "wiping one chiang rai alliance ends the match")
@@ -3193,6 +3204,30 @@ func _duel(personality: StringName, map_id: String, foe: StringName, needs_water
 	duel_note = "" if ok else bot.last_note
 	host.free()
 	return ok
+
+func _passive_macro() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/sop_ruak.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var steps: int = 0
+	while steps < 600:
+		scene._process(0.5)
+		steps += 1
+	var field: SMPointer = scene.get("field") as SMPointer
+	var raider: SMRaider = scene.get("raider") as SMRaider
+	var end: SMOutcome = scene.get("outcome") as SMOutcome
+	var player_n: int = field.units_of(SMPointer.PLAYER).size()
+	check(player_n > 0 and end != null and not end.over, "a passive company is still standing after five minutes")
+	check(raider.fielded >= 15, "the bot has fielded at least fifteen units")
+	var plant: bool = raider.power_id != &"" and raider.yard.structure_alive(raider.power_id)
+	var barracks: bool = raider.barracks_id != &"" and raider.yard.structure_alive(raider.barracks_id)
+	var factory: bool = raider.factory_id != &"" and raider.yard.structure_alive(raider.factory_id)
+	check(plant and barracks and factory, "the bot finished a plant, barracks, and factory")
+	check(raider.naval_id != &"" and raider.yard.structure_alive(raider.naval_id), "Sop Ruak's water gets a naval yard")
+	scene.free()
+	await process_frame
+	SMFront.faction_id = "gtfc"
 
 func _enemy_fights(path: String) -> void:
 	var scene: Node = (load(path) as PackedScene).instantiate()

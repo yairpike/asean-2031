@@ -1,9 +1,14 @@
 class_name SMRaider
 extends RefCounted
-## The skirmish enemy builds a yard, claims a ruby node, and attacks.
+## The skirmish enemy builds a base, trains from income, and sends larger waves.
+## A wiped squad does not raze the base. Destroyed production is not rebuilt.
 
 signal marker_made(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color)
 signal banner_made(parent: Node3D, node_name: String, text: String, size: int, pixel: float, at: Vector3)
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
+const ALIVE_CAP: int = 18
+const THREAT_M: float = 14.0
 
 var yard: SMBuildYard = SMBuildYard.new()
 var goods: SMCommodityNet = SMCommodityNet.new()
@@ -24,6 +29,27 @@ var took_tech: bool = false
 var used_f: bool = false
 var brain: SMBot
 var _step: float = 0.0
+var clock: float = 0.0
+var fielded: int = 0
+var armed: bool = false
+var power_id: StringName = &""
+var barracks_id: StringName = &""
+var factory_id: StringName = &""
+var naval_id: StringName = &""
+var infantry_id: StringName = &""
+var factory_unit: StringName = &""
+var naval_unit: StringName = &""
+var mix: int = 0
+var wave_i: int = 0
+var raising: StringName = &""
+var macro_ids: Array[StringName] = []
+var wave_at: Array[float] = [0.0, 150.0, 270.0, 390.0, 510.0, 660.0]
+var wave_n: Array[int] = [1, 2, 2, 3, 4, 18]
+var queue: RTSProductionQueue
+var train_catalog: Dictionary[StringName, Dictionary] = {}
+var unit_rows: Dictionary[StringName, Dictionary] = {}
+var committed: Dictionary[int, bool] = {}
+var wrecked: Dictionary[StringName, bool] = {}
 
 func attach(p_field: SMPointer, center: Vector3) -> void:
 	field = p_field
@@ -44,9 +70,31 @@ func attach(p_field: SMPointer, center: Vector3) -> void:
 	built = false
 	expanded = false
 	attacked = false
+	clock = 0.0
+	armed = false
+	fielded = 0
+	if field != null:
+		fielded = field.units_of(SMPointer.ENEMY).size()
+	power_id = &""
+	barracks_id = &""
+	factory_id = &""
+	naval_id = &""
+	infantry_id = &""
+	factory_unit = &""
+	naval_unit = &""
+	mix = 0
+	wave_i = 0
+	raising = &""
+	macro_ids.clear()
+	train_catalog.clear()
+	unit_rows.clear()
+	committed.clear()
+	wrecked.clear()
+	queue = RTSProductionQueue.new(SMPointer.ENEMY, {})
+	queue.produced.connect(_on_trained)
 
-func bind_plan(goods: SMCommodityNet, tech: SMTechNet, first: StringName, second: StringName, site: StringName, who: String) -> void:
-	plan_goods = goods
+func bind_plan(goods_net: SMCommodityNet, tech: SMTechNet, first: StringName, second: StringName, site: StringName, who: String) -> void:
+	plan_goods = goods_net
 	plan_tech = tech
 	plan_a = first
 	plan_b = second
@@ -58,11 +106,17 @@ func tick(delta: float) -> void:
 	if field == null:
 		return
 	_step = delta
+	clock += delta
 	_ensure_brain()
+	_arm_macro()
 	_build()
+	_bury()
+	_raise()
 	_expand()
 	_rebuild()
 	_open()
+	_train()
+	_release()
 	_attack()
 
 func show_markers(host: Node3D) -> void:
@@ -73,6 +127,13 @@ func show_markers(host: Node3D) -> void:
 	if expanded and host.get_node_or_null("EnemyClaim") == null:
 		var spot: Vector3 = yard.center + Vector3(3.0, 0.5, 2.0)
 		_marker(host, "EnemyClaim", spot, Vector3(1.2, 0.8, 1.2), Color(0.7, 0.12, 0.22))
+	for id: StringName in macro_ids:
+		if not yard.structure_alive(id):
+			continue
+		var node_name: String = "Built_%s" % str(id)
+		if host.get_node_or_null(node_name) != null:
+			continue
+		_marker(host, node_name, SMPointer.building_at(yard.position_of(id)), SMPointer.BUILDING_SIZE, _pad_color(id))
 
 func _build() -> void:
 	if yard.finished.has(&"enemy_yard"):
@@ -82,6 +143,193 @@ func _build() -> void:
 		yard.begin_scaffold(&"enemy_yard", yard.center, 220.0)
 	yard.advance(2.5)
 	built = yard.finished.has(&"enemy_yard")
+
+func _arm_macro() -> void:
+	if armed or brain == null:
+		return
+	armed = true
+	var data: Dictionary = SMCatalog.faction(brain.faction_id)
+	var need: Array[String] = ["power", "barracks", "factory"]
+	if _has_water():
+		need.append("naval")
+	var found: Dictionary = {}
+	var raw: Variant = data.get("buildings", [])
+	if raw is Array:
+		for item: Variant in raw:
+			if not (item is Dictionary):
+				continue
+			var row: Dictionary = item
+			var role: String = str(row.get("role", ""))
+			if not need.has(role) or found.has(role):
+				continue
+			found[role] = row
+	var tier: int = 2
+	for role: String in need:
+		if not found.has(role):
+			continue
+		var row: Dictionary = found[role]
+		var id: StringName = StringName(str(row.get("id", "")))
+		if id == &"":
+			continue
+		yard.tech_order.append(id)
+		yard.building_tier[id] = tier
+		yard.building_time[id] = float(row.get("time", 5.0))
+		yard.building_role[id] = role
+		yard.structure_max[id] = float(row.get("hp", 220.0))
+		macro_ids.append(id)
+		tier += 1
+		if role == "power":
+			power_id = id
+		elif role == "barracks":
+			barracks_id = id
+		elif role == "factory":
+			factory_id = id
+		elif role == "naval":
+			naval_id = id
+	var best_inf: int = 999999
+	var best_fac: int = 999999
+	var best_nav: int = 999999
+	for unit: Dictionary in SMCatalog.units_of(data):
+		var uid: StringName = StringName(str(unit.get("id", "")))
+		var urole: String = str(unit.get("role", ""))
+		var cost: int = int(unit.get("cost", 0))
+		if uid == &"" or cost <= 0:
+			continue
+		unit_rows[uid] = unit
+		var spec: Dictionary = {"cost": cost, "time": float(unit.get("time", 3.0))}
+		train_catalog[uid] = spec
+		if urole == "infantry" and cost < best_inf:
+			best_inf = cost
+			infantry_id = uid
+		if (urole == "armor" or urole == "artillery") and cost < best_fac:
+			best_fac = cost
+			factory_unit = uid
+		if (urole == "boat" or urole == "amphibious") and cost < best_nav:
+			best_nav = cost
+			naval_unit = uid
+	if queue != null:
+		queue.catalog = train_catalog
+
+func _has_water() -> bool:
+	if field == null or field.domain == null:
+		return false
+	var grid: SMDomainGrid = field.domain
+	var y: int = 0
+	while y < grid.rows:
+		var x: int = 0
+		while x < grid.cols:
+			var domain: int = grid.domain_at_cell(Vector2i(x, y))
+			if domain == SMDomainGrid.Domain.SHALLOW or domain == SMDomainGrid.Domain.DEEP:
+				return true
+			x += 1
+		y += 1
+	return false
+
+func _bury() -> void:
+	if raising != &"" and not yard.scaffold_active and not yard.structure_alive(raising):
+		wrecked[raising] = true
+	raising = &""
+	for id: StringName in yard.finished:
+		if not yard.structure_alive(id):
+			wrecked[id] = true
+	if yard.scaffold_active:
+		raising = yard.scaffold_id
+
+func _raise() -> void:
+	if yard.scaffold_active:
+		yard.advance(_step)
+		return
+	for id: StringName in macro_ids:
+		if wrecked.has(id) or yard.finished.has(id) or not yard.can_build(id):
+			continue
+		var slot: int = macro_ids.find(id)
+		var ang: float = float(slot) * 0.9
+		var pos: Vector3 = yard.center + Vector3(cos(ang) * 6.0, 0.0, sin(ang) * 6.0)
+		var hp: float = float(yard.structure_max.get(id, 220.0))
+		if yard.begin_scaffold(id, pos, hp):
+			raising = id
+			yard.advance(_step)
+		return
+
+func _train() -> void:
+	if queue == null or field == null:
+		return
+	queue.advance(_step)
+	if infantry_id == &"" or barracks_id == &"":
+		return
+	if not yard.structure_alive(barracks_id) or not Power.online(yard):
+		return
+	if field.units_of(SMPointer.ENEMY).size() >= ALIVE_CAP:
+		return
+	if not queue.items.is_empty():
+		return
+	var pick: StringName = _pick_train()
+	if pick == &"":
+		return
+	queue.enqueue(pick, economy)
+
+func _pick_train() -> StringName:
+	mix += 1
+	if factory_unit != &"" and factory_id != &"" and yard.structure_alive(factory_id) and mix % 4 == 0:
+		return factory_unit
+	if naval_unit != &"" and naval_id != &"" and yard.structure_alive(naval_id) and mix % 5 == 0:
+		return naval_unit
+	return infantry_id
+
+func _on_trained(kind: StringName, _rally: Vector3) -> void:
+	if field == null:
+		return
+	var spin: float = float(fielded) * 0.7
+	var at: Vector3 = yard.center + Vector3(cos(spin) * 3.0, 0.0, sin(spin) * 3.0)
+	var u: RTSUnit = field.spawn(SMPointer.ENEMY, at, kind)
+	_paint_unit(u, kind)
+	fielded += 1
+
+func _paint_unit(u: RTSUnit, kind: StringName) -> void:
+	if not unit_rows.has(kind):
+		return
+	var row: Dictionary = unit_rows[kind]
+	u.max_hp = float(row.get("hp", u.max_hp))
+	u.hp = u.max_hp
+	u.speed = float(row.get("speed", u.speed))
+	u.attack_damage = float(row.get("weapon_damage", u.attack_damage))
+	u.set_meta("weapon", str(row.get("weapon", "")))
+	u.set_meta("secondary", str(row.get("secondary", "")))
+	u.set_meta("guidance", str(row.get("guidance", "none")))
+	u.set_meta("locomotion", str(row.get("locomotion", "ground")))
+	u.set_meta("role", str(row.get("role", "")))
+	u.set_meta("ability", str(row.get("ability", "")))
+	u.set_meta("f_stat", str(row.get("f_stat", "damage")))
+
+func _release() -> void:
+	if _player_at_base():
+		_commit_all()
+		return
+	while wave_i < wave_at.size() and clock + 0.001 >= wave_at[wave_i]:
+		var count: int = wave_n[wave_i]
+		wave_i += 1
+		_commit_some(count)
+
+func _player_at_base() -> bool:
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if u.global_position.distance_to(yard.center) <= THREAT_M:
+			return true
+	return false
+
+func _commit_all() -> void:
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		committed[u.get_instance_id()] = true
+
+func _commit_some(count: int) -> void:
+	var given: int = 0
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if given >= count:
+			return
+		var id: int = u.get_instance_id()
+		if committed.has(id):
+			continue
+		committed[id] = true
+		given += 1
 
 func _expand() -> void:
 	if goods.has_collector(node_id):
@@ -124,7 +372,17 @@ func _rebuild() -> void:
 
 func _attack() -> void:
 	var friends: Array[RTSUnit] = field.units_of(SMPointer.PLAYER)
-	var foes: Array[RTSUnit] = field.units_of(SMPointer.ENEMY)
+	var foes: Array[RTSUnit] = []
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if not committed.has(u.get_instance_id()):
+			continue
+		if u.hp <= u.max_hp * 0.3:
+			if bool(u.get_meta("falling_back", false)):
+				u.set_meta("falling_back", false)
+				u.path = PackedVector3Array()
+				u.attack_target = null
+			continue
+		foes.append(u)
 	if friends.is_empty() or foes.is_empty() or brain == null:
 		return
 	brain.direct(foes, friends, field.domain, Callable(self, "_nav_for"), yard.center, field.teams, _step)
@@ -148,6 +406,15 @@ func _cast_wave(foes: Array[RTSUnit]) -> void:
 		if is_instance_valid(u) and not bool(u.get_meta("rocket_pods", false)):
 			u.damage_mult *= scale
 			u.set_meta("rocket_pods", true)
+
+func _pad_color(id: StringName) -> Color:
+	if id == power_id:
+		return Color(0.95, 0.82, 0.28)
+	if id == barracks_id:
+		return Color(0.55, 0.18, 0.16)
+	if id == factory_id:
+		return Color(0.45, 0.42, 0.38)
+	return Color(0.2, 0.38, 0.55)
 
 func _marker(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	marker_made.emit(host, node_name, pos, size, color)

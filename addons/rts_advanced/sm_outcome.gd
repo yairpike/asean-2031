@@ -1,6 +1,7 @@
 class_name SMOutcome
 extends RefCounted
-## Ends a skirmish after both sides have fielded something and one side is wiped out.
+## Ends a skirmish when one side has no units and no production left.
+## Killing the army does not raze the base. Structures fall only to fire in range.
 
 var saw_player: bool = false
 var saw_enemy: bool = false
@@ -91,10 +92,8 @@ func tick(field: SMPointer, player_yards: Array[SMBuildYard], enemy_yards: Array
 	elif enemy_units > 0 or enemy_buildings > 0:
 		saw_enemy = true
 	if saw_player and saw_enemy:
-		if enemy_units == 0 and player_units > 0:
-			_press(field, friends, enemy_yards, delta)
-		elif player_units == 0 and enemy_units > 0:
-			_press(field, hostiles, player_yards, delta)
+		_press(field, friends, enemy_yards, delta)
+		_press(field, hostiles, player_yards, delta)
 		player_buildings = _living(player_yards)
 		enemy_buildings = _living(enemy_yards)
 	consider(player_units, player_buildings, enemy_units, enemy_buildings)
@@ -122,7 +121,6 @@ func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], 
 			continue
 		var best_yard: SMBuildYard = null
 		var best_id: StringName = &""
-		var best_pos: Vector3 = Vector3.ZERO
 		var best_d: float = INF
 		for yard: SMBuildYard in yards:
 			if yard == null:
@@ -136,23 +134,12 @@ func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], 
 				best_d = dist
 				best_yard = yard
 				best_id = id
-				best_pos = pos
-		if best_yard == null:
+		if best_yard == null or best_d > u.attack_range:
 			continue
-		if best_d <= u.attack_range:
-			u.stop()
-			if _fire(u, delta):
-				best_yard.damage_structure(best_id, u.attack_damage)
-				if not best_yard.structure_alive(best_id):
-					_hide(best_id)
-		elif not u.is_moving():
-			var path: PackedVector3Array = PackedVector3Array()
-			var used: RTSGridNav = field.nav_for_unit(u)
-			if used != null:
-				path = used.find_path(u.global_position, best_pos)
-			if path.is_empty() and field.domain == null:
-				path = PackedVector3Array([best_pos])
-			u.set_path(path)
+		if _fire(u, delta):
+			best_yard.damage_structure(best_id, u.attack_damage)
+			if not best_yard.structure_alive(best_id):
+				_hide(best_id)
 
 func _fire(u: RTSUnit, delta: float) -> bool:
 	var id: int = u.get_instance_id()
