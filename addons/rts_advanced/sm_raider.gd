@@ -2,7 +2,7 @@ class_name SMRaider
 extends RefCounted
 ## The skirmish enemy builds a yard, claims a ruby node, and attacks.
 
-const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
+const World = preload("res://game/world_view.gd")
 
 var yard: SMBuildYard = SMBuildYard.new()
 var goods: SMCommodityNet = SMCommodityNet.new()
@@ -62,16 +62,7 @@ func show_markers(host: Node3D) -> void:
 	if built and host.get_node_or_null("EnemyYard") == null:
 		_marker(host, "EnemyYard", SMPointer.building_at(yard.center), SMPointer.BUILDING_SIZE, Color(0.45, 0.16, 0.14))
 	var yard_node: Node3D = host.get_node_or_null("EnemyYard") as Node3D
-	if yard_node != null and yard_node.get_node_or_null("Personality") == null:
-		var tag: Label3D = Label3D.new()
-		tag.name = "Personality"
-		tag.text = personality_name
-		tag.font_size = 48
-		tag.pixel_size = 0.02
-		tag.position = Vector3(0, 3.4, 0)
-		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		tag.modulate = Color(0.97, 0.94, 0.84)
-		yard_node.add_child(tag)
+	World.billboard(yard_node, "Personality", personality_name, 48, 0.02, Vector3(0, 3.4, 0))
 	if expanded and host.get_node_or_null("EnemyClaim") == null:
 		var spot: Vector3 = yard.center + Vector3(3.0, 0.5, 2.0)
 		_marker(host, "EnemyClaim", spot, Vector3(1.2, 0.8, 1.2), Color(0.7, 0.12, 0.22))
@@ -141,14 +132,4 @@ func _nearest(from: Vector3, group: Array[RTSUnit]) -> RTSUnit:
 	return best
 
 func _marker(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
-	var mi: MeshInstance3D = MeshInstance3D.new()
-	mi.name = node_name
-	mi.position = pos
-	if not Forms.dress_structure(mi, size, color):
-		var mesh: BoxMesh = BoxMesh.new()
-		mesh.size = size
-		mi.mesh = mesh
-		var mat: StandardMaterial3D = StandardMaterial3D.new()
-		mat.albedo_color = color
-		mi.material_override = mat
-	host.add_child(mi)
+	World.slab(host, node_name, pos, size, color)

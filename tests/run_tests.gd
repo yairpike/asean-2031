@@ -3,7 +3,8 @@ extends SceneTree
 ## Subset of the Pro suite for the core systems, plus Lite-only checks.
 
 const Harness = preload("res://tests/harness.gd")
-const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
+const Forms = preload("res://game/unit_meshes.gd")
+const Settings = preload("res://game/match_settings.gd")
 var H: Harness
 
 func check(cond: bool, msg: String) -> void:
@@ -13,6 +14,7 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	Settings.hold("high")
 	H = Harness.new()
 	if Harness.selftest_mode() == "crash":
 		await H.section("harness_crash_selftest", H.crash_selftest)
@@ -79,6 +81,7 @@ func _run() -> void:
 	await H.section("test_sm_command", test_sm_command)
 	await H.section("test_sm_pick", test_sm_pick)
 	await H.section("test_sm_monsoon", test_sm_monsoon)
+	await H.section("test_sm_settings", test_sm_settings)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -1957,9 +1960,9 @@ func _team_ids(field: SMPointer) -> Array[int]:
 	return ids
 
 func test_sm_fx() -> void:
-	var ice: Shader = load("res://assets/shaders/cryo_freeze_overlay.gdshader") as Shader
-	var aegis: Shader = load("res://assets/shaders/aegis_dome_shield.gdshader") as Shader
-	var slag: Shader = load("res://assets/shaders/slag_corrosion_pool.gdshader") as Shader
+	var ice: Shader = load("res://game/shaders/cryo_freeze_overlay.gdshader") as Shader
+	var aegis: Shader = load("res://game/shaders/aegis_dome_shield.gdshader") as Shader
+	var slag: Shader = load("res://game/shaders/slag_corrosion_pool.gdshader") as Shader
 	check(ice != null and aegis != null and slag != null, "the cryo, aegis, and slag shaders load")
 	SMCampaign.selected = "plain_of_jars"
 	var scene: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
@@ -1976,7 +1979,7 @@ func test_sm_fx() -> void:
 		mat = body.material_override as ShaderMaterial
 	var ice_on: bool = mat != null and mat.shader != null and mat.shader.resource_path.ends_with("cryo_freeze_overlay.gdshader")
 	check(bool(foe.get_meta("frozen")) and ice_on, "freezing a unit on the cryo mission shows the ice shader")
-	var fx: Script = preload("res://addons/rts_advanced/sm_fx.gd")
+	var fx: Script = preload("res://game/fx_view.gd")
 	var painter: MeshInstance3D = scene.find_child("BeamPainter", true, false) as MeshInstance3D
 	var dome: MeshInstance3D = scene.find_child("AegisDome", true, false) as MeshInstance3D
 	var cone: MeshInstance3D = scene.find_child("RubyCone", true, false) as MeshInstance3D
@@ -3260,3 +3263,70 @@ func _gtfc_names(field: SMPointer) -> bool:
 		if not names.has(need):
 			return false
 	return true
+
+func test_sm_settings() -> void:
+	var banned: PackedStringArray = PackedStringArray([
+		"MeshInstance3D.new", "MultiMesh.new", "MultiMeshInstance3D.new",
+		"SurfaceTool.new", "Label3D.new", "ShaderMaterial.new",
+		"BoxMesh.new", "StandardMaterial3D.new", "CapsuleMesh.new",
+		"CylinderMesh.new", "SphereMesh.new", "TorusMesh.new",
+		"PlaneMesh.new", "ArrayMesh.new", ".gdshader",
+	])
+	var dirty: String = ""
+	var files: PackedStringArray = DirAccess.get_files_at("res://addons/rts_advanced")
+	for file_name: String in files:
+		if not file_name.begins_with("sm_") or not file_name.ends_with(".gd"):
+			continue
+		var text: String = FileAccess.get_file_as_string("res://addons/rts_advanced/%s" % file_name)
+		for token: String in banned:
+			if text.contains(token):
+				dirty = "%s %s" % [file_name, token]
+				break
+		if dirty != "":
+			break
+	check(dirty == "", "sim scripts stay free of meshes and shaders")
+	check(FileAccess.file_exists("res://game/shaders/channel_water.gdshader") and FileAccess.file_exists("res://game/shaders/monsoon_rain.gdshader") and not DirAccess.dir_exists_absolute("res://assets/shaders"), "shaders live under game")
+	check(Settings.quality_for_adapter("ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)") == "low", "swiftshader defaults to low graphics")
+	check(Settings.quality_for_adapter("llvmpipe") == "low" and Settings.quality_for_adapter("NVIDIA GeForce RTX") == "high", "software adapters default low and a gpu stays high")
+	Settings.hold("")
+	Settings.set_graphics("low")
+	Settings.set_master(0.4)
+	Settings.set_sfx(0.25)
+	Settings.set_pan(1.6)
+	Settings.set_edge(false)
+	Settings.reread()
+	check(Settings.graphics == "low" and is_equal_approx(Settings.master, 0.4) and is_equal_approx(Settings.sfx, 0.25) and is_equal_approx(Settings.pan, 1.6) and not Settings.edge, "settings round-trip through user://")
+	check(Settings.idb_script().contains("indexedDB") and Settings.idb_script().contains("settings"), "settings mirror into IndexedDB on the web")
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	var gear: Button = boot.find_child("SettingsButton", true, false) as Button
+	check(gear != null, "the menu has a settings button")
+	gear.pressed.emit()
+	var menu_panel: Control = boot.find_child("SettingsPanel", true, false) as Control
+	check(menu_panel != null and menu_panel.visible, "the menu settings button opens the panel")
+	boot.free()
+	await process_frame
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var trees: MultiMeshInstance3D = scene.get_node_or_null("JungleTrees") as MultiMeshInstance3D
+	var book: SMSight = scene.get("sight") as SMSight
+	book.force_monsoon(true)
+	SMSight.update_match(book, scene.get("field") as SMPointer, scene as Node3D, (scene.get("sim") as SMMatch).tech, scene.get("raider") as SMRaider)
+	var rain: MeshInstance3D = scene.get_node_or_null("Rain") as MeshInstance3D
+	var env: WorldEnvironment = scene.get_node_or_null("WorldEnvironment") as WorldEnvironment
+	var cam: RTSCamera = scene.get_node_or_null("Camera") as RTSCamera
+	var suns: Array[Node] = scene.find_children("", "DirectionalLight3D", true, false)
+	var sun: DirectionalLight3D = suns[0] as DirectionalLight3D if suns.size() > 0 else null
+	var match_panel: Control = scene.find_child("SettingsPanel", true, false) as Control
+	check(trees != null and not trees.visible and (rain == null or not rain.visible) and env != null and env.environment != null and not env.environment.fog_enabled and sun != null and not sun.shadow_enabled, "low graphics hides trees, rain, fog, and shadows")
+	check(cam != null and cam.edge_pan_px <= 0.0 and is_equal_approx(cam.pan_speed, 1.6) and match_panel != null, "edge pan and pan speed follow the saved settings")
+	scene.free()
+	await process_frame
+	Settings.set_graphics("high")
+	Settings.set_master(1.0)
+	Settings.set_sfx(1.0)
+	Settings.set_pan(1.0)
+	Settings.set_edge(true)
+	Settings.hold("high")

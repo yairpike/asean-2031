@@ -40,6 +40,17 @@ func _ready() -> void:
 	_mark_factions()
 	_refresh_playing()
 	_warm_shaders()
+	var gear: Button = Button.new()
+	gear.name = "SettingsButton"
+	gear.text = "Settings"
+	gear.position = Vector2(1060, 16)
+	gear.custom_minimum_size = Vector2(160, 40)
+	gear.add_theme_font_size_override("font_size", 18)
+	_style_button(gear, Color(0.14, 0.15, 0.18), Color(0.55, 0.42, 0.18), false)
+	gear.pressed.connect(_toggle_settings)
+	add_child(gear)
+	preload("res://game/settings_panel.gd").attach(self)
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func _skirmish() -> void:
 	_card(skirmish_panel, "CardPhillips", "Phillips Channel", "Water", "res://game/phillips_channel.tscn", Vector2(48, 16))
@@ -228,9 +239,9 @@ func _warm_shaders() -> void:
 	holder.visible = false
 	add_child(holder)
 	var paths: PackedStringArray = PackedStringArray([
-		"res://assets/shaders/cryo_freeze_overlay.gdshader",
-		"res://assets/shaders/aegis_dome_shield.gdshader",
-		"res://assets/shaders/slag_corrosion_pool.gdshader",
+		"res://game/shaders/cryo_freeze_overlay.gdshader",
+		"res://game/shaders/aegis_dome_shield.gdshader",
+		"res://game/shaders/slag_corrosion_pool.gdshader",
 	])
 	for i: int in paths.size():
 		var mesh: MeshInstance3D = MeshInstance3D.new()
@@ -355,6 +366,14 @@ func _mark_factions() -> void:
 func _refresh_playing() -> void:
 	if playing_label != null:
 		playing_label.text = "Next skirmish: %s" % SMFront.banner()
+
+func _toggle_settings() -> void:
+	var panel: Control = find_child("SettingsPanel", true, false) as Control
+	if panel == null:
+		return
+	panel.visible = not panel.visible
+	if panel.visible and panel.has_method("pull"):
+		panel.call("pull")
 
 func _play() -> void:
 	if selected_map == "":

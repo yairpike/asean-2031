@@ -41,9 +41,10 @@ var line_formation: bool = false
 var last_pick: int = 0
 var last_pick_ms: int = 0
 var hover_at: Vector2 = Vector2.INF
-const FX = preload("res://addons/rts_advanced/sm_fx.gd")
+const FX = preload("res://game/fx_view.gd")
 const Cast = preload("res://addons/rts_advanced/sm_cast.gd")
-const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
+const Forms = preload("res://game/unit_meshes.gd")
+const World = preload("res://game/world_view.gd")
 const F_COOLDOWN: float = 3.0
 const BEAM_TIME: float = 1.5
 
@@ -151,80 +152,13 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	var loco: String = "ground" if row.is_empty() else str(row.get("locomotion", "ground"))
 	var body: MeshInstance3D = Forms.dress_unit(str(kind), role, loco, _body_color(team, kind))
 	u.add_child(body)
-	var ring: MeshInstance3D = MeshInstance3D.new()
-	ring.name = "Ring"
-	var torus: TorusMesh = TorusMesh.new()
-	torus.inner_radius = 0.82
-	torus.outer_radius = 1.05
-	ring.mesh = torus
-	ring.position = Vector3(0, 0.08, 0)
-	var ring_mat: StandardMaterial3D = StandardMaterial3D.new()
-	ring_mat.albedo_color = Color(0.95, 0.85, 0.35)
-	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ring.material_override = ring_mat
-	ring.visible = false
-	u.add_child(ring)
-	var tag: Label3D = Label3D.new()
-	tag.name = "NameTag"
-	tag.text = unit_label(team, kind)
-	tag.font_size = 32
-	tag.pixel_size = 0.008
-	tag.outline_size = 8
-	tag.outline_modulate = Color(0.02, 0.02, 0.03)
-	tag.position = Vector3(0, 3.35, 0)
-	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	tag.modulate = Color(0.97, 0.94, 0.84)
-	tag.visible = false
-	u.add_child(tag)
+	World.dress_spawn(u, team, unit_label(team, kind))
 	u.shot_filter = Callable(self, "filter_shot")
 	u.fired.connect(_on_shot)
-	_add_vitals(u, team)
 	host.add_child(u)
 	u.set_meta("seen_hp", u.hp)
 	units.append(u)
 	return u
-
-func _add_vitals(u: RTSUnit, team: int) -> void:
-	var bar: MeshInstance3D = MeshInstance3D.new()
-	bar.name = "HealthBar"
-	var slab: BoxMesh = BoxMesh.new()
-	slab.size = Vector3(2.0, 0.16, 0.1)
-	bar.mesh = slab
-	bar.position = Vector3(0.0, 2.9, 0.0)
-	bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var ink: StandardMaterial3D = StandardMaterial3D.new()
-	ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ink.albedo_color = Color(0.35, 0.82, 0.38) if team == PLAYER else Color(0.86, 0.24, 0.2)
-	bar.material_override = ink
-	u.add_child(bar)
-	var muzzle: MeshInstance3D = MeshInstance3D.new()
-	muzzle.name = "Muzzle"
-	var flash: BoxMesh = BoxMesh.new()
-	flash.size = Vector3(0.22, 0.22, 0.5)
-	muzzle.mesh = flash
-	muzzle.position = Forms.muzzle_pos(str(u.get_node("Body").get_meta("form", "truck")))
-	muzzle.visible = false
-	muzzle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var glow: StandardMaterial3D = StandardMaterial3D.new()
-	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow.albedo_color = Color(1.0, 0.82, 0.35)
-	muzzle.material_override = glow
-	u.add_child(muzzle)
-	var reach: MeshInstance3D = MeshInstance3D.new()
-	reach.name = "RangeRing"
-	var band: TorusMesh = TorusMesh.new()
-	band.inner_radius = 0.92
-	band.outer_radius = 1.0
-	reach.mesh = band
-	reach.position = Vector3(0.0, 0.06, 0.0)
-	reach.visible = false
-	reach.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var reach_ink: StandardMaterial3D = StandardMaterial3D.new()
-	reach_ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	reach_ink.albedo_color = Color(0.95, 0.55, 0.22, 0.85)
-	reach_ink.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	reach.material_override = reach_ink
-	u.add_child(reach)
 
 func _on_shot(unit: RTSUnit, _target: RTSUnit) -> void:
 	if not is_instance_valid(unit):
@@ -572,57 +506,10 @@ func enemy_anchor() -> Vector3:
 
 func place_beacon(at: Vector3) -> void:
 	beacon_at = at
-	if host == null:
-		return
-	var pole: MeshInstance3D = host.get_node_or_null("GoalBeacon") as MeshInstance3D
-	if at == Vector3.INF:
-		if pole != null:
-			pole.visible = false
-		return
-	if pole == null:
-		pole = MeshInstance3D.new()
-		pole.name = "GoalBeacon"
-		var box: BoxMesh = BoxMesh.new()
-		box.size = Vector3(0.45, 7.0, 0.45)
-		pole.mesh = box
-		pole.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var ink: StandardMaterial3D = StandardMaterial3D.new()
-		ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		ink.albedo_color = Color(0.98, 0.82, 0.28)
-		pole.material_override = ink
-		host.add_child(pole)
-	var pulse: float = 1.0 + 0.12 * sin(float(Time.get_ticks_msec()) * 0.005)
-	pole.scale = Vector3(pulse, 1.0, pulse)
-	pole.position = Vector3(at.x, 3.6, at.z)
-	pole.visible = true
+	World.place_beacon(host, at)
 
 func place_rally(at: Vector3) -> void:
-	if host == null or at == Vector3.INF:
-		return
-	var flag: MeshInstance3D = host.get_node_or_null("RallyFlag") as MeshInstance3D
-	if flag == null:
-		flag = MeshInstance3D.new()
-		flag.name = "RallyFlag"
-		var pole: BoxMesh = BoxMesh.new()
-		pole.size = Vector3(0.08, 1.5, 0.08)
-		flag.mesh = pole
-		flag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var ink: StandardMaterial3D = StandardMaterial3D.new()
-		ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		ink.albedo_color = Color(0.25, 0.85, 0.45)
-		flag.material_override = ink
-		var cloth: MeshInstance3D = MeshInstance3D.new()
-		cloth.name = "RallyCloth"
-		var sheet: BoxMesh = BoxMesh.new()
-		sheet.size = Vector3(0.7, 0.38, 0.06)
-		cloth.mesh = sheet
-		cloth.position = Vector3(0.35, 0.5, 0.0)
-		cloth.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		cloth.material_override = ink
-		flag.add_child(cloth)
-		host.add_child(flag)
-	flag.position = Vector3(at.x, 0.8, at.z)
-	flag.visible = true
+	World.place_rally(host, at)
 
 func _cue(kind: String) -> void:
 	if on_cue.is_valid():
@@ -917,42 +804,17 @@ func tick(delta: float) -> void:
 func _drop_wreck(at: Vector3) -> void:
 	if host == null:
 		return
-	var wreck: MeshInstance3D = MeshInstance3D.new()
-	wreck.name = "Wreck"
-	var disc: CylinderMesh = CylinderMesh.new()
-	disc.top_radius = 0.7
-	disc.bottom_radius = 0.7
-	disc.height = 0.08
-	wreck.mesh = disc
-	wreck.position = Vector3(at.x, 0.08, at.z)
-	wreck.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var ink: StandardMaterial3D = StandardMaterial3D.new()
-	ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ink.albedo_color = Color(0.15, 0.05, 0.04)
-	wreck.material_override = ink
-	wreck.set_meta("order", "wreck")
-	wreck.set_meta("life", 0.9)
-	host.add_child(wreck)
-	marks.append(wreck)
+	var body: MeshInstance3D = World.wreck(host, at)
+	body.set_meta("order", "wreck")
+	body.set_meta("life", 0.9)
+	marks.append(body)
 
 func _mark(at: Vector3, order: String) -> void:
 	if host == null:
 		return
-	var ping: MeshInstance3D = MeshInstance3D.new()
-	ping.name = "OrderPing"
-	var ring: TorusMesh = TorusMesh.new()
-	ring.inner_radius = 0.55
-	ring.outer_radius = 0.82
-	ping.mesh = ring
-	ping.position = Vector3(at.x, 0.15, at.z)
-	ping.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var ink: StandardMaterial3D = StandardMaterial3D.new()
-	ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ink.albedo_color = Color(0.95, 0.28, 0.22) if order == "attack" else Color(0.95, 0.78, 0.28)
-	ping.material_override = ink
+	var ping: MeshInstance3D = World.order_ping(host, at, order)
 	ping.set_meta("order", order)
 	ping.set_meta("life", 1.15)
-	host.add_child(ping)
 	marks.append(ping)
 
 func _fade_marks(delta: float) -> void:
@@ -1063,47 +925,13 @@ func _press_hunt(u: RTSUnit) -> void:
 			u.set_path(route)
 
 func _paint_path() -> void:
-	if host == null:
-		return
-	var mark: MeshInstance3D = host.get_node_or_null("PathMark") as MeshInstance3D
 	var lead: RTSUnit = _first_player()
 	var show: bool = lead != null and not lead.path.is_empty()
-	if not show:
-		if mark != null:
-			mark.visible = false
-		return
-	if mark == null:
-		mark = MeshInstance3D.new()
-		mark.name = "PathMark"
-		var gem: BoxMesh = BoxMesh.new()
-		gem.size = Vector3(0.55, 0.14, 0.55)
-		mark.mesh = gem
-		mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var ink: StandardMaterial3D = StandardMaterial3D.new()
-		ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		ink.albedo_color = Color(0.95, 0.82, 0.28)
-		mark.material_override = ink
-		host.add_child(mark)
-	var step: Vector3 = lead.path[0]
-	mark.position = Vector3(step.x, 0.22, step.z)
-	mark.visible = true
+	var step: Vector3 = lead.path[0] if show else Vector3.ZERO
+	World.path_mark(host, show, step)
 
 func _pop_damage(u: RTSUnit, amount: float) -> void:
-	var pop: Label3D = u.get_node_or_null("DamagePop") as Label3D
-	if pop == null:
-		pop = Label3D.new()
-		pop.name = "DamagePop"
-		pop.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		pop.font_size = 64
-		pop.pixel_size = 0.005
-		pop.outline_size = 10
-		pop.no_depth_test = true
-		pop.position = Vector3(0.0, 2.4, 0.0)
-		u.add_child(pop)
-	pop.text = "-%d" % maxi(1, int(round(amount)))
-	pop.modulate = Color(1.0, 0.45, 0.32, 1.0) if u.team == PLAYER else Color(1.0, 0.86, 0.35, 1.0)
-	pop.position = Vector3(0.0, 2.4, 0.0)
-	pop.visible = true
+	World.damage_pop(u, amount)
 	u.set_meta("pop_t", 0.75)
 
 func _rise_pop(u: RTSUnit, delta: float) -> void:

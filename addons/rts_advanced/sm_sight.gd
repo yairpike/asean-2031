@@ -1,7 +1,7 @@
 class_name SMSight
 extends RefCounted
 
-const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
+const World = preload("res://game/world_view.gd")
 ## Fog for a skirmish. Explored ground stays dim. Current sight is clear.
 
 const UNIT_RADIUS: float = 18.0
@@ -19,7 +19,6 @@ var seers: Array[Vector3] = []
 var radii: Array[float] = []
 var posts: Array[Vector3] = []
 var explored: PackedByteArray = PackedByteArray()
-var veil: MeshInstance3D
 var weather_t: float = 0.0
 var hazy: bool = false
 var monsoon: bool = false
@@ -143,40 +142,6 @@ func conceal(field: SMPointer, host: Node3D) -> void:
 				u.visible = sees(u.global_position)
 	_hide_marker(host, "EnemyYard")
 	_hide_marker(host, "EnemyClaim")
-	paint(host)
-
-func paint(host: Node3D) -> void:
-	if host == null or grid == null:
-		return
-	if veil == null or not is_instance_valid(veil):
-		veil = host.get_node_or_null("FogVeil") as MeshInstance3D
-	if veil == null:
-		veil = MeshInstance3D.new()
-		veil.name = "FogVeil"
-		var mat: StandardMaterial3D = StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.vertex_color_use_as_albedo = true
-		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		mat.albedo_color = Color.WHITE
-		veil.material_override = mat
-		veil.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		host.add_child(veil)
-	var tool: SurfaceTool = SurfaceTool.new()
-	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var hidden: Color = Color(0.03, 0.04, 0.05, 0.92)
-	var dim: Color = Color(0.04, 0.05, 0.07, 0.42)
-	var y: float = 0.42
-	var half: float = grid.cell_size * 0.5
-	for row: int in grid.rows:
-		for col: int in grid.cols:
-			var state: int = cell_state(Vector2i(col, row))
-			if state == CLEAR:
-				continue
-			var ink: Color = hidden if state == HIDDEN else dim
-			var center: Vector3 = grid.cell_center(Vector2i(col, row))
-			_quad(tool, center, half, y, ink)
-	veil.mesh = tool.commit()
 
 static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: SMTechNet, raider: SMRaider) -> void:
 	if sight == null or field == null:
@@ -196,7 +161,7 @@ static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: S
 	sight.commit()
 	sight.conceal(field, host)
 	apply_drag(sight, field)
-	Ground.apply_sky(host, sight)
+	World.sync(host, sight, field.cam)
 
 static func apply_drag(sight: SMSight, field: SMPointer) -> void:
 	if sight == null or field == null:
@@ -221,21 +186,3 @@ func _index(cell: Vector2i) -> int:
 
 func _flat(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x, a.z).distance_to(Vector2(b.x, b.z))
-
-func _quad(tool: SurfaceTool, center: Vector3, half: float, y: float, ink: Color) -> void:
-	var a: Vector3 = Vector3(center.x - half, y, center.z - half)
-	var b: Vector3 = Vector3(center.x + half, y, center.z - half)
-	var c: Vector3 = Vector3(center.x + half, y, center.z + half)
-	var d: Vector3 = Vector3(center.x - half, y, center.z + half)
-	tool.set_color(ink)
-	tool.add_vertex(a)
-	tool.set_color(ink)
-	tool.add_vertex(b)
-	tool.set_color(ink)
-	tool.add_vertex(c)
-	tool.set_color(ink)
-	tool.add_vertex(a)
-	tool.set_color(ink)
-	tool.add_vertex(c)
-	tool.set_color(ink)
-	tool.add_vertex(d)

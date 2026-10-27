@@ -1,7 +1,7 @@
 class_name SMMatch
 extends RefCounted
 
-const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
+const World = preload("res://game/world_view.gd")
 ## Headless match: faction pipeline, channel crossing, abilities, passive enemy, bots.
 
 var economy: RTSEconomy = RTSEconomy.new()
@@ -305,12 +305,7 @@ func collapse_bridge(id: StringName, squad: SMPointer, host: Node3D) -> void:
 		squad.use_domain(grid)
 	if host == null:
 		return
-	var plate: MeshInstance3D = host.get_node_or_null("Bridge_%s" % str(id)) as MeshInstance3D
-	if plate != null:
-		plate.position.y = -0.55
-		var sunk: StandardMaterial3D = StandardMaterial3D.new()
-		sunk.albedo_color = Color(0.08, 0.07, 0.06)
-		plate.material_override = sunk
+	World.sink_named(host, "Bridge_%s" % str(id))
 	_fit_deck(host, id)
 
 func _bridge_span(id: StringName) -> Rect2i:
@@ -328,30 +323,9 @@ func _bridge_span(id: StringName) -> Rect2i:
 func _fit_deck(host: Node3D, id: StringName) -> void:
 	var west: bool = str(id) == "bridge_a" or str(id) == "bridge_b"
 	var deck_name: String = "BridgeWest" if west else "BridgeEast"
-	var deck: MeshInstance3D = host.get_node_or_null(deck_name) as MeshInstance3D
-	if deck == null:
-		return
 	var north_id: StringName = &"bridge_a" if west else &"bridge_c"
 	var south_id: StringName = &"bridge_b" if west else &"bridge_d"
-	var north_up: bool = tech.bridge_alive(north_id)
-	var south_up: bool = tech.bridge_alive(south_id)
-	var box: BoxMesh = deck.mesh as BoxMesh
-	if not north_up and not south_up:
-		deck.visible = false
-		return
-	deck.visible = true
-	if box == null:
-		return
-	var x: float = deck.position.x
-	if north_up and south_up:
-		deck.position = Vector3(x, 0.15, 0.0)
-		box.size = Vector3(14.0, 0.28, 16.0)
-	elif north_up:
-		deck.position = Vector3(x, 0.15, -4.0)
-		box.size = Vector3(14.0, 0.28, 8.0)
-	else:
-		deck.position = Vector3(x, 0.15, 4.0)
-		box.size = Vector3(14.0, 0.28, 8.0)
+	World.fit_deck(host, deck_name, tech.bridge_alive(north_id), tech.bridge_alive(south_id))
 
 func _owns(kind: StringName) -> bool:
 	for site: Dictionary in tech.sites:
@@ -550,16 +524,4 @@ func _tech_form(kind: StringName) -> String:
 	return "salvage"
 
 func _site_mesh(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color, form: String = "") -> void:
-	var mi: MeshInstance3D = MeshInstance3D.new()
-	mi.name = node_name
-	mi.position = pos
-	if form != "":
-		Ground.dress_site(mi, form, color)
-	else:
-		var mesh: BoxMesh = BoxMesh.new()
-		mesh.size = size
-		mi.mesh = mesh
-		var mat: StandardMaterial3D = StandardMaterial3D.new()
-		mat.albedo_color = color
-		mi.material_override = mat
-	host.add_child(mi)
+	World.place_site(host, node_name, pos, size, color, form)

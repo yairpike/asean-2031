@@ -1,8 +1,8 @@
 extends Node3D
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
-const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
-const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
+const Fx = preload("res://game/fx_view.gd")
+const Ground = preload("res://game/ground_view.gd")
 ## Shared GTFC skirmish. The map id picks the terrain. Controls match Sop Ruak.
 
 @export var map_id: String = "burma_road"
@@ -38,6 +38,7 @@ func _ready() -> void:
 	sight.bind(grid)
 	hud.use_sight(sight)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func train_unit() -> String:
 	if not Power.online(side.yard):

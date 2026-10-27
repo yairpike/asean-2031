@@ -1,7 +1,7 @@
 extends Node3D
 
-const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
-const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
+const Fx = preload("res://game/fx_view.gd")
+const Ground = preload("res://game/ground_view.gd")
 ## One solo text briefing. The objective button runs the sim system for that mission.
 
 var campaign: SMCampaign = SMCampaign.new()
@@ -31,7 +31,8 @@ func _ready() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of(mission_id), rally, Callable(self, "fire_secondary"), grid, cam)
 	hud.set_tutorial(SMGuide.tutorial_for(mission_id))
-	var fx: Script = preload("res://addons/rts_advanced/sm_fx.gd")
+	preload("res://game/match_settings.gd").apply_scene(self)
+	var fx: Script = preload("res://game/fx_view.gd")
 	fx.dress(self)
 
 func scripted_playthrough() -> bool:

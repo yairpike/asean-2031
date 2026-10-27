@@ -11,7 +11,7 @@ static func dress(host: Node3D) -> void:
 	var bubble: SphereMesh = SphereMesh.new()
 	bubble.radius = 1.5
 	bubble.height = 3.0
-	_place(host, "AegisDome", Vector3(5.0, 1.6, -8.0), bubble, shader_material("res://assets/shaders/aegis_dome_shield.gdshader"))
+	_place(host, "AegisDome", Vector3(5.0, 1.6, -8.0), bubble, shader_material("res://game/shaders/aegis_dome_shield.gdshader"))
 	var jammer_at: Vector3 = Vector3(8.0, 1.4, -6.0)
 	var jammer: Node3D = host.get_node_or_null("Jammer") as Node3D
 	if jammer != null:
@@ -29,10 +29,10 @@ static func dress(host: Node3D) -> void:
 	pool.top_radius = 1.7
 	pool.bottom_radius = 1.7
 	pool.height = 0.12
-	_place(host, "SlagPool", Vector3(-8.0, 0.12, -4.0), pool, shader_material("res://assets/shaders/slag_corrosion_pool.gdshader"))
+	_place(host, "SlagPool", Vector3(-8.0, 0.12, -4.0), pool, shader_material("res://game/shaders/slag_corrosion_pool.gdshader"))
 
 static func ice_material() -> ShaderMaterial:
-	return shader_material("res://assets/shaders/cryo_freeze_overlay.gdshader")
+	return shader_material("res://game/shaders/cryo_freeze_overlay.gdshader")
 
 static func shader_material(path: String) -> ShaderMaterial:
 	var mat: ShaderMaterial = ShaderMaterial.new()

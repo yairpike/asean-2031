@@ -2,6 +2,7 @@ class_name SMHud
 extends RefCounted
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
+const SettingsPanel = preload("res://game/settings_panel.gd")
 ## In-match readout. Primitive controls and a flat minimap. No map mesh, no art.
 
 var field: SMPointer
@@ -39,6 +40,13 @@ var purse_window: float = 0.0
 var purse_gained: int = 0
 var purse_flash: String = ""
 var purse_flash_t: float = 0.0
+var _map_ms: int = 0
+var _shown_credits: int = -999999
+var _shown_power: Vector2i = Vector2i(-1, -1)
+var _shown_weather: String = ""
+var _shown_faction: String = ""
+var _shown_map: String = ""
+var _shown_selection: String = ""
 
 func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: SMSide, p_map: String, p_rally: Vector3, ability: Callable, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	field = p_field
@@ -95,6 +103,7 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	layer.set_meta("hud", self)
 	if field != null:
 		field.place_rally(rally)
+	SettingsPanel.attach(layer)
 	refresh()
 
 func use_sight(p_sight: SMSight) -> void:
@@ -111,28 +120,46 @@ func use_goods(p_goods: SMCommodityNet) -> void:
 func refresh() -> void:
 	if faction_label == null:
 		return
-	faction_label.text = _faction_name(_faction_id())
+	var faction: String = _faction_name(_faction_id())
+	if faction != _shown_faction:
+		_shown_faction = faction
+		faction_label.text = faction
 	var purse: int = 0
 	if roster != null and roster.economy != null:
 		purse = roster.economy.credits(0)
 	_measure_purse()
-	credits_label.text = "Credits %d" % purse
-	power_label.text = Power.readout(side.yard if side != null else null)
-	map_label.text = map_name
+	if purse != _shown_credits:
+		_shown_credits = purse
+		credits_label.text = "Credits %d" % purse
+	var pair: Vector2i = Power.tally(side.yard if side != null else null)
+	if pair != _shown_power:
+		_shown_power = pair
+		power_label.text = "Power %d/%d" % [pair.x, pair.y]
+	if map_name != _shown_map:
+		_shown_map = map_name
+		map_label.text = map_name
 	if weather_label != null:
 		var sky: String = "Clear"
 		if minimap != null and minimap.sight != null:
 			sky = minimap.sight.weather_name
-		weather_label.text = sky
+		if sky != _shown_weather:
+			_shown_weather = sky
+			weather_label.text = sky
 	if selection_label != null:
-		selection_label.text = _selection_line()
+		var line: String = _selection_line()
+		if line != _shown_selection:
+			_shown_selection = line
+			selection_label.text = line
 	_sync_imports()
 	_paint_tip()
 	_paint_radio()
 	_sync_card()
 	if minimap != null:
-		minimap.sample()
-		minimap.queue_redraw()
+		var now: int = Time.get_ticks_msec()
+		if _map_ms <= 0 or now - _map_ms >= 250:
+			_map_ms = maxi(now, 1)
+			minimap.sample()
+			minimap.queue_redraw()
 
 func set_rally(at: Vector3) -> void:
 	if at == Vector3.INF:

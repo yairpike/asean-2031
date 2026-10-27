@@ -1,9 +1,9 @@
 extends Node3D
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
-const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
-const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
-const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
+const Fx = preload("res://game/fx_view.gd")
+const Forms = preload("res://game/unit_meshes.gd")
+const Ground = preload("res://game/ground_view.gd")
 ## Phillips Channel. Two land masses, a deep channel, shallow crossings.
 ## RA3-style sidebar with cameo placeholders. The far shore builds, expands, and attacks.
 
@@ -37,6 +37,7 @@ func _ready() -> void:
 	hud.use_sight(sight)
 	hud.use_tech(sim.tech)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func scripted_playthrough() -> bool:
 	return sim.script_phillips()

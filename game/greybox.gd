@@ -38,6 +38,8 @@ func _ready() -> void:
 	var layer: CanvasLayer = CanvasLayer.new()
 	layer.add_child(label)
 	add_child(layer)
+	preload("res://game/settings_panel.gd").attach(layer)
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func _process(delta: float) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera

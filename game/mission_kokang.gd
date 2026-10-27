@@ -1,7 +1,7 @@
 extends Node3D
 
-const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
-const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
+const Fx = preload("res://game/fx_view.gd")
+const Ground = preload("res://game/ground_view.gd")
 ## GTFC night raid. Scaffold, ruby night shift, one rare-earth node. Text briefing.
 
 var mission: SMMission = SMMission.new()
@@ -28,6 +28,7 @@ func _ready() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of("kokang"), rally, Callable(self, "fire_secondary"), grid, cam)
 	hud.set_tutorial(SMGuide.tutorial_for("kokang"))
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func scripted_playthrough() -> bool:
 	var ok: bool = mission.playthrough()

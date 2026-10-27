@@ -1,9 +1,9 @@
 extends Node3D
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
-const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
-const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
-const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
+const Fx = preload("res://game/fx_view.gd")
+const Forms = preload("res://game/unit_meshes.gd")
+const Ground = preload("res://game/ground_view.gd")
 ## NMRF mobile packer, or MVD internal queue with clearance.
 ## Same pointer controls as Sop Ruak. Six named placeholders.
 
@@ -35,6 +35,8 @@ func _ready() -> void:
 	outcome.mount(self, ui_layer)
 	sight.bind(grid)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	preload("res://game/settings_panel.gd").attach(ui_layer)
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func train_unit() -> String:
 	if not Power.online(yard):

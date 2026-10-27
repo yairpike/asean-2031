@@ -2,8 +2,11 @@ extends RefCounted
 ## Terrain from a domain grid. Pathing flags are not changed.
 ## Land is one mesh, water is one shaded mesh, plants and houses are MultiMeshes.
 
-const WATER_SHADER = preload("res://assets/shaders/channel_water.gdshader")
-const RAIN_SHADER = preload("res://assets/shaders/monsoon_rain.gdshader")
+const WATER_SHADER = preload("res://game/shaders/channel_water.gdshader")
+const RAIN_SHADER = preload("res://game/shaders/monsoon_rain.gdshader")
+const Settings = preload("res://game/match_settings.gd")
+const RAIN_CAP: int = 24
+const TREE_REACH: float = 80.0
 
 const GRASS: Color = Color(0.3, 0.46, 0.22)
 const MUD: Color = Color(0.38, 0.29, 0.18)
@@ -91,13 +94,18 @@ static func apply_sky(host: Node3D, sight: SMSight) -> void:
 	if host == null or sight == null:
 		return
 	var env: WorldEnvironment = host.find_child("WorldEnvironment", false, false) as WorldEnvironment
+	var low: bool = Settings.low()
 	if env != null and env.environment != null:
-		_fog(env.environment, sight)
+		if low:
+			env.environment.fog_enabled = false
+		else:
+			_fog(env.environment, sight)
 	var rain: MeshInstance3D = host.get_node_or_null("Rain") as MeshInstance3D
-	if rain == null:
+	if rain == null and not low:
 		rain = _rain(sight)
 		host.add_child(rain)
-	rain.visible = sight.monsoon
+	if rain != null:
+		rain.visible = sight.monsoon and not low
 
 static func _fog(env: Environment, sight: SMSight) -> void:
 	if sight.hazy:
@@ -240,6 +248,7 @@ static func _commit(host: Node3D, node_name: String, st: SurfaceTool, keep: bool
 	mi.name = node_name
 	st.generate_normals()
 	mi.mesh = st.commit()
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	host.add_child(mi)
 
 static func _multi(host: Node3D, node_name: String, mesh: ArrayMesh, spots: Array[Transform3D]) -> void:
@@ -431,7 +440,7 @@ static func _rain(sight: SMSight) -> MeshInstance3D:
 	if sight.grid != null:
 		origin = sight.grid.origin
 		span = Vector3(float(sight.grid.cols) * sight.grid.cell_size, 0.0, float(sight.grid.rows) * sight.grid.cell_size)
-	for i: int in 56:
+	for i: int in RAIN_CAP:
 		var rx: float = float(_hash(i, 2) % 1000) / 1000.0
 		var rz: float = float(_hash(3, i) % 1000) / 1000.0
 		var at: Vector3 = origin + Vector3(rx * span.x, 12.0, rz * span.z)
@@ -439,3 +448,45 @@ static func _rain(sight: SMSight) -> MeshInstance3D:
 	st.generate_normals()
 	mi.mesh = st.commit()
 	return mi
+
+static var _cull_ms: int = 0
+static var _cull_at: Vector3 = Vector3(99999.0, 0.0, 99999.0)
+static var _cull_low: bool = false
+
+static func cull_props(host: Node3D, cam: RTSCamera) -> void:
+	if host == null:
+		return
+	var low: bool = Settings.low()
+	var focus: Vector3 = cam.focus if cam != null else Vector3.ZERO
+	var now: int = Time.get_ticks_msec()
+	var moved: bool = Vector2(focus.x - _cull_at.x, focus.z - _cull_at.z).length() > 6.0
+	var flipped: bool = low != _cull_low
+	if not flipped and not low and not moved and now - _cull_ms < 300:
+		return
+	_cull_ms = now
+	_cull_at = focus
+	_cull_low = low
+	_cull_named(host, "JungleTrees", focus, low)
+	_cull_named(host, "Palms", focus, low)
+
+static func _cull_named(host: Node3D, node_name: String, focus: Vector3, hide: bool) -> void:
+	var node: MultiMeshInstance3D = host.get_node_or_null(node_name) as MultiMeshInstance3D
+	if node == null or node.multimesh == null:
+		return
+	if hide:
+		node.visible = false
+		return
+	node.visible = true
+	var all: Array = node.get_meta("all_spots", [])
+	if all.is_empty():
+		for i: int in node.multimesh.instance_count:
+			all.append(node.multimesh.get_instance_transform(i))
+		node.set_meta("all_spots", all)
+	var keep: Array[Transform3D] = []
+	for item: Variant in all:
+		var xf: Transform3D = item as Transform3D
+		if Vector2(xf.origin.x - focus.x, xf.origin.z - focus.z).length() <= TREE_REACH:
+			keep.append(xf)
+	node.multimesh.instance_count = keep.size()
+	for i: int in keep.size():
+		node.multimesh.set_instance_transform(i, keep[i])

@@ -1,8 +1,8 @@
 extends Node3D
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
-const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
-const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
+const Fx = preload("res://game/fx_view.gd")
+const Ground = preload("res://game/ground_view.gd")
 ## Sop Ruak. Three land sectors split by a Y-shaped river.
 ## GTFC versus one enemy across a Y-shaped river. Same pointer controls as Phillips Channel.
 
@@ -37,6 +37,7 @@ func _ready() -> void:
 	hud.use_sight(sight)
 	hud.use_tech(sim.tech)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func train_unit() -> String:
 	if not Power.online(side.yard):
