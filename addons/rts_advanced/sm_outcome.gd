@@ -183,6 +183,11 @@ func _finish(win: bool) -> void:
 		banner.text = "Victory" if win else "Defeat"
 		var ink: Color = Color(0.95, 0.86, 0.45) if win else Color(0.9, 0.32, 0.28)
 		banner.add_theme_color_override("font_color", ink)
+	var status: Label = null
+	if host != null:
+		status = host.find_child("Status", true, false) as Label
+	if status != null:
+		status.text = "Objective complete" if win else "Objective failed"
 
 func _boot() -> void:
 	if host == null:

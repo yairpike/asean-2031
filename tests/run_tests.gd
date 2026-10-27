@@ -68,6 +68,7 @@ func _run() -> void:
 	await H.section("test_sm_sides", test_sm_sides)
 	await H.section("test_sm_fx", test_sm_fx)
 	await H.section("test_sm_story", test_sm_story)
+	await H.section("test_sm_play", test_sm_play)
 	await H.section("test_sm_web", test_sm_web)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
@@ -2073,6 +2074,273 @@ func _duty_units(field: SMPointer, duty: String) -> Array[RTSUnit]:
 func _kill_duty(field: SMPointer, duty: String) -> void:
 	for u: RTSUnit in _duty_units(field, duty):
 		u.take_damage(u.hp + 1.0)
+
+func test_sm_play() -> void:
+	for id: String in SMCampaign.ids():
+		var won: bool = await _script_mission(id)
+		check(won, "%s scripted play reaches Objective complete" % id)
+		var lost: bool = await _script_wipe(id)
+		check(lost, "%s scripted wipe reaches Objective failed" % id)
+	var skirmish_won: bool = await _script_skirmish(false)
+	check(skirmish_won, "phillips scripted play reaches Objective complete")
+	var skirmish_lost: bool = await _script_skirmish(true)
+	check(skirmish_lost, "phillips scripted wipe reaches Objective failed")
+	SMCampaign.selected = "tachileik"
+	SMFront.faction_id = "gtfc"
+
+func _script_mission(id: String) -> bool:
+	SMCampaign.selected = id
+	var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	_script_orders(scene, id)
+	var story: SMStory = scene.get("story") as SMStory
+	var status: Label = scene.find_child("Status", true, false) as Label
+	var ok: bool = story != null and story.done and not story.lost and status != null and status.text == "Objective complete"
+	scene.free()
+	await process_frame
+	return ok
+
+func _script_wipe(id: String) -> bool:
+	SMCampaign.selected = id
+	var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if is_instance_valid(u) and u.is_alive() and not bool(u.get_meta("objective", false)):
+			u.take_damage(u.hp + 1.0)
+	scene._process(0.2)
+	var story: SMStory = scene.get("story") as SMStory
+	var status: Label = scene.find_child("Status", true, false) as Label
+	var ok: bool = story != null and story.lost and not story.done and status != null and status.text == "Objective failed"
+	scene.free()
+	await process_frame
+	return ok
+
+func _script_skirmish(wipe: bool) -> bool:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	if wipe:
+		_wipe(field.units_of(SMPointer.PLAYER))
+		scene._process(0.2)
+	else:
+		_train_boats(scene, 8)
+		var steps: int = 0
+		var end: SMOutcome = scene.get("outcome") as SMOutcome
+		while end != null and not end.over and steps < 480:
+			if not field.units_of(SMPointer.ENEMY).is_empty():
+				_order_crossing(field)
+			scene._process(0.5)
+			steps += 1
+	var end_state: SMOutcome = scene.get("outcome") as SMOutcome
+	var status: Label = scene.find_child("Status", true, false) as Label
+	var wanted: String = "Objective failed" if wipe else "Objective complete"
+	var ok: bool = end_state != null and end_state.over and end_state.victory != wipe and status != null and status.text == wanted
+	scene.free()
+	await process_frame
+	return ok
+
+func _train_boats(scene: Node, count: int) -> void:
+	var button: Button = scene.find_child("Train_channel_skiff", true, false) as Button
+	if button == null:
+		return
+	for _i: int in count:
+		button.pressed.emit()
+
+func _order_crossing(field: SMPointer) -> void:
+	var target: RTSUnit = _priority_target(field)
+	if target == null:
+		return
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if not is_instance_valid(u) or not u.is_alive():
+			continue
+		var nav: RTSGridNav = field.nav_for_unit(u)
+		if nav == null or nav.find_path(u.global_position, target.global_position).is_empty():
+			continue
+		var one: Array[RTSUnit] = [u]
+		RTSOrders.attack(one, target, nav, field.teams)
+
+func _script_orders(scene: Node, id: String) -> void:
+	var field: SMPointer = scene.get("field") as SMPointer
+	var story: SMStory = scene.get("story") as SMStory
+	if id == "kokang":
+		_fight_enemies(scene, field, 160)
+		var build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+		if build != null:
+			build.pressed.emit()
+		_march(scene, field, Vector3(6.0, 0.0, 2.0), "")
+		_sim(scene, 8, 0.5)
+		_march(scene, field, Vector3(-6.0, 0.0, 4.0), "")
+		_sim(scene, 12, 0.5)
+		return
+	if id == "keng_tung":
+		_freeze_column(scene, field)
+		return
+	if id == "plain_of_jars":
+		_beam_once(scene, field)
+		_fight_enemies(scene, field, 160)
+		return
+	if id == "black_haze" or id == "fog_over_pakbeng" or id == "tachileik" or id == "shwe_kokko" or id == "kilometer_watch":
+		_fight_enemies(scene, field, 180)
+		_march(scene, field, story.pad, "")
+		_sim_until_done(scene, 80, 0.5)
+		return
+	if id == "andaman":
+		_fight_enemies(scene, field, 200)
+		_march(scene, field, story.far_shore, "channel_skiff")
+		_sim_until_done(scene, 40, 0.5)
+		return
+	if id == "archipelago_rising":
+		_fight_enemies(scene, field, 200)
+		_march(scene, field, story.shallow_pad, "channel_skiff")
+		_sim_until_done(scene, 40, 0.5)
+		return
+	if id == "tonle_sap":
+		_fight_enemies(scene, field, 160)
+		_sim_until_done(scene, 80, 0.5)
+		return
+	_fight_enemies(scene, field, 200)
+	_sim_until_done(scene, 40, 0.5)
+
+func _freeze_column(scene: Node, field: SMPointer) -> void:
+	var guard: int = 0
+	while _column_left(field) and guard < 12:
+		_beam_once(scene, field)
+		var steps: int = 0
+		while _thawed_column(field) and steps < 40:
+			_order_focus(field)
+			scene._process(0.25)
+			steps += 1
+		guard += 1
+
+func _column_left(field: SMPointer) -> bool:
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if is_instance_valid(u) and u.is_alive() and str(u.get_meta("duty", "")) == "column":
+			return true
+	return false
+
+func _thawed_column(field: SMPointer) -> bool:
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if is_instance_valid(u) and u.is_alive() and str(u.get_meta("duty", "")) == "column" and bool(u.get_meta("was_frozen", false)):
+			return true
+	return false
+
+func _beam_once(scene: Node, field: SMPointer) -> void:
+	var tube: RTSUnit = _kind_unit(field, "monsoon_tube")
+	if tube == null or not tube.is_alive():
+		return
+	var wait: int = 0
+	while float(tube.get_meta("f_ready", 0.0)) > 0.0 and wait < 24:
+		scene._process(0.25)
+		wait += 1
+	var before: int = int(tube.get_meta("beam_done", 0))
+	var only: Array[RTSUnit] = [tube]
+	field.select_only(only)
+	field.cast_f(tube.global_position)
+	var channel: int = 0
+	while int(tube.get_meta("beam_done", 0)) <= before and channel < 16:
+		scene._process(0.25)
+		channel += 1
+
+func _fight_enemies(scene: Node, field: SMPointer, limit: int) -> void:
+	var steps: int = 0
+	while not field.units_of(SMPointer.ENEMY).is_empty() and _army_alive(field) and steps < limit:
+		_order_focus(field)
+		scene._process(0.25)
+		steps += 1
+
+func _sim(scene: Node, steps: int, delta: float) -> void:
+	for _i: int in steps:
+		scene._process(delta)
+
+func _sim_until_done(scene: Node, limit: int, delta: float) -> void:
+	var story: SMStory = scene.get("story") as SMStory
+	var steps: int = 0
+	while story != null and not story.done and not story.lost and steps < limit:
+		scene._process(delta)
+		steps += 1
+
+func _march(scene: Node, field: SMPointer, at: Vector3, kind: String) -> void:
+	var mover: RTSUnit = _marcher(field, kind)
+	if mover == null:
+		return
+	var one: Array[RTSUnit] = [mover]
+	var steps: int = 0
+	while is_instance_valid(mover) and mover.is_alive() and mover.global_position.distance_to(at) > 1.2 and steps < 100:
+		if mover.path.is_empty() or mover.attack_target != null:
+			RTSOrders.move(one, at, field.nav_for_unit(mover))
+		scene._process(0.25)
+		steps += 1
+
+func _marcher(field: SMPointer, kind: String) -> RTSUnit:
+	if kind != "":
+		var typed: RTSUnit = _kind_unit(field, kind)
+		if typed != null and typed.is_alive():
+			return typed
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if is_instance_valid(u) and u.is_alive() and not bool(u.get_meta("objective", false)):
+			return u
+	return null
+
+func _order_focus(field: SMPointer) -> void:
+	var target: RTSUnit = _priority_target(field)
+	if target == null:
+		return
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if not is_instance_valid(u) or not u.is_alive() or bool(u.get_meta("objective", false)):
+			continue
+		if u.attack_target == target:
+			continue
+		var one: Array[RTSUnit] = [u]
+		RTSOrders.attack(one, target, field.nav_for_unit(u), field.teams)
+
+func _priority_target(field: SMPointer) -> RTSUnit:
+	var duties: PackedStringArray = PackedStringArray([
+		"escort", "clear", "pressure", "trimaran", "fleet", "ghost",
+		"phantom", "battery", "tower", "super", "hangar", "column",
+	])
+	var origin: Vector3 = _army_center(field)
+	var best: RTSUnit = null
+	var best_rank: int = 100
+	var best_d: float = 100000.0
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if not is_instance_valid(u) or not u.is_alive():
+			continue
+		var duty: String = str(u.get_meta("duty", ""))
+		if duty == "column" and not bool(u.get_meta("was_frozen", false)):
+			continue
+		var rank: int = duties.find(duty)
+		if rank < 0:
+			rank = 40
+		var dist: float = u.global_position.distance_to(origin)
+		if rank < best_rank or (rank == best_rank and dist < best_d):
+			best_rank = rank
+			best_d = dist
+			best = u
+	return best
+
+func _army_center(field: SMPointer) -> Vector3:
+	var center: Vector3 = Vector3.ZERO
+	var n: int = 0
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if is_instance_valid(u) and u.is_alive() and not bool(u.get_meta("objective", false)):
+			center += u.global_position
+			n += 1
+	if n == 0:
+		return Vector3.ZERO
+	return center / float(n)
+
+func _army_alive(field: SMPointer) -> bool:
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if is_instance_valid(u) and u.is_alive() and not bool(u.get_meta("objective", false)):
+			return true
+	return false
 
 func test_sm_web() -> void:
 	SMSave.clear()
