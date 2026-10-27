@@ -1,6 +1,7 @@
 extends Node3D
 
 const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
+const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
 ## GTFC night raid. Scaffold, ruby night shift, one rare-earth node. Text briefing.
 
 var mission: SMMission = SMMission.new()
@@ -36,6 +37,7 @@ func scripted_playthrough() -> bool:
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.05, 0.06, 0.1)
@@ -46,7 +48,7 @@ func _world() -> void:
 	moon.rotation_degrees = Vector3(-35, 40, 0)
 	moon.light_color = Color(0.7, 0.75, 0.9)
 	add_child(moon)
-	_slab("Ground", Vector3(0, -0.1, 0), Vector3(28, 0.2, 18), Color(0.18, 0.2, 0.16))
+	Ground.dress(self, grid, "kokang")
 	_slab("Scaffold", Vector3(2, 1, 0), Vector3(3, 2, 3), Color(0.72, 0.12, 0.18))
 	_slab("RubyNode", Vector3(6, 0.4, 2), Vector3(1.5, 0.8, 1.5), Color(0.7, 0.1, 0.2))
 	_slab("RareNode", Vector3(-6, 0.4, 4), Vector3(1.5, 0.8, 1.5), Color(0.4, 0.5, 0.32))

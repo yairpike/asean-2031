@@ -3,6 +3,7 @@ extends Node3D
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
 const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
 const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
+const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
 ## NMRF mobile packer, or MVD internal queue with clearance.
 ## Same pointer controls as Sop Ruak. Six named placeholders.
 
@@ -142,6 +143,7 @@ func _prepare_ability() -> void:
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.07, 0.1, 0.12)
@@ -152,15 +154,12 @@ func _world() -> void:
 	sun.rotation_degrees = Vector3(-48, 25, 0)
 	add_child(sun)
 	if faction_id == "mvd":
-		_slab("CharcoalPad", Vector3(-40, 0, 0), Vector3(70, 0.35, 90), Color(0.16, 0.18, 0.2))
-		_slab("CyanRing", Vector3(4, 0.1, 0), Vector3(10, 0.2, 10), Color(0.15, 0.75, 0.82))
+		Ground.dress(self, grid, "mvd")
 		hub_mesh = _slab("HubShell", SMPointer.building_at(Vector3(4, 0, 0)), SMPointer.BUILDING_SIZE, Color(0.15, 0.75, 0.82))
 		hub_mesh.visible = false
 	else:
-		_slab("OliveGround", Vector3(-40, 0, 0), Vector3(70, 0.35, 90), Color(0.35, 0.4, 0.16))
-		_slab("EmeraldWater", Vector3(8, -0.15, -28), Vector3(36, 0.25, 14), Color(0.12, 0.45, 0.32))
+		Ground.dress(self, grid, "nmrf")
 		packer_mesh = _slab("PackerCore", SMPointer.building_at(yard.packer_pos), SMPointer.BUILDING_SIZE, Color(0.12, 0.62, 0.4))
-	_slab("FarShore", Vector3(50, 0, 0), Vector3(50, 0.35, 90), Color(0.28, 0.3, 0.26))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-90, -60, 180, 120)

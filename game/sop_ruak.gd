@@ -2,6 +2,7 @@ extends Node3D
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
 const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
+const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
 ## Sop Ruak. Three land sectors split by a Y-shaped river.
 ## GTFC versus one enemy across a Y-shaped river. Same pointer controls as Phillips Channel.
 
@@ -66,6 +67,7 @@ func _prepare_ability() -> void:
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.07, 0.1, 0.13)
@@ -75,18 +77,7 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, 25, 0)
 	add_child(sun)
-	_slab("WestSector", Vector3(-38, 0, 18), Vector3(48, 0.4, 56), Color(0.36, 0.32, 0.22))
-	_slab("EastSector", Vector3(38, 0, 18), Vector3(48, 0.4, 56), Color(0.3, 0.34, 0.24))
-	_slab("NorthSector", Vector3(0, 0, -32), Vector3(28, 0.4, 36), Color(0.34, 0.36, 0.26))
-	_slab("RiverStem", Vector3(0, -0.25, 34), Vector3(16, 0.3, 52), Color(0.08, 0.24, 0.42))
-	_slab("RiverJunction", Vector3(0, -0.25, 0), Vector3(20, 0.3, 20), Color(0.08, 0.22, 0.4))
-	var left: MeshInstance3D = _slab("RiverLeft", Vector3(-32, -0.22, -32), Vector3(14, 0.28, 62), Color(0.1, 0.28, 0.46))
-	left.rotation_degrees = Vector3(0, 45, 0)
-	var right: MeshInstance3D = _slab("RiverRight", Vector3(32, -0.22, -32), Vector3(14, 0.28, 62), Color(0.1, 0.28, 0.46))
-	right.rotation_degrees = Vector3(0, -45, 0)
-	_slab("FordSouth", Vector3(0, 0.08, 26), Vector3(16, 0.22, 8), Color(0.42, 0.38, 0.26))
-	_slab("FordWest", Vector3(-30, 0.08, -30), Vector3(12, 0.22, 12), Color(0.42, 0.38, 0.26))
-	_slab("FordEast", Vector3(30, 0.08, -30), Vector3(12, 0.22, 12), Color(0.42, 0.38, 0.26))
+	Ground.dress(self, grid, "sop")
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-80, -80, 160, 160)

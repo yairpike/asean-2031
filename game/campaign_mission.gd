@@ -1,6 +1,7 @@
 extends Node3D
 
 const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
+const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
 ## One solo text briefing. The objective button runs the sim system for that mission.
 
 var campaign: SMCampaign = SMCampaign.new()
@@ -52,6 +53,7 @@ func fire_secondary() -> int:
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.06, 0.07, 0.09)
@@ -61,7 +63,7 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-42, 20, 0)
 	add_child(sun)
-	_slab("Ground", Vector3(0, -0.1, 0), Vector3(36, 0.2, 24), Color(0.22, 0.24, 0.2))
+	Ground.dress(self, grid, "mission")
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-24, -20, 48, 40)

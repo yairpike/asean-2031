@@ -1,5 +1,7 @@
 class_name SMSight
 extends RefCounted
+
+const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
 ## Fog for a skirmish. Explored ground stays dim. Current sight is clear.
 
 const UNIT_RADIUS: float = 18.0
@@ -165,7 +167,7 @@ func paint(host: Node3D) -> void:
 	var hidden: Color = Color(0.03, 0.04, 0.05, 0.92)
 	var dim: Color = Color(0.04, 0.05, 0.07, 0.42)
 	var y: float = 0.42
-	var half: float = grid.cell_size * 0.49
+	var half: float = grid.cell_size * 0.5
 	for row: int in grid.rows:
 		for col: int in grid.cols:
 			var state: int = cell_state(Vector2i(col, row))
@@ -194,6 +196,7 @@ static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: S
 	sight.commit()
 	sight.conceal(field, host)
 	apply_drag(sight, field)
+	Ground.apply_sky(host, sight)
 
 static func apply_drag(sight: SMSight, field: SMPointer) -> void:
 	if sight == null or field == null:

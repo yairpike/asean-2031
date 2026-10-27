@@ -1,5 +1,7 @@
 class_name SMMatch
 extends RefCounted
+
+const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
 ## Headless match: faction pipeline, channel crossing, abilities, passive enemy, bots.
 
 var economy: RTSEconomy = RTSEconomy.new()
@@ -278,19 +280,22 @@ func paint_sites(host: Node3D) -> void:
 		return
 	for node: Dictionary in goods.nodes:
 		var spot: Vector3 = node.get("pos", Vector3.ZERO) as Vector3
-		_site_mesh(host, "Node_%s" % str(node.get("id", "")), spot + Vector3(0.0, 0.35, 0.0), Vector3(1.15, 0.4, 1.15), _node_color(StringName(str(node.get("kind", "")))))
+		var goods_kind: StringName = StringName(str(node.get("kind", "")))
+		_site_mesh(host, "Node_%s" % str(node.get("id", "")), spot, Vector3(1.15, 0.4, 1.15), _node_color(goods_kind), _goods_form(goods_kind))
 	for site: Dictionary in tech.sites:
 		var kind: StringName = StringName(str(site.get("kind", "")))
 		var spot: Vector3 = site.get("pos", Vector3.ZERO) as Vector3
 		var node_name: String = "%s%s" % [_site_prefix(kind), str(site.get("id", ""))]
 		var size: Vector3 = Vector3(1.3, 1.5, 1.3)
+		var lift: float = 0.0
 		if kind == SMTechNet.BRIDGE:
 			size = Vector3(2.6, 0.28, 1.1)
+			lift = 0.16
 		elif kind == SMTechNet.DERRICK:
 			size = Vector3(0.36, 2.3, 0.36)
 		elif kind == SMTechNet.SALVAGE:
 			size = Vector3(1.8, 0.45, 1.1)
-		_site_mesh(host, node_name, spot + Vector3(0.0, size.y * 0.5, 0.0), size, _site_color(kind))
+		_site_mesh(host, node_name, spot + Vector3(0.0, lift, 0.0), size, _site_color(kind), _tech_form(kind))
 
 func collapse_bridge(id: StringName, squad: SMPointer, host: Node3D) -> void:
 	var span: Rect2i = _bridge_span(id)
@@ -512,14 +517,49 @@ func _site_color(kind: StringName) -> Color:
 		return Color(0.62, 0.58, 0.5)
 	return Color(0.4, 0.28, 0.18)
 
-func _site_mesh(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
+func _goods_form(kind: StringName) -> String:
+	if kind == SMCommodityNet.KIND_SLAG:
+		return "slag"
+	if kind == SMCommodityNet.KIND_RARE:
+		return "rare"
+	if kind == SMCommodityNet.KIND_RUBY:
+		return "ruby"
+	if kind == SMCommodityNet.KIND_JADE:
+		return "jade"
+	if kind == SMCommodityNet.KIND_BULLION:
+		return "bullion"
+	return "slag"
+
+func _tech_form(kind: StringName) -> String:
+	if kind == SMTechNet.CYBER:
+		return "cyber"
+	if kind == SMTechNet.BAZAAR:
+		return "bazaar"
+	if kind == SMTechNet.CLINIC:
+		return "clinic"
+	if kind == SMTechNet.RADAR:
+		return "radar"
+	if kind == SMTechNet.DERRICK:
+		return "derrick"
+	if kind == SMTechNet.SALVAGE:
+		return "salvage"
+	if kind == SMTechNet.BRIDGE:
+		return "bridge"
+	if kind == SMTechNet.GARRISON:
+		return "garrison"
+	return "salvage"
+
+func _site_mesh(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color, form: String = "") -> void:
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	mi.name = node_name
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	mi.mesh = mesh
 	mi.position = pos
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
+	if form != "":
+		Ground.dress_site(mi, form, color)
+	else:
+		var mesh: BoxMesh = BoxMesh.new()
+		mesh.size = size
+		mi.mesh = mesh
+		var mat: StandardMaterial3D = StandardMaterial3D.new()
+		mat.albedo_color = color
+		mi.material_override = mat
 	host.add_child(mi)

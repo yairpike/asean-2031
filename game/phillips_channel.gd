@@ -3,6 +3,7 @@ extends Node3D
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
 const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
 const Forms = preload("res://addons/rts_advanced/sm_forms.gd")
+const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
 ## Phillips Channel. Two land masses, a deep channel, shallow crossings.
 ## RA3-style sidebar with cameo placeholders. The far shore builds, expands, and attacks.
 
@@ -42,6 +43,7 @@ func scripted_playthrough() -> bool:
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.08, 0.12, 0.16)
@@ -51,11 +53,7 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, 20, 0)
 	add_child(sun)
-	_slab("WestLand", Vector3(-50, 0, 0), Vector3(60, 0.4, 96), Color(0.34, 0.32, 0.24))
-	_slab("EastLand", Vector3(50, 0, 0), Vector3(60, 0.4, 96), Color(0.28, 0.34, 0.26))
-	_slab("DeepChannel", Vector3(0, -0.2, 0), Vector3(40, 0.3, 96), Color(0.08, 0.22, 0.42))
-	_slab("ShallowNorth", Vector3(0, 0.05, -26), Vector3(40, 0.25, 12), Color(0.2, 0.45, 0.55))
-	_slab("ShallowSouth", Vector3(0, 0.05, 26), Vector3(40, 0.25, 12), Color(0.2, 0.45, 0.55))
+	Ground.dress(self, sim.grid, "phillips")
 	_slab("PlayerYard", SMPointer.building_at(sim.yard.center), SMPointer.BUILDING_SIZE, SMFront.primary())
 	_slab("EnemyBase", SMPointer.building_at(sim.grid.cell_center(Vector2i(32, 12))), SMPointer.BUILDING_SIZE, Color(0.16, 0.17, 0.18))
 	sim.paint_sites(self)

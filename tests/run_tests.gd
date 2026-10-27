@@ -803,6 +803,16 @@ func test_sm_phillips() -> void:
 	var field: SMPointer = scene.get("field") as SMPointer
 	check(field != null and field.count_team(0) >= 3 and field.count_team(1) >= 2, "phillips places friendly and enemy units")
 	check(scene.find_child("SelectionBox", true, false) != null, "phillips shows a selection box")
+	var terrain_land: MeshInstance3D = scene.get_node_or_null("TerrainLand") as MeshInstance3D
+	var terrain_water: MeshInstance3D = scene.get_node_or_null("TerrainWater") as MeshInstance3D
+	check(terrain_land != null and terrain_water != null and terrain_water.get_active_material(0) is ShaderMaterial, "phillips meshes the banks and shades the channel")
+	var jungle: MultiMeshInstance3D = scene.get_node_or_null("JungleTrees") as MultiMeshInstance3D
+	check(jungle != null and jungle.multimesh != null and jungle.multimesh.instance_count > 8, "phillips plants a stand of jungle trees")
+	var palms: MultiMeshInstance3D = scene.get_node_or_null("Palms") as MultiMeshInstance3D
+	check(palms != null and palms.multimesh != null and palms.multimesh.instance_count > 0, "phillips lines the banks with palms")
+	var slag_node: MeshInstance3D = scene.get_node_or_null("Node_slag_west") as MeshInstance3D
+	var cyber_node: MeshInstance3D = scene.get_node_or_null("Tech_cyber") as MeshInstance3D
+	check(slag_node != null and str(slag_node.get_meta("form", "")) == "slag" and cyber_node != null and str(cyber_node.get_meta("form", "")) == "cyber", "slag nodes and cyber cafes have their own shapes")
 	var friends: Array[RTSUnit] = field.units_of(0)
 	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
 	check(picked == friends[0] and field.selection.count() == 1, "left click selects one friendly unit")
@@ -2910,6 +2920,17 @@ func test_sm_monsoon() -> void:
 	var walker: RTSUnit = field.units_of(0)[0]
 	check(_hud_text(scene, "HudWeather") == "Monsoon", "the hud names the monsoon")
 	check(is_equal_approx(float(walker.get_meta("weather_drag", 1.0)), 0.55), "monsoon slows the company on the field")
+	var rain: MeshInstance3D = scene.get_node_or_null("Rain") as MeshInstance3D
+	var paddy: MeshInstance3D = scene.get_node_or_null("Paddy") as MeshInstance3D
+	var canal: MeshInstance3D = scene.get_node_or_null("CanalWest") as MeshInstance3D
+	check(rain != null and rain.visible and rain.get_active_material(0) is ShaderMaterial, "monsoon draws rain streaks")
+	check(paddy != null and paddy.mesh != null and canal != null and canal.get_active_material(0) is ShaderMaterial, "mekong paddies sit beside shaded canals")
+	book.force_weather(true)
+	SMSight.update_match(book, field, scene as Node3D, sim.tech, scene.get("raider") as SMRaider)
+	var sky_env: WorldEnvironment = scene.get_node_or_null("WorldEnvironment") as WorldEnvironment
+	check(sky_env != null and sky_env.environment != null and sky_env.environment.fog_enabled and rain != null and not rain.visible, "haze tints the fog and the rain stops")
+	book.force_monsoon(true)
+	SMSight.update_match(book, field, scene as Node3D, sim.tech, scene.get("raider") as SMRaider)
 	var span: Vector3 = sim.tech.site_pos(&"bridge_a")
 	walker.global_position = span + Vector3(-6.0, 0.0, 0.0)
 	walker.attack_damage = 80.0
@@ -3224,6 +3245,10 @@ func _play_map(path: String, mesh_a: String, mesh_b: String, from_cell: Vector2i
 	check(attacked == &"attack" and friends[0].attack_target == foes[0], "%s right click attacks" % path.get_file())
 	check(bool(scene.call("fire_ability")), "%s F fires the ability" % path.get_file())
 	check(field.count_team(1) >= 1 and str(scene.get("map_id")) != "", "%s is GTFC versus one enemy" % path.get_file())
+	if path.ends_with("chiang_rai.tscn"):
+		var garrison: MeshInstance3D = scene.get_node_or_null("Garrison_garrison_a") as MeshInstance3D
+		var bazaar: MeshInstance3D = scene.get_node_or_null("Tech_bazaar_a") as MeshInstance3D
+		check(garrison != null and str(garrison.get_meta("form", "")) == "garrison" and bazaar != null and str(bazaar.get_meta("form", "")) == "bazaar", "chiang rai garrisons and bazaars read as buildings")
 	scene.free()
 	await process_frame
 

@@ -2,6 +2,7 @@ extends Node3D
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
 const Fx = preload("res://addons/rts_advanced/sm_fx.gd")
+const Ground = preload("res://addons/rts_advanced/sm_ground.gd")
 ## Shared GTFC skirmish. The map id picks the terrain. Controls match Sop Ruak.
 
 @export var map_id: String = "burma_road"
@@ -172,6 +173,7 @@ func _move_cell() -> Vector2i:
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.07, 0.1, 0.13)
@@ -201,31 +203,18 @@ func _world() -> void:
 	sim.paint_sites(self)
 
 func _burma_world() -> void:
-	_slab("HighlandWest", Vector3(-56, 1.4, -40), Vector3(48, 2.8, 32), Color(0.38, 0.34, 0.3))
-	_slab("HighlandEast", Vector3(56, 1.4, 36), Vector3(48, 2.8, 32), Color(0.34, 0.3, 0.26))
-	_slab("CliffWall", Vector3(0, 2.2, 8), Vector3(32, 4.4, 80), Color(0.42, 0.4, 0.36))
-	_slab("Road", Vector3(0, 0.2, -2), Vector3(32, 0.35, 16), Color(0.46, 0.4, 0.28))
+	Ground.dress(self, grid, "burma")
 
 func _atoll_world() -> void:
-	_slab("Sea", Vector3(0, -0.4, 0), Vector3(144, 0.3, 144), Color(0.05, 0.16, 0.32))
-	_slab("WestIsle", Vector3(-52, 0.2, 2), Vector3(32, 0.5, 32), Color(0.72, 0.66, 0.42))
-	_slab("EastIsle", Vector3(52, 0.2, 2), Vector3(32, 0.5, 32), Color(0.7, 0.64, 0.4))
-	_slab("NorthIsle", Vector3(0, 0.2, -56), Vector3(32, 0.5, 24), Color(0.74, 0.68, 0.44))
-	_slab("Shoal", Vector3(0, -0.05, 2), Vector3(64, 0.2, 16), Color(0.2, 0.45, 0.55))
+	Ground.dress(self, grid, "atolls")
 
 func _mekong_world() -> void:
-	_slab("Paddy", Vector3(0, 0, 0), Vector3(160, 0.3, 128), Color(0.28, 0.38, 0.2))
-	_slab("CanalWest", Vector3(-26, -0.2, 0), Vector3(12, 0.25, 128), Color(0.08, 0.24, 0.4))
-	_slab("CanalEast", Vector3(30, -0.2, 0), Vector3(12, 0.25, 128), Color(0.08, 0.24, 0.4))
+	Ground.dress(self, grid, "mekong")
 	_slab("BridgeWest", Vector3(-26, 0.15, 0), Vector3(14, 0.28, 16), Color(0.45, 0.4, 0.3))
 	_slab("BridgeEast", Vector3(30, 0.15, 0), Vector3(14, 0.28, 16), Color(0.45, 0.4, 0.3))
 
 func _chiang_world() -> void:
-	_slab("Plain", Vector3(0, 0, 0), Vector3(224, 0.3, 160), Color(0.32, 0.36, 0.24))
-	_slab("SiegeRiver", Vector3(0, -0.25, 0), Vector3(16, 0.28, 160), Color(0.08, 0.22, 0.4))
-	_slab("FordNorth", Vector3(0, 0.08, -36), Vector3(16, 0.22, 16), Color(0.42, 0.38, 0.26))
-	_slab("FordSouth", Vector3(0, 0.08, 44), Vector3(16, 0.22, 16), Color(0.42, 0.38, 0.26))
-	_slab("WallWest", Vector3(-72, 1.6, -50), Vector3(32, 3.2, 12), Color(0.4, 0.38, 0.34))
+	Ground.dress(self, grid, "chiang")
 
 func _ui() -> void:
 	ui_layer = CanvasLayer.new()
