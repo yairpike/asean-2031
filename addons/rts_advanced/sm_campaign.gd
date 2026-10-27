@@ -133,35 +133,35 @@ static func title_of(id: String) -> String:
 
 static func briefing_of(id: String) -> String:
 	if id == "kokang":
-		return "Kokang and Mogok. Text briefing. Raise the yard, run the ruby night shift, and bring one rare-earth stock home."
+		return "Kokang and Mogok. Text briefing. Raise the yard, run the ruby night shift, and bring one rare-earth stock home. If the company dies, the raid fails."
 	if id == "tachileik":
-		return "Tachileik caravan. Text briefing. Snap the ruby pit and run the night shift until the purse fills."
+		return "Tachileik caravan. Text briefing. Break the ambush, then snap the ruby pit and run the night shift until the purse fills."
 	if id == "shwe_kokko":
-		return "Shwe Kokko. Text briefing. Capture the compound and siphon the enemy purse."
+		return "Shwe Kokko. Text briefing. Destroy the garrison, capture the compound, and siphon the enemy purse."
 	if id == "operation_1027":
-		return "Operation 1027. Text briefing. Launch the 23-drone swarm once."
+		return "Operation 1027. Text briefing. Knock out the junta EW jamming towers, then destroy the parked Su-30 and CH-4 hangars. The drone swarm can help. Casting it does not end the mission."
 	if id == "andaman":
-		return "Andaman breakout. Text briefing. Send an amphibious unit across the deep water to the far shore."
+		return "Andaman breakout. Text briefing. Sink the boats in the channel and land an amphibious unit on the far shore."
 	if id == "ghosts_of_patani":
-		return "Ghosts of Patani. Text briefing. GPS guidance drops inside the jammer. A fiber link does not."
+		return "Ghosts of Patani. Text briefing. Destroy the enemy inside the jammer. GPS guidance drops there. A fiber link does not. Losing the company fails the mission."
 	if id == "kilometer_watch":
-		return "The 74-Kilometer Watch. Text briefing. Capture the radar so water nodes show on the map."
+		return "The 74-Kilometer Watch. Text briefing. Destroy the radar garrison and hold the hydro radar so water shows."
 	if id == "black_haze":
-		return "Black Haze. Text briefing. Strait Haze shortens sight unless a hydro radar is held."
+		return "Black Haze. Text briefing. Capture the hydro radar and hold it through the haze while the enemy attacks."
 	if id == "archipelago_rising":
-		return "Archipelago Rising. Text briefing. Sail the packer into shallow water, unpack the wharf, and upgrade it."
+		return "Archipelago Rising. Text briefing. Sink the boats, sail the packer into shallow water, unpack the wharf, and upgrade it."
 	if id == "wrath_of_the_garuda":
-		return "Wrath of the Garuda. Text briefing. Call the Su-30 napalm run once."
+		return "Wrath of the Garuda. Text briefing. Destroy the joint enemy fleet. A napalm run can help. Calling it does not end the mission."
 	if id == "fog_over_pakbeng":
-		return "Fog Over Pakbeng. Text briefing. Hold a hydro radar so the haze does not blind the company."
+		return "Fog Over Pakbeng. Text briefing. Hold a hydro radar through the haze while the enemy attacks."
 	if id == "keng_tung":
-		return "Keng Tung. Text briefing. Cast Toxic Defoliation once."
+		return "Keng Tung. Text briefing. Freeze the GTFC tank column, then destroy it. Toxic Defoliation can freeze the tanks. Casting it does not end the mission."
 	if id == "plain_of_jars":
-		return "Plain of Jars. Text briefing. Hold the beam until the target freezes."
+		return "Plain of Jars. Text briefing. Hold the beam until the phantom freezes, then destroy the phantom and the battery."
 	if id == "tonle_sap":
-		return "Tonle Sap. Text briefing. Cast Cryogeddon once."
+		return "Tonle Sap. Text briefing. Defend the ferry until the timer runs out. NMRF trimarans are attacking. Cryogeddon can help. Casting it does not end the mission."
 	if id == "shattered_monsoon":
-		return "Operation Shattered Monsoon. Text briefing. Cast Cash Bounty, Advanced Rocket Pods, and Cryoshot once each."
+		return "Operation Shattered Monsoon. Text briefing. Destroy both enemy superweapons. Protocols can help. Casting them does not end the mission."
 	if id == "mae_sai":
 		return "Mae Sai. Text briefing. Raise the scaffold yard and keep the drain running until the frame is finished."
 	if id == "ruby_market":

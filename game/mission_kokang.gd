@@ -145,7 +145,9 @@ func _process(delta: float) -> void:
 	cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
 	story.tick(delta)
-	if story.done and status != null and status.text != "Objective complete":
+	if story.lost and status != null and status.text != "Objective failed":
+		_say("Objective failed")
+	elif story.done and status != null and status.text != "Objective complete":
 		_say("Objective complete")
 		SMSave.mark("kokang")
 	hud.refresh()

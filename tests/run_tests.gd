@@ -1918,11 +1918,49 @@ func test_sm_story() -> void:
 		else:
 			var goal: Button = scene.find_child("ObjectiveButton", true, false) as Button
 			check(goal != null and not goal.visible, "%s keeps the objective button hidden" % id)
+		var story_now: SMStory = scene.get("story") as SMStory
+		var field_now: SMPointer = scene.get("field") as SMPointer
+		if id == "keng_tung":
+			var tanks: Array[RTSUnit] = _duty_units(field_now, "column")
+			var tank_hp: float = tanks[0].hp if not tanks.is_empty() else -1.0
+			if not tanks.is_empty():
+				tanks[0].take_damage(5000.0)
+			check(not tanks.is_empty() and is_equal_approx(tanks[0].hp, tank_hp), "a keng tung tank ignores damage until it freezes")
+		if id == "operation_1027" or id == "wrath_of_the_garuda" or id == "keng_tung" or id == "tonle_sap" or id == "shattered_monsoon":
+			_cast_story(scene, id)
+			story_now.tick(0.1)
+			check(not story_now.done and not story_now.lost, "%s stays open after the protocol cast" % id)
+		if id == "operation_1027":
+			var hangars: Array[RTSUnit] = _duty_units(field_now, "hangar")
+			var hangar_hp: float = hangars[0].hp if not hangars.is_empty() else -1.0
+			if not hangars.is_empty():
+				hangars[0].take_damage(5000.0)
+			check(not hangars.is_empty() and is_equal_approx(hangars[0].hp, hangar_hp), "the 1027 hangars ignore damage while a tower stands")
 		_meet_story(scene, id)
 		await process_frame
 		var story: SMStory = scene.get("story") as SMStory
 		var status: Label = scene.find_child("Status", true, false) as Label
-		check(story != null and story.done and story.ending == SMStory.ending_of(id) and status != null and status.text == "Objective complete", "%s ends through play (%s)" % [id, SMStory.ending_of(id)])
+		check(story != null and story.done and not story.lost and story.ending == SMStory.ending_of(id) and status != null and status.text == "Objective complete", "%s ends through play (%s)" % [id, SMStory.ending_of(id)])
+		scene.free()
+		await process_frame
+	for id: String in SMCampaign.ids():
+		SMCampaign.selected = id
+		var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
+		var scene: Node = (load(path) as PackedScene).instantiate()
+		root.add_child(scene)
+		await process_frame
+		var field: SMPointer = scene.get("field") as SMPointer
+		if id == "tonle_sap":
+			var ferries: Array[RTSUnit] = _duty_units(field, "ferry")
+			if not ferries.is_empty():
+				ferries[0].take_damage(ferries[0].hp + 1.0)
+		else:
+			_wipe(field.units_of(0))
+		var story: SMStory = scene.get("story") as SMStory
+		story.tick(0.2)
+		await process_frame
+		var status: Label = scene.find_child("Status", true, false) as Label
+		check(story != null and story.lost and not story.done and story.loss != "" and status != null and status.text == "Objective failed", "%s can be lost (%s)" % [id, story.loss])
 		scene.free()
 		await process_frame
 	SMCampaign.selected = "tachileik"
@@ -1938,16 +1976,19 @@ func _meet_story(scene: Node, id: String) -> void:
 		_park(field, "", Vector3(-6.0, 0.0, 4.0))
 		story.tick(4.0)
 		return
-	if id == "tachileik":
+	if id == "tachileik" or id == "shwe_kokko" or id == "kilometer_watch":
+		_kill_duty(field, "clear")
 		_park(field, "", story.pad)
-		story.tick(2.0)
-	elif id == "shwe_kokko" or id == "kilometer_watch" or id == "black_haze" or id == "fog_over_pakbeng":
+		story.tick(2.0 if id == "tachileik" else 1.0)
+	elif id == "black_haze" or id == "fog_over_pakbeng":
 		_park(field, "", story.pad)
-		story.tick(1.0)
+		story.tick(story.hold_left)
 	elif id == "andaman":
+		_kill_duty(field, "clear")
 		_park(field, "channel_skiff", story.far_shore)
 		story.tick(0.1)
 	elif id == "archipelago_rising":
+		_kill_duty(field, "clear")
 		_park(field, "channel_skiff", story.shallow_pad)
 		story.tick(0.1)
 	elif id == "ghosts_of_patani":
@@ -1956,29 +1997,39 @@ func _meet_story(scene: Node, id: String) -> void:
 		story.tick(0.1)
 	elif id == "plain_of_jars":
 		var tube: RTSUnit = _kind_unit(field, "monsoon_tube")
-		var foe: RTSUnit = field.units_of(1)[0]
+		var foe: RTSUnit = _duty_units(field, "phantom")[0]
 		foe.max_hp = 100000.0
 		foe.hp = 100000.0
 		field.selection.units.append(tube)
 		field.cast_f(foe.global_position)
 		field.tick(2.0)
 		story.tick(0.1)
+		_kill_duty(field, "phantom")
+		_kill_duty(field, "battery")
+		story.tick(0.1)
 	elif id == "operation_1027":
 		_press_proto(scene, "drone_swarm_23")
+		_kill_duty(field, "tower")
+		story.tick(0.1)
+		_kill_duty(field, "hangar")
 		story.tick(0.1)
 	elif id == "wrath_of_the_garuda":
 		_press_proto(scene, "su30_napalm")
+		_kill_duty(field, "fleet")
 		story.tick(0.1)
 	elif id == "keng_tung":
 		_press_proto(scene, "toxic_defoliation")
 		story.tick(0.1)
+		_kill_duty(field, "column")
+		story.tick(0.1)
 	elif id == "tonle_sap":
 		_press_proto(scene, "cryogeddon")
-		story.tick(0.1)
+		story.tick(story.hold_left)
 	elif id == "shattered_monsoon":
 		_press_proto(scene, "cash_bounty")
 		_press_proto(scene, "advanced_rocket_pods")
 		_press_proto(scene, "cryoshot")
+		_kill_duty(field, "super")
 		story.tick(0.1)
 
 func _park(field: SMPointer, kind: String, at: Vector3) -> void:
@@ -1997,6 +2048,31 @@ func _press_proto(scene: Node, id: String) -> void:
 	var button: Button = scene.find_child("Proto_%s" % id, true, false) as Button
 	if button != null:
 		button.pressed.emit()
+
+func _cast_story(scene: Node, id: String) -> void:
+	if id == "operation_1027":
+		_press_proto(scene, "drone_swarm_23")
+	elif id == "wrath_of_the_garuda":
+		_press_proto(scene, "su30_napalm")
+	elif id == "keng_tung":
+		_press_proto(scene, "toxic_defoliation")
+	elif id == "tonle_sap":
+		_press_proto(scene, "cryogeddon")
+	elif id == "shattered_monsoon":
+		_press_proto(scene, "cash_bounty")
+		_press_proto(scene, "advanced_rocket_pods")
+		_press_proto(scene, "cryoshot")
+
+func _duty_units(field: SMPointer, duty: String) -> Array[RTSUnit]:
+	var out: Array[RTSUnit] = []
+	for u: RTSUnit in field.units:
+		if is_instance_valid(u) and u.is_alive() and str(u.get_meta("duty", "")) == duty:
+			out.append(u)
+	return out
+
+func _kill_duty(field: SMPointer, duty: String) -> void:
+	for u: RTSUnit in _duty_units(field, duty):
+		u.take_damage(u.hp + 1.0)
 
 func test_sm_web() -> void:
 	SMSave.clear()
