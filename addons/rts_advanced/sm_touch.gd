@@ -5,6 +5,8 @@ var points: Dictionary[int, Vector2] = {}
 var span: float = 0.0
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _toggle_help(event):
+		return
 	var touch: InputEventScreenTouch = event as InputEventScreenTouch
 	if touch != null:
 		if touch.pressed:
@@ -27,6 +29,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		span = next
 	else:
 		pan_camera(camera, drag.relative)
+
+func _toggle_help(event: InputEvent) -> bool:
+	var key: InputEventKey = event as InputEventKey
+	if key == null or not key.pressed or key.echo or key.keycode != KEY_H:
+		return false
+	var overlay: Control = get_tree().root.find_child("HowToOverlay", true, false) as Control
+	if overlay == null:
+		return false
+	overlay.visible = not overlay.visible
+	get_viewport().set_input_as_handled()
+	return true
 
 func pan_camera(camera: RTSCamera, slide: Vector2) -> void:
 	if camera == null:

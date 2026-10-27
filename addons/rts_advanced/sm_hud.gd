@@ -16,6 +16,12 @@ var weather_label: Label
 var selection_label: Label
 var build_label: Label
 var minimap: SMMinimap
+var sfx: SMSfx
+var guide_panel: Control
+var tutorial_label: Label
+var tip_panel: Control
+var tip_label: Label
+var hover_tip: String = ""
 
 func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: SMSide, p_map: String, p_rally: Vector3, ability: Callable, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	field = p_field
@@ -49,6 +55,13 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	selection_label = _label(layer, "HudSelection", Vector2(16, 648), 16)
 	selection_label.custom_minimum_size = Vector2(980, 28)
 	_column(layer)
+	_guide(layer)
+	_tip(layer)
+	sfx = SMSfx.new()
+	sfx.mount(layer)
+	if field != null:
+		field.on_cue = Callable(sfx, "play")
+	layer.set_meta("hud", self)
 	refresh()
 
 func use_sight(p_sight: SMSight) -> void:
@@ -75,9 +88,27 @@ func refresh() -> void:
 			sky = minimap.sight.weather_name
 		weather_label.text = sky
 	selection_label.text = _selection_line()
+	_paint_tip()
 	if minimap != null:
 		minimap.sample()
 		minimap.queue_redraw()
+
+func set_tutorial(text: String) -> void:
+	if tutorial_label == null:
+		return
+	tutorial_label.text = text
+	tutorial_label.visible = text != ""
+	if text != "" and guide_panel != null:
+		guide_panel.visible = true
+
+static func present_tip(host: Node, text: String) -> void:
+	if host == null or not host.has_meta("hud"):
+		return
+	var hud: SMHud = host.get_meta("hud") as SMHud
+	if hud == null:
+		return
+	hud.hover_tip = text
+	hud._paint_tip()
 
 func _column(layer: CanvasLayer) -> void:
 	var scroll: ScrollContainer = ScrollContainer.new()
@@ -104,18 +135,20 @@ func _column(layer: CanvasLayer) -> void:
 					continue
 				var node_name: String = "MovePacker" if str(id) == "packer" else "Build_%s" % str(id)
 				var caption: String = side.building_label(id) if side != null else _pretty(str(id))
-				_button(box, node_name, caption, _order.bind(id))
+				var row: Dictionary = item
+				_button(box, node_name, caption, _order.bind(id), SMGuide.building_tip(row), "ui")
 	if side != null and side.yard.super_name != "":
-		_button(box, "Super_%s" % str(side.yard.super_id), side.yard.super_name, _super)
+		var super_tip: String = "%s. Area hit, then it cools down." % side.yard.super_name
+		_button(box, "Super_%s" % str(side.yard.super_id), side.yard.super_name, _super, super_tip, "ability")
 	_header(box, "GroupUnits", "Units")
 	for unit: Dictionary in SMCatalog.units_of(data):
 		var uid: StringName = StringName(str(unit.get("id", "")))
 		if str(uid) == "":
 			continue
 		var caption: String = str(unit.get("display_name", str(uid)))
-		_button(box, "Train_%s" % str(uid), caption, _train.bind(uid))
+		_button(box, "Train_%s" % str(uid), caption, _train.bind(uid), SMGuide.unit_tip(unit), "ui")
 	_header(box, "GroupAbility", "Ability")
-	_button(box, "AbilityButton", "Ability (F)", _ability)
+	_button(box, "AbilityButton", "Ability (F)", _ability, SMGuide.ability_tip(), "ability")
 
 func _super() -> void:
 	if side == null or field == null:
@@ -215,15 +248,133 @@ func _header(box: VBoxContainer, node_name: String, text: String) -> void:
 	label.add_theme_color_override("font_color", Color(0.9, 0.78, 0.45))
 	box.add_child(label)
 
-func _button(box: VBoxContainer, node_name: String, text: String, fn: Callable) -> void:
+func _guide(layer: CanvasLayer) -> void:
+	var help: Button = Button.new()
+	help.name = "HelpButton"
+	help.text = "How to play (H)"
+	help.position = Vector2(16, 216)
+	help.custom_minimum_size = Vector2(200, 32)
+	help.add_theme_font_size_override("font_size", 15)
+	help.pressed.connect(_toggle_guide)
+	layer.add_child(help)
+	var hint: Label = Label.new()
+	hint.name = "ControlsHint"
+	hint.text = SMGuide.controls_hint()
+	hint.position = Vector2(224, 684)
+	hint.custom_minimum_size = Vector2(780, 28)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size", 15)
+	hint.add_theme_color_override("font_color", Color(0.96, 0.94, 0.86))
+	layer.add_child(hint)
+	var panel: PanelContainer = PanelContainer.new()
+	panel.name = "HowToOverlay"
+	panel.position = Vector2(224, 210)
+	panel.custom_minimum_size = Vector2(780, 250)
+	panel.z_index = 30
+	panel.visible = true
+	layer.add_child(panel)
+	guide_panel = panel
+	var box: VBoxContainer = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	panel.add_child(box)
+	var title: Label = Label.new()
+	title.name = "HowToTitle"
+	title.text = "How to play"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(0.95, 0.86, 0.45))
+	box.add_child(title)
+	tutorial_label = Label.new()
+	tutorial_label.name = "TutorialPrompt"
+	tutorial_label.visible = false
+	tutorial_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tutorial_label.custom_minimum_size = Vector2(740, 0)
+	tutorial_label.add_theme_font_size_override("font_size", 18)
+	tutorial_label.add_theme_color_override("font_color", Color(0.98, 0.96, 0.9))
+	box.add_child(tutorial_label)
+	var body: Label = Label.new()
+	body.name = "HowToBody"
+	body.text = SMGuide.howto_text()
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size = Vector2(740, 140)
+	body.add_theme_font_size_override("font_size", 16)
+	body.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
+	box.add_child(body)
+	var close: Button = Button.new()
+	close.name = "HowToClose"
+	close.text = "Got it"
+	close.custom_minimum_size = Vector2(160, 36)
+	close.add_theme_font_size_override("font_size", 16)
+	close.pressed.connect(_hide_guide)
+	box.add_child(close)
+
+func _tip(layer: CanvasLayer) -> void:
+	var panel: PanelContainer = PanelContainer.new()
+	panel.name = "TipPanel"
+	panel.position = Vector2(224, 620)
+	panel.custom_minimum_size = Vector2(780, 56)
+	panel.visible = false
+	panel.z_index = 12
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(panel)
+	tip_panel = panel
+	tip_label = Label.new()
+	tip_label.name = "UnitTip"
+	tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tip_label.custom_minimum_size = Vector2(760, 48)
+	tip_label.add_theme_font_size_override("font_size", 16)
+	tip_label.add_theme_color_override("font_color", Color(0.97, 0.96, 0.92))
+	panel.add_child(tip_label)
+
+func _toggle_guide() -> void:
+	if guide_panel != null:
+		guide_panel.visible = not guide_panel.visible
+
+func _hide_guide() -> void:
+	if guide_panel != null:
+		guide_panel.visible = false
+
+func _enter_tip(text: String) -> void:
+	hover_tip = text
+	_paint_tip()
+
+func _exit_tip() -> void:
+	hover_tip = ""
+	_paint_tip()
+
+func _paint_tip() -> void:
+	if tip_label == null or tip_panel == null:
+		return
+	var text: String = hover_tip if hover_tip != "" else _selection_tip()
+	tip_label.text = text
+	tip_panel.visible = text != ""
+
+func _selection_tip() -> String:
+	if field == null or field.selection.count() <= 0:
+		return ""
+	var first: RTSUnit = field.selection.units[0]
+	var ability: String = str(first.get_meta("ability", "ability"))
+	var loco: String = str(first.get_meta("locomotion", "ground"))
+	var weapon: String = str(first.get_meta("weapon", "weapon"))
+	return "%s. HP %d/%d. %s for %d. Moves on %s. F: %s." % [field.name_of(first), int(round(first.hp)), int(round(first.max_hp)), weapon, int(round(first.attack_damage)), loco, ability]
+
+func _button(box: VBoxContainer, node_name: String, text: String, fn: Callable, tip: String, cue: String) -> void:
 	var b: Button = Button.new()
 	b.name = node_name
 	b.text = text
+	b.tooltip_text = tip
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.custom_minimum_size = Vector2(200, 28)
 	b.add_theme_font_size_override("font_size", 14)
-	b.pressed.connect(fn)
+	b.mouse_entered.connect(_enter_tip.bind(tip))
+	b.mouse_exited.connect(_exit_tip)
+	b.pressed.connect(_press_cue.bind(fn, cue))
 	box.add_child(b)
+
+func _press_cue(fn: Callable, cue: String) -> void:
+	if sfx != null:
+		sfx.play(cue)
+	if fn.is_valid():
+		fn.call()
 
 func _label(parent: Node, node_name: String, pos: Vector2, size: int) -> Label:
 	var label: Label = Label.new()

@@ -87,7 +87,7 @@ func _skirmish() -> void:
 
 func _campaign() -> void:
 	var note: Label = Label.new()
-	note.text = "Pick an act. Each mission is one text briefing."
+	note.text = "Start with Kokang and Mogok. The match opens with a short lesson."
 	note.position = Vector2(48, 8)
 	note.add_theme_color_override("font_color", Color(0.7, 0.74, 0.78))
 	campaign_panel.add_child(note)

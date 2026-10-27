@@ -24,6 +24,7 @@ func _ready() -> void:
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of("kokang"), rally, Callable(self, "fire_secondary"), grid, cam)
+	hud.set_tutorial(SMGuide.tutorial_for("kokang"))
 
 func scripted_playthrough() -> bool:
 	var ok: bool = mission.playthrough()

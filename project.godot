@@ -9,6 +9,7 @@ config/features=PackedStringArray("4.7")
 [autoload]
 
 SMTouch="*res://addons/rts_advanced/sm_touch.gd"
+SMWeb="*res://addons/rts_advanced/sm_web.gd"
 
 [debug]
 gdscript/warnings/untyped_declaration=2
@@ -27,3 +28,7 @@ locale/translations=PackedStringArray("res://localization/demo.en.translation", 
 [rendering]
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+anti_aliasing/quality/msaa_2d=0
+anti_aliasing/quality/msaa_3d=0
+shading/overrides/force_lambert_over_burley=true
+lights_and_shadows/directional_shadow/size=512

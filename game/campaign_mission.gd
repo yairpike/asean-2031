@@ -27,6 +27,7 @@ func _ready() -> void:
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of(mission_id), rally, Callable(self, "fire_secondary"), grid, cam)
+	hud.set_tutorial(SMGuide.tutorial_for(mission_id))
 	var fx: Script = preload("res://addons/rts_advanced/sm_fx.gd")
 	fx.dress(self)
 

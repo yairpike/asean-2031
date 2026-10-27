@@ -96,6 +96,65 @@ func display_name(id: StringName) -> String:
 		return "Sleeper Ambush"
 	return ""
 
+func blurb(id: StringName) -> String:
+	var name: String = display_name(id)
+	if name == "":
+		return ""
+	return "%s. %s" % [name, _hint(id)]
+
+func _hint(id: StringName) -> String:
+	if id == &"cash_bounty":
+		return "Pays 250 credits once."
+	if id == &"grinder_treads":
+		return "Speeds the company up. One cast."
+	if id == &"mogok_night_shift":
+		return "Starts the ruby night shift. One cast."
+	if id == &"thai_border_mass_print":
+		return "Prints a batch of units. One cast."
+	if id == &"robotic_assembly":
+		return "Opens robotic assembly. One cast."
+	if id == &"free_trade":
+		return "Opens trade income. One cast."
+	if id == &"high_technology":
+		return "Raises the tech rank. One cast."
+	if id == &"advanced_rocket_pods":
+		return "Raises weapon damage. One cast."
+	if id == &"magnetic_satellite":
+		return "Locks a satellite on the target. One cast."
+	if id == &"su30_napalm":
+		return "A napalm run. It does not finish the mission."
+	if id == &"honorable_discharge":
+		return "Discharges a held unit. One cast."
+	if id == &"kamikaze_drone_squadron":
+		return "Sends a drone squadron. One cast."
+	if id == &"point_defense_drones":
+		return "Raises a shield. It can be cast again after it cools."
+	if id == &"drone_swarm_23":
+		return "Chips the towers. It does not finish the mission."
+	if id == &"toxic_defoliation":
+		return "Freezes the tank column. It does not finish the mission."
+	if id == &"straits_pirate_raid":
+		return "A pirate haul. One cast."
+	if id == &"balloon_bomb_barrage":
+		return "A balloon barrage. One cast."
+	if id == &"century_carpet_bomber":
+		return "A carpet run. One cast."
+	if id == &"cryoshot":
+		return "Freezes one target. One cast."
+	if id == &"cryogeddon":
+		return "Freezes the trimarans for a while. It does not finish the mission."
+	if id == &"satellite_recon":
+		return "Reveals the field. One cast."
+	if id == &"gps_spoofing":
+		return "Spoofs GPS guidance. One cast."
+	if id == &"orlan_thermal_scan":
+		return "A thermal scan. One cast."
+	if id == &"time_bomb":
+		return "Arms a bomb. One cast."
+	if id == &"sleeper_ambush":
+		return "Sets an ambush. One cast."
+	return "One cast, then it is spent."
+
 func effect_of(id: StringName) -> String:
 	return str(marks.get(id, ""))
 
@@ -157,12 +216,19 @@ func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: 
 		b.name = "Proto_%s" % str(id)
 		b.text = display_name(id)
 		b.clip_text = true
-		b.custom_minimum_size = Vector2(154, 20)
-		b.add_theme_font_size_override("font_size", 11)
+		b.custom_minimum_size = Vector2(154, 24)
+		b.add_theme_font_size_override("font_size", 13)
+		var line: String = blurb(id)
+		b.tooltip_text = line
+		b.mouse_entered.connect(_show_tip.bind(layer, line))
+		b.mouse_exited.connect(_show_tip.bind(layer, ""))
 		b.pressed.connect(_press_power.bind(id, economy, team, abilities, say))
 		grid.add_child(b)
 	layer.add_child(scroll)
 	return scroll
+
+func _show_tip(layer: Node, text: String) -> void:
+	SMHud.present_tip(layer, text)
 
 func _press_power(id: StringName, economy: RTSEconomy, team: int, abilities: SMAbilities, say: Callable) -> void:
 	var target: int = -1

@@ -71,6 +71,7 @@ func _run() -> void:
 	await H.section("test_sm_play", test_sm_play)
 	await H.section("test_sm_web", test_sm_web)
 	await H.section("test_sm_boot", test_sm_boot)
+	await H.section("test_sm_guide", test_sm_guide)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2385,6 +2386,70 @@ func test_sm_web() -> void:
 	SMSave.clear()
 	SMCampaign.selected = "tachileik"
 	await process_frame
+
+func test_sm_guide() -> void:
+	var hint: String = SMGuide.controls_hint()
+	check(hint.contains("Right-click") and hint.contains("F") and hint.contains("H"), "the controls hint names select, attack, F, and H")
+	var howto: String = SMGuide.howto_text()
+	check(howto.contains("Right-click") and howto.contains("Objective complete") and howto.contains("Objective failed"), "the how-to names move, attack, and both endings")
+	var lesson: String = SMGuide.tutorial_for("kokang")
+	check(lesson.contains("First mission") and lesson.contains("ruby night shift") and lesson.contains("company dies"), "kokang opens with a lesson")
+	check(SMGuide.tutorial_for("tachileik") == "", "later missions do not repeat the first lesson")
+	var militia: Dictionary = {}
+	for row: Dictionary in SMCatalog.units_of(SMCatalog.faction("gtfc")):
+		if str(row.get("id", "")) == "militia":
+			militia = row
+	var tip: String = SMGuide.unit_tip(militia)
+	check(tip.contains("Shan Insurgent Militia") and tip.contains("Slag Molotov") and tip.contains("HP"), "a unit tip names health and the F ability")
+	check(SMGuide.ability_tip().contains("closest ready unit"), "the ability tip explains smart-cast")
+	var ui: AudioStreamWAV = SMTone.cue("ui")
+	var shot: AudioStreamWAV = SMTone.cue("attack")
+	check(SMTone.peak(ui) > 1000 and SMTone.peak(shot) > 1000 and shot.data.size() > ui.data.size(), "procedural cues are audible and the attack cue is longer")
+	check(bool(ProjectSettings.get_setting("rendering/shading/overrides/force_lambert_over_burley", false)) and int(ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d", 1)) == 0, "web shading is lambert and MSAA is off")
+	var sun: DirectionalLight3D = DirectionalLight3D.new()
+	sun.shadow_enabled = true
+	Callable(load("res://addons/rts_advanced/sm_web.gd"), "quiet_node").call(sun)
+	check(not sun.shadow_enabled, "the web pass turns directional shadows off")
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var controls: Label = scene.find_child("ControlsHint", true, false) as Label
+	var overlay: Control = scene.find_child("HowToOverlay", true, false) as Control
+	var body: Label = scene.find_child("HowToBody", true, false) as Label
+	check(controls != null and controls.visible and controls.text == hint, "a match shows the controls hint")
+	check(overlay != null and overlay.visible and body != null and body.text == howto, "a match opens the how-to overlay")
+	var close: Button = scene.find_child("HowToClose", true, false) as Button
+	close.pressed.emit()
+	check(overlay != null and not overlay.visible, "Got it hides the how-to overlay")
+	var help: Button = scene.find_child("HelpButton", true, false) as Button
+	help.pressed.emit()
+	check(overlay != null and overlay.visible, "How to play shows the overlay again")
+	var train: Button = scene.find_child("Train_militia", true, false) as Button
+	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
+	check(train != null and train.tooltip_text.contains("Slag Molotov"), "the train button tooltip names the F ability")
+	check(ability != null and ability.tooltip_text.contains("closest ready unit"), "the ability button tooltip explains F")
+	var proto: Button = scene.find_child("Proto_cash_bounty", true, false) as Button
+	check(proto != null and proto.tooltip_text.contains("Cash Bounty") and proto.tooltip_text.contains("250"), "a protocol button tooltip names the power and its effect")
+	var cue: AudioStreamPlayer = scene.find_child("CuePlayer", true, false) as AudioStreamPlayer
+	train.pressed.emit()
+	var played: AudioStreamWAV = cue.stream as AudioStreamWAV if cue != null else null
+	check(cue != null and played != null and SMTone.peak(played) > 1000, "training plays a procedural cue")
+	var tip_label: Label = scene.find_child("UnitTip", true, false) as Label
+	train.mouse_entered.emit()
+	check(tip_label != null and tip_label.visible and tip_label.text.contains("Slag Molotov"), "hovering a unit shows a readable tip")
+	scene.free()
+	await process_frame
+	SMCampaign.selected = "kokang"
+	var raid: Node = (load("res://game/mission_kokang.tscn") as PackedScene).instantiate()
+	root.add_child(raid)
+	await process_frame
+	var lesson_label: Label = raid.find_child("TutorialPrompt", true, false) as Label
+	check(lesson_label != null and lesson_label.visible and lesson_label.text == lesson, "kokang shows the first-mission lesson")
+	raid.free()
+	await process_frame
+	SMCampaign.selected = "tachileik"
+	SMFront.faction_id = "gtfc"
 
 func test_sm_boot() -> void:
 	SMSave.clear()

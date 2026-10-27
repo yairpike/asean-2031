@@ -28,6 +28,7 @@ var box: RTSSelectionBox
 var cam: RTSCamera
 var host: Node3D
 var ew: SMEwField
+var on_cue: Callable
 const FX = preload("res://addons/rts_advanced/sm_fx.gd")
 const F_COOLDOWN: float = 3.0
 const BEAM_TIME: float = 1.5
@@ -284,7 +285,10 @@ func count_team(team: int) -> int:
 	return units_of(team).size()
 
 func select_click(screen: Vector2, project_fn: Callable) -> RTSUnit:
-	return selection.select_at(screen, units, project_fn, false, false, PICK_PX)
+	var picked: RTSUnit = selection.select_at(screen, units, project_fn, false, false, PICK_PX)
+	if picked != null:
+		_cue("select")
+	return picked
 
 func select_drag(rect: Rect2, project_fn: Callable) -> int:
 	return selection.select_box(rect, units, project_fn, false)
@@ -300,6 +304,8 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 			if is_instance_valid(u) and u.is_alive():
 				var one: Array[RTSUnit] = [u]
 				hit += RTSOrders.attack(one, foe, nav_for_unit(u), teams)
+		if hit > 0:
+			_cue("attack")
 		return &"attack" if hit > 0 else &"none"
 	if ground == Vector3.INF:
 		return &"none"
@@ -327,7 +333,13 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 		mover.attack_target = null
 		mover.set_path(route)
 		sent += 1
+	if sent > 0:
+		_cue("move")
 	return &"move" if sent > 0 else &"none"
+
+func _cue(kind: String) -> void:
+	if on_cue.is_valid():
+		on_cue.call(kind)
 
 func enemy_near(screen: Vector2, ground: Vector3, project_fn: Callable) -> RTSUnit:
 	var best: RTSUnit = null
