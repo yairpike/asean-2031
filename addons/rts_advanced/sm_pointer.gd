@@ -35,6 +35,9 @@ var marks: Array[Node3D] = []
 var group_note: String = ""
 var group_note_t: float = 0.0
 var beacon_at: Vector3 = Vector3.INF
+var line_formation: bool = false
+var last_pick: int = 0
+var last_pick_ms: int = 0
 const FX = preload("res://addons/rts_advanced/sm_fx.gd")
 const F_COOLDOWN: float = 3.0
 const BEAM_TIME: float = 1.5
@@ -344,18 +347,56 @@ func units_of(team: int) -> Array[RTSUnit]:
 func count_team(team: int) -> int:
 	return units_of(team).size()
 
-func select_click(screen: Vector2, project_fn: Callable) -> RTSUnit:
-	var picked: RTSUnit = selection.select_at(screen, units, project_fn, false, false, PICK_PX)
-	if picked != null:
+func select_click(screen: Vector2, project_fn: Callable, add: bool = false, toggle: bool = false) -> RTSUnit:
+	var picked: RTSUnit = selection.select_at(screen, units, project_fn, add, toggle, PICK_PX)
+	if picked != null and not add and not toggle and _fresh_double(picked):
+		select_kind(picked.unit_type)
+	elif picked != null and picked.selected:
 		_cue("select")
 		announce(picked, "select")
 	return picked
 
-func select_drag(rect: Rect2, project_fn: Callable) -> int:
-	return selection.select_box(rect, units, project_fn, false)
+func select_drag(rect: Rect2, project_fn: Callable, add: bool = false) -> int:
+	return selection.select_box(rect, units, project_fn, add)
+
+func select_kind(kind: StringName) -> int:
+	var found: Array[RTSUnit] = []
+	for u: RTSUnit in units_of(PLAYER):
+		if u.unit_type == kind:
+			found.append(u)
+	select_only(found)
+	if not found.is_empty():
+		group_note = "All %s" % name_of(found[0])
+		group_note_t = 1.4
+	return found.size()
+
+func select_same() -> int:
+	if selection.count() <= 0:
+		return select_company()
+	return select_kind(selection.units[0].unit_type)
+
+func select_company() -> int:
+	select_only(units_of(PLAYER))
+	group_note = "Company"
+	group_note_t = 1.2
+	return selection.count()
+
+func toggle_line() -> bool:
+	line_formation = not line_formation
+	group_note = "Line" if line_formation else "Box"
+	group_note_t = 1.4
+	return line_formation
+
+func _fresh_double(u: RTSUnit) -> bool:
+	var now: int = Time.get_ticks_msec()
+	var id: int = u.get_instance_id()
+	var hit: bool = last_pick == id and now - last_pick_ms < 320
+	last_pick = id
+	last_pick_ms = now
+	return hit
 
 ## Right click. Returns "attack", "move", or "none".
-func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> StringName:
+func command_at(ground: Vector3, screen: Vector2, project_fn: Callable, queue: bool = false) -> StringName:
 	if selection.count() <= 0:
 		return &"none"
 	var foe: RTSUnit = enemy_near(screen, ground, project_fn)
@@ -373,15 +414,18 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 		return &"attack" if hit > 0 else &"none"
 	if ground == Vector3.INF:
 		return &"none"
-	var sent: int = _send(ground, false)
+	var sent: int = _send(ground, false, queue)
 	if sent > 0:
+		if queue:
+			group_note = "Waypoint"
+			group_note_t = 1.2
 		_cue("move")
 		announce(_first_player(), "move")
 		_mark(ground, "move")
 	return &"move" if sent > 0 else &"none"
 
 ## Walks the selection to formation slots. Hunt keeps them shooting on the way.
-func _send(ground: Vector3, hunt: bool) -> int:
+func _send(ground: Vector3, hunt: bool, queue: bool = false) -> int:
 	var live: Array[RTSUnit] = []
 	for u: RTSUnit in selection.units:
 		if is_instance_valid(u) and u.is_alive():
@@ -394,7 +438,7 @@ func _send(ground: Vector3, hunt: bool) -> int:
 		center += u.global_position
 		positions.append(u.global_position)
 	center /= float(live.size())
-	var slots: Array[Vector3] = RTSFormation.box(center, ground, live.size(), 2.0)
+	var slots: Array[Vector3] = RTSFormation.line(center, ground, live.size(), 2.0) if line_formation else RTSFormation.box(center, ground, live.size(), 2.0)
 	var pick: Array[int] = RTSFormation.assign(positions, slots)
 	var sent: int = 0
 	for i: int in live.size():
@@ -402,6 +446,14 @@ func _send(ground: Vector3, hunt: bool) -> int:
 		var slot: Vector3 = slots[pick[i]]
 		var route: PackedVector3Array = nav_for_unit(mover).find_path(mover.global_position, slot)
 		if route.is_empty():
+			continue
+		if queue and not mover.path.is_empty():
+			var tail: Vector3 = mover.path[mover.path.size() - 1]
+			var extra: PackedVector3Array = nav_for_unit(mover).find_path(tail, slot)
+			if extra.is_empty():
+				continue
+			mover.path.append_array(extra)
+			sent += 1
 			continue
 		mover.attack_target = null
 		mover.set_meta("hunt", hunt)
@@ -503,6 +555,34 @@ func place_beacon(at: Vector3) -> void:
 	pole.scale = Vector3(pulse, 1.0, pulse)
 	pole.position = Vector3(at.x, 3.6, at.z)
 	pole.visible = true
+
+func place_rally(at: Vector3) -> void:
+	if host == null or at == Vector3.INF:
+		return
+	var flag: MeshInstance3D = host.get_node_or_null("RallyFlag") as MeshInstance3D
+	if flag == null:
+		flag = MeshInstance3D.new()
+		flag.name = "RallyFlag"
+		var pole: BoxMesh = BoxMesh.new()
+		pole.size = Vector3(0.08, 1.5, 0.08)
+		flag.mesh = pole
+		flag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var ink: StandardMaterial3D = StandardMaterial3D.new()
+		ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		ink.albedo_color = Color(0.25, 0.85, 0.45)
+		flag.material_override = ink
+		var cloth: MeshInstance3D = MeshInstance3D.new()
+		cloth.name = "RallyCloth"
+		var sheet: BoxMesh = BoxMesh.new()
+		sheet.size = Vector3(0.7, 0.38, 0.06)
+		cloth.mesh = sheet
+		cloth.position = Vector3(0.35, 0.5, 0.0)
+		cloth.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		cloth.material_override = ink
+		flag.add_child(cloth)
+		host.add_child(flag)
+	flag.position = Vector3(at.x, 0.8, at.z)
+	flag.visible = true
 
 func _cue(kind: String) -> void:
 	if on_cue.is_valid():
@@ -739,14 +819,16 @@ func handle_button(mb: InputEventMouseButton) -> bool:
 			box.begin(mb.position)
 		else:
 			var project_fn: Callable = Callable(self, "project_point")
+			var add: bool = mb.shift_pressed
+			var toggle: bool = mb.ctrl_pressed and not add
 			if box.is_box():
-				select_drag(box.rect(), project_fn)
+				select_drag(box.rect(), project_fn, add)
 			else:
-				select_click(mb.position, project_fn)
+				select_click(mb.position, project_fn, add, toggle)
 			box.end()
 		return true
 	if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
-		command_at(cam.ground_at(mb.position), mb.position, Callable(self, "project_point"))
+		command_at(cam.ground_at(mb.position), mb.position, Callable(self, "project_point"), mb.shift_pressed)
 		return true
 	return false
 

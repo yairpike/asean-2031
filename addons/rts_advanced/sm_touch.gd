@@ -62,6 +62,22 @@ func _command_key(event: InputEvent) -> bool:
 		match_field.attack_move_at(at)
 		get_viewport().set_input_as_handled()
 		return true
+	if key.keycode == KEY_E:
+		match_field.select_same()
+		get_viewport().set_input_as_handled()
+		return true
+	if key.keycode == KEY_Z:
+		match_field.toggle_line()
+		get_viewport().set_input_as_handled()
+		return true
+	if key.keycode == KEY_R:
+		var board: SMHud = _hud()
+		if board == null:
+			return false
+		var rally_cam: RTSCamera = _camera()
+		board.set_rally(match_field.aim_from_camera(rally_cam, get_viewport().get_mouse_position()))
+		get_viewport().set_input_as_handled()
+		return true
 	var index: int = _digit(key.keycode)
 	if index < 1:
 		return false
@@ -86,6 +102,15 @@ func _digit(code: Key) -> int:
 	if code >= KEY_KP_1 and code <= KEY_KP_9:
 		return int(code) - int(KEY_KP_1) + 1
 	return 0
+
+func _hud() -> SMHud:
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return null
+	var raw: Variant = scene.get("hud")
+	if raw is SMHud:
+		return raw as SMHud
+	return null
 
 func _field() -> SMPointer:
 	var scene: Node = get_tree().current_scene

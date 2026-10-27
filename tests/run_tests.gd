@@ -76,6 +76,7 @@ func _run() -> void:
 	await H.section("test_sm_orders_mark", test_sm_orders_mark)
 	await H.section("test_sm_goal", test_sm_goal)
 	await H.section("test_sm_command", test_sm_command)
+	await H.section("test_sm_pick", test_sm_pick)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2677,6 +2678,74 @@ func test_sm_command() -> void:
 	var hint: String = SMGuide.controls_hint()
 	var howto: String = SMGuide.howto_text()
 	check(hint.contains("attack-move") and hint.contains("Ctrl") and howto.contains("floating number") and howto.contains("objective"), "the guide names groups, attack-move, and the objective marker")
+	SMCampaign.selected = "tachileik"
+	SMFront.faction_id = "gtfc"
+
+func test_sm_pick() -> void:
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var cam: RTSCamera = RTSCamera.new()
+	host.add_child(cam)
+	var field: SMPointer = SMPointer.new()
+	field.bind(host, cam)
+	field.use_open(30, 30, 2.0, Vector3(-30.0, 0.0, -30.0))
+	var a: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3.ZERO, &"militia")
+	var b: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(2.0, 0.0, 0.0), &"militia")
+	var c: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(4.0, 0.0, 0.0), &"militia")
+	var tank: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(0.0, 0.0, 4.0), &"amber_tank")
+	var project: Callable = Callable(self, "_proj")
+	field.select_click(_proj(a.global_position), project)
+	field.select_click(_proj(b.global_position), project, true, false)
+	check(a.selected and b.selected and field.selection.count() == 2, "shift-click adds to the selection")
+	field.select_click(_proj(b.global_position), project, false, true)
+	check(a.selected and not b.selected, "ctrl-click toggles a unit off")
+	field.select_click(_proj(a.global_position), project)
+	field.select_click(_proj(a.global_position), project)
+	check(a.selected and b.selected and c.selected and not tank.selected, "a double-click selects every unit of that type")
+	field.selection.clear()
+	check(field.select_same() == 4 and tank.selected, "E with nothing selected takes the company")
+	field.select_only([a])
+	check(field.select_same() == 3 and not tank.selected, "E selects every unit of the current type")
+	field.select_only([a, b, c])
+	field.toggle_line()
+	var lined: StringName = field.command_at(Vector3(14.0, 0.0, 0.0), Vector2(-800.0, -800.0), project)
+	var low_x: float = 1000.0
+	var high_x: float = -1000.0
+	var low_z: float = 1000.0
+	var high_z: float = -1000.0
+	for u: RTSUnit in [a, b, c]:
+		if u.path.is_empty():
+			continue
+		var end: Vector3 = u.path[u.path.size() - 1]
+		low_x = minf(low_x, end.x)
+		high_x = maxf(high_x, end.x)
+		low_z = minf(low_z, end.z)
+		high_z = maxf(high_z, end.z)
+	check(lined == &"move" and not a.path.is_empty() and (high_z - low_z) > (high_x - low_x) + 0.5, "Z lines the company up")
+	field.select_only([a])
+	field.command_at(Vector3(8.0, 0.0, 0.0), Vector2(-800.0, -800.0), project)
+	var steps: int = a.path.size()
+	var queued: StringName = field.command_at(Vector3(8.0, 0.0, 8.0), Vector2(-800.0, -800.0), project, true)
+	check(queued == &"move" and a.path.size() > steps and field.group_note == "Waypoint", "shift-right-click adds a waypoint")
+	host.free()
+	await process_frame
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var hud: SMHud = scene.get("hud") as SMHud
+	hud.set_rally(Vector3(8.0, 0.0, -4.0))
+	var flag: MeshInstance3D = scene.get_node_or_null("RallyFlag") as MeshInstance3D
+	check(flag != null and flag.visible and absf(flag.position.x - 8.0) < 0.05 and absf(flag.position.z + 4.0) < 0.05, "R moves the rally flag")
+	var roster: SMRoster = scene.get("roster") as SMRoster
+	roster.economy.set_credits(0, roster.economy.credits(0) + 30)
+	hud._apply_purse(1.0)
+	check(hud.purse_flash == "+30" and hud.income_label.text.contains("+30"), "the top bar shows credits gained")
+	var hint: String = SMGuide.controls_hint()
+	var howto: String = SMGuide.howto_text()
+	check(hint.contains("rally") and hint.contains("waypoint") and howto.contains("credits gained"), "the guide names the rally flag, waypoints, and income")
+	scene.free()
+	await process_frame
 	SMCampaign.selected = "tachileik"
 	SMFront.faction_id = "gtfc"
 

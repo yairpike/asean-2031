@@ -10,6 +10,7 @@ var rally: Vector3 = Vector3.ZERO
 var on_ability: Callable
 var faction_label: Label
 var credits_label: Label
+var income_label: Label
 var power_label: Label
 var map_label: Label
 var weather_label: Label
@@ -24,6 +25,13 @@ var tip_label: Label
 var hover_tip: String = ""
 var radio_label: Label
 var radio_until: int = 0
+var purse_mark: int = -1
+var purse_ms: int = 0
+var purse_rate: int = 0
+var purse_window: float = 0.0
+var purse_gained: int = 0
+var purse_flash: String = ""
+var purse_flash_t: float = 0.0
 
 func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: SMSide, p_map: String, p_rally: Vector3, ability: Callable, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	field = p_field
@@ -44,6 +52,8 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	top.add_child(shade)
 	faction_label = _label(top, "HudFaction", Vector2(16, 8), 18)
 	credits_label = _label(top, "HudCredits", Vector2(180, 8), 18)
+	income_label = _label(top, "HudIncome", Vector2(340, 10), 15)
+	income_label.add_theme_color_override("font_color", Color(0.55, 0.9, 0.48))
 	power_label = _label(top, "HudPower", Vector2(460, 8), 18)
 	map_label = _label(top, "HudMap", Vector2(700, 8), 18)
 	weather_label = _label(top, "HudWeather", Vector2(980, 8), 16)
@@ -66,6 +76,8 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 		field.on_line = Callable(self, "show_line")
 		field.on_bark = Callable(sfx, "bark")
 	layer.set_meta("hud", self)
+	if field != null:
+		field.place_rally(rally)
 	refresh()
 
 func use_sight(p_sight: SMSight) -> void:
@@ -83,6 +95,7 @@ func refresh() -> void:
 	var purse: int = 0
 	if roster != null and roster.economy != null:
 		purse = roster.economy.credits(0)
+	_measure_purse()
 	credits_label.text = "Credits %d" % purse
 	power_label.text = "Power %d" % _power()
 	map_label.text = map_name
@@ -97,6 +110,58 @@ func refresh() -> void:
 	if minimap != null:
 		minimap.sample()
 		minimap.queue_redraw()
+
+func set_rally(at: Vector3) -> void:
+	if at == Vector3.INF:
+		return
+	rally = at
+	if field != null:
+		field.place_rally(at)
+	if build_label != null:
+		build_label.text = "Rally set"
+
+func _measure_purse() -> void:
+	var now: int = Time.get_ticks_msec()
+	var dt: float = 0.0
+	if purse_ms > 0:
+		dt = clampf(float(now - purse_ms) / 1000.0, 0.0, 1.0)
+	purse_ms = now
+	_apply_purse(dt)
+
+func _apply_purse(delta: float) -> void:
+	if roster == null or roster.economy == null:
+		return
+	var now_credits: int = roster.economy.credits(0)
+	if purse_mark < 0:
+		purse_mark = now_credits
+		return
+	var gain: int = now_credits - purse_mark
+	purse_mark = now_credits
+	if gain > 0:
+		purse_gained += gain
+		purse_flash = "+%d" % gain
+		purse_flash_t = 1.4
+	elif purse_flash_t > 0.0:
+		purse_flash_t = maxf(0.0, purse_flash_t - delta)
+	purse_window += maxf(delta, 0.0)
+	if purse_window >= 1.0:
+		purse_rate = int(round(float(purse_gained) / purse_window))
+		purse_gained = 0
+		purse_window = 0.0
+	_paint_income()
+
+func _paint_income() -> void:
+	if income_label == null:
+		return
+	var rate: String = "+%d/s" % purse_rate if purse_rate > 0 else ""
+	if rate != "" and purse_flash_t > 0.0 and purse_flash != "":
+		income_label.text = "%s  %s" % [rate, purse_flash]
+	elif rate != "":
+		income_label.text = rate
+	elif purse_flash_t > 0.0:
+		income_label.text = purse_flash
+	else:
+		income_label.text = ""
 
 func show_line(text: String) -> void:
 	if radio_label == null:
