@@ -162,10 +162,17 @@ func _order_internal(id: StringName) -> String:
 func _order_mobile(id: StringName) -> String:
 	if str(id) == "packer":
 		return "packer sailed" if move_packer() else "packer stayed packed"
-	if yard.unpacked and yard.factory_level(id) >= 1:
+	if yard.unpacked and yard.finished.has(id):
 		var raised: bool = upgrade_factory_named(id)
 		return "upgraded" if raised else "wharf not ready"
 	if yard.unpacked:
+		var slot: int = yard.finished.size()
+		if yard.place_annex(id):
+			var at: Vector3 = yard.packer_pos + Vector3(float(slot) * 4.0, 0.0, 2.0)
+			yard.structure_pos[id] = at
+			_slab("Built_%s" % str(id), SMPointer.building_at(at), SMPointer.BUILDING_SIZE, SMFront.accent())
+			_say("%s built" % building_label(id))
+			return "built"
 		_say("packer already unpacked")
 		return "packer already unpacked"
 	move_packer()

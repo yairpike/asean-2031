@@ -274,6 +274,7 @@ func _column(layer: CanvasLayer) -> void:
 	scroll.name = "CommandColumn"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = true
+	scroll.gui_input.connect(_drag_column)
 	_dock(scroll, -186.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
 	layer.add_child(scroll)
 	var box: VBoxContainer = VBoxContainer.new()
@@ -651,6 +652,34 @@ func _hide_guide() -> void:
 
 func guide_blocks() -> bool:
 	return OS.has_feature("web") and guide_panel != null and guide_panel.visible
+
+## The roster is taller than the column. A wheel or drag there scrolls the list.
+func column_hovered() -> bool:
+	if layer_node == null:
+		return false
+	var view: Viewport = layer_node.get_viewport()
+	if view == null:
+		return false
+	var hovered: Control = view.gui_get_hovered_control()
+	if hovered == null:
+		return false
+	var column: Node = layer_node.find_child("CommandColumn", true, false)
+	if column != null and (hovered == column or column.is_ancestor_of(hovered)):
+		return true
+	if phone_drawer != null and (hovered == phone_drawer or phone_drawer.is_ancestor_of(hovered)):
+		return true
+	return false
+
+func _drag_column(event: InputEvent) -> void:
+	var drag: InputEventScreenDrag = event as InputEventScreenDrag
+	if drag == null or sidebar == null:
+		return
+	var scroll: ScrollContainer = sidebar.get_parent() as ScrollContainer
+	if scroll == null:
+		return
+	scroll.scroll_vertical -= int(drag.relative.y)
+	if layer_node != null and layer_node.get_viewport() != null:
+		layer_node.get_viewport().set_input_as_handled()
 
 func _enter_tip(text: String) -> void:
 	hover_tip = text

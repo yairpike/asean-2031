@@ -1282,6 +1282,13 @@ func test_sm_hud() -> void:
 	var wharf: Button = burma.find_child("Build_gun_wharf", true, false) as Button
 	wharf.pressed.emit()
 	check(nmrf_side.yard.finished.has(&"gun_wharf"), "a wharf click unpacks the mobile core")
+	var turbine: Button = burma.find_child("Build_tidal_turbine", true, false) as Button
+	var air: Button = burma.find_child("Build_airfield", true, false) as Button
+	var naval: Button = burma.find_child("Build_naval_yard", true, false) as Button
+	turbine.pressed.emit()
+	air.pressed.emit()
+	naval.pressed.emit()
+	check(nmrf_side.yard.finished.has(&"tidal_turbine") and nmrf_side.yard.finished.has(&"airfield") and nmrf_side.yard.finished.has(&"naval_yard"), "later buildings annex beside the unpacked core")
 	burma.free()
 	SMFront.faction_id = "mvd"
 	var atoll: Node = (load("res://game/ten_degree_atolls.tscn") as PackedScene).instantiate()
@@ -2715,6 +2722,7 @@ func test_sm_guide() -> void:
 	check(map_label != null and map_label.size_flags_stretch_ratio >= 2.0, "the map name gets more of the top bar")
 	check(mm != null and mm.size.x <= 168.0 and mm.size.y <= 120.0, "the minimap stays clear of the briefing")
 	check(board != null and not board.guide_blocks(), "the how-to does not freeze a desktop sim")
+	check(board != null and not board.column_hovered(), "the build column leaves the camera wheel alone until the pointer is over it")
 	var buildings: Label = scene.find_child("GroupBuildings", true, false) as Label
 	var header_font: Font = buildings.get_theme_font(&"font") if buildings != null else null
 	check(buildings != null and buildings.theme_type_variation == "Header" and header_font != null and str(header_font.resource_path).contains("Warheed"), "section headers use the theme font")

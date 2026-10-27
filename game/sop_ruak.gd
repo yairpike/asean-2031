@@ -185,6 +185,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if mb != null:
 		if field.handle_button(mb):
 			return
+		if hud.column_hovered() and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+			return
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			cam.zoom_toward(1.0, cam.ground_at(mb.position))
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
