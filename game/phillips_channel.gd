@@ -21,7 +21,8 @@ func _ready() -> void:
 	_ui()
 	side.prepare(self, status, sim.grid, sim.yard.center, roster.economy)
 	_arm_units()
-	hud.mount(ui_layer, field, roster, side, "Phillips Channel", sim.yard.center, Callable(self, "_on_ability"))
+	var cam: RTSCamera = get_node("Camera") as RTSCamera
+	hud.mount(ui_layer, field, roster, side, "Phillips Channel", sim.yard.center, Callable(self, "_on_ability"), sim.grid, cam)
 
 func scripted_playthrough() -> bool:
 	return sim.script_phillips()

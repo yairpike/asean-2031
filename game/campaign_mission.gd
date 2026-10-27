@@ -3,6 +3,10 @@ extends Node3D
 
 var campaign: SMCampaign = SMCampaign.new()
 var field: SMPointer = SMPointer.new()
+var roster: SMRoster = SMRoster.new()
+var side: SMSide = SMSide.new()
+var hud: SMHud = SMHud.new()
+var grid: SMDomainGrid
 var briefing_text: String = ""
 var mission_id: String = ""
 var status: Label
@@ -13,9 +17,15 @@ func _ready() -> void:
 	if mission_id == "":
 		mission_id = "mae_sai"
 	briefing_text = SMCampaign.briefing_of(mission_id)
+	grid = SMDomainGrid.new(18, 12, 2.0, Vector3(-18.0, 0.0, -12.0))
 	_world()
 	_ui()
+	roster.setup("gtfc")
+	var rally: Vector3 = Vector3(-6.0, 0.0, -2.0)
+	side.prepare(self, status, grid, rally, roster.economy, "gtfc")
 	_arm_units()
+	var cam: RTSCamera = get_node("Camera") as RTSCamera
+	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of(mission_id), rally, Callable(self, "fire_secondary"), grid, cam)
 
 func scripted_playthrough() -> bool:
 	return finish_objective()
@@ -54,24 +64,24 @@ func _ui() -> void:
 	add_child(ui_layer)
 	var title: Label = Label.new()
 	title.text = SMCampaign.title_of(mission_id)
-	title.position = Vector2(24, 16)
+	title.position = Vector2(224, 48)
 	ui_layer.add_child(title)
 	var brief: Label = Label.new()
 	brief.name = "Briefing"
 	brief.text = briefing_text
-	brief.position = Vector2(24, 48)
-	brief.custom_minimum_size = Vector2(860, 64)
+	brief.position = Vector2(224, 76)
+	brief.custom_minimum_size = Vector2(780, 48)
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ui_layer.add_child(brief)
 	var goal: Button = Button.new()
 	goal.name = "ObjectiveButton"
 	goal.text = "Complete objective"
-	goal.position = Vector2(24, 120)
+	goal.position = Vector2(224, 132)
 	goal.pressed.connect(finish_objective)
 	ui_layer.add_child(goal)
 	var back: Button = Button.new()
 	back.text = "Boot menu"
-	back.position = Vector2(220, 120)
+	back.position = Vector2(420, 132)
 	back.pressed.connect(func() -> void:
 		get_tree().change_scene_to_file("res://game/boot.tscn")
 	)
@@ -79,14 +89,8 @@ func _ui() -> void:
 	status = Label.new()
 	status.name = "Status"
 	status.text = "Read the briefing, then complete the objective."
-	status.position = Vector2(24, 164)
+	status.position = Vector2(224, 176)
 	ui_layer.add_child(status)
-	var hint: Label = Label.new()
-	hint.text = "Left click selects. Drag a box. Right click ground moves. Right click an enemy attacks. F strikes."
-	hint.position = Vector2(24, 680)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.custom_minimum_size = Vector2(900, 28)
-	ui_layer.add_child(hint)
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
@@ -120,6 +124,7 @@ func _process(delta: float) -> void:
 		var vp: Viewport = get_viewport()
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
+	hud.refresh()
 
 func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera

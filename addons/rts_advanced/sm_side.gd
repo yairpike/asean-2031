@@ -11,10 +11,10 @@ var host: Node3D
 var status: Label
 var building_hp: Dictionary[StringName, float] = {}
 
-func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector3, purse: RTSEconomy) -> void:
+func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector3, purse: RTSEconomy, p_faction: String = "") -> void:
 	host = p_host
 	status = p_status
-	faction_id = SMFront.current()
+	faction_id = p_faction if p_faction != "" else SMFront.current()
 	economy = purse
 	var data: Dictionary = SMCatalog.faction(faction_id)
 	yard.team = 0

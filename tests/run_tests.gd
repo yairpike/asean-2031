@@ -820,6 +820,17 @@ func test_sm_mission() -> void:
 	var before: float = foe.hp
 	var struck: int = int(scene.call("fire_secondary"))
 	check(struck > 0 and foe.hp < before, "F strikes an enemy on the raid")
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudCredits") == "Credits 50000" and _hud_text(scene, "HudPower") == "Power 90" and _hud_text(scene, "HudMap") == SMCampaign.title_of("kokang") and _hud_text(scene, "HudSelection") == "Nothing selected", "the raid shows faction, credits, power, and the mission name")
+	var raid_map: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	if raid_map != null:
+		raid_map.sample()
+	var raid_cam: RTSCamera = scene.get_node("Camera") as RTSCamera
+	check(scene.find_child("CompanyList", true, false) == null and raid_map != null and raid_map.saw_land and not raid_map.saw_water and raid_map.player_dots == field.count_team(0) and raid_map.enemy_dots == field.count_team(1) and raid_map.covers_focus() and raid_cam != null, "the raid minimap shows land, your units, enemies, and the camera")
+	check(_click_east(scene), "clicking the raid minimap moves the camera")
+	var raid_build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+	var raid_train: Button = scene.find_child("Train_militia", true, false) as Button
+	var raid_ability: Button = scene.find_child("AbilityButton", true, false) as Button
+	check(raid_build != null and raid_train != null and raid_ability != null and raid_ability.text == "Ability (F)" and scene.find_child("GroupBuildings", true, false) != null and scene.find_child("GroupUnits", true, false) != null and scene.find_child("GroupAbility", true, false) != null, "the raid command column builds, trains, and uses F")
 	check(_gtfc_names(field), "the raid labels the six GTFC placeholders")
 	check(field.name_of(foe) == "Enemy", "the raid labels the enemy")
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
@@ -1008,7 +1019,23 @@ func test_sm_campaign() -> void:
 	var friends: Array[RTSUnit] = (scene.get("field") as SMPointer).units_of(0)
 	var picked: RTSUnit = (scene.get("field") as SMPointer).select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
 	check(picked == friends[0], "left click selects on a campaign mission")
+	(scene.get("hud") as SMHud).refresh()
+	check(_hud_text(scene, "HudSelection") == "Militia    HP 80/80    F group toggle", "the mission selection shows name, health, and its F ability")
+	check(_click_east(scene), "clicking the mission minimap moves the camera")
+	var mission_build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+	mission_build.pressed.emit()
+	var mission_yard: SMBuildYard = (scene.get("side") as SMSide).yard
+	var mission_purse: SMRoster = scene.get("roster") as SMRoster
+	check(mission_yard.finished.has(&"scaffold_yard") and mission_yard.style == SMBuildYard.Style.SCAFFOLD and mission_purse.economy.credits(0) == 49980, "a mission building click raises a scaffold yard")
 	scene.free()
+	for id: String in ids:
+		SMCampaign.selected = id
+		var mission_scene: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+		root.add_child(mission_scene)
+		await process_frame
+		check(_campaign_hud(mission_scene, id), "%s shows the in-match hud" % id)
+		mission_scene.free()
+		await process_frame
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
 	await process_frame
@@ -1028,13 +1055,18 @@ func test_sm_hud() -> void:
 	check(_hud_text(scene, "HudPower") == "Power 90", "phillips shows army power")
 	check(_hud_text(scene, "HudMap") == "Phillips Channel", "phillips names the map")
 	check(_hud_text(scene, "HudSelection") == "Nothing selected", "phillips says when nothing is selected")
-	var company: String = _hud_text(scene, "CompanyList")
-	check(company.contains("Your units") and company.contains("Militia") and company.contains("Channel Skiff"), "phillips lists your units")
 	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
 	var trained: Button = scene.find_child("Train_militia", true, false) as Button
 	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
 	check(built != null and trained != null and ability != null and ability.text == "Ability (F)", "phillips can build, train, and use F")
 	var field: SMPointer = scene.get("field") as SMPointer
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	check(scene.find_child("CompanyList", true, false) == null and mm != null, "phillips uses a minimap instead of a name list")
+	mm.sample()
+	check(mm.terrain_kind(Vector2i(2, 8)) == "land" and mm.terrain_kind(Vector2i(18, 12)) == "water" and mm.saw_land and mm.saw_water, "the minimap draws land and water")
+	check(mm.player_dots == field.count_team(0) and mm.enemy_dots == field.count_team(1) and mm.player_dots >= 6 and mm.enemy_dots >= 1, "the minimap marks your units and enemy units")
+	check(mm.camera_rect.size.x > 1.0 and mm.covers_focus(), "the minimap draws the camera rectangle")
+	check(_click_east(scene), "clicking the minimap moves the camera")
 	var friends: Array[RTSUnit] = field.units_of(0)
 	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
 	(scene.get("hud") as SMHud).refresh()
@@ -1079,6 +1111,47 @@ func test_sm_hud() -> void:
 	check(SMFront.current() == "gtfc", "the hud test restores GTFC")
 	await process_frame
 
+func _click_east(scene: Node) -> bool:
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	var cam: RTSCamera = scene.get_node_or_null("Camera") as RTSCamera
+	if mm == null or cam == null:
+		return false
+	var before_x: float = cam.focus.x
+	var click: InputEventMouseButton = InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = Vector2(mm.map_size().x - 2.0, mm.map_size().y * 0.5)
+	mm._gui_input(click)
+	return cam.focus.x > before_x + 8.0
+
+func _campaign_hud(scene: Node, id: String) -> bool:
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	if mm == null or scene.find_child("CompanyList", true, false) != null:
+		return false
+	mm.sample()
+	var field: SMPointer = scene.get("field") as SMPointer
+	var cam: RTSCamera = scene.get_node_or_null("Camera") as RTSCamera
+	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+	var trained: Button = scene.find_child("Train_militia", true, false) as Button
+	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
+	if field == null or cam == null or built == null or trained == null or ability == null or ability.text != "Ability (F)":
+		return false
+	if scene.find_child("GroupBuildings", true, false) == null or scene.find_child("GroupUnits", true, false) == null or scene.find_child("GroupAbility", true, false) == null:
+		return false
+	if _hud_text(scene, "HudFaction") != "GTFC" or _hud_text(scene, "HudCredits") != "Credits 50000":
+		return false
+	if not _hud_text(scene, "HudPower").begins_with("Power ") or _hud_text(scene, "HudMap") != SMCampaign.title_of(id):
+		return false
+	if _hud_text(scene, "HudSelection") != "Nothing selected":
+		return false
+	if not mm.saw_land or mm.saw_water:
+		return false
+	if mm.player_dots != field.count_team(0) or mm.enemy_dots != field.count_team(1):
+		return false
+	if mm.camera_rect.size.x <= 1.0 or not mm.covers_focus():
+		return false
+	return true
+
 func _hud_text(scene: Node, node_name: String) -> String:
 	var label: Label = scene.find_child(node_name, true, false) as Label
 	if label == null:
@@ -1090,7 +1163,11 @@ func _hud_map(path: String, map_name: String) -> void:
 	root.add_child(scene)
 	await process_frame
 	check(_hud_text(scene, "HudMap") == map_name, "%s names the map on the hud" % map_name)
-	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudPower").begins_with("Power ") and _hud_text(scene, "HudSelection") == "Nothing selected" and scene.find_child("CompanyList", true, false) != null, "%s shows faction, power, and an empty selection" % map_name)
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	if mm != null:
+		mm.sample()
+	var terrain_ok: bool = mm != null and mm.saw_land and (map_name == "Burma Road" or mm.saw_water)
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudPower").begins_with("Power ") and _hud_text(scene, "HudSelection") == "Nothing selected" and scene.find_child("CompanyList", true, false) == null and terrain_ok and mm.covers_focus(), "%s shows faction, power, an empty selection, and the minimap" % map_name)
 	scene.free()
 	await process_frame
 

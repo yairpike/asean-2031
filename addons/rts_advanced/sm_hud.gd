@@ -1,6 +1,6 @@
 class_name SMHud
 extends RefCounted
-## In-match readout. Primitive controls only: no map mesh, no art.
+## In-match readout. Primitive controls and a flat minimap. No map mesh, no art.
 
 var field: SMPointer
 var roster: SMRoster
@@ -13,10 +13,10 @@ var credits_label: Label
 var power_label: Label
 var map_label: Label
 var selection_label: Label
-var company_label: Label
 var build_label: Label
+var minimap: SMMinimap
 
-func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: SMSide, p_map: String, p_rally: Vector3, ability: Callable) -> void:
+func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: SMSide, p_map: String, p_rally: Vector3, ability: Callable, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	field = p_field
 	roster = p_roster
 	side = p_side
@@ -37,8 +37,11 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	credits_label = _label(top, "HudCredits", Vector2(180, 8), 18)
 	power_label = _label(top, "HudPower", Vector2(460, 8), 18)
 	map_label = _label(top, "HudMap", Vector2(700, 8), 18)
-	company_label = _label(layer, "CompanyList", Vector2(12, 48), 14)
-	company_label.custom_minimum_size = Vector2(220, 0)
+	minimap = SMMinimap.new()
+	minimap.name = "Minimap"
+	minimap.position = Vector2(12, 48)
+	minimap.setup(grid, field, camera)
+	layer.add_child(minimap)
 	build_label = _label(layer, "HudBuild", Vector2(240, 608), 15)
 	build_label.custom_minimum_size = Vector2(760, 24)
 	selection_label = _label(layer, "HudSelection", Vector2(16, 648), 16)
@@ -49,7 +52,7 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 func refresh() -> void:
 	if faction_label == null:
 		return
-	faction_label.text = SMFront.display_name()
+	faction_label.text = _faction_name(_faction_id())
 	var purse: int = 0
 	if roster != null and roster.economy != null:
 		purse = roster.economy.credits(0)
@@ -57,7 +60,9 @@ func refresh() -> void:
 	power_label.text = "Power %d" % _power()
 	map_label.text = map_name
 	selection_label.text = _selection_line()
-	company_label.text = _company_line()
+	if minimap != null:
+		minimap.sample()
+		minimap.queue_redraw()
 
 func _column(layer: CanvasLayer) -> void:
 	var scroll: ScrollContainer = ScrollContainer.new()
@@ -73,7 +78,7 @@ func _column(layer: CanvasLayer) -> void:
 	box.add_theme_constant_override("separation", 4)
 	scroll.add_child(box)
 	_header(box, "GroupBuildings", "Buildings")
-	var data: Dictionary = SMCatalog.faction(SMFront.current())
+	var data: Dictionary = SMCatalog.faction(_faction_id())
 	var raw: Variant = data.get("buildings", [])
 	if raw is Array:
 		for item: Variant in raw:
@@ -142,12 +147,17 @@ func _selection_line() -> String:
 		line += "    +%d" % extra
 	return line
 
-func _company_line() -> String:
-	var lines: PackedStringArray = PackedStringArray(["Your units"])
-	if field != null:
-		for u: RTSUnit in field.units_of(SMPointer.PLAYER):
-			lines.append(field.name_of(u))
-	return "\n".join(lines)
+func _faction_id() -> String:
+	if roster != null and roster.faction_id != "":
+		return roster.faction_id
+	return SMFront.current()
+
+func _faction_name(id: String) -> String:
+	if id == "nmrf":
+		return "NMRF"
+	if id == "mvd":
+		return "MVD"
+	return "GTFC"
 
 func _ability_name(kind: String) -> String:
 	if kind == "group_toggle":

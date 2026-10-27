@@ -3,6 +3,10 @@ extends Node3D
 
 var mission: SMMission = SMMission.new()
 var field: SMPointer = SMPointer.new()
+var roster: SMRoster = SMRoster.new()
+var side: SMSide = SMSide.new()
+var hud: SMHud = SMHud.new()
+var grid: SMDomainGrid
 var briefing_text: String = ""
 var status: Label
 var ui_layer: CanvasLayer
@@ -10,9 +14,15 @@ var ui_layer: CanvasLayer
 func _ready() -> void:
 	mission.setup()
 	briefing_text = mission.briefing
+	grid = SMDomainGrid.new(14, 9, 2.0, Vector3(-14.0, 0.0, -9.0))
 	_world()
 	_ui()
+	roster.setup("gtfc")
+	var rally: Vector3 = Vector3(-6.0, 0.0, -4.0)
+	side.prepare(self, status, grid, rally, roster.economy, "gtfc")
 	_arm_units()
+	var cam: RTSCamera = get_node("Camera") as RTSCamera
+	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of("kokang"), rally, Callable(self, "fire_secondary"), grid, cam)
 
 func scripted_playthrough() -> bool:
 	var ok: bool = mission.playthrough()
@@ -52,12 +62,12 @@ func _ui() -> void:
 	var brief: Label = Label.new()
 	brief.name = "Briefing"
 	brief.text = briefing_text
-	brief.position = Vector2(24, 20)
-	brief.custom_minimum_size = Vector2(720, 70)
+	brief.position = Vector2(224, 48)
+	brief.custom_minimum_size = Vector2(780, 70)
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	layer.add_child(brief)
 	var row: HBoxContainer = HBoxContainer.new()
-	row.position = Vector2(24, 110)
+	row.position = Vector2(224, 128)
 	row.add_theme_constant_override("separation", 8)
 	layer.add_child(row)
 	_btn(row, "Raise scaffold", _on_scaffold)
@@ -65,15 +75,9 @@ func _ui() -> void:
 	_btn(row, "Secure rare earth", _on_rare)
 	status = Label.new()
 	status.name = "Status"
-	status.position = Vector2(24, 160)
+	status.position = Vector2(224, 176)
 	status.text = "Golden Slag / Aurum-9 stays in the yard ledger. Ruby and rare earth are the raid."
 	layer.add_child(status)
-	var hint: Label = Label.new()
-	hint.text = "Left click selects. Drag a box. Right click ground moves. Right click an enemy attacks. F strikes."
-	hint.position = Vector2(24, 200)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.custom_minimum_size = Vector2(900, 28)
-	layer.add_child(hint)
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
@@ -136,6 +140,7 @@ func _process(delta: float) -> void:
 	var vp: Viewport = get_viewport()
 	cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
+	hud.refresh()
 
 func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera

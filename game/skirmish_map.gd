@@ -22,7 +22,8 @@ func _ready() -> void:
 	var rally: Vector3 = grid.cell_center(_player_cells()[0])
 	side.prepare(self, status, grid, rally, roster.economy)
 	_arm_units()
-	hud.mount(ui_layer, field, roster, side, _map_name(), rally, Callable(self, "fire_ability"))
+	var cam: RTSCamera = get_node("Camera") as RTSCamera
+	hud.mount(ui_layer, field, roster, side, _map_name(), rally, Callable(self, "fire_ability"), grid, cam)
 
 func train_unit() -> String:
 	var done: StringName = roster.train_and_finish(SMFront.train_kind())
