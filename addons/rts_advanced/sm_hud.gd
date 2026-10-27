@@ -278,10 +278,10 @@ func _guide(layer: CanvasLayer) -> void:
 	var hint: Label = Label.new()
 	hint.name = "ControlsHint"
 	hint.text = SMGuide.controls_hint()
-	hint.position = Vector2(224, 684)
-	hint.custom_minimum_size = Vector2(780, 28)
+	hint.position = Vector2(224, 672)
+	hint.custom_minimum_size = Vector2(780, 44)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.add_theme_font_size_override("font_size", 15)
+	hint.add_theme_font_size_override("font_size", 14)
 	hint.add_theme_color_override("font_color", Color(0.96, 0.94, 0.86))
 	layer.add_child(hint)
 	radio_label = Label.new()
@@ -296,7 +296,7 @@ func _guide(layer: CanvasLayer) -> void:
 	var panel: PanelContainer = PanelContainer.new()
 	panel.name = "HowToOverlay"
 	panel.position = Vector2(224, 210)
-	panel.custom_minimum_size = Vector2(780, 250)
+	panel.custom_minimum_size = Vector2(780, 280)
 	panel.z_index = 30
 	panel.visible = true
 	layer.add_child(panel)
@@ -322,7 +322,7 @@ func _guide(layer: CanvasLayer) -> void:
 	body.name = "HowToBody"
 	body.text = SMGuide.howto_text()
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(740, 140)
+	body.custom_minimum_size = Vector2(740, 168)
 	body.add_theme_font_size_override("font_size", 16)
 	body.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
 	box.add_child(body)

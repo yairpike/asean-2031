@@ -31,6 +31,7 @@ var ew: SMEwField
 var on_cue: Callable
 var on_line: Callable
 var on_bark: Callable
+var marks: Array[Node3D] = []
 const FX = preload("res://addons/rts_advanced/sm_fx.gd")
 const F_COOLDOWN: float = 3.0
 const BEAM_TIME: float = 1.5
@@ -349,6 +350,7 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 		if hit > 0:
 			_cue("attack")
 			announce(_first_player(), "attack")
+			_mark(foe.global_position, "attack")
 		return &"attack" if hit > 0 else &"none"
 	if ground == Vector3.INF:
 		return &"none"
@@ -379,6 +381,7 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable) -> Strin
 	if sent > 0:
 		_cue("move")
 		announce(_first_player(), "move")
+		_mark(ground, "move")
 	return &"move" if sent > 0 else &"none"
 
 func _cue(kind: String) -> void:
@@ -632,6 +635,7 @@ func handle_motion(motion: InputEventMouseMotion) -> void:
 		box.update_drag(motion.position)
 
 func tick(delta: float) -> void:
+	_fade_marks(delta)
 	var alive: Array[RTSUnit] = []
 	for u: RTSUnit in units:
 		if not is_instance_valid(u):
@@ -649,6 +653,39 @@ func tick(delta: float) -> void:
 		_paint_vitals(u, delta)
 		alive.append(u)
 	units = alive
+
+func _mark(at: Vector3, order: String) -> void:
+	if host == null:
+		return
+	var ping: MeshInstance3D = MeshInstance3D.new()
+	ping.name = "OrderPing"
+	var ring: TorusMesh = TorusMesh.new()
+	ring.inner_radius = 0.55
+	ring.outer_radius = 0.82
+	ping.mesh = ring
+	ping.position = Vector3(at.x, 0.15, at.z)
+	ping.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var ink: StandardMaterial3D = StandardMaterial3D.new()
+	ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ink.albedo_color = Color(0.95, 0.28, 0.22) if order == "attack" else Color(0.95, 0.78, 0.28)
+	ping.material_override = ink
+	ping.set_meta("order", order)
+	ping.set_meta("life", 1.15)
+	host.add_child(ping)
+	marks.append(ping)
+
+func _fade_marks(delta: float) -> void:
+	var kept: Array[Node3D] = []
+	for ping: Node3D in marks:
+		if not is_instance_valid(ping):
+			continue
+		var life: float = float(ping.get_meta("life", 0.0)) - delta
+		if life <= 0.0:
+			ping.queue_free()
+			continue
+		ping.set_meta("life", life)
+		kept.append(ping)
+	marks = kept
 
 func announce(u: RTSUnit, cue: String) -> void:
 	if not is_instance_valid(u) or u.team != PLAYER:

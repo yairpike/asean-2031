@@ -73,6 +73,7 @@ func _run() -> void:
 	await H.section("test_sm_boot", test_sm_boot)
 	await H.section("test_sm_guide", test_sm_guide)
 	await H.section("test_sm_bark", test_sm_bark)
+	await H.section("test_sm_orders_mark", test_sm_orders_mark)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2490,6 +2491,43 @@ func test_sm_bark() -> void:
 	await process_frame
 	SMCampaign.selected = "tachileik"
 	SMFront.faction_id = "gtfc"
+
+func test_sm_orders_mark() -> void:
+	var hint: String = SMGuide.controls_hint()
+	var howto: String = SMGuide.howto_text()
+	check(hint.contains("Right-click") and hint.contains("ring") and hint.contains("minimap") and hint.contains("F") and hint.contains("H"), "the controls hint names the order ring and the minimap")
+	check(howto.contains("ring") and howto.contains("minimap") and howto.contains("Objective complete"), "the how-to says a ring marks the order and the minimap jumps")
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var unit: RTSUnit = _unit_kind(field, 0, "militia")
+	var picked: RTSUnit = field.select_click(_proj(unit.global_position), Callable(self, "_proj"))
+	var step: Vector3 = unit.global_position + Vector3(8.0, 0.0, 0.0)
+	var moved: StringName = field.command_at(step, _proj(step), Callable(self, "_proj"))
+	var move_ping: Node = _order_ping(field, "move")
+	check(picked == unit and moved == &"move" and move_ping != null and move_ping.is_inside_tree(), "a move order drops a ring on the ground")
+	var foe: RTSUnit = field.units_of(1)[0]
+	var attacked: StringName = field.command_at(foe.global_position, _proj(foe.global_position), Callable(self, "_proj"))
+	var attack_ping: Node = _order_ping(field, "attack")
+	check(attacked == &"attack" and attack_ping != null and attack_ping.is_inside_tree(), "an attack order drops a ring on the enemy")
+	field.tick(1.3)
+	await process_frame
+	check(_order_ping(field, "move") == null and _order_ping(field, "attack") == null, "order rings fade after a moment")
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	var jumped: Vector3 = mm.pan_to(Vector2(190, 10))
+	check(mm != null and mm.camera.focus.distance_to(jumped) < 1.0 and mm.covers_focus(), "a minimap click jumps the camera")
+	scene.free()
+	await process_frame
+	SMCampaign.selected = "tachileik"
+	SMFront.faction_id = "gtfc"
+
+func _order_ping(field: SMPointer, order: String) -> Node:
+	for mark: Node3D in field.marks:
+		if is_instance_valid(mark) and str(mark.get_meta("order", "")) == order:
+			return mark
+	return null
 
 func test_sm_boot() -> void:
 	SMSave.clear()
