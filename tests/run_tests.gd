@@ -2482,6 +2482,9 @@ func test_sm_guide() -> void:
 	check(controls != null and controls.visible and controls.text == hint, "a match shows the controls hint")
 	check(overlay != null and overlay.visible and body != null and body.text == howto, "a match opens the how-to overlay")
 	var close: Button = scene.find_child("HowToClose", true, false) as Button
+	var close_box: Rect2 = close.get_global_rect() if close != null else Rect2()
+	var hint_box: Rect2 = controls.get_global_rect()
+	check(close != null and close_box.size.y > 0.0 and close_box.end.y <= hint_box.position.y, "Got it stays above the controls line")
 	close.pressed.emit()
 	check(overlay != null and not overlay.visible, "Got it hides the how-to overlay")
 	var help: Button = scene.find_child("HelpButton", true, false) as Button
@@ -2900,6 +2903,10 @@ func test_sm_monsoon() -> void:
 	raider.economy.set_credits(1, 200)
 	var skim_before: int = purse.economy.credits(0)
 	var cyber_before: int = sop_sim.tech.income_of(&"cyber_a")
+	sop.set_process(false)
+	sop_sim.tech.skim_frac = 0.0
+	purse.economy.set_credits(1, 0)
+	raider.economy.set_credits(1, 200)
 	sop.call("tick_world", 1.0)
 	var skim_got: int = purse.economy.credits(0) - skim_before
 	var cyber_gain: int = sop_sim.tech.income_of(&"cyber_a") - cyber_before

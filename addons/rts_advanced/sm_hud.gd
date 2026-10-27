@@ -430,14 +430,17 @@ func _guide(layer: CanvasLayer) -> void:
 	layer.add_child(radio_label)
 	var panel: PanelContainer = PanelContainer.new()
 	panel.name = "HowToOverlay"
-	panel.position = Vector2(224, 210)
-	panel.custom_minimum_size = Vector2(780, 280)
+	panel.position = Vector2(224, 168)
+	panel.custom_minimum_size = Vector2(780, 470)
+	panel.clip_contents = true
 	panel.z_index = 30
 	panel.visible = true
 	layer.add_child(panel)
 	guide_panel = panel
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panel.add_child(box)
 	var title: Label = Label.new()
 	title.name = "HowToTitle"
@@ -445,22 +448,33 @@ func _guide(layer: CanvasLayer) -> void:
 	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color(0.95, 0.86, 0.45))
 	box.add_child(title)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "HowToScroll"
+	scroll.custom_minimum_size = Vector2(740, 340)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var inner: VBoxContainer = VBoxContainer.new()
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.add_theme_constant_override("separation", 8)
+	scroll.add_child(inner)
 	tutorial_label = Label.new()
 	tutorial_label.name = "TutorialPrompt"
 	tutorial_label.visible = false
 	tutorial_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tutorial_label.custom_minimum_size = Vector2(740, 0)
+	tutorial_label.custom_minimum_size = Vector2(720, 0)
 	tutorial_label.add_theme_font_size_override("font_size", 18)
 	tutorial_label.add_theme_color_override("font_color", Color(0.98, 0.96, 0.9))
-	box.add_child(tutorial_label)
+	inner.add_child(tutorial_label)
 	var body: Label = Label.new()
 	body.name = "HowToBody"
 	body.text = SMGuide.howto_text()
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(740, 190)
+	body.custom_minimum_size = Vector2(720, 0)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_theme_font_size_override("font_size", 16)
 	body.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
-	box.add_child(body)
+	inner.add_child(body)
 	var close: Button = Button.new()
 	close.name = "HowToClose"
 	close.text = "Got it"
