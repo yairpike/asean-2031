@@ -10,7 +10,30 @@ else
   cp "$ROOT/web/sw.js" "$DEST/sw.js"
 fi
 if [ -f "$DEST/index.manifest.json" ]; then
+  python3 - "$DEST/index.manifest.json" << 'PY'
+import json
+import sys
+path = sys.argv[1]
+data = json.loads(open(path, encoding="utf-8").read())
+data["name"] = "ASEAN 2031"
+data["short_name"] = "ASEAN 2031"
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(data, handle, separators=(",", ":"))
+    handle.write("\n")
+PY
   cp "$DEST/index.manifest.json" "$DEST/manifest.webmanifest"
+fi
+if [ -f "$DEST/index.html" ] && ! grep -q 'id="status-title"' "$DEST/index.html"; then
+  python3 - "$DEST/index.html" << 'PY'
+import sys
+path = sys.argv[1]
+html = open(path, encoding="utf-8").read()
+needle = '<div id="status">'
+title = needle + '\n\t\t\t<p id="status-title" style="font-family: sans-serif; font-size: 28px; letter-spacing: 0.08em; margin: 0 0 16px;">ASEAN 2031</p>'
+if needle in html:
+    html = html.replace(needle, title, 1)
+    open(path, "w", encoding="utf-8").write(html)
+PY
 fi
 if ! grep -q "serviceWorker" "$DEST/index.html"; then
   sed -i 's#</body>#<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script></body>#' "$DEST/index.html"
