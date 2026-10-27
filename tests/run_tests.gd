@@ -37,6 +37,18 @@ func _run() -> void:
 	await H.section("test_separation", test_separation)
 	await H.section("test_lite_scope", test_lite_scope)
 	await H.section("test_scrub", test_scrub)
+	await H.section("test_sm_build", test_sm_build)
+	await H.section("test_sm_nodes", test_sm_nodes)
+	await H.section("test_sm_tech", test_sm_tech)
+	await H.section("test_sm_abilities", test_sm_abilities)
+	await H.section("test_sm_domain", test_sm_domain)
+	await H.section("test_sm_ew", test_sm_ew)
+	await H.section("test_sm_catalog", test_sm_catalog)
+	await H.section("test_sm_camera_rig", test_sm_camera_rig)
+	await H.section("test_sm_greybox", test_sm_greybox)
+	await H.section("test_sm_phillips", test_sm_phillips)
+	await H.section("test_sm_bots", test_sm_bots)
+	await H.section("test_sm_mission", test_sm_mission)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -477,3 +489,311 @@ func test_scrub() -> void:
 		check(code == 0 and bad.is_empty() and authors_ok, "git history: neutral author only, clean messages %s" % [bad])
 	else:
 		check(true, "no .git here (release extraction); history check runs in the kit repo")
+
+func test_sm_build() -> void:
+	var econ: RTSEconomy = RTSEconomy.new()
+	econ.set_credits(0, 2000)
+	var yard: SMBuildYard = SMBuildYard.new()
+	yard.economy = econ
+	yard.team = 0
+	yard.style = SMBuildYard.Style.SCAFFOLD
+	yard.center = Vector3.ZERO
+	yard.radius = 10.0
+	yard.drain_per_sec = 5
+	yard.tech_order = [&"yard", &"barracks", &"armory"]
+	yard.building_time[&"yard"] = 4.0
+	yard.building_time[&"barracks"] = 3.0
+	yard.building_time[&"armory"] = 3.0
+	check(not yard.begin_scaffold(&"yard", Vector3(20, 0, 0), 100.0), "scaffold rejects a footprint outside the yard")
+	check(yard.begin_scaffold(&"yard", Vector3(2, 0, 0), 100.0), "scaffold accepts a footprint inside")
+	check(yard.vulnerable, "scaffold is vulnerable while it builds")
+	yard.damage_scaffold(40.0)
+	check(yard.scaffold_hp == 60.0 and yard.vulnerable, "damage lands on the scaffold")
+	yard.advance(2.0)
+	check(yard.drained == 10 and yard.scaffold_active, "credits drain while the scaffold stands")
+	yard.advance(2.0)
+	check(yard.finished.has(&"yard") and not yard.vulnerable, "finished scaffold ends the drain")
+	check(not yard.can_build(&"armory"), "linear tech skips nothing")
+	check(yard.can_build(&"barracks"), "next building unlocks")
+	check(yard.begin_scaffold(&"barracks", Vector3(1, 0, 1), 80.0), "second scaffold starts")
+	yard.advance(3.0)
+	check(yard.finished.has(&"barracks") and yard.can_build(&"armory"), "armory waits for the previous building")
+	var mvd: SMBuildYard = SMBuildYard.new()
+	mvd.style = SMBuildYard.Style.INTERNAL
+	mvd.economy = econ
+	mvd.team = 0
+	mvd.center = Vector3.ZERO
+	mvd.radius = 10.0
+	mvd.clearance = 1
+	mvd.building_tier[&"bay"] = 2
+	mvd.building_tier[&"siege"] = 3
+	mvd.building_time[&"bay"] = 2.0
+	mvd.building_time[&"siege"] = 2.0
+	check(not mvd.queue_internal(&"bay"), "clearance 1 cannot queue tier 2")
+	check(not mvd.buy_clearance(3, 50), "clearance 3 before 2 is refused")
+	check(mvd.buy_clearance(2, 50) and mvd.radius == 16.0, "clearance 2 grows the radius")
+	check(mvd.queue_internal(&"bay"), "tier 2 queues inside the hub")
+	check(mvd.placed.is_empty(), "the hub has not placed the shell yet")
+	mvd.advance(2.0)
+	check(mvd.ready.has(&"bay"), "the hub finishes the building")
+	check(not mvd.place_finished(&"bay", Vector3(30, 0, 0)), "place rejects a point outside the radius")
+	check(mvd.place_finished(&"bay", Vector3(12, 0, 0)), "place accepts a point inside the grown radius")
+	check(mvd.buy_clearance(3, 50) and mvd.clearance == 3, "clearance 3 unlocks the next tier")
+	check(mvd.queue_internal(&"siege"), "tier 3 queues after clearance 3")
+	var grid: SMDomainGrid = SMDomainGrid.new(8, 8, 2.0, Vector3.ZERO)
+	grid.set_domain(Vector2i(3, 0), SMDomainGrid.Domain.DEEP)
+	var nmrf: SMBuildYard = SMBuildYard.new()
+	nmrf.style = SMBuildYard.Style.MOBILE
+	nmrf.grid = grid
+	check(nmrf.move_packer(grid.cell_center(Vector2i(0, 0))), "packer starts on land")
+	check(nmrf.move_packer(grid.cell_center(Vector2i(3, 0))), "packer sails into deep water")
+	check(nmrf.unpack(&"boat_shed"), "packer unpacks")
+	check(not nmrf.move_packer(grid.cell_center(Vector2i(0, 0))), "an unpacked core does not drive")
+	check(nmrf.upgrade_factory(&"boat_shed") and nmrf.factory_level(&"boat_shed") == 2, "factory tier upgrade")
+	check(nmrf.upgrade_factory(&"boat_shed") and nmrf.factory_level(&"boat_shed") == 3, "a second factory upgrade")
+	check(not nmrf.upgrade_factory(&"boat_shed"), "factory tier stops at 3")
+
+func test_sm_nodes() -> void:
+	var net: SMCommodityNet = SMCommodityNet.new()
+	var econ: RTSEconomy = RTSEconomy.new()
+	check(SMCommodityNet.all_kinds().size() == 5, "five commodities")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_SLAG) == "Golden Slag / Aurum-9", "slag storefront name")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_RARE) == "rare earth", "rare earth name")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_RUBY) == "ruby", "ruby name")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_JADE) == "jade", "jade name")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_BULLION) == "gold bullion", "bullion name")
+	net.add_node(&"s", SMCommodityNet.KIND_SLAG, Vector3.ZERO, 10, false)
+	net.add_node(&"r", SMCommodityNet.KIND_RARE, Vector3(3, 0, 0), 0, true)
+	net.add_node(&"u", SMCommodityNet.KIND_RUBY, Vector3(6, 0, 0), 10, false)
+	net.add_node(&"j", SMCommodityNet.KIND_JADE, Vector3(9, 0, 0), 10, false)
+	net.add_node(&"b", SMCommodityNet.KIND_BULLION, Vector3(12, 0, 0), 10, false)
+	check(net.snap_refinery(&"s", 0), "refinery snaps to a node")
+	check(net.has_collector(&"s"), "one collector spawns")
+	check(not net.snap_refinery(&"s", 1), "a second refinery on the same node is rejected")
+	check(net.advance(4.0, econ) == 10, "the collector loop pays")
+	check(not net.set_night_shift(&"s", true), "slag has no night shift")
+	check(net.set_night_shift(&"u", true) and net.visible_through_fog(&"u"), "ruby night shift is visible through fog")
+	check(net.set_night_shift(&"j", true) and net.night_on(&"j"), "jade night shift toggles")
+	check(net.snap_refinery(&"u", 0), "ruby refinery")
+	var before: int = econ.credits(0)
+	check(net.advance(2.0, econ) == 10 and econ.credits(0) - before == 10, "night shift pays a full loop in half the time")
+	check(net.snap_refinery(&"r", 0), "rare-earth refinery")
+	var credits_before: int = econ.credits(0)
+	net.advance(4.0, econ)
+	check(net.stock_of(0) == 1, "rare-earth stock is a separate counter")
+	check(econ.credits(0) >= credits_before, "stock does not spend credits")
+	check(not net.try_spend_stock(0, 2), "tier-3 gear cannot spend stock it lacks")
+	check(net.try_spend_stock(0, 1) and net.stock_of(0) == 0, "rare-earth stock spends")
+	check(net.harm_infantry(Vector3(3, 0, 0), false, 1.0) == 8.0, "adjacent water harms unshielded infantry")
+	check(net.harm_infantry(Vector3(3, 0, 0), true, 1.0) == 0.0, "shielded infantry are spared")
+
+func test_sm_tech() -> void:
+	var tech: SMTechNet = SMTechNet.new()
+	var econ: RTSEconomy = RTSEconomy.new()
+	econ.set_credits(0, 0)
+	econ.set_credits(1, 100)
+	tech.add_site(&"c", SMTechNet.CYBER, Vector3.ZERO)
+	tech.add_site(&"b", SMTechNet.BAZAAR, Vector3(2, 0, 0))
+	tech.add_site(&"h", SMTechNet.CLINIC, Vector3(4, 0, 0))
+	tech.add_site(&"r", SMTechNet.RADAR, Vector3(6, 0, 0))
+	check(tech.capture(&"c", 0), "cyber compound captures")
+	tech.advance(1.0, econ, 1)
+	check(tech.income_of(&"c") == 12 and tech.siphon_of(&"c") == 4, "cyber income and siphon")
+	check(econ.credits(1) == 96, "the siphon takes enemy credits")
+	check(tech.capture(&"b", 0), "arms bazaar captures")
+	check(is_equal_approx(tech.discount(0, "drone"), 0.7) and is_equal_approx(tech.discount(0, "infantry"), 0.7), "bazaar discounts drones and infantry")
+	check(tech.discount(0, "armor") == 1.0, "bazaar leaves other tags alone")
+	tech.set_import("rotary_slot", true)
+	check(tech.import_open("rotary_slot"), "an import slot is a data flag")
+	check(tech.capture(&"h", 0), "field clinic captures")
+	tech.advance(1.0, econ, 1)
+	check(tech.clinic_healed(0) >= 6.0, "field clinic heals")
+	check(tech.capture(&"r", 0) and tech.reveals_water(0), "hydro radar reveals water")
+
+func test_sm_abilities() -> void:
+	var book: SMAbilities = SMAbilities.new()
+	book.add_unit(1, Vector3.ZERO, SMAbilities.TOGGLE, 2.0, 1.0)
+	book.add_unit(2, Vector3(1, 0, 0), SMAbilities.TOGGLE, 2.0, 1.0)
+	check(book.group_toggle([1, 2]) == 2 and book.toggle_on(1) and book.toggle_on(2), "group toggle flips the group")
+	book.add_unit(3, Vector3.ZERO, SMAbilities.SMART, 3.0, 1.0)
+	book.add_unit(4, Vector3(6, 0, 0), SMAbilities.SMART, 3.0, 1.0)
+	check(book.smart_cast([3, 4], Vector3.ZERO) == 3, "smart-cast picks the closest ready unit")
+	check(book.fired_count(4) == 0, "the farther unit holds its fire")
+	book.set_ready(3, 5.0)
+	check(book.smart_cast([3, 4], Vector3.ZERO) == 4, "an unready closest unit is skipped")
+	book.add_unit(5, Vector3.ZERO, SMAbilities.BEAM, 1.0, 1.0)
+	book.add_unit(6, Vector3(2, 0, 0), SMAbilities.TOGGLE, 1.0, 1.0)
+	check(book.begin_beam(5, 6), "channeled beam starts")
+	book.advance(2.0)
+	check(book.beam_done(5) == 1 and book.status_of(6) == SMAbilities.ST_FROZEN, "the beam completes and freezes the target")
+	book.add_unit(7, Vector3.ZERO, SMAbilities.BEAM, 1.0, 1.0)
+	check(book.begin_beam(7, 6), "a second beam starts")
+	book.apply_status(7, SMAbilities.ST_FROZEN, 4.0)
+	book.advance(2.0)
+	check(book.beam_done(7) == 0 and not book.is_channeling(7), "frozen breaks the channel")
+	book.apply_status(1, SMAbilities.ST_SHRUNK, 5.0)
+	check(is_equal_approx(book.radius_of(1), 0.5), "shrunk halves the radius")
+	book.apply_status(2, SMAbilities.ST_BLACK_HOLE, 5.0)
+	check(is_equal_approx(book.damage_to(2, 50.0), 10.0) and is_equal_approx(book.hp_of(2), 90.0), "black-hole armor cuts incoming damage")
+	book.advance(6.0)
+	check(book.status_of(1) == SMAbilities.ST_NONE and is_equal_approx(book.radius_of(1), 1.0), "shrink wears off")
+
+func test_sm_domain() -> void:
+	var g: SMDomainGrid = SMDomainGrid.phillips_layout()
+	check(g.domain_at_cell(Vector2i(8, 4)) == SMDomainGrid.Domain.LAND, "west land")
+	check(g.domain_at_cell(Vector2i(30, 12)) == SMDomainGrid.Domain.LAND, "east land")
+	check(g.domain_at_cell(Vector2i(20, 12)) == SMDomainGrid.Domain.DEEP, "deep channel")
+	check(g.domain_at_cell(Vector2i(16, 5)) == SMDomainGrid.Domain.SHALLOW, "shallow crossing")
+	check(g.domain_at_cell(Vector2i(5, 11)) == SMDomainGrid.Domain.CLIFF, "cliff flag")
+	check(g.domain_at_cell(Vector2i(19, 10)) == SMDomainGrid.Domain.AIR, "air flag")
+	_domain_seen.clear()
+	g.domain_changed.connect(_on_test_domain)
+	check(g.move_unit(3, g.cell_center(Vector2i(12, 5)), SMDomainGrid.Loco.AMPHIBIOUS), "amphibious steps onto land")
+	check(_domain_seen.is_empty(), "the first placement does not signal")
+	check(g.move_unit(3, g.cell_center(Vector2i(16, 5)), SMDomainGrid.Loco.AMPHIBIOUS), "amphibious enters shallow water")
+	check(_domain_seen.size() == 2 and _domain_seen[0] == SMDomainGrid.Domain.LAND and _domain_seen[1] == SMDomainGrid.Domain.SHALLOW, "domain change at the shoreline")
+	check(not g.move_unit(4, g.cell_center(Vector2i(20, 12)), SMDomainGrid.Loco.GROUND), "ground movement stops at deep water")
+	check(not g.move_unit(5, g.cell_center(Vector2i(5, 11)), SMDomainGrid.Loco.AMPHIBIOUS), "a cliff blocks movement")
+	check(g.move_unit(6, g.cell_center(Vector2i(19, 10)), SMDomainGrid.Loco.AIR), "air enters an air cell")
+	check(g.move_unit(7, g.cell_center(Vector2i(20, 12)), SMDomainGrid.Loco.NAVAL), "naval enters deep water")
+
+var _domain_seen: Array[int] = []
+
+func _on_test_domain(_unit_id: int, from_domain: int, to_domain: int) -> void:
+	_domain_seen.append(from_domain)
+	_domain_seen.append(to_domain)
+
+func test_sm_ew() -> void:
+	var ew: SMEwField = SMEwField.new()
+	ew.center = Vector3.ZERO
+	ew.radius = 10.0
+	var inside: Vector3 = Vector3(2, 0, 0)
+	var outside: Vector3 = Vector3(30, 0, 0)
+	check(is_equal_approx(ew.accuracy(inside, SMEwField.GPS), ew.penalty), "gps guidance is jammed")
+	check(is_equal_approx(ew.accuracy(inside, SMEwField.FPV), ew.penalty), "fpv guidance is jammed")
+	check(ew.accuracy(inside, SMEwField.FIBER) == 1.0, "fiber-optic ignores the jammer")
+	check(ew.accuracy(inside, SMEwField.HOP) == 1.0, "frequency-hop ignores the jammer")
+	check(ew.accuracy(inside, SMEwField.GPS, true, false) == 1.0, "an active fiber link is exempt")
+	check(ew.accuracy(inside, SMEwField.FPV, false, true) == 1.0, "an active hop link is exempt")
+	check(ew.accuracy(outside, SMEwField.GPS) == 1.0, "outside the jammer radius")
+	check(ew.accuracy(inside, SMEwField.NONE) == 1.0, "unguided weapons are not jammed")
+
+func test_sm_catalog() -> void:
+	for id: String in ["gtfc", "mvd", "nmrf"]:
+		var data: Dictionary = SMCatalog.faction(id)
+		var units: Array[Dictionary] = SMCatalog.units_of(data)
+		check(units.size() == 6, "%s has six units" % id)
+		for unit: Dictionary in units:
+			check(SMCatalog.entry_ok(unit), "%s %s has a weapon and one secondary" % [id, str(unit.get("id", ""))])
+	var gtfc: Dictionary = SMCatalog.faction("gtfc")
+	var mvd: Dictionary = SMCatalog.faction("mvd")
+	var nmrf: Dictionary = SMCatalog.faction("nmrf")
+	var gtfc_colors: Dictionary = gtfc["colors"]
+	var mvd_colors: Dictionary = mvd["colors"]
+	var nmrf_colors: Dictionary = nmrf["colors"]
+	check(str(gtfc_colors["primary"]) == "crimson" and str(gtfc_colors["accent"]) == "amber", "gtfc crimson and amber")
+	check(str(mvd_colors["primary"]) == "charcoal" and str(mvd_colors["accent"]) == "cyan", "mvd charcoal and cyan")
+	check(str(nmrf_colors["primary"]) == "olive" and str(nmrf_colors["accent"]) == "emerald", "nmrf olive and emerald")
+	check(SMCatalog.stock_cost(mvd, "siege_works") == 1, "tier-3 gear requires rare-earth stock")
+	var market: Dictionary = SMCatalog.faction("black_market")
+	var flags: Dictionary = market["import_flags"]
+	check(bool(flags.get("rotary_slot", false)) and bool(flags.get("strike_slot", false)) and bool(flags.get("spotter_slot", false)), "black-market imports are flags")
+	check(SMCatalog.units_of(market).is_empty(), "black market ships no unit meshes")
+	var banned: PackedStringArray = PackedStringArray(["opium", "heroin", "cocaine", "fentanyl", "yaba", "methamphetamine"])
+	var hits: PackedStringArray = PackedStringArray()
+	for faction_id: String in ["gtfc", "mvd", "nmrf", "black_market"]:
+		var text: String = FileAccess.get_file_as_string("res://data/factions/%s/faction.json" % faction_id).to_lower()
+		for word: String in banned:
+			if text.contains(word):
+				hits.append("%s:%s" % [faction_id, word])
+	check(hits.is_empty(), "faction data has no street-drug names %s" % [hits])
+
+func test_sm_camera_rig() -> void:
+	var cam: RTSCamera = RTSCamera.new()
+	cam.bounds = Rect2(-40, -40, 80, 80)
+	cam.edge_pan_px = 16.0
+	root.add_child(cam)
+	await process_frame
+	cam.focus_on(Vector3.ZERO)
+	cam.distance = 30.0
+	var dir: Vector2 = cam.edge_scroll(Vector2(1, 200), Vector2(400, 400), 0.2)
+	check(dir.x < 0.0 and cam.focus.x < 0.0, "edge scroll pans from the left margin")
+	cam.focus_on(Vector3.ZERO)
+	cam.distance = 40.0
+	cam.zoom_toward(3.0, Vector3(10, 0, 0))
+	check(cam.distance < 40.0 and cam.focus.x > 0.0, "zoom toward the cursor shifts the focus")
+	var yaw: float = cam.yaw_degrees
+	cam.orbit(25.0)
+	check(absf(cam.yaw_degrees - yaw - 25.0) < 0.01, "orbit yaws around the focus")
+	cam.free()
+
+func test_sm_greybox() -> void:
+	var scene: Node = (load("res://game/greybox.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	for node_name: String in ["BuildScaffold", "BuildInternal", "BuildMobile", "NodeSlag", "NodeRare", "NodeRuby", "NodeJade", "NodeBullion", "Jammer"]:
+		check(scene.get_node_or_null(node_name) is MeshInstance3D, "greybox mesh %s" % node_name)
+	var scaffold: MeshInstance3D = scene.get_node("BuildScaffold") as MeshInstance3D
+	var internal: MeshInstance3D = scene.get_node("BuildInternal") as MeshInstance3D
+	check(scaffold.mesh is CapsuleMesh and internal.mesh is BoxMesh, "scaffold is a capsule and the hub is a box")
+	scene.free()
+	await process_frame
+
+func test_sm_phillips() -> void:
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	await process_frame
+	var side: Node = scene.find_child("Sidebar", true, false)
+	var bar: Node = scene.find_child("Protocols", true, false)
+	check(side != null, "command sidebar is present")
+	check(bar != null, "protocols bar is present")
+	var cameos: int = 0
+	for child: Node in side.get_children():
+		if str(child.name).begins_with("Cameo"):
+			cameos += 1
+	check(cameos == 6, "six cameo placeholders")
+	check(bool(scene.call("scripted_playthrough")), "phillips playthrough finishes")
+	var played: SMMatch = scene.get("sim") as SMMatch
+	check(played.finished and played.winner == 0, "the passive opponent is defeated")
+	check(played.pipeline_ok and played.claimed, "the base is up and a node is claimed")
+	check(played.f_smart == 11 and played.f_toggles == 1, "F fires a smart-cast and a toggle")
+	check(played.domain_log.size() >= 2, "an amphibious unit crossed the channel")
+	scene.free()
+	await process_frame
+
+func test_sm_bots() -> void:
+	var played: SMMatch = SMMatch.new()
+	for personality: StringName in SMBot.personalities():
+		var bot: SMBot = SMBot.new(personality)
+		var result: Dictionary = played.run_bot(bot)
+		check(int(result["refineries"]) == int(result["refinery_target"]), "%s opens with two refineries" % str(personality))
+		check(bool(result["water"]) and bool(result["gem"]), "%s expands to water and a gem node" % str(personality))
+		check(bool(result["captured"]), "%s captures a tech building" % str(personality))
+		check(bool(result["fired"]), "%s fires an ability" % str(personality))
+		check(bool(result["protocols"]) and bool(result["audio_combat"]) and bool(result["silent"]), "%s protocols and silent stems" % str(personality))
+	var isk: Dictionary = played.run_bot(SMBot.new(&"iskandar"))
+	check(bool(isk["naval"]) and str(isk["faction"]) == "nmrf", "iskandar takes the naval lane")
+	var tran: Dictionary = played.run_bot(SMBot.new(&"tran"))
+	check(bool(tran["frozen"]) and bool(tran["flew"]) and str(tran["faction"]) == "gtfc", "tran uses cryo and air")
+	var bo: Dictionary = played.run_bot(SMBot.new(&"bo_mya"))
+	check(str(bo["faction"]) == "mvd" and bool(bo["fired"]), "bo mya fields drones")
+
+func test_sm_mission() -> void:
+	var scene: Node = (load("res://game/mission_kokang.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(str(scene.get("briefing_text")).contains("Kokang"), "the raid opens on a text briefing")
+	check(bool(scene.call("scripted_playthrough")), "the raid is finishable")
+	var raid: SMMission = scene.get("mission") as SMMission
+	check(raid.won and raid.ruby_paid >= 30 and raid.goods.stock_of(0) >= 1, "night-shift ruby income and rare-earth stock")
+	check(raid.yard.finished.has(&"scaffold_yard"), "the scaffold yard finishes")
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	check(boot.find_child("GreyboxButton", true, false) != null, "boot offers the greybox")
+	check(boot.find_child("PhillipsButton", true, false) != null, "boot offers Phillips Channel")
+	check(boot.find_child("MissionButton", true, false) != null, "boot offers the night raid")
+	boot.free()
+	scene.free()
+	await process_frame
