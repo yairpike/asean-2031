@@ -28,6 +28,7 @@ var box: RTSSelectionBox
 var cam: RTSCamera
 var host: Node3D
 var ew: SMEwField
+const FX = preload("res://addons/rts_advanced/sm_fx.gd")
 const F_COOLDOWN: float = 3.0
 const BEAM_TIME: float = 1.5
 
@@ -38,6 +39,7 @@ func bind(p_host: Node3D, p_cam: RTSCamera) -> void:
 	teams.add_team(ENEMY, Color(0.12, 0.62, 0.7))
 	teams.set_relation(PLAYER, ENEMY, RTSTeams.Relation.ENEMY)
 	selection.team = PLAYER
+	FX.dress(host)
 
 func bind_faction(p_host: Node3D, p_cam: RTSCamera, faction: String) -> void:
 	bind(p_host, p_cam)
@@ -456,6 +458,7 @@ func apply_status(u: RTSUnit, status: String, duration: float) -> void:
 	var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
 	if body != null:
 		body.scale = Vector3.ONE
+		body.material_override = null
 	u.speed_scale = 1.0
 	u.incoming_mult = 1.0
 	u.set_meta("frozen", false)
@@ -465,6 +468,8 @@ func apply_status(u: RTSUnit, status: String, duration: float) -> void:
 		u.set_meta("frozen", true)
 		u.speed_scale = 0.0
 		u.stop()
+		if body != null:
+			body.material_override = FX.ice_material()
 	elif status == "shrunk":
 		u.speed_scale = 2.0
 		u.incoming_mult = 0.5

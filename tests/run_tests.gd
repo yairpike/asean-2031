@@ -66,6 +66,7 @@ func _run() -> void:
 	await H.section("test_sm_names", test_sm_names)
 	await H.section("test_sm_protocols", test_sm_protocols)
 	await H.section("test_sm_sides", test_sm_sides)
+	await H.section("test_sm_fx", test_sm_fx)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -434,7 +435,7 @@ func test_lite_scope() -> void:
 		if str(cls["path"]).contains("/pro/") or str(cls["class"]) in ["RTSTerrain", "RTSCombat", "RTSFog", "RTSAIPlayer", "RTSSaveGame", "RTSMinimap"]:
 			bad.append(str(cls["class"]))
 	check(bad.is_empty(), "no Pro classes in Lite %s" % [bad])
-	check(not DirAccess.dir_exists_absolute("res://assets") and not DirAccess.dir_exists_absolute("res://examples/skirmish"), "no third-party assets, no skirmish")
+	check(not DirAccess.dir_exists_absolute("res://examples/skirmish") and not DirAccess.dir_exists_absolute("res://assets/units"), "no third-party assets, no skirmish")
 	check(FileAccess.get_file_as_string("res://LICENSE").contains("Permission is hereby granted, free of charge"), "Lite is MIT")
 
 const TEXT_EXT: PackedStringArray = ["gd", "tscn", "tres", "md", "txt", "csv", "json", "cfg", "godot", "sh", "py", "js", "gdshader", "import"]
@@ -1872,6 +1873,32 @@ func _team_ids(field: SMPointer) -> Array[int]:
 		if is_instance_valid(u) and u.is_alive() and not ids.has(u.team):
 			ids.append(u.team)
 	return ids
+
+func test_sm_fx() -> void:
+	var ice: Shader = load("res://assets/shaders/cryo_freeze_overlay.gdshader") as Shader
+	var aegis: Shader = load("res://assets/shaders/aegis_dome_shield.gdshader") as Shader
+	var slag: Shader = load("res://assets/shaders/slag_corrosion_pool.gdshader") as Shader
+	check(ice != null and aegis != null and slag != null, "the cryo, aegis, and slag shaders load")
+	SMCampaign.selected = "plain_of_jars"
+	var scene: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(scene.find_child("BeamPainter", true, false) is MeshInstance3D and scene.find_child("BeamLeech", true, false) is MeshInstance3D and scene.find_child("BeamFiber", true, false) is MeshInstance3D and scene.find_child("BeamPrism", true, false) is MeshInstance3D, "painter, leech, fiber, and prism beams are meshes")
+	check(scene.find_child("AegisDome", true, false) is MeshInstance3D and scene.find_child("JammerDome", true, false) is MeshInstance3D and scene.find_child("RubyCone", true, false) is MeshInstance3D and scene.find_child("SlagPool", true, false) is MeshInstance3D, "the dome, jammer, ruby cone, and slag pool are on the field")
+	var field: SMPointer = scene.get("field") as SMPointer
+	var foe: RTSUnit = field.units_of(1)[0]
+	field.apply_status(foe, "frozen", 5.0)
+	var body: MeshInstance3D = foe.get_node_or_null("Body") as MeshInstance3D
+	var mat: ShaderMaterial = null
+	if body != null:
+		mat = body.material_override as ShaderMaterial
+	var ice_on: bool = mat != null and mat.shader != null and mat.shader.resource_path.ends_with("cryo_freeze_overlay.gdshader")
+	check(bool(foe.get_meta("frozen")) and ice_on, "freezing a unit on the cryo mission shows the ice shader")
+	scene.call("finish_objective")
+	check(bool(foe.get_meta("frozen")), "completing the cryo mission freezes a unit")
+	scene.free()
+	SMCampaign.selected = "tachileik"
+	await process_frame
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"

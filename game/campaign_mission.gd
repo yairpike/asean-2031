@@ -26,12 +26,18 @@ func _ready() -> void:
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of(mission_id), rally, Callable(self, "fire_secondary"), grid, cam)
+	var fx: Script = preload("res://addons/rts_advanced/sm_fx.gd")
+	fx.dress(self)
 
 func scripted_playthrough() -> bool:
 	return finish_objective()
 
 func finish_objective() -> bool:
 	var ok: bool = campaign.play(mission_id)
+	if ok and (mission_id == "plain_of_jars" or mission_id == "tonle_sap"):
+		var foes: Array[RTSUnit] = field.units_of(SMPointer.ENEMY)
+		if not foes.is_empty():
+			field.apply_status(foes[0], "frozen", 8.0)
 	_say(campaign.result_text)
 	return ok
 
