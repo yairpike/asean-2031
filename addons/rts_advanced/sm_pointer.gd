@@ -641,6 +641,7 @@ func tick(delta: float) -> void:
 		if not is_instance_valid(u):
 			continue
 		if not u.is_alive():
+			_drop_wreck(u.global_position)
 			u.queue_free()
 			continue
 		_tick_ability(u, delta)
@@ -653,6 +654,27 @@ func tick(delta: float) -> void:
 		_paint_vitals(u, delta)
 		alive.append(u)
 	units = alive
+
+func _drop_wreck(at: Vector3) -> void:
+	if host == null:
+		return
+	var wreck: MeshInstance3D = MeshInstance3D.new()
+	wreck.name = "Wreck"
+	var disc: CylinderMesh = CylinderMesh.new()
+	disc.top_radius = 0.7
+	disc.bottom_radius = 0.7
+	disc.height = 0.08
+	wreck.mesh = disc
+	wreck.position = Vector3(at.x, 0.08, at.z)
+	wreck.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var ink: StandardMaterial3D = StandardMaterial3D.new()
+	ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ink.albedo_color = Color(0.15, 0.05, 0.04)
+	wreck.material_override = ink
+	wreck.set_meta("order", "wreck")
+	wreck.set_meta("life", 0.9)
+	host.add_child(wreck)
+	marks.append(wreck)
 
 func _mark(at: Vector3, order: String) -> void:
 	if host == null:

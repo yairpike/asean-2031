@@ -2487,6 +2487,14 @@ func test_sm_bark() -> void:
 	field.announce(unit, "hurt")
 	var voice: AudioStreamPlayer = scene.find_child("BarkPlayer", true, false) as AudioStreamPlayer
 	check(voice != null and absf(voice.pitch_scale - 1.35) < 0.01, "a shrunk unit barks higher")
+	var other: RTSUnit = _unit_kind(field, 0, "slag_hauler")
+	other.take_damage(other.max_hp)
+	field.tick(0.05)
+	var wreck: Node = _order_ping(field, "wreck")
+	check(wreck != null and wreck.is_inside_tree() and wreck.name == "Wreck", "a destroyed unit leaves a wreck")
+	field.tick(1.0)
+	await process_frame
+	check(_order_ping(field, "wreck") == null, "the wreck fades")
 	scene.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"
