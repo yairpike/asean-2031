@@ -63,6 +63,7 @@ func _run() -> void:
 	await H.section("test_sm_sites", test_sm_sites)
 	await H.section("test_sm_haze", test_sm_haze)
 	await H.section("test_sm_chain", test_sm_chain)
+	await H.section("test_sm_names", test_sm_names)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -697,7 +698,13 @@ func test_sm_catalog() -> void:
 	for id: String in ["gtfc", "mvd", "nmrf"]:
 		var data: Dictionary = SMCatalog.faction(id)
 		var units: Array[Dictionary] = SMCatalog.units_of(data)
-		check(units.size() == 16, "%s fields sixteen catalog units" % id)
+		var want: int = 16
+		if id == "gtfc":
+			want = 17
+		elif id == "nmrf":
+			want = 15
+		check(units.size() == want, "%s fields its blueprint roster" % id)
+		check(str(data.get("balance", "")) == "placeholder", "%s costs stay placeholder until a balance pass" % id)
 		for unit: Dictionary in units:
 			check(SMCatalog.entry_ok(unit), "%s %s has a weapon and one secondary" % [id, str(unit.get("id", ""))])
 	var gtfc: Dictionary = SMCatalog.faction("gtfc")
@@ -926,7 +933,7 @@ func test_sm_factions() -> void:
 	await process_frame
 	check(nmrf.get_node_or_null("OliveGround") is MeshInstance3D and nmrf.get_node_or_null("PackerCore") is MeshInstance3D, "nmrf shows the mobile core")
 	var nfield: SMPointer = nmrf.get("field") as SMPointer
-	check(_has_names(nfield, PackedStringArray(["River Rifle", "Sampan", "Emerald Gunboat", "Mangrove Tube", "Packer", "Jade Skiff"])), "nmrf labels its six units")
+	check(_has_names(nfield, PackedStringArray(["Patani Corsair Guard", "Malacca Pocket-Sub", "Krakatoa Dreadnought", "Phillips Wave-Cannon", "Garuda Mecha-Overlord", "Johor Loiter-Swarm"])), "nmrf labels its six units")
 	check(nfield.name_of(nfield.units_of(1)[0]) == "Enemy", "nmrf labels the enemy")
 	check(_orders(nmrf, nfield), "nmrf select, move, attack, and F")
 	var nyard: SMBuildYard = nmrf.get("yard") as SMBuildYard
@@ -943,7 +950,7 @@ func test_sm_factions() -> void:
 	await process_frame
 	check(mvd.get_node_or_null("CharcoalPad") is MeshInstance3D and mvd.get_node_or_null("HubShell") is MeshInstance3D, "mvd shows the internal pad")
 	var mfield: SMPointer = mvd.get("field") as SMPointer
-	check(_has_names(mfield, PackedStringArray(["Clearance Trooper", "Hub Drone", "Charcoal APC", "Cyan IFV", "Relay Van", "River Drone"])), "mvd labels its six units")
+	check(_has_names(mfield, PackedStringArray(["Vanguard Shock-Trooper", "Agent-Zero Cryo-Copter", "Delta Amphibious IFV", "Saigon Prism-Lock Tank", "Colonel Nguyen Phantom", "Athena Orbital Designator"])), "mvd labels its six units")
 	check(mfield.name_of(mfield.units_of(1)[0]) == "Enemy", "mvd labels the enemy")
 	check(_orders(mvd, mfield), "mvd select, move, attack, and F")
 	var myard: SMBuildYard = mvd.get("yard") as SMBuildYard
@@ -992,20 +999,20 @@ func test_sm_roster() -> void:
 			if roster.train_and_finish(id) != id:
 				failed.append("%s:%s" % [faction_id, str(id)])
 	check(total == 52 and failed.is_empty(), "all 52 catalog units train through production %s" % [failed])
-	check(_spawned("gtfc", &"crimson_sapper", "Crimson Sapper", "rifle", "smart_cast", 9.0), "gtfc sapper spawns with a weapon and a secondary")
-	check(_spawned("mvd", &"cyan_sentry", "Cyan Sentry", "carbine", "group_toggle", 9.0), "mvd sentry spawns with a weapon and a secondary")
-	check(_spawned("nmrf", &"olive_ranger", "Olive Ranger", "rifle", "group_toggle", 8.0), "nmrf ranger spawns with a weapon and a secondary")
+	check(_spawned("gtfc", &"crimson_sapper", "Highland Saboteur", "rifle", "smart_cast", 9.0), "gtfc sapper spawns with a weapon and a secondary")
+	check(_spawned("mvd", &"cyan_sentry", "Cu Chi Tunnel Hound", "carbine", "group_toggle", 9.0), "mvd sentry spawns with a weapon and a secondary")
+	check(_spawned("nmrf", &"olive_ranger", "Sulu Tank-Buster", "rifle", "group_toggle", 8.0), "nmrf ranger spawns with a weapon and a secondary")
 	check(_spawned("black_market", &"ch4", "CH-4", "autocannon", "smart_cast", 14.0), "CH-4 spawns from production")
 	check(_spawned("black_market", &"su30", "Su-30", "cannon", "group_toggle", 26.0), "Su-30 spawns from production")
 	check(_spawned("black_market", &"orlan10", "Orlan-10", "camera", "channeled_beam", 4.0), "Orlan-10 spawns from production")
 	var phillips_name: String = await _trained("res://game/phillips_channel.tscn")
-	check(phillips_name == "Crimson Sapper", "phillips trains a catalog unit onto the field")
+	check(phillips_name == "Highland Saboteur", "phillips trains a catalog unit onto the field")
 	var burma_name: String = await _trained("res://game/burma_road.tscn")
-	check(burma_name == "Crimson Sapper", "burma road trains a catalog unit onto the field")
+	check(burma_name == "Highland Saboteur", "burma road trains a catalog unit onto the field")
 	var nmrf_name: String = await _trained("res://game/nmrf_yard.tscn")
-	check(nmrf_name == "Olive Ranger", "nmrf trains a catalog unit onto the field")
+	check(nmrf_name == "Sulu Tank-Buster", "nmrf trains a catalog unit onto the field")
 	var mvd_name: String = await _trained("res://game/mvd_yard.tscn")
-	check(mvd_name == "Cyan Sentry", "mvd trains a catalog unit onto the field")
+	check(mvd_name == "Cu Chi Tunnel Hound", "mvd trains a catalog unit onto the field")
 
 func test_sm_campaign() -> void:
 	var ids: PackedStringArray = SMCampaign.ids()
@@ -1027,7 +1034,7 @@ func test_sm_campaign() -> void:
 	var picked: RTSUnit = (scene.get("field") as SMPointer).select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
 	check(picked == friends[0], "left click selects on a campaign mission")
 	(scene.get("hud") as SMHud).refresh()
-	check(_hud_text(scene, "HudSelection") == "Militia    HP 80/80    F group toggle", "the mission selection shows name, health, and its F ability")
+	check(_hud_text(scene, "HudSelection") == "Shan Insurgent Militia    HP 80/80    F Slag Molotov", "the mission selection shows name, health, and its F ability")
 	check(_click_east(scene), "clicking the mission minimap moves the camera")
 	var mission_build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
 	mission_build.pressed.emit()
@@ -1077,7 +1084,7 @@ func test_sm_hud() -> void:
 	var friends: Array[RTSUnit] = field.units_of(0)
 	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
 	(scene.get("hud") as SMHud).refresh()
-	check(picked == friends[0] and _hud_text(scene, "HudSelection") == "Militia    HP 80/80    F group toggle", "the selection shows name, health, and its F ability")
+	check(picked == friends[0] and _hud_text(scene, "HudSelection") == "Shan Insurgent Militia    HP 80/80    F Slag Molotov", "the selection shows name, health, and its F ability")
 	var purse: SMRoster = scene.get("roster") as SMRoster
 	built.pressed.emit()
 	var yard: SMBuildYard = (scene.get("side") as SMSide).yard
@@ -1346,7 +1353,7 @@ func test_sm_shapes() -> void:
 	check(_shape_is(field, 0, "slag_hauler", "wide") and _shape_is(field, 0, "amber_tank", "wide") and _shape_is(field, 0, "monsoon_tube", "wide"), "vehicles are a wide box")
 	check(_shape_is(field, 0, "channel_skiff", "hull"), "boats are a long hull")
 	check(_shape_is(field, 1, "raider", "capsule"), "enemy soldiers are a thin capsule")
-	check(field.name_of(_unit_kind(field, 0, "militia")) == "Militia", "the floating name stays")
+	check(field.name_of(_unit_kind(field, 0, "militia")) == "Shan Insurgent Militia", "the floating name stays")
 	var player_yard: BoxMesh = (scene.get_node("PlayerYard") as MeshInstance3D).mesh as BoxMesh
 	var enemy_yard: BoxMesh = (scene.get_node("EnemyYard") as MeshInstance3D).mesh as BoxMesh
 	check(_taller(player_yard) and _taller(enemy_yard), "yard buildings are a taller block")
@@ -1682,6 +1689,65 @@ func _chain_done(yard: SMBuildYard, water_id: StringName, super_id: StringName) 
 		return false
 	return is_equal_approx(float(victims[0]["hp"]), left)
 
+func test_sm_names() -> void:
+	var total: int = 0
+	var mortar: String = ""
+	for faction_id: String in ["gtfc", "nmrf", "mvd", "black_market"]:
+		for unit: Dictionary in SMCatalog.units_of(SMCatalog.faction(faction_id)):
+			var id: String = str(unit.get("id", ""))
+			var display: String = str(unit.get("display_name", ""))
+			if id == "monsoon_tube":
+				mortar = display
+			total += 1
+			check(_named_f(faction_id, id, display, str(unit.get("ability", "")), str(unit.get("f_stat", ""))), "%s %s shows its name and F changes one stat" % [faction_id, id])
+	check(total == 52 and mortar == "Slag Jump Mortar", "the roster is 52 blueprint names and the Kokang mortar stays storefront-safe")
+	SMFront.faction_id = "gtfc"
+	check(await _train_caption("res://game/phillips_channel.tscn", "Train_militia") == "Shan Insurgent Militia", "gtfc training shows the blueprint name")
+	check(await _train_caption("res://game/phillips_channel.tscn", "Train_kachin_dog") == "Kachin Sapper Dog", "gtfc training lists the sapper dog")
+	SMFront.faction_id = "nmrf"
+	check(await _train_caption("res://game/burma_road.tscn", "Train_river_rifle") == "Patani Corsair Guard", "nmrf training shows the blueprint name")
+	SMFront.faction_id = "mvd"
+	check(await _train_caption("res://game/ten_degree_atolls.tscn", "Train_clearance_trooper") == "Vanguard Shock-Trooper", "mvd training shows the blueprint name")
+	SMFront.faction_id = "gtfc"
+
+func _named_f(faction: String, id: String, display: String, ability: String, stat: String) -> bool:
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var cam: RTSCamera = RTSCamera.new()
+	host.add_child(cam)
+	var field: SMPointer = SMPointer.new()
+	field.bind_faction(host, cam, faction)
+	field.use_open(8, 8, 2.0, Vector3.ZERO)
+	var u: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3.ZERO, StringName(id))
+	var before: float = _stat_of(u, stat)
+	field.select_only([u])
+	var fired: bool = field.cast_f(u.global_position) != ""
+	var after: float = _stat_of(u, stat)
+	var ok: bool = u != null and field.name_of(u) == display and str(u.get_meta("ability", "")) == ability and ability != "" and fired and not is_equal_approx(before, after)
+	host.free()
+	return ok
+
+func _stat_of(u: RTSUnit, stat: String) -> float:
+	if stat == "speed":
+		return u.speed_scale
+	if stat == "hp":
+		return u.hp
+	if stat == "incoming":
+		return u.incoming_mult
+	return u.damage_mult
+
+func _train_caption(path: String, node_name: String) -> String:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var button: Button = scene.find_child(node_name, true, false) as Button
+	var text: String = ""
+	if button != null:
+		text = button.text
+	scene.free()
+	await process_frame
+	return text
+
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
@@ -1728,9 +1794,9 @@ func test_sm_boot() -> void:
 	root.add_child(scene)
 	await process_frame
 	var field: SMPointer = scene.get("field") as SMPointer
-	check(_has_names(field, PackedStringArray(["River Rifle", "Sampan", "Emerald Gunboat", "Mangrove Tube", "Packer", "Jade Skiff"])), "burma plays the selected nmrf side")
+	check(_has_names(field, PackedStringArray(["Patani Corsair Guard", "Malacca Pocket-Sub", "Krakatoa Dreadnought", "Phillips Wave-Cannon", "Garuda Mecha-Overlord", "Johor Loiter-Swarm"])), "burma plays the selected nmrf side")
 	check(scene.find_child("MovePacker", true, false) != null, "nmrf skirmish can move the packer")
-	check(str(scene.call("train_unit")) == "Olive Ranger", "nmrf skirmish trains an nmrf unit")
+	check(str(scene.call("train_unit")) == "Sulu Tank-Buster", "nmrf skirmish trains an nmrf unit")
 	scene.free()
 	SMFront.faction_id = "gtfc"
 	check(SMFront.current() == "gtfc", "faction selection resets")
@@ -1907,7 +1973,7 @@ func _gtfc_names(field: SMPointer) -> bool:
 	var names: PackedStringArray = PackedStringArray()
 	for u: RTSUnit in field.units_of(0):
 		names.append(field.name_of(u))
-	for need: String in ["Militia", "Slag Hauler", "Ruby Lancer", "Amber Tank", "Monsoon Tube", "Channel Skiff"]:
+	for need: String in ["Shan Insurgent Militia", "Shar Htoo Waw Kloud Drone Truck", "Salween RPG Trooper", "Shan Behemoth Tank", "Slag Jump Mortar", "Salween Smuggler Boat"]:
 		if not names.has(need):
 			return false
 	return true

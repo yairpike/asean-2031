@@ -2,39 +2,475 @@
   "id": "gtfc",
   "display_name": "GTFC",
   "build_style": "scaffold",
-  "colors": {"primary": "crimson", "accent": "amber", "primary_hex": "#B81E2D", "accent_hex": "#E0A106"},
+  "colors": {
+    "primary": "crimson",
+    "accent": "amber",
+    "primary_hex": "#B81E2D",
+    "accent_hex": "#E0A106"
+  },
   "yard_radius": 18,
-  "storefront_resources": ["Golden Slag / Aurum-9", "rare earth", "ruby", "jade", "gold bullion"],
-  "tech_order": ["scaffold_yard", "salween_hydro", "slag_refinery", "barracks", "war_factory", "naval_yard", "airfield", "slag_pillbox", "flak_slag_mast", "tech_center"],
-  "buildings": [
-    {"id": "scaffold_yard", "display_name": "Construction Yard", "role": "yard", "tier": 1, "time": 4, "cost": 200, "hp": 400},
-    {"id": "salween_hydro", "display_name": "Salween Hydro-Generator", "role": "power", "tier": 1, "time": 5, "cost": 180, "hp": 280},
-    {"id": "slag_refinery", "display_name": "Slag Refinery", "role": "refinery", "tier": 1, "time": 5, "cost": 160, "hp": 300},
-    {"id": "barracks", "display_name": "Barracks", "role": "barracks", "tier": 1, "time": 5, "cost": 150, "hp": 320},
-    {"id": "war_factory", "display_name": "War Factory", "role": "factory", "tier": 2, "time": 6, "cost": 240, "hp": 360},
-    {"id": "naval_yard", "display_name": "Naval Yard", "role": "naval", "tier": 2, "time": 6, "cost": 240, "hp": 340, "water": true},
-    {"id": "airfield", "display_name": "Airfield", "role": "air", "tier": 2, "time": 6, "cost": 260, "hp": 300},
-    {"id": "slag_pillbox", "display_name": "Slag Pillbox", "role": "defense", "tier": 1, "time": 4, "cost": 120, "hp": 260},
-    {"id": "flak_slag_mast", "display_name": "Flak-Slag Mast", "role": "defense", "tier": 2, "time": 5, "cost": 180, "hp": 240},
-    {"id": "tech_center", "display_name": "Tech Center", "role": "tech", "tier": 2, "time": 7, "cost": 300, "hp": 320}
+  "storefront_resources": [
+    "Golden Slag / Aurum-9",
+    "rare earth",
+    "ruby",
+    "jade",
+    "gold bullion"
   ],
-  "superweapon": {"id": "seismic_imploder", "display_name": "Seismic Slag Vacuum Imploder", "cooldown": 20, "damage": 48, "radius": 8, "water": false},
+  "tech_order": [
+    "scaffold_yard",
+    "salween_hydro",
+    "slag_refinery",
+    "barracks",
+    "war_factory",
+    "naval_yard",
+    "airfield",
+    "slag_pillbox",
+    "flak_slag_mast",
+    "tech_center"
+  ],
+  "buildings": [
+    {
+      "id": "scaffold_yard",
+      "display_name": "Construction Yard",
+      "role": "yard",
+      "tier": 1,
+      "time": 4,
+      "cost": 200,
+      "hp": 400
+    },
+    {
+      "id": "salween_hydro",
+      "display_name": "Salween Hydro-Generator",
+      "role": "power",
+      "tier": 1,
+      "time": 5,
+      "cost": 180,
+      "hp": 280
+    },
+    {
+      "id": "slag_refinery",
+      "display_name": "Slag Refinery",
+      "role": "refinery",
+      "tier": 1,
+      "time": 5,
+      "cost": 160,
+      "hp": 300
+    },
+    {
+      "id": "barracks",
+      "display_name": "Barracks",
+      "role": "barracks",
+      "tier": 1,
+      "time": 5,
+      "cost": 150,
+      "hp": 320
+    },
+    {
+      "id": "war_factory",
+      "display_name": "War Factory",
+      "role": "factory",
+      "tier": 2,
+      "time": 6,
+      "cost": 240,
+      "hp": 360
+    },
+    {
+      "id": "naval_yard",
+      "display_name": "Naval Yard",
+      "role": "naval",
+      "tier": 2,
+      "time": 6,
+      "cost": 240,
+      "hp": 340,
+      "water": true
+    },
+    {
+      "id": "airfield",
+      "display_name": "Airfield",
+      "role": "air",
+      "tier": 2,
+      "time": 6,
+      "cost": 260,
+      "hp": 300
+    },
+    {
+      "id": "slag_pillbox",
+      "display_name": "Slag Pillbox",
+      "role": "defense",
+      "tier": 1,
+      "time": 4,
+      "cost": 120,
+      "hp": 260
+    },
+    {
+      "id": "flak_slag_mast",
+      "display_name": "Flak-Slag Mast",
+      "role": "defense",
+      "tier": 2,
+      "time": 5,
+      "cost": 180,
+      "hp": 240
+    },
+    {
+      "id": "tech_center",
+      "display_name": "Tech Center",
+      "role": "tech",
+      "tier": 2,
+      "time": 7,
+      "cost": 300,
+      "hp": 320
+    }
+  ],
+  "superweapon": {
+    "id": "seismic_imploder",
+    "display_name": "Seismic Slag Vacuum Imploder",
+    "cooldown": 20,
+    "damage": 48,
+    "radius": 8,
+    "water": false
+  },
   "units": [
-    {"id": "militia", "display_name": "Militia", "cameo": "MIL", "role": "infantry", "cost": 80, "time": 3, "hp": 80, "speed": 5.5, "weapon": "rifle", "weapon_damage": 8, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
-    {"id": "slag_hauler", "display_name": "Slag Hauler", "cameo": "SLAG", "role": "hauler", "cost": 120, "time": 4, "hp": 110, "speed": 6, "weapon": "cab_gun", "weapon_damage": 6, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "ruby_lancer", "display_name": "Ruby Lancer", "cameo": "LNC", "role": "infantry", "cost": 140, "time": 4, "hp": 90, "speed": 5, "weapon": "lance", "weapon_damage": 16, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
-    {"id": "amber_tank", "display_name": "Amber Tank", "cameo": "TNK", "role": "armor", "cost": 280, "time": 7, "hp": 220, "speed": 4.2, "weapon": "cannon", "weapon_damage": 22, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["armor"]},
-    {"id": "monsoon_tube", "display_name": "Monsoon Tube", "cameo": "TUBE", "role": "artillery", "cost": 260, "time": 7, "hp": 100, "speed": 3.2, "weapon": "tube", "weapon_damage": 28, "secondary": "channeled_beam", "guidance": "none", "locomotion": "ground", "tags": ["artillery"]},
-    {"id": "channel_skiff", "display_name": "Channel Skiff", "cameo": "SKF", "role": "amphibious", "cost": 180, "time": 5, "hp": 120, "speed": 6.5, "weapon": "bow_gun", "weapon_damage": 10, "secondary": "smart_cast", "guidance": "none", "locomotion": "amphibious", "tags": ["naval"]},
-    {"id": "crimson_sapper", "display_name": "Crimson Sapper", "cameo": "SAP", "role": "infantry", "cost": 100, "time": 3, "hp": 85, "speed": 5.0, "weapon": "rifle", "weapon_damage": 9, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
-    {"id": "amber_scout", "display_name": "Amber Scout", "cameo": "SCT", "role": "infantry", "cost": 90, "time": 3, "hp": 70, "speed": 6.2, "weapon": "carbine", "weapon_damage": 7, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
-    {"id": "yard_crane", "display_name": "Yard Crane", "cameo": "CRN", "role": "vehicle", "cost": 160, "time": 5, "hp": 140, "speed": 4.0, "weapon": "cab_gun", "weapon_damage": 6, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "ruby_mortar", "display_name": "Ruby Mortar", "cameo": "MOR", "role": "artillery", "cost": 220, "time": 6, "hp": 90, "speed": 3.0, "weapon": "mortar", "weapon_damage": 20, "secondary": "channeled_beam", "guidance": "none", "locomotion": "ground", "tags": ["artillery"]},
-    {"id": "slag_dozer", "display_name": "Slag Dozer", "cameo": "DOZ", "role": "vehicle", "cost": 180, "time": 5, "hp": 160, "speed": 4.4, "weapon": "blade", "weapon_damage": 11, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "amber_welder", "display_name": "Amber Welder", "cameo": "WLD", "role": "vehicle", "cost": 150, "time": 4, "hp": 100, "speed": 5.0, "weapon": "torch", "weapon_damage": 8, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "monsoon_spotter", "display_name": "Monsoon Spotter", "cameo": "SPT", "role": "infantry", "cost": 110, "time": 3, "hp": 75, "speed": 5.4, "weapon": "rifle", "weapon_damage": 8, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
-    {"id": "bullion_truck", "display_name": "Bullion Truck", "cameo": "BLN", "role": "vehicle", "cost": 170, "time": 5, "hp": 130, "speed": 5.6, "weapon": "pintle", "weapon_damage": 7, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "scaffold_rig", "display_name": "Scaffold Rig", "cameo": "RIG", "role": "vehicle", "cost": 200, "time": 6, "hp": 150, "speed": 3.8, "weapon": "hammer", "weapon_damage": 10, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "channel_ferry", "display_name": "Channel Ferry", "cameo": "FRY", "role": "amphibious", "cost": 210, "time": 6, "hp": 160, "speed": 5.0, "weapon": "bow_gun", "weapon_damage": 9, "secondary": "smart_cast", "guidance": "none", "locomotion": "amphibious", "tags": ["naval"]}
-  ]
+    {
+      "id": "militia",
+      "display_name": "Shan Insurgent Militia",
+      "cameo": "MIL",
+      "role": "infantry",
+      "cost": 80,
+      "time": 3,
+      "hp": 80,
+      "speed": 5.5,
+      "weapon": "rifle",
+      "weapon_damage": 8,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "infantry"
+      ],
+      "ability": "Slag Molotov",
+      "f_stat": "damage"
+    },
+    {
+      "id": "slag_hauler",
+      "display_name": "Shar Htoo Waw Kloud Drone Truck",
+      "cameo": "SLAG",
+      "role": "hauler",
+      "cost": 120,
+      "time": 4,
+      "hp": 110,
+      "speed": 6,
+      "weapon": "cab_gun",
+      "weapon_damage": 6,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "vehicle"
+      ],
+      "ability": "3D-Print Overdrive",
+      "f_stat": "speed"
+    },
+    {
+      "id": "ruby_lancer",
+      "display_name": "Salween RPG Trooper",
+      "cameo": "LNC",
+      "role": "infantry",
+      "cost": 140,
+      "time": 4,
+      "hp": 90,
+      "speed": 5,
+      "weapon": "lance",
+      "weapon_damage": 16,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "infantry"
+      ],
+      "ability": "Bunker Lock",
+      "f_stat": "damage"
+    },
+    {
+      "id": "amber_tank",
+      "display_name": "Shan Behemoth Tank",
+      "cameo": "TNK",
+      "role": "armor",
+      "cost": 280,
+      "time": 7,
+      "hp": 220,
+      "speed": 4.2,
+      "weapon": "cannon",
+      "weapon_damage": 22,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "armor"
+      ],
+      "ability": "Magnetic Harpoon Grinder",
+      "f_stat": "damage"
+    },
+    {
+      "id": "monsoon_tube",
+      "display_name": "Slag Jump Mortar",
+      "cameo": "TUBE",
+      "role": "artillery",
+      "cost": 260,
+      "time": 7,
+      "hp": 100,
+      "speed": 3.2,
+      "weapon": "tube",
+      "weapon_damage": 28,
+      "secondary": "channeled_beam",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "artillery"
+      ],
+      "ability": "Slag Jump Thruster",
+      "f_stat": "speed"
+    },
+    {
+      "id": "channel_skiff",
+      "display_name": "Salween Smuggler Boat",
+      "cameo": "SKF",
+      "role": "amphibious",
+      "cost": 180,
+      "time": 5,
+      "hp": 120,
+      "speed": 6.5,
+      "weapon": "bow_gun",
+      "weapon_damage": 10,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "amphibious",
+      "tags": [
+        "naval"
+      ],
+      "ability": "Land Legs",
+      "f_stat": "speed"
+    },
+    {
+      "id": "crimson_sapper",
+      "display_name": "Highland Saboteur",
+      "cameo": "SAP",
+      "role": "infantry",
+      "cost": 100,
+      "time": 3,
+      "hp": 85,
+      "speed": 5.0,
+      "weapon": "rifle",
+      "weapon_damage": 9,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "infantry"
+      ],
+      "ability": "Inflatable Raft and C4",
+      "f_stat": "speed"
+    },
+    {
+      "id": "amber_scout",
+      "display_name": "Syndicate Alchemist",
+      "cameo": "SCT",
+      "role": "infantry",
+      "cost": 90,
+      "time": 3,
+      "hp": 70,
+      "speed": 6.2,
+      "weapon": "carbine",
+      "weapon_damage": 7,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "infantry"
+      ],
+      "ability": "Adrenaline Cloud",
+      "f_stat": "speed"
+    },
+    {
+      "id": "yard_crane",
+      "display_name": "Tachileik Half-Track",
+      "cameo": "CRN",
+      "role": "vehicle",
+      "cost": 160,
+      "time": 5,
+      "hp": 140,
+      "speed": 4.0,
+      "weapon": "cab_gun",
+      "weapon_damage": 6,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "vehicle"
+      ],
+      "ability": "Evacuate and Lay Mines",
+      "f_stat": "speed"
+    },
+    {
+      "id": "ruby_mortar",
+      "display_name": "General Bo Mya",
+      "cameo": "MOR",
+      "role": "artillery",
+      "cost": 220,
+      "time": 6,
+      "hp": 90,
+      "speed": 3.0,
+      "weapon": "mortar",
+      "weapon_damage": 20,
+      "secondary": "channeled_beam",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "artillery"
+      ],
+      "ability": "Warlord's Bribe",
+      "f_stat": "hp"
+    },
+    {
+      "id": "slag_dozer",
+      "display_name": "Burma Road Bulldozer Tank",
+      "cameo": "DOZ",
+      "role": "vehicle",
+      "cost": 180,
+      "time": 5,
+      "hp": 160,
+      "speed": 4.4,
+      "weapon": "blade",
+      "weapon_damage": 11,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "vehicle"
+      ],
+      "ability": "Salvage Leech Beam",
+      "f_stat": "damage"
+    },
+    {
+      "id": "amber_welder",
+      "display_name": "Federal Wings Ag-Bomber Hexacopter",
+      "cameo": "WLD",
+      "role": "air",
+      "cost": 150,
+      "time": 4,
+      "hp": 100,
+      "speed": 5.0,
+      "weapon": "torch",
+      "weapon_damage": 8,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "air",
+      "tags": [
+        "air"
+      ],
+      "ability": "Fiber-Optic Tether",
+      "f_stat": "damage"
+    },
+    {
+      "id": "monsoon_spotter",
+      "display_name": "Mekong Spider Drone",
+      "cameo": "SPT",
+      "role": "drone",
+      "cost": 110,
+      "time": 3,
+      "hp": 75,
+      "speed": 5.4,
+      "weapon": "rifle",
+      "weapon_damage": 8,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "air",
+      "tags": [
+        "drone",
+        "air"
+      ],
+      "ability": "Electro-Stasis Tether",
+      "f_stat": "damage"
+    },
+    {
+      "id": "bullion_truck",
+      "display_name": "Irrawaddy Gyro-Gunship",
+      "cameo": "BLN",
+      "role": "air",
+      "cost": 170,
+      "time": 5,
+      "hp": 130,
+      "speed": 5.6,
+      "weapon": "pintle",
+      "weapon_damage": 7,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "air",
+      "tags": [
+        "air"
+      ],
+      "ability": "Cargo Winch Airlift",
+      "f_stat": "hp"
+    },
+    {
+      "id": "scaffold_rig",
+      "display_name": "Golden Dragon Dirigible",
+      "cameo": "RIG",
+      "role": "air",
+      "cost": 200,
+      "time": 6,
+      "hp": 150,
+      "speed": 3.8,
+      "weapon": "hammer",
+      "weapon_damage": 10,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "air",
+      "tags": [
+        "air"
+      ],
+      "ability": "Chemical Afterburner",
+      "f_stat": "speed"
+    },
+    {
+      "id": "channel_ferry",
+      "display_name": "Andaman Siege Barge",
+      "cameo": "FRY",
+      "role": "amphibious",
+      "cost": 210,
+      "time": 6,
+      "hp": 160,
+      "speed": 5.0,
+      "weapon": "bow_gun",
+      "weapon_damage": 9,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "amphibious",
+      "tags": [
+        "naval"
+      ],
+      "ability": "Overload Barrage",
+      "f_stat": "damage"
+    },
+    {
+      "id": "kachin_dog",
+      "display_name": "Kachin Sapper Dog",
+      "cameo": "DOG",
+      "role": "infantry",
+      "cost": 70,
+      "time": 3,
+      "hp": 60,
+      "speed": 6.4,
+      "weapon": "howl",
+      "weapon_damage": 7,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "infantry"
+      ],
+      "ability": "Sonic Howl",
+      "f_stat": "damage"
+    }
+  ],
+  "balance": "placeholder"
 }

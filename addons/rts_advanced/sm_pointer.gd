@@ -191,6 +191,8 @@ func _apply_catalog(u: RTSUnit, kind: StringName) -> void:
 		u.set_meta("locomotion", str(unit.get("locomotion", "ground")))
 		u.set_meta("role", str(unit.get("role", "")))
 		u.set_meta("tags", _tag_list(unit))
+		u.set_meta("ability", str(unit.get("ability", "")))
+		u.set_meta("f_stat", str(unit.get("f_stat", "damage")))
 		return
 
 func _body_color(team: int, kind: StringName) -> Color:
@@ -405,6 +407,7 @@ func cast_f(aim: Vector3) -> String:
 				u.set_meta("fiber_on", on)
 			elif guidance == "hop":
 				u.set_meta("hop_on", on)
+			apply_named_f(u)
 			toggled += 1
 		elif kind == "smart_cast" and float(u.get_meta("f_ready", 0.0)) <= 0.0 and flat < smart_d:
 			smart_d = flat
@@ -418,6 +421,7 @@ func cast_f(aim: Vector3) -> String:
 	if smart != null:
 		smart.set_meta("fired_f", int(smart.get_meta("fired_f", 0)) + 1)
 		smart.set_meta("f_ready", F_COOLDOWN)
+		apply_named_f(smart)
 		var strike: RTSUnit = nearest_enemy(aim, 240.0)
 		if strike != null:
 			strike.take_damage(smart.attack_damage * smart.damage_mult)
@@ -426,8 +430,25 @@ func cast_f(aim: Vector3) -> String:
 		beam.set_meta("channeling", true)
 		beam.set_meta("channel_t", BEAM_TIME)
 		beam.set_meta("f_ready", F_COOLDOWN)
+		apply_named_f(beam)
 		fired = "beam" if fired == "" else fired + "+beam"
 	return fired
+
+func apply_named_f(u: RTSUnit) -> bool:
+	if not is_instance_valid(u):
+		return false
+	var stat: String = str(u.get_meta("f_stat", "damage"))
+	if stat == "speed":
+		u.speed_scale += 0.4
+	elif stat == "hp":
+		u.max_hp += 8.0
+		u.hp += 8.0
+	elif stat == "incoming":
+		u.incoming_mult = maxf(0.2, u.incoming_mult - 0.2)
+	else:
+		u.damage_mult += 0.25
+	u.set_meta("f_stat_changed", stat)
+	return true
 
 func apply_status(u: RTSUnit, status: String, duration: float) -> void:
 	if not is_instance_valid(u):

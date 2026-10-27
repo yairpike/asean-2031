@@ -166,7 +166,9 @@ func _selection_line() -> String:
 	var first: RTSUnit = field.selection.units[0]
 	var extra: int = field.selection.count() - 1
 	var ability: String = "ability"
-	if first.has_meta("secondary"):
+	if first.has_meta("ability") and str(first.get_meta("ability")) != "":
+		ability = str(first.get_meta("ability"))
+	elif first.has_meta("secondary"):
 		ability = _ability_name(str(first.get_meta("secondary")))
 	var line: String = "%s    HP %d/%d    F %s" % [field.name_of(first), int(round(first.hp)), int(round(first.max_hp)), ability]
 	if extra > 0:
