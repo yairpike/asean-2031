@@ -1,0 +1,22 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+config/name="Godot RTS Advanced Lite"
+run/main_scene="res://examples/demo.tscn"
+config/features=PackedStringArray("4.7")
+
+[debug]
+gdscript/warnings/untyped_declaration=2
+gdscript/warnings/inferred_declaration=0
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[internationalization]
+locale/translations=PackedStringArray("res://localization/demo.en.translation", "res://localization/demo.fr.translation")
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

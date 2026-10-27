@@ -1,0 +1,36 @@
+# Godot RTS Advanced Lite
+
+> Free, MIT-licensed Godot 4 3D real-time strategy (RTS) starter kit / template in typed GDScript for Godot 4.7, with 114 passing headless tests (`bash tools/run_tests.sh`). The Pro edition (€19, commercial EULA, 356 tests) keeps the same core API and adds terrain, combat, construction, harvesting, fog of war, an AI opponent, save/load and a full skirmish demo.
+
+Copy `addons/rts_advanced/` into a Godot 4 project to use it. All systems are decoupled classes; `examples/demo.gd` shows the wiring.
+
+## Docs
+
+- [README](https://github.com/openclawaimac/godot-rts-advanced-lite/blob/main/README.md): systems, quickstart, demo controls, Lite vs Pro
+- [AGENTS.md](https://github.com/openclawaimac/godot-rts-advanced-lite/blob/main/AGENTS.md): structure, how to extend, how to run tests, rules for coding agents
+- [Website](https://openclawaimac.github.io/godot-rts-advanced/): product page with Lite vs Pro table
+
+## Code
+
+- [addons/rts_advanced/rts_teams.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_teams.gd): RTSTeams: team relations and colours
+- [addons/rts_advanced/rts_selection.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_selection.gd): RTSSelection: selection, control groups
+- [addons/rts_advanced/rts_selection_box.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_selection_box.gd): RTSSelectionBox: drag box with live count
+- [addons/rts_advanced/rts_orders.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_orders.gd): RTSOrders: move/attack/stop
+- [addons/rts_advanced/rts_formation.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_formation.gd): RTSFormation: box/line formations
+- [addons/rts_advanced/rts_grid_nav.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_grid_nav.gd): RTSGridNav: grid A*
+- [addons/rts_advanced/rts_separation.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_separation.gd): RTSSeparation: unit spacing
+- [addons/rts_advanced/rts_unit.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_unit.gd): RTSUnit: movement, health, attack
+- [addons/rts_advanced/rts_production.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_production.gd): RTSProductionQueue: production queue, refunds, rally point
+- [addons/rts_advanced/rts_economy.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_economy.gd): RTSEconomy: per-team credits
+- [addons/rts_advanced/rts_resource_node.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_resource_node.gd): RTSResourceNode: capturable income points
+- [addons/rts_advanced/rts_camera.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_camera.gd): RTSCamera: RTS camera and ground picking
+- [addons/rts_advanced/rts_bindings.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_bindings.gd): RTSBindings: key rebinding
+- [addons/rts_advanced/rts_loc.gd](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/addons/rts_advanced/rts_loc.gd): RTSLoc: localization
+- [examples/](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/examples/): demo.tscn (primitive-shape demo)
+- [tests/](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/tests/): strict headless suite
+- [tools/](https://github.com/openclawaimac/godot-rts-advanced-lite/tree/main/tools/): run_tests.sh, selftest_harness.sh, make_release.sh
+
+## Optional
+
+- [Pro edition on itch.io](https://huginhelm.itch.io/godot-rts-advanced): €19, commercial per-seat EULA
+- [All huginhelm Godot kits](https://openclawaimac.github.io/llms.txt)
