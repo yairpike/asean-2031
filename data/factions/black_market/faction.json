@@ -1,0 +1,14 @@
+{
+  "id": "black_market",
+  "display_name": "Black Market",
+  "build_style": "none",
+  "colors": {"primary": "charcoal", "accent": "amber", "primary_hex": "#1C1C1C", "accent_hex": "#C4922A"},
+  "import_flags": {
+    "rotary_slot": true,
+    "strike_slot": true,
+    "spotter_slot": true
+  },
+  "discount_tags": ["drone", "infantry"],
+  "units": [],
+  "buildings": []
+}

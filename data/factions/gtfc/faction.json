@@ -1,0 +1,22 @@
+{
+  "id": "gtfc",
+  "display_name": "GTFC",
+  "build_style": "scaffold",
+  "colors": {"primary": "crimson", "accent": "amber", "primary_hex": "#B81E2D", "accent_hex": "#E0A106"},
+  "yard_radius": 18,
+  "storefront_resources": ["Golden Slag / Aurum-9", "rare earth", "ruby", "jade", "gold bullion"],
+  "tech_order": ["scaffold_yard", "barracks", "armory"],
+  "buildings": [
+    {"id": "scaffold_yard", "tier": 1, "time": 4, "cost": 200, "hp": 400},
+    {"id": "barracks", "tier": 1, "time": 5, "cost": 150, "hp": 320},
+    {"id": "armory", "tier": 2, "time": 6, "cost": 220, "hp": 300}
+  ],
+  "units": [
+    {"id": "militia", "display_name": "Militia", "cameo": "MIL", "role": "infantry", "cost": 80, "time": 3, "hp": 80, "speed": 5.5, "weapon": "rifle", "weapon_damage": 8, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
+    {"id": "slag_hauler", "display_name": "Slag Hauler", "cameo": "SLAG", "role": "hauler", "cost": 120, "time": 4, "hp": 110, "speed": 6, "weapon": "cab_gun", "weapon_damage": 6, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},
+    {"id": "ruby_lancer", "display_name": "Ruby Lancer", "cameo": "LNC", "role": "infantry", "cost": 140, "time": 4, "hp": 90, "speed": 5, "weapon": "lance", "weapon_damage": 16, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
+    {"id": "amber_tank", "display_name": "Amber Tank", "cameo": "TNK", "role": "armor", "cost": 280, "time": 7, "hp": 220, "speed": 4.2, "weapon": "cannon", "weapon_damage": 22, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["armor"]},
+    {"id": "monsoon_tube", "display_name": "Monsoon Tube", "cameo": "TUBE", "role": "artillery", "cost": 260, "time": 7, "hp": 100, "speed": 3.2, "weapon": "tube", "weapon_damage": 28, "secondary": "channeled_beam", "guidance": "none", "locomotion": "ground", "tags": ["artillery"]},
+    {"id": "channel_skiff", "display_name": "Channel Skiff", "cameo": "SKF", "role": "amphibious", "cost": 180, "time": 5, "hp": 120, "speed": 6.5, "weapon": "bow_gun", "weapon_damage": 10, "secondary": "smart_cast", "guidance": "none", "locomotion": "amphibious", "tags": ["naval"]}
+  ]
+}

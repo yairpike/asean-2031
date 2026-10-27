@@ -1,0 +1,7 @@
+keys,en,fr
+UI_DRAG_COUNT,{count} units,{count} unités
+UI_DRAG_COUNT_ONE,1 unit,1 unité
+UI_CREDITS,Credits: {credits},Crédits : {credits}
+UI_SELECTED,Selected: {count},Sélection : {count}
+UI_QUEUE,Queue: {items},File : {items}
+UI_HELP,"Drag: select  ·  Right click: move/attack  ·  {produce}: build unit  ·  {line}: toggle line formation","Glisser : sélection  ·  Clic droit : déplacer/attaquer  ·  {produce} : produire  ·  {line} : formation en ligne"

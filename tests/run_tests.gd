@@ -1,0 +1,799 @@
+extends SceneTree
+## Lite strict headless suite: tools/run_tests.sh. Exit 0 = PASS (RESULT: PASS).
+## Subset of the Pro suite for the core systems, plus Lite-only checks.
+
+const Harness = preload("res://tests/harness.gd")
+var H: Harness
+
+func check(cond: bool, msg: String) -> void:
+	H.check(cond, msg)
+
+func _initialize() -> void:
+	_run.call_deferred()
+
+func _run() -> void:
+	H = Harness.new()
+	if Harness.selftest_mode() == "crash":
+		await H.section("harness_crash_selftest", H.crash_selftest)
+		quit(H.finish())
+		return
+	if Harness.selftest_mode() == "exit":
+		quit(0)
+		return
+	await H.section("test_teams", test_teams)
+	await H.section("test_economy", test_economy)
+	await H.section("test_resource_nodes", test_resource_nodes)
+	await H.section("test_formation", test_formation)
+	await H.section("test_grid_nav", test_grid_nav)
+	await H.section("test_unit", test_unit)
+	await H.section("test_selection", test_selection)
+	await H.section("test_selection_box", test_selection_box)
+	await H.section("test_orders", test_orders)
+	await H.section("test_production", test_production)
+	await H.section("test_camera", test_camera)
+	await H.section("test_bindings", test_bindings)
+	await H.section("test_localization", test_localization)
+	await H.section("test_demo", test_demo)
+	await H.section("test_separation", test_separation)
+	await H.section("test_lite_scope", test_lite_scope)
+	await H.section("test_scrub", test_scrub)
+	await H.section("test_sm_build", test_sm_build)
+	await H.section("test_sm_nodes", test_sm_nodes)
+	await H.section("test_sm_tech", test_sm_tech)
+	await H.section("test_sm_abilities", test_sm_abilities)
+	await H.section("test_sm_domain", test_sm_domain)
+	await H.section("test_sm_ew", test_sm_ew)
+	await H.section("test_sm_catalog", test_sm_catalog)
+	await H.section("test_sm_camera_rig", test_sm_camera_rig)
+	await H.section("test_sm_greybox", test_sm_greybox)
+	await H.section("test_sm_phillips", test_sm_phillips)
+	await H.section("test_sm_bots", test_sm_bots)
+	await H.section("test_sm_mission", test_sm_mission)
+	quit(H.finish())
+
+func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
+	var u: RTSUnit = RTSUnit.new()
+	u.team = team
+	u.unit_type = t
+	u.position = at
+	root.add_child(u)
+	return u
+
+## Top-down projection for selection tests: screen = world XZ * 10.
+func _proj(p: Vector3) -> Vector2:
+	return Vector2(p.x, p.z) * 10.0
+
+func test_teams() -> void:
+	var t: RTSTeams = RTSTeams.new()
+	t.add_team(0, Color.BLUE)
+	check(t.are_allies(3, 3), "a team is allied with itself")
+	check(t.are_enemies(0, 1), "unknown pair defaults to enemy")
+	t.set_relation(1, 0, RTSTeams.Relation.ALLY)
+	check(t.are_allies(0, 1) and t.are_allies(1, 0), "relations are symmetric")
+	t.set_relation(0, 2, RTSTeams.Relation.NEUTRAL)
+	check(not t.are_enemies(0, 2) and not t.are_allies(0, 2), "neutral is neither")
+	check(t.color_of(0) == Color.BLUE and t.color_of(9) == Color.GRAY, "team colours with fallback")
+
+func test_economy() -> void:
+	var e: RTSEconomy = RTSEconomy.new()
+	check(e.credits(0) == 0, "starts empty")
+	e.earn(0, 100)
+	e.earn(0, -5)
+	check(e.credits(0) == 100 and e.earned_total[0] == 100, "earn ignores negatives, tracks total")
+	check(e.try_spend(0, 60) and e.credits(0) == 40, "spend")
+	check(not e.try_spend(0, 41) and e.credits(0) == 40, "cannot overspend")
+	check(not e.try_spend(0, -10), "negative cost refused")
+	e.set_credits(1, -50)
+	check(e.credits(1) == 0, "set_credits clamps at zero")
+
+func test_resource_nodes() -> void:
+	var e: RTSEconomy = RTSEconomy.new()
+	var r: RTSResourceNode = RTSResourceNode.new(Vector3.ZERO, 10, 2.0, 25)
+	check(r.advance(5.0, e) == 0, "unowned node pays nothing")
+	r.owner_team = 1
+	check(r.advance(4.0, e) == 20 and e.credits(1) == 20, "two intervals pay 2x rate")
+	check(r.advance(1.0, e) == 0, "partial interval pays nothing yet")
+	check(r.advance(9.0, e) == 5 and r.depleted(), "last payout capped by remaining amount")
+	check(r.advance(10.0, e) == 0 and e.credits(1) == 25, "depleted node stops")
+	var inf: RTSResourceNode = RTSResourceNode.new(Vector3.ZERO, 3, 1.0, -1)
+	inf.owner_team = 0
+	check(inf.advance(100.0, e) == 300 and not inf.depleted(), "infinite node")
+
+func test_formation() -> void:
+	var s: Array[Vector3] = RTSFormation.box(Vector3(0, 0, 10), Vector3.ZERO, 9, 2.0)
+	check(s.size() == 9, "box makes one slot per unit")
+	var c: Vector3 = Vector3.ZERO
+	for p: Vector3 in s:
+		c += p
+	check((c / 9.0).length() < 0.01, "box is centred on the target")
+	var unique: Dictionary[Vector3, bool] = {}
+	var min_d: float = INF
+	for i: int in s.size():
+		unique[s[i].snapped(Vector3.ONE * 0.01)] = true
+		for j: int in range(i + 1, s.size()):
+			min_d = minf(min_d, s[i].distance_to(s[j]))
+	check(unique.size() == 9 and min_d >= 1.99, "slots distinct and >= spacing apart")
+	var l: Array[Vector3] = RTSFormation.line(Vector3(0, 0, 10), Vector3.ZERO, 4, 2.0)
+	check(is_equal_approx(l[0].z, 0.0) and is_equal_approx(l[3].z, 0.0) and is_equal_approx(absf(l[0].x - l[3].x), 6.0), "line is perpendicular to travel")
+	check(RTSFormation.box(Vector3.ZERO, Vector3.ZERO, 0).is_empty(), "zero units, no slots")
+	var pos: Array[Vector3] = [Vector3(10, 0, 0), Vector3(-10, 0, 0)]
+	var slots: Array[Vector3] = [Vector3(-9, 0, 0), Vector3(9, 0, 0)]
+	var a: Array[int] = RTSFormation.assign(pos, slots)
+	check(a[0] == 1 and a[1] == 0, "assignment pairs nearest slots (no crossing)")
+
+func test_grid_nav() -> void:
+	var n: RTSGridNav = RTSGridNav.new(10, 10, 2.0, Vector3.ZERO)
+	check(n.cell_at(Vector3(3.9, 0, 0.1)) == Vector2i(1, 0) and n.cell_center(Vector2i(1, 0)) == Vector3(3, 0, 1), "cell <-> world")
+	var p: PackedVector3Array = n.find_path(Vector3(1, 0, 1), Vector3(17, 0, 1))
+	check(p.size() == 8 and p[p.size() - 1].is_equal_approx(Vector3(17, 0, 1)), "straight path ends at the exact target")
+	n.block_rect(Rect2i(4, 0, 1, 9))
+	check(n.is_blocked(Vector2i(4, 3)) and not n.is_blocked(Vector2i(4, 9)), "wall blocked, gap open")
+	p = n.find_path(Vector3(1, 0, 1), Vector3(17, 0, 1))
+	var through_gap: bool = false
+	var hits_wall: bool = false
+	for q: Vector3 in p:
+		if n.cell_at(q) == Vector2i(4, 9): through_gap = true
+		if n.is_blocked(n.cell_at(q)): hits_wall = true
+	check(not p.is_empty() and through_gap and not hits_wall, "detours through the gap, never through the wall")
+	n.set_blocked(Vector2i(4, 9))
+	check(n.find_path(Vector3(1, 0, 1), Vector3(17, 0, 1)).is_empty(), "sealed wall = no path")
+	check(n.nearest_open(Vector2i(4, 4)) != Vector2i(4, 4) and not n.is_blocked(n.nearest_open(Vector2i(4, 4))), "nearest open cell")
+	check(n.is_blocked(Vector2i(-1, 0)), "out of bounds counts as blocked")
+
+func test_unit() -> void:
+	var u: RTSUnit = _unit(0, Vector3.ZERO)
+	await process_frame
+	check(u.hp == 100.0 and u.is_alive(), "spawns at max hp")
+	u.speed = 5.0
+	u.set_path(PackedVector3Array([Vector3(10, 0, 0)]))
+	var arrived: Array[bool] = [false]
+	u.arrived.connect(func(_x: RTSUnit) -> void: arrived[0] = true)
+	u.advance(1.0)
+	check(u.position.is_equal_approx(Vector3(5, 0, 0)) and u.is_moving(), "moves speed*delta")
+	u.advance(5.0)
+	check(u.position.is_equal_approx(Vector3(10, 0, 0)) and not u.is_moving() and arrived[0], "stops exactly at the end, emits arrived")
+	var e: RTSUnit = _unit(1, Vector3(14, 0, 0))
+	await process_frame
+	u.attack_target = e
+	u.attack_range = 6.0
+	u.attack_damage = 30.0
+	u.advance(0.1)
+	check(e.hp == 70.0, "attacks a target in range")
+	u.advance(0.1)
+	check(e.hp == 70.0, "respects attack interval")
+	e.position = Vector3(30, 0, 0)
+	u.advance(1.0)
+	check(u.position.x > 10.0, "chases a target that moved away")
+	var dead: Array[bool] = [false]
+	e.died.connect(func(_x: RTSUnit) -> void: dead[0] = true)
+	e.take_damage(500.0)
+	check(not e.is_alive() and e.hp == 0.0 and dead[0], "dies once at 0 hp")
+	u.advance(0.1)
+	check(u.attack_target == null, "drops dead targets")
+	u.free()
+	e.free()
+
+func test_selection() -> void:
+	var a: RTSUnit = _unit(0, Vector3(1, 0, 1), &"tank")
+	var b: RTSUnit = _unit(0, Vector3(2, 0, 2), &"scout")
+	var c: RTSUnit = _unit(0, Vector3(20, 0, 20), &"tank")
+	var foe: RTSUnit = _unit(1, Vector3(1.5, 0, 1.5))
+	await process_frame
+	var all: Array = [a, b, c, foe]
+	var s: RTSSelection = RTSSelection.new()
+	check(s.preview_count(Rect2(0, 0, 4, 4), all, _proj) == 0, "tiny drag = no box count")
+	check(s.preview_count(Rect2(30, 30, -30, -30), all, _proj) == 2, "live count, reversed drag, own team only")
+	check(s.select_box(Rect2(0, 0, 30, 30), all, _proj) == 2 and a.selected and not foe.selected, "box selects own units")
+	s.select_box(Rect2(190, 190, 20, 20), all, _proj, true)
+	check(s.count() == 3, "shift-add")
+	s.select_at(Vector2(10, 10), all, _proj, false, true)
+	check(s.count() == 2 and not a.selected, "ctrl-click toggles off")
+	s.select_at(Vector2(200, 200), all, _proj)
+	check(s.count() == 1 and s.units[0] == c, "plain click replaces")
+	s.select_box(Rect2(0, 0, 300, 300), all, _proj)
+	var tc: Dictionary[StringName, int] = s.type_counts()
+	check(tc[&"tank"] == 2 and tc[&"scout"] == 1, "type counts for the panel")
+	s.save_group(1)
+	s.clear()
+	check(s.count() == 0 and not b.selected, "clear")
+	b.take_damage(1000.0)
+	check(s.recall_group(1) == 2, "recall group skips dead units")
+	for u: RTSUnit in [a, b, c, foe]:
+		u.free()
+
+func test_selection_box() -> void:
+	var sb: RTSSelectionBox = RTSSelectionBox.new()
+	sb.count_provider = func(_r: Rect2) -> int: return 3
+	root.add_child(sb)
+	await process_frame
+	sb.begin(Vector2(100, 100))
+	sb.update_drag(Vector2(104, 102))
+	sb.refresh()
+	check(not sb.is_box() and not sb.tag.visible, "small drag shows nothing")
+	sb.update_drag(Vector2(40, 20))
+	sb.refresh()
+	check(sb.is_box() and sb.rect() == Rect2(40, 20, 60, 80), "rect normalised for any drag direction")
+	check(sb.tag.visible and sb.tag.text == "3 units", "live count tag (localized)")
+	sb.count_provider = func(_r: Rect2) -> int: return 1
+	sb.refresh()
+	check(sb.tag.text == "1 unit", "singular form")
+	sb.end()
+	check(not sb.active and not sb.tag.visible, "end hides the box")
+	sb.free()
+
+func test_orders() -> void:
+	var nav: RTSGridNav = RTSGridNav.new(20, 20, 2.0, Vector3.ZERO)
+	nav.block_rect(Rect2i(8, 0, 1, 15))
+	var us: Array[RTSUnit] = []
+	for i: int in 4:
+		us.append(_unit(0, Vector3(2 + i, 0, 2)))
+	await process_frame
+	var slots: Array[Vector3] = RTSOrders.move(us, Vector3(30, 0, 4), nav)
+	check(slots.size() == 4, "every unit gets a slot")
+	var ok: bool = true
+	for u: RTSUnit in us:
+		ok = ok and u.is_moving()
+	check(ok, "every unit has a path")
+	for i: int in 400:
+		for u: RTSUnit in us:
+			u.advance(0.05)
+	var arrived: int = 0
+	for u: RTSUnit in us:
+		if not u.is_moving() and u.position.x > 24.0: arrived += 1
+		check(not nav.is_blocked(nav.cell_at(u.position)), "unit ended on an open cell")
+	check(arrived == 4, "all four crossed the wall via the gap and arrived")
+	var teams: RTSTeams = RTSTeams.new()
+	var foe: RTSUnit = _unit(1, Vector3(30, 0, 30))
+	var friend: RTSUnit = _unit(0, Vector3(30, 0, 34))
+	await process_frame
+	check(RTSOrders.attack(us, foe, nav, teams) == 4 and us[0].attack_target == foe, "attack order on an enemy")
+	check(RTSOrders.attack(us, friend, nav, teams) == 0, "attack on a friendly unit ignored")
+	RTSOrders.stop(us)
+	check(not us[0].is_moving() and us[0].attack_target == null, "stop clears path and target")
+	for u: RTSUnit in us:
+		u.free()
+	foe.free()
+	friend.free()
+
+func test_production() -> void:
+	var e: RTSEconomy = RTSEconomy.new()
+	e.set_credits(0, 250)
+	var cat: Dictionary[StringName, Dictionary] = {&"a": {"cost": 100, "time": 2.0}, &"b": {"cost": 50, "time": 1.0}}
+	var q: RTSProductionQueue = RTSProductionQueue.new(0, cat)
+	q.max_items = 3
+	q.rally = Vector3(5, 0, 5)
+	var made: Array[StringName] = []
+	q.produced.connect(func(t: StringName, r: Vector3) -> void:
+		made.append(t)
+		check(r == Vector3(5, 0, 5), "produced at the rally point"))
+	check(q.enqueue(&"a", e) and e.credits(0) == 150, "queue pays up front")
+	check(q.can_queue(&"zzz", e) == "unknown unit", "unknown type refused")
+	q.enqueue(&"b", e)
+	q.enqueue(&"b", e)
+	check(q.can_queue(&"b", e) == "queue full", "queue limit")
+	check(e.credits(0) == 50, "three items paid")
+	q.advance(1.0)
+	check(is_equal_approx(q.head_ratio(), 0.5) and made.is_empty(), "head progresses")
+	check(q.cancel(e) == 50 and e.credits(0) == 100 and q.items.size() == 2, "cancel last refunds in full")
+	check(q.advance(2.5) == 2 and made == [&"a", &"b"], "overflow time carries into the next item")
+	check(q.items.is_empty() and q.head_ratio() == 0.0, "queue drained")
+	e.set_credits(0, 10)
+	check(q.can_queue(&"b", e) == "not enough credits", "cannot afford")
+
+func test_camera() -> void:
+	var cam: RTSCamera = RTSCamera.new()
+	cam.bounds = Rect2(-10, -10, 20, 20)
+	root.add_child(cam)
+	await process_frame
+	cam.distance = 30.0
+	cam.focus_on(Vector3(3, 0, 4))
+	var fwd: Vector3 = -cam.global_transform.basis.z
+	var hit: Vector3 = cam.ground_at(cam.unproject_position(Vector3(3, 0, 4)))
+	check(hit.distance_to(Vector3(3, 0, 4)) < 0.05, "ground_at inverts unproject at the focus")
+	check(fwd.y < -0.5, "looks down at the ground")
+	cam.focus_on(Vector3(100, 0, -100))
+	check(cam.focus == Vector3(10, 0, -10), "focus clamped to bounds")
+	cam.zoom(50)
+	check(cam.distance == cam.zoom_min, "zoom in clamps at minimum")
+	var p_near: float = cam.pitch()
+	cam.zoom(-50)
+	check(cam.distance == cam.zoom_max and cam.pitch() > p_near, "zoom out clamps and steepens pitch")
+	cam.focus_on(Vector3.ZERO)
+	cam.pan(Vector2(1, 0), 0.1)
+	check(cam.focus.x > 0.0 and absf(cam.focus.z) < 0.001, "pan right moves focus +x")
+	cam.pan(Vector2(0, 1), 0.1)
+	check(cam.focus.z < 0.0, "pan up moves focus forward (-z)")
+	cam.free()
+
+func test_bindings() -> void:
+	RTSBindings.install()
+	check(RTSBindings.key_of(&"rts_produce") == KEY_B, "default key installed")
+	check(RTSBindings.label(&"rts_pan_up") == "W", "readable label")
+	check(RTSBindings.rebind(&"rts_produce", KEY_X) == &"rts_stop", "rebind onto a used key reports the conflict")
+	check(RTSBindings.key_of(&"rts_produce") == KEY_B, "conflicting rebind not applied")
+	check(RTSBindings.rebind(&"rts_produce", KEY_G) == &"" and RTSBindings.key_of(&"rts_produce") == KEY_G, "rebind to a free key")
+	var path: String = "user://rts_bindings_test.cfg"
+	check(RTSBindings.save(path) == OK, "save bindings")
+	RTSBindings.reset()
+	check(RTSBindings.key_of(&"rts_produce") == KEY_B, "reset to defaults")
+	check(RTSBindings.load_from(path) == OK and RTSBindings.key_of(&"rts_produce") == KEY_G, "load restores the rebinding")
+	RTSBindings.reset()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var ev: InputEventKey = InputEventKey.new()
+	ev.physical_keycode = KEY_B
+	ev.pressed = true
+	check(ev.is_action_pressed(&"rts_produce"), "InputMap matches the bound key")
+
+func test_localization() -> void:
+	TranslationServer.set_locale("en")
+	check(RTSLoc.t("UI_CREDITS", {"credits": 42}) == "Credits: 42", "translate with params")
+	var lab: Label = Label.new()
+	root.add_child(lab)
+	RTSLoc.bind(lab, "UI_SELECTED", {"count": 3})
+	check(lab.text == "Selected: 3", "bind sets text")
+	check(RTSLoc.set_language("fr", root) >= 1 and lab.text == "Sélection : 3", "live language switch re-renders bound texts")
+	check(RTSLoc.missing_keys("fr").is_empty(), "second locale has every key")
+	check(RTSLoc.t("NO_SUCH_KEY") == "NO_SUCH_KEY", "missing key falls back to the key")
+	TranslationServer.set_locale("en")
+	lab.free()
+
+func test_demo() -> void:
+	TranslationServer.set_locale("en")
+	var d: Node = (load("res://examples/demo.tscn") as PackedScene).instantiate()
+	d.set("auto_tick", false)
+	root.add_child(d)
+	await process_frame
+	await process_frame
+	var units: Array[RTSUnit] = d.get("units")
+	var econ: RTSEconomy = d.get("economy")
+	var sel: RTSSelection = d.get("selection")
+	check(units.size() == 10 and econ.credits(0) == 200, "demo spawns 6 + 4 units, 200 credits")
+	var proj: Callable = Callable(d, "project")
+	var n: int = sel.select_box(Rect2(Vector2(-1e5, -1e5), Vector2(2e5, 2e5)), units, proj)
+	check(n == 6, "select-all box picks the 6 player units only")
+	check(d.call("produce", &"scout") and econ.credits(0) == 150, "production queue in the demo")
+	d.call("command_at", Vector3(4, 0, 22))
+	var moving: int = 0
+	for u: RTSUnit in sel.units:
+		if u.is_moving(): moving += 1
+	check(moving == 6, "right-click move gives all six a path (crossing the wall)")
+	for i: int in 360:
+		d.call("tick", 0.05)
+	check(units.size() == 11, "the queued scout was produced")
+	var res: Array[RTSResourceNode] = d.get("resources")
+	var owned: int = 0
+	for r: RTSResourceNode in res:
+		if r.owner_team == 0: owned += 1
+	check(owned >= 1 and econ.credits(0) > 150, "a resource point was captured and pays income")
+	var scout: RTSUnit = d.call("spawn_unit", 0, &"tank", Vector3(17, 0, -17))
+	for i: int in 40:
+		d.call("tick", 0.05)
+	check(int(d.get("shots_fired")) > 0, "units fire automatically in range (shot effects spawned)")
+	await process_frame
+	var hurt: int = 0
+	for u: RTSUnit in units:
+		if u.hp < u.max_hp and (u.get_node("HealthBar") as Node3D).visible and (u.get_node("HealthBar") as Node3D).scale.x < 1.0: hurt += 1
+	check(hurt > 0, "damaged units show a shrinking health bar")
+	var close: int = 0
+	for i: int in units.size():
+		for j: int in range(i + 1, units.size()):
+			var a: RTSUnit = units[i]
+			var b: RTSUnit = units[j]
+			if not a.is_moving() and not b.is_moving() and Vector2(a.position.x - b.position.x, a.position.z - b.position.z).length() < (a.radius + b.radius) * 0.5: close += 1
+	check(close == 0 and scout != null, "idle units do not stack (separation)")
+	d.queue_free()
+	await process_frame
+
+func test_separation() -> void:
+	var a: RTSUnit = _unit(0, Vector3(0, 0, 0))
+	var b: RTSUnit = _unit(0, Vector3(0.2, 0, 0))
+	var c: RTSUnit = _unit(0, Vector3(0, 0, 0))
+	await process_frame
+	var us: Array = [a, b, c]
+	check(RTSSeparation.apply(us, 0.1) == 3, "three overlapping pairs found")
+	for i: int in 60:
+		RTSSeparation.apply(us, 0.1)
+	var ok: bool = true
+	for i: int in 3:
+		for j: int in range(i + 1, 3):
+			var u: RTSUnit = us[i]
+			var v: RTSUnit = us[j]
+			ok = ok and Vector2(u.position.x - v.position.x, u.position.z - v.position.z).length() >= u.radius + v.radius - 0.01
+	check(ok, "after relaxing, no two units overlap (even exact stacks)")
+	var w: RTSUnit = _unit(0, Vector3(10, 0, 0))
+	var x: RTSUnit = _unit(0, Vector3(10.1, 0, 0))
+	await process_frame
+	RTSSeparation.apply([w, x], 1.0, 8.0, func(p: Vector3) -> bool: return p.x >= 10.0)
+	check(w.position.x >= 10.0, "pushes never move a unit onto blocked ground")
+	check(RTSSeparation.apply([a, w], 0.1) == 0, "far apart = untouched")
+	for u: RTSUnit in [a, b, c, w, x]:
+		u.free()
+
+func test_lite_scope() -> void:
+	print("Lite scope (no Pro systems)")
+	var bad: Array[String] = []
+	for cls: Dictionary in ProjectSettings.get_global_class_list():
+		if str(cls["path"]).contains("/pro/") or str(cls["class"]) in ["RTSTerrain", "RTSCombat", "RTSFog", "RTSAIPlayer", "RTSSaveGame", "RTSMinimap"]:
+			bad.append(str(cls["class"]))
+	check(bad.is_empty(), "no Pro classes in Lite %s" % [bad])
+	check(not DirAccess.dir_exists_absolute("res://assets") and not DirAccess.dir_exists_absolute("res://examples/skirmish"), "no third-party assets, no skirmish")
+	check(FileAccess.get_file_as_string("res://LICENSE").contains("Permission is hereby granted, free of charge"), "Lite is MIT")
+
+const TEXT_EXT: PackedStringArray = ["gd", "tscn", "tres", "md", "txt", "csv", "json", "cfg", "godot", "sh", "py", "js", "gdshader", "import"]
+const SKIP: PackedStringArray = ["res://.godot", "res://.git", "res://tests/scrub_terms.rot13", "res://tests/last_run.txt"]
+
+static func rot13(s: String) -> String:
+	var out: String = ""
+	for ch: String in s:
+		var c: int = ch.unicode_at(0)
+		if c >= 97 and c <= 122: c = (c - 97 + 13) % 26 + 97
+		elif c >= 65 and c <= 90: c = (c - 65 + 13) % 26 + 65
+		out += String.chr(c)
+	return out
+
+func _files(dir: String, out: Array[String]) -> void:
+	for s: String in SKIP:
+		if dir == s: return
+	var d: DirAccess = DirAccess.open(dir)
+	if d == null: return
+	d.include_hidden = true
+	for f: String in d.get_files():
+		var p: String = dir.path_join(f)
+		if not SKIP.has(p): out.append(p)
+	for sub: String in d.get_directories():
+		_files(dir.path_join(sub), out)
+
+func test_scrub() -> void:
+	var terms: Array[String] = []
+	for line: String in (FileAccess.get_file_as_string("res://tests/scrub_terms.rot13") if FileAccess.file_exists("res://tests/scrub_terms.rot13") else "").split("\n"):
+		if line.strip_edges() != "" and not line.begins_with("#"):
+			terms.append(rot13(line.strip_edges()))
+	var shipped: bool = not FileAccess.file_exists("res://tests/scrub_terms.rot13")
+	# the term list is a dev-only file (RELEASE_EXCLUDE.txt); a release extraction runs the generic checks only
+	check(terms.size() >= 100 or shipped, "scrub list loaded (%d terms)%s" % [terms.size(), " - dev-only list not shipped" if shipped else ""])
+	var pat: String = "(?i)\\b(" + "|".join(terms.map(func(t: String) -> String: return t.replace(" ", "[ _-]"))) + ")\\b"
+	if terms.is_empty():
+		pat = "(?!x)x"
+	var rx: RegEx = RegEx.create_from_string(pat)
+	# built from code points so this file does not contain the letters it bans
+	var nordic: RegEx = RegEx.create_from_string("[" + "".join([0xE5, 0xE4, 0xF6, 0xC5, 0xC4, 0xD6].map(func(c: int) -> String: return String.chr(c))) + "]")
+	var milestone: RegEx = RegEx.create_from_string("(?i)(\\bM(1[0-9]|[1-9])\\b|_m[0-9]{1,2}\\b|\\bm[0-9]{1,2}_|\\bM" + str(2) + "[A-Z])")
+	var files: Array[String] = []
+	_files("res://", files)
+	check(files.size() > 20, "scanned %d files" % files.size())
+	var hits: Array[String] = []
+	for p: String in files:
+		var rel: String = p.trim_prefix("res://")
+		for r: RegEx in [rx, nordic, milestone]:
+			var m: RegExMatch = r.search(rel)
+			if m != null: hits.append("name %s: '%s'" % [rel, m.get_string()])
+		if TEXT_EXT.has(p.get_extension()):
+			var txt: String = FileAccess.get_file_as_string(p)
+			for r: RegEx in [rx, nordic, milestone]:
+				var mt: RegExMatch = r.search(txt)
+				if mt != null: hits.append("text %s: '%s'" % [rel, mt.get_string()])
+	check(hits.is_empty(), "no identifying terms, Nordic letters or milestone tags in files or names %s" % [hits.slice(0, 8)])
+	# authors / commit messages (only when run inside the kit's own git repo)
+	var root_dir: String = ProjectSettings.globalize_path("res://")
+	if DirAccess.dir_exists_absolute(root_dir.path_join(".git")):
+		var out: Array = []
+		var code: int = OS.execute("git", ["-C", root_dir, "log", "--format=%an <%ae> %s"], out)
+		var log_txt: String = "\n".join(out)
+		var bad: Array[String] = []
+		for r: RegEx in [rx, nordic, milestone]:
+			for mg: RegExMatch in r.search_all(log_txt):
+				bad.append(mg.get_string())
+		var authors_ok: bool = true
+		for l: String in log_txt.split("\n", false):
+			if not l.begins_with("Kit Author <kit-author@example.invalid>"): authors_ok = false
+		check(code == 0 and bad.is_empty() and authors_ok, "git history: neutral author only, clean messages %s" % [bad])
+	else:
+		check(true, "no .git here (release extraction); history check runs in the kit repo")
+
+func test_sm_build() -> void:
+	var econ: RTSEconomy = RTSEconomy.new()
+	econ.set_credits(0, 2000)
+	var yard: SMBuildYard = SMBuildYard.new()
+	yard.economy = econ
+	yard.team = 0
+	yard.style = SMBuildYard.Style.SCAFFOLD
+	yard.center = Vector3.ZERO
+	yard.radius = 10.0
+	yard.drain_per_sec = 5
+	yard.tech_order = [&"yard", &"barracks", &"armory"]
+	yard.building_time[&"yard"] = 4.0
+	yard.building_time[&"barracks"] = 3.0
+	yard.building_time[&"armory"] = 3.0
+	check(not yard.begin_scaffold(&"yard", Vector3(20, 0, 0), 100.0), "scaffold rejects a footprint outside the yard")
+	check(yard.begin_scaffold(&"yard", Vector3(2, 0, 0), 100.0), "scaffold accepts a footprint inside")
+	check(yard.vulnerable, "scaffold is vulnerable while it builds")
+	yard.damage_scaffold(40.0)
+	check(yard.scaffold_hp == 60.0 and yard.vulnerable, "damage lands on the scaffold")
+	yard.advance(2.0)
+	check(yard.drained == 10 and yard.scaffold_active, "credits drain while the scaffold stands")
+	yard.advance(2.0)
+	check(yard.finished.has(&"yard") and not yard.vulnerable, "finished scaffold ends the drain")
+	check(not yard.can_build(&"armory"), "linear tech skips nothing")
+	check(yard.can_build(&"barracks"), "next building unlocks")
+	check(yard.begin_scaffold(&"barracks", Vector3(1, 0, 1), 80.0), "second scaffold starts")
+	yard.advance(3.0)
+	check(yard.finished.has(&"barracks") and yard.can_build(&"armory"), "armory waits for the previous building")
+	var mvd: SMBuildYard = SMBuildYard.new()
+	mvd.style = SMBuildYard.Style.INTERNAL
+	mvd.economy = econ
+	mvd.team = 0
+	mvd.center = Vector3.ZERO
+	mvd.radius = 10.0
+	mvd.clearance = 1
+	mvd.building_tier[&"bay"] = 2
+	mvd.building_tier[&"siege"] = 3
+	mvd.building_time[&"bay"] = 2.0
+	mvd.building_time[&"siege"] = 2.0
+	check(not mvd.queue_internal(&"bay"), "clearance 1 cannot queue tier 2")
+	check(not mvd.buy_clearance(3, 50), "clearance 3 before 2 is refused")
+	check(mvd.buy_clearance(2, 50) and mvd.radius == 16.0, "clearance 2 grows the radius")
+	check(mvd.queue_internal(&"bay"), "tier 2 queues inside the hub")
+	check(mvd.placed.is_empty(), "the hub has not placed the shell yet")
+	mvd.advance(2.0)
+	check(mvd.ready.has(&"bay"), "the hub finishes the building")
+	check(not mvd.place_finished(&"bay", Vector3(30, 0, 0)), "place rejects a point outside the radius")
+	check(mvd.place_finished(&"bay", Vector3(12, 0, 0)), "place accepts a point inside the grown radius")
+	check(mvd.buy_clearance(3, 50) and mvd.clearance == 3, "clearance 3 unlocks the next tier")
+	check(mvd.queue_internal(&"siege"), "tier 3 queues after clearance 3")
+	var grid: SMDomainGrid = SMDomainGrid.new(8, 8, 2.0, Vector3.ZERO)
+	grid.set_domain(Vector2i(3, 0), SMDomainGrid.Domain.DEEP)
+	var nmrf: SMBuildYard = SMBuildYard.new()
+	nmrf.style = SMBuildYard.Style.MOBILE
+	nmrf.grid = grid
+	check(nmrf.move_packer(grid.cell_center(Vector2i(0, 0))), "packer starts on land")
+	check(nmrf.move_packer(grid.cell_center(Vector2i(3, 0))), "packer sails into deep water")
+	check(nmrf.unpack(&"boat_shed"), "packer unpacks")
+	check(not nmrf.move_packer(grid.cell_center(Vector2i(0, 0))), "an unpacked core does not drive")
+	check(nmrf.upgrade_factory(&"boat_shed") and nmrf.factory_level(&"boat_shed") == 2, "factory tier upgrade")
+	check(nmrf.upgrade_factory(&"boat_shed") and nmrf.factory_level(&"boat_shed") == 3, "a second factory upgrade")
+	check(not nmrf.upgrade_factory(&"boat_shed"), "factory tier stops at 3")
+
+func test_sm_nodes() -> void:
+	var net: SMCommodityNet = SMCommodityNet.new()
+	var econ: RTSEconomy = RTSEconomy.new()
+	check(SMCommodityNet.all_kinds().size() == 5, "five commodities")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_SLAG) == "Golden Slag / Aurum-9", "slag storefront name")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_RARE) == "rare earth", "rare earth name")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_RUBY) == "ruby", "ruby name")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_JADE) == "jade", "jade name")
+	check(SMCommodityNet.display_name(SMCommodityNet.KIND_BULLION) == "gold bullion", "bullion name")
+	net.add_node(&"s", SMCommodityNet.KIND_SLAG, Vector3.ZERO, 10, false)
+	net.add_node(&"r", SMCommodityNet.KIND_RARE, Vector3(3, 0, 0), 0, true)
+	net.add_node(&"u", SMCommodityNet.KIND_RUBY, Vector3(6, 0, 0), 10, false)
+	net.add_node(&"j", SMCommodityNet.KIND_JADE, Vector3(9, 0, 0), 10, false)
+	net.add_node(&"b", SMCommodityNet.KIND_BULLION, Vector3(12, 0, 0), 10, false)
+	check(net.snap_refinery(&"s", 0), "refinery snaps to a node")
+	check(net.has_collector(&"s"), "one collector spawns")
+	check(not net.snap_refinery(&"s", 1), "a second refinery on the same node is rejected")
+	check(net.advance(4.0, econ) == 10, "the collector loop pays")
+	check(not net.set_night_shift(&"s", true), "slag has no night shift")
+	check(net.set_night_shift(&"u", true) and net.visible_through_fog(&"u"), "ruby night shift is visible through fog")
+	check(net.set_night_shift(&"j", true) and net.night_on(&"j"), "jade night shift toggles")
+	check(net.snap_refinery(&"u", 0), "ruby refinery")
+	var before: int = econ.credits(0)
+	check(net.advance(2.0, econ) == 10 and econ.credits(0) - before == 10, "night shift pays a full loop in half the time")
+	check(net.snap_refinery(&"r", 0), "rare-earth refinery")
+	var credits_before: int = econ.credits(0)
+	net.advance(4.0, econ)
+	check(net.stock_of(0) == 1, "rare-earth stock is a separate counter")
+	check(econ.credits(0) >= credits_before, "stock does not spend credits")
+	check(not net.try_spend_stock(0, 2), "tier-3 gear cannot spend stock it lacks")
+	check(net.try_spend_stock(0, 1) and net.stock_of(0) == 0, "rare-earth stock spends")
+	check(net.harm_infantry(Vector3(3, 0, 0), false, 1.0) == 8.0, "adjacent water harms unshielded infantry")
+	check(net.harm_infantry(Vector3(3, 0, 0), true, 1.0) == 0.0, "shielded infantry are spared")
+
+func test_sm_tech() -> void:
+	var tech: SMTechNet = SMTechNet.new()
+	var econ: RTSEconomy = RTSEconomy.new()
+	econ.set_credits(0, 0)
+	econ.set_credits(1, 100)
+	tech.add_site(&"c", SMTechNet.CYBER, Vector3.ZERO)
+	tech.add_site(&"b", SMTechNet.BAZAAR, Vector3(2, 0, 0))
+	tech.add_site(&"h", SMTechNet.CLINIC, Vector3(4, 0, 0))
+	tech.add_site(&"r", SMTechNet.RADAR, Vector3(6, 0, 0))
+	check(tech.capture(&"c", 0), "cyber compound captures")
+	tech.advance(1.0, econ, 1)
+	check(tech.income_of(&"c") == 12 and tech.siphon_of(&"c") == 4, "cyber income and siphon")
+	check(econ.credits(1) == 96, "the siphon takes enemy credits")
+	check(tech.capture(&"b", 0), "arms bazaar captures")
+	check(is_equal_approx(tech.discount(0, "drone"), 0.7) and is_equal_approx(tech.discount(0, "infantry"), 0.7), "bazaar discounts drones and infantry")
+	check(tech.discount(0, "armor") == 1.0, "bazaar leaves other tags alone")
+	tech.set_import("rotary_slot", true)
+	check(tech.import_open("rotary_slot"), "an import slot is a data flag")
+	check(tech.capture(&"h", 0), "field clinic captures")
+	tech.advance(1.0, econ, 1)
+	check(tech.clinic_healed(0) >= 6.0, "field clinic heals")
+	check(tech.capture(&"r", 0) and tech.reveals_water(0), "hydro radar reveals water")
+
+func test_sm_abilities() -> void:
+	var book: SMAbilities = SMAbilities.new()
+	book.add_unit(1, Vector3.ZERO, SMAbilities.TOGGLE, 2.0, 1.0)
+	book.add_unit(2, Vector3(1, 0, 0), SMAbilities.TOGGLE, 2.0, 1.0)
+	check(book.group_toggle([1, 2]) == 2 and book.toggle_on(1) and book.toggle_on(2), "group toggle flips the group")
+	book.add_unit(3, Vector3.ZERO, SMAbilities.SMART, 3.0, 1.0)
+	book.add_unit(4, Vector3(6, 0, 0), SMAbilities.SMART, 3.0, 1.0)
+	check(book.smart_cast([3, 4], Vector3.ZERO) == 3, "smart-cast picks the closest ready unit")
+	check(book.fired_count(4) == 0, "the farther unit holds its fire")
+	book.set_ready(3, 5.0)
+	check(book.smart_cast([3, 4], Vector3.ZERO) == 4, "an unready closest unit is skipped")
+	book.add_unit(5, Vector3.ZERO, SMAbilities.BEAM, 1.0, 1.0)
+	book.add_unit(6, Vector3(2, 0, 0), SMAbilities.TOGGLE, 1.0, 1.0)
+	check(book.begin_beam(5, 6), "channeled beam starts")
+	book.advance(2.0)
+	check(book.beam_done(5) == 1 and book.status_of(6) == SMAbilities.ST_FROZEN, "the beam completes and freezes the target")
+	book.add_unit(7, Vector3.ZERO, SMAbilities.BEAM, 1.0, 1.0)
+	check(book.begin_beam(7, 6), "a second beam starts")
+	book.apply_status(7, SMAbilities.ST_FROZEN, 4.0)
+	book.advance(2.0)
+	check(book.beam_done(7) == 0 and not book.is_channeling(7), "frozen breaks the channel")
+	book.apply_status(1, SMAbilities.ST_SHRUNK, 5.0)
+	check(is_equal_approx(book.radius_of(1), 0.5), "shrunk halves the radius")
+	book.apply_status(2, SMAbilities.ST_BLACK_HOLE, 5.0)
+	check(is_equal_approx(book.damage_to(2, 50.0), 10.0) and is_equal_approx(book.hp_of(2), 90.0), "black-hole armor cuts incoming damage")
+	book.advance(6.0)
+	check(book.status_of(1) == SMAbilities.ST_NONE and is_equal_approx(book.radius_of(1), 1.0), "shrink wears off")
+
+func test_sm_domain() -> void:
+	var g: SMDomainGrid = SMDomainGrid.phillips_layout()
+	check(g.domain_at_cell(Vector2i(8, 4)) == SMDomainGrid.Domain.LAND, "west land")
+	check(g.domain_at_cell(Vector2i(30, 12)) == SMDomainGrid.Domain.LAND, "east land")
+	check(g.domain_at_cell(Vector2i(20, 12)) == SMDomainGrid.Domain.DEEP, "deep channel")
+	check(g.domain_at_cell(Vector2i(16, 5)) == SMDomainGrid.Domain.SHALLOW, "shallow crossing")
+	check(g.domain_at_cell(Vector2i(5, 11)) == SMDomainGrid.Domain.CLIFF, "cliff flag")
+	check(g.domain_at_cell(Vector2i(19, 10)) == SMDomainGrid.Domain.AIR, "air flag")
+	_domain_seen.clear()
+	g.domain_changed.connect(_on_test_domain)
+	check(g.move_unit(3, g.cell_center(Vector2i(12, 5)), SMDomainGrid.Loco.AMPHIBIOUS), "amphibious steps onto land")
+	check(_domain_seen.is_empty(), "the first placement does not signal")
+	check(g.move_unit(3, g.cell_center(Vector2i(16, 5)), SMDomainGrid.Loco.AMPHIBIOUS), "amphibious enters shallow water")
+	check(_domain_seen.size() == 2 and _domain_seen[0] == SMDomainGrid.Domain.LAND and _domain_seen[1] == SMDomainGrid.Domain.SHALLOW, "domain change at the shoreline")
+	check(not g.move_unit(4, g.cell_center(Vector2i(20, 12)), SMDomainGrid.Loco.GROUND), "ground movement stops at deep water")
+	check(not g.move_unit(5, g.cell_center(Vector2i(5, 11)), SMDomainGrid.Loco.AMPHIBIOUS), "a cliff blocks movement")
+	check(g.move_unit(6, g.cell_center(Vector2i(19, 10)), SMDomainGrid.Loco.AIR), "air enters an air cell")
+	check(g.move_unit(7, g.cell_center(Vector2i(20, 12)), SMDomainGrid.Loco.NAVAL), "naval enters deep water")
+
+var _domain_seen: Array[int] = []
+
+func _on_test_domain(_unit_id: int, from_domain: int, to_domain: int) -> void:
+	_domain_seen.append(from_domain)
+	_domain_seen.append(to_domain)
+
+func test_sm_ew() -> void:
+	var ew: SMEwField = SMEwField.new()
+	ew.center = Vector3.ZERO
+	ew.radius = 10.0
+	var inside: Vector3 = Vector3(2, 0, 0)
+	var outside: Vector3 = Vector3(30, 0, 0)
+	check(is_equal_approx(ew.accuracy(inside, SMEwField.GPS), ew.penalty), "gps guidance is jammed")
+	check(is_equal_approx(ew.accuracy(inside, SMEwField.FPV), ew.penalty), "fpv guidance is jammed")
+	check(ew.accuracy(inside, SMEwField.FIBER) == 1.0, "fiber-optic ignores the jammer")
+	check(ew.accuracy(inside, SMEwField.HOP) == 1.0, "frequency-hop ignores the jammer")
+	check(ew.accuracy(inside, SMEwField.GPS, true, false) == 1.0, "an active fiber link is exempt")
+	check(ew.accuracy(inside, SMEwField.FPV, false, true) == 1.0, "an active hop link is exempt")
+	check(ew.accuracy(outside, SMEwField.GPS) == 1.0, "outside the jammer radius")
+	check(ew.accuracy(inside, SMEwField.NONE) == 1.0, "unguided weapons are not jammed")
+
+func test_sm_catalog() -> void:
+	for id: String in ["gtfc", "mvd", "nmrf"]:
+		var data: Dictionary = SMCatalog.faction(id)
+		var units: Array[Dictionary] = SMCatalog.units_of(data)
+		check(units.size() == 6, "%s has six units" % id)
+		for unit: Dictionary in units:
+			check(SMCatalog.entry_ok(unit), "%s %s has a weapon and one secondary" % [id, str(unit.get("id", ""))])
+	var gtfc: Dictionary = SMCatalog.faction("gtfc")
+	var mvd: Dictionary = SMCatalog.faction("mvd")
+	var nmrf: Dictionary = SMCatalog.faction("nmrf")
+	var gtfc_colors: Dictionary = gtfc["colors"]
+	var mvd_colors: Dictionary = mvd["colors"]
+	var nmrf_colors: Dictionary = nmrf["colors"]
+	check(str(gtfc_colors["primary"]) == "crimson" and str(gtfc_colors["accent"]) == "amber", "gtfc crimson and amber")
+	check(str(mvd_colors["primary"]) == "charcoal" and str(mvd_colors["accent"]) == "cyan", "mvd charcoal and cyan")
+	check(str(nmrf_colors["primary"]) == "olive" and str(nmrf_colors["accent"]) == "emerald", "nmrf olive and emerald")
+	check(SMCatalog.stock_cost(mvd, "siege_works") == 1, "tier-3 gear requires rare-earth stock")
+	var market: Dictionary = SMCatalog.faction("black_market")
+	var flags: Dictionary = market["import_flags"]
+	check(bool(flags.get("rotary_slot", false)) and bool(flags.get("strike_slot", false)) and bool(flags.get("spotter_slot", false)), "black-market imports are flags")
+	check(SMCatalog.units_of(market).is_empty(), "black market ships no unit meshes")
+	var banned: PackedStringArray = PackedStringArray(["opium", "heroin", "cocaine", "fentanyl", "yaba", "methamphetamine"])
+	var hits: PackedStringArray = PackedStringArray()
+	for faction_id: String in ["gtfc", "mvd", "nmrf", "black_market"]:
+		var text: String = FileAccess.get_file_as_string("res://data/factions/%s/faction.json" % faction_id).to_lower()
+		for word: String in banned:
+			if text.contains(word):
+				hits.append("%s:%s" % [faction_id, word])
+	check(hits.is_empty(), "faction data has no street-drug names %s" % [hits])
+
+func test_sm_camera_rig() -> void:
+	var cam: RTSCamera = RTSCamera.new()
+	cam.bounds = Rect2(-40, -40, 80, 80)
+	cam.edge_pan_px = 16.0
+	root.add_child(cam)
+	await process_frame
+	cam.focus_on(Vector3.ZERO)
+	cam.distance = 30.0
+	var dir: Vector2 = cam.edge_scroll(Vector2(1, 200), Vector2(400, 400), 0.2)
+	check(dir.x < 0.0 and cam.focus.x < 0.0, "edge scroll pans from the left margin")
+	cam.focus_on(Vector3.ZERO)
+	cam.distance = 40.0
+	cam.zoom_toward(3.0, Vector3(10, 0, 0))
+	check(cam.distance < 40.0 and cam.focus.x > 0.0, "zoom toward the cursor shifts the focus")
+	var yaw: float = cam.yaw_degrees
+	cam.orbit(25.0)
+	check(absf(cam.yaw_degrees - yaw - 25.0) < 0.01, "orbit yaws around the focus")
+	cam.free()
+
+func test_sm_greybox() -> void:
+	var scene: Node = (load("res://game/greybox.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	for node_name: String in ["BuildScaffold", "BuildInternal", "BuildMobile", "NodeSlag", "NodeRare", "NodeRuby", "NodeJade", "NodeBullion", "Jammer"]:
+		check(scene.get_node_or_null(node_name) is MeshInstance3D, "greybox mesh %s" % node_name)
+	var scaffold: MeshInstance3D = scene.get_node("BuildScaffold") as MeshInstance3D
+	var internal: MeshInstance3D = scene.get_node("BuildInternal") as MeshInstance3D
+	check(scaffold.mesh is CapsuleMesh and internal.mesh is BoxMesh, "scaffold is a capsule and the hub is a box")
+	scene.free()
+	await process_frame
+
+func test_sm_phillips() -> void:
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	await process_frame
+	var side: Node = scene.find_child("Sidebar", true, false)
+	var bar: Node = scene.find_child("Protocols", true, false)
+	check(side != null, "command sidebar is present")
+	check(bar != null, "protocols bar is present")
+	var cameos: int = 0
+	for child: Node in side.get_children():
+		if str(child.name).begins_with("Cameo"):
+			cameos += 1
+	check(cameos == 6, "six cameo placeholders")
+	check(bool(scene.call("scripted_playthrough")), "phillips playthrough finishes")
+	var played: SMMatch = scene.get("sim") as SMMatch
+	check(played.finished and played.winner == 0, "the passive opponent is defeated")
+	check(played.pipeline_ok and played.claimed, "the base is up and a node is claimed")
+	check(played.f_smart == 11 and played.f_toggles == 1, "F fires a smart-cast and a toggle")
+	check(played.domain_log.size() >= 2, "an amphibious unit crossed the channel")
+	scene.free()
+	await process_frame
+
+func test_sm_bots() -> void:
+	var played: SMMatch = SMMatch.new()
+	for personality: StringName in SMBot.personalities():
+		var bot: SMBot = SMBot.new(personality)
+		var result: Dictionary = played.run_bot(bot)
+		check(int(result["refineries"]) == int(result["refinery_target"]), "%s opens with two refineries" % str(personality))
+		check(bool(result["water"]) and bool(result["gem"]), "%s expands to water and a gem node" % str(personality))
+		check(bool(result["captured"]), "%s captures a tech building" % str(personality))
+		check(bool(result["fired"]), "%s fires an ability" % str(personality))
+		check(bool(result["protocols"]) and bool(result["audio_combat"]) and bool(result["silent"]), "%s protocols and silent stems" % str(personality))
+	var isk: Dictionary = played.run_bot(SMBot.new(&"iskandar"))
+	check(bool(isk["naval"]) and str(isk["faction"]) == "nmrf", "iskandar takes the naval lane")
+	var tran: Dictionary = played.run_bot(SMBot.new(&"tran"))
+	check(bool(tran["frozen"]) and bool(tran["flew"]) and str(tran["faction"]) == "gtfc", "tran uses cryo and air")
+	var bo: Dictionary = played.run_bot(SMBot.new(&"bo_mya"))
+	check(str(bo["faction"]) == "mvd" and bool(bo["fired"]), "bo mya fields drones")
+
+func test_sm_mission() -> void:
+	var scene: Node = (load("res://game/mission_kokang.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(str(scene.get("briefing_text")).contains("Kokang"), "the raid opens on a text briefing")
+	check(bool(scene.call("scripted_playthrough")), "the raid is finishable")
+	var raid: SMMission = scene.get("mission") as SMMission
+	check(raid.won and raid.ruby_paid >= 30 and raid.goods.stock_of(0) >= 1, "night-shift ruby income and rare-earth stock")
+	check(raid.yard.finished.has(&"scaffold_yard"), "the scaffold yard finishes")
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	check(boot.find_child("GreyboxButton", true, false) != null, "boot offers the greybox")
+	check(boot.find_child("PhillipsButton", true, false) != null, "boot offers Phillips Channel")
+	check(boot.find_child("MissionButton", true, false) != null, "boot offers the night raid")
+	boot.free()
+	scene.free()
+	await process_frame

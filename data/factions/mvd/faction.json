@@ -1,0 +1,22 @@
+{
+  "id": "mvd",
+  "display_name": "MVD",
+  "build_style": "internal",
+  "colors": {"primary": "charcoal", "accent": "cyan", "primary_hex": "#2A2E32", "accent_hex": "#26BFD1"},
+  "yard_radius": 14,
+  "clearance_radius_step": 6,
+  "tech_order": ["command_hub", "drone_bay", "siege_works"],
+  "buildings": [
+    {"id": "command_hub", "tier": 1, "time": 4, "cost": 250, "hp": 500},
+    {"id": "drone_bay", "tier": 2, "time": 5, "cost": 200, "hp": 280},
+    {"id": "siege_works", "tier": 3, "time": 7, "cost": 320, "hp": 340, "rare_earth_cost": 1}
+  ],
+  "units": [
+    {"id": "clearance_trooper", "display_name": "Clearance Trooper", "cameo": "CLR", "role": "infantry", "cost": 90, "time": 3, "hp": 95, "speed": 5, "weapon": "carbine", "weapon_damage": 9, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
+    {"id": "hub_drone", "display_name": "Hub Drone", "cameo": "DRN", "role": "drone", "cost": 150, "time": 4, "hp": 60, "speed": 8, "weapon": "stinger", "weapon_damage": 8, "secondary": "smart_cast", "guidance": "gps", "locomotion": "air", "tags": ["drone"]},
+    {"id": "charcoal_apc", "display_name": "Charcoal APC", "cameo": "APC", "role": "armor", "cost": 240, "time": 6, "hp": 200, "speed": 5, "weapon": "autocannon", "weapon_damage": 12, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["armor"]},
+    {"id": "cyan_ifv", "display_name": "Cyan IFV", "cameo": "IFV", "role": "armor", "cost": 260, "time": 6, "hp": 180, "speed": 5.4, "weapon": "cannon", "weapon_damage": 16, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["armor"]},
+    {"id": "relay_van", "display_name": "Relay Van", "cameo": "VAN", "role": "support", "cost": 200, "time": 5, "hp": 90, "speed": 6, "weapon": "mast", "weapon_damage": 4, "secondary": "channeled_beam", "guidance": "hop", "locomotion": "ground", "tags": ["vehicle"]},
+    {"id": "river_drone", "display_name": "River Drone", "cameo": "RDR", "role": "drone", "cost": 170, "time": 4, "hp": 70, "speed": 7, "weapon": "dart", "weapon_damage": 9, "secondary": "smart_cast", "guidance": "fpv", "locomotion": "amphibious", "tags": ["drone"]}
+  ]
+}

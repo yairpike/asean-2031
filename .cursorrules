@@ -1,0 +1,18 @@
+# Shattered Monsoon
+
+Godot 4.7, strictly typed GDScript only. No C#.
+
+Renderer stays `gl_compatibility` in `project.godot` so the editor matches WebGL 2.0.
+
+Addon layout (do not rename these):
+`RTSTeams`, `RTSSelection`, `RTSSelectionBox`, `RTSOrders`, `RTSFormation`, `RTSGridNav`, `RTSSeparation`, `RTSUnit`, `RTSProductionQueue`, `RTSEconomy`, `RTSResourceNode`, `RTSCamera`, `RTSBindings`, `RTSLoc` under `addons/rts_advanced/`.
+
+Game simulation is the `SM*` scripts in that same folder. No meshes in those scripts. Faction JSON lives in `res://data/factions/{gtfc,nmrf,mvd,black_market}/`. Scenes live in `res://game/`.
+
+Do not add `res://assets` or `res://examples/skirmish`. Do not add classes named `RTSTerrain`, `RTSCombat`, `RTSFog`, `RTSAIPlayer`, `RTSSaveGame`, or `RTSMinimap`.
+
+`bash tools/run_tests.sh` must keep the original checks passing. New systems add sections in `tests/run_tests.gd` and update `tests/expected.json`.
+
+Storefront resource names only: Golden Slag / Aurum-9, rare earth, ruby, jade, gold bullion.
+
+`RTSCamera` edge scroll, zoom-to-cursor, and orbit are on the Lite camera because it only had center zoom plus a yaw field.
