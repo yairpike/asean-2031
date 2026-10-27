@@ -10,6 +10,7 @@ var grid: SMDomainGrid
 var briefing_text: String = ""
 var status: Label
 var ui_layer: CanvasLayer
+var story: SMStory = SMStory.new()
 
 func _ready() -> void:
 	mission.setup()
@@ -70,9 +71,9 @@ func _ui() -> void:
 	row.position = Vector2(224, 128)
 	row.add_theme_constant_override("separation", 8)
 	layer.add_child(row)
-	_btn(row, "Raise scaffold", _on_scaffold)
-	_btn(row, "Ruby night shift", _on_ruby)
-	_btn(row, "Secure rare earth", _on_rare)
+	_debug(row, "DebugScaffold", "Raise scaffold", _on_scaffold)
+	_debug(row, "DebugRuby", "Ruby night shift", _on_ruby)
+	_debug(row, "DebugRare", "Secure rare earth", _on_rare)
 	status = Label.new()
 	status.name = "Status"
 	status.position = Vector2(224, 176)
@@ -89,15 +90,18 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.PLAYER, Vector3(-6.0 + float(i) * 2.0, 0.0, -4.0), kinds[i])
 	field.spawn(SMPointer.ENEMY, Vector3(8.0, 0.0, -2.0), &"raider")
 	field.spawn(SMPointer.ENEMY, Vector3(9.0, 0.0, 3.0), &"raider")
+	story.bind_raid(self, mission, field, side)
 
 func fire_secondary() -> int:
 	var n: int = field.secondary_strike()
 	_say("F ability struck an enemy" if n > 0 else "F ability found no enemy")
 	return n
 
-func _btn(row: HBoxContainer, caption: String, fn: Callable) -> void:
+func _debug(row: HBoxContainer, node_name: String, caption: String, fn: Callable) -> void:
 	var b: Button = Button.new()
+	b.name = node_name
 	b.text = caption
+	b.visible = false
 	b.pressed.connect(fn)
 	row.add_child(b)
 
@@ -140,6 +144,9 @@ func _process(delta: float) -> void:
 	var vp: Viewport = get_viewport()
 	cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
+	story.tick(delta)
+	if story.done and status != null and status.text != "Objective complete":
+		_say("Objective complete")
 	hud.refresh()
 
 func _unhandled_input(event: InputEvent) -> void:

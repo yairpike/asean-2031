@@ -11,6 +11,7 @@ var briefing_text: String = ""
 var mission_id: String = ""
 var status: Label
 var ui_layer: CanvasLayer
+var story: SMStory = SMStory.new()
 
 func _ready() -> void:
 	mission_id = SMCampaign.selected
@@ -86,6 +87,7 @@ func _ui() -> void:
 	goal.name = "ObjectiveButton"
 	goal.text = "Complete objective"
 	goal.position = Vector2(224, 132)
+	goal.visible = false
 	goal.pressed.connect(finish_objective)
 	ui_layer.add_child(goal)
 	var back: Button = Button.new()
@@ -97,7 +99,7 @@ func _ui() -> void:
 	ui_layer.add_child(back)
 	status = Label.new()
 	status.name = "Status"
-	status.text = "Read the briefing, then complete the objective."
+	status.text = "Read the briefing, then meet it on the field."
 	status.position = Vector2(224, 176)
 	ui_layer.add_child(status)
 
@@ -110,6 +112,7 @@ func _arm_units() -> void:
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, Vector3(-6.0 + float(i) * 2.4, 0.0, -2.0), kinds[i])
 	field.spawn(SMPointer.ENEMY, Vector3(6.0, 0.0, 3.0), &"raider")
+	story.bind_mission(self, mission_id, field, side, roster, ui_layer, grid)
 
 func _say(text: String) -> void:
 	if status != null:
@@ -133,6 +136,9 @@ func _process(delta: float) -> void:
 		var vp: Viewport = get_viewport()
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
+	story.tick(delta)
+	if story.done and status != null and status.text != "Objective complete":
+		_say("Objective complete")
 	hud.refresh()
 
 func _unhandled_input(event: InputEvent) -> void:

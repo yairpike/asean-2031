@@ -67,6 +67,7 @@ func _run() -> void:
 	await H.section("test_sm_protocols", test_sm_protocols)
 	await H.section("test_sm_sides", test_sm_sides)
 	await H.section("test_sm_fx", test_sm_fx)
+	await H.section("test_sm_story", test_sm_story)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1163,7 +1164,8 @@ func _campaign_hud(scene: Node, id: String) -> bool:
 		return false
 	if _hud_text(scene, "HudSelection") != "Nothing selected":
 		return false
-	if not mm.saw_land or mm.saw_water:
+	var water_ok: bool = mm.saw_water if id == "andaman" else not mm.saw_water
+	if not mm.saw_land or not water_ok:
 		return false
 	if mm.player_dots != field.count_team(0) or mm.enemy_dots != field.count_team(1):
 		return false
@@ -1899,6 +1901,101 @@ func test_sm_fx() -> void:
 	scene.free()
 	SMCampaign.selected = "tachileik"
 	await process_frame
+
+func test_sm_story() -> void:
+	for id: String in SMCampaign.ids():
+		SMCampaign.selected = id
+		var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
+		var scene: Node = (load(path) as PackedScene).instantiate()
+		root.add_child(scene)
+		await process_frame
+		if id == "kokang":
+			var scaffold: Button = scene.find_child("DebugScaffold", true, false) as Button
+			var ruby: Button = scene.find_child("DebugRuby", true, false) as Button
+			var rare: Button = scene.find_child("DebugRare", true, false) as Button
+			check(scaffold != null and ruby != null and rare != null and not scaffold.visible and not ruby.visible and not rare.visible, "kokang keeps its debug shortcuts hidden")
+		else:
+			var goal: Button = scene.find_child("ObjectiveButton", true, false) as Button
+			check(goal != null and not goal.visible, "%s keeps the objective button hidden" % id)
+		_meet_story(scene, id)
+		await process_frame
+		var story: SMStory = scene.get("story") as SMStory
+		var status: Label = scene.find_child("Status", true, false) as Label
+		check(story != null and story.done and story.ending == SMStory.ending_of(id) and status != null and status.text == "Objective complete", "%s ends through play (%s)" % [id, SMStory.ending_of(id)])
+		scene.free()
+		await process_frame
+	SMCampaign.selected = "tachileik"
+
+func _meet_story(scene: Node, id: String) -> void:
+	var story: SMStory = scene.get("story") as SMStory
+	var field: SMPointer = scene.get("field") as SMPointer
+	if id == "kokang":
+		var build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+		build.pressed.emit()
+		_park(field, "", Vector3(6.0, 0.0, 2.0))
+		story.tick(2.0)
+		_park(field, "", Vector3(-6.0, 0.0, 4.0))
+		story.tick(4.0)
+		return
+	if id == "tachileik":
+		_park(field, "", story.pad)
+		story.tick(2.0)
+	elif id == "shwe_kokko" or id == "kilometer_watch" or id == "black_haze" or id == "fog_over_pakbeng":
+		_park(field, "", story.pad)
+		story.tick(1.0)
+	elif id == "andaman":
+		_park(field, "channel_skiff", story.far_shore)
+		story.tick(0.1)
+	elif id == "archipelago_rising":
+		_park(field, "channel_skiff", story.shallow_pad)
+		story.tick(0.1)
+	elif id == "ghosts_of_patani":
+		var foe: RTSUnit = field.units_of(1)[0]
+		foe.take_damage(foe.hp + 1.0)
+		story.tick(0.1)
+	elif id == "plain_of_jars":
+		var tube: RTSUnit = _kind_unit(field, "monsoon_tube")
+		var foe: RTSUnit = field.units_of(1)[0]
+		foe.max_hp = 100000.0
+		foe.hp = 100000.0
+		field.selection.units.append(tube)
+		field.cast_f(foe.global_position)
+		field.tick(2.0)
+		story.tick(0.1)
+	elif id == "operation_1027":
+		_press_proto(scene, "drone_swarm_23")
+		story.tick(0.1)
+	elif id == "wrath_of_the_garuda":
+		_press_proto(scene, "su30_napalm")
+		story.tick(0.1)
+	elif id == "keng_tung":
+		_press_proto(scene, "toxic_defoliation")
+		story.tick(0.1)
+	elif id == "tonle_sap":
+		_press_proto(scene, "cryogeddon")
+		story.tick(0.1)
+	elif id == "shattered_monsoon":
+		_press_proto(scene, "cash_bounty")
+		_press_proto(scene, "advanced_rocket_pods")
+		_press_proto(scene, "cryoshot")
+		story.tick(0.1)
+
+func _park(field: SMPointer, kind: String, at: Vector3) -> void:
+	for u: RTSUnit in field.units_of(0):
+		if kind == "" or str(u.unit_type) == kind:
+			u.global_position = at
+			return
+
+func _kind_unit(field: SMPointer, kind: String) -> RTSUnit:
+	for u: RTSUnit in field.units_of(0):
+		if str(u.unit_type) == kind:
+			return u
+	return null
+
+func _press_proto(scene: Node, id: String) -> void:
+	var button: Button = scene.find_child("Proto_%s" % id, true, false) as Button
+	if button != null:
+		button.pressed.emit()
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"
