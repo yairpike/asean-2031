@@ -7,6 +7,7 @@ var field: SMPointer = SMPointer.new()
 var raider: SMRaider = SMRaider.new()
 var roster: SMRoster = SMRoster.new()
 var side: SMSide = SMSide.new()
+var hud: SMHud = SMHud.new()
 var status: Label
 var explore_bus: AudioStreamPlayer
 var combat_bus: AudioStreamPlayer
@@ -18,8 +19,9 @@ func _ready() -> void:
 	_world()
 	_audio()
 	_ui()
-	side.prepare(self, ui_layer, status, sim.grid, sim.yard.center)
+	side.prepare(self, status, sim.grid, sim.yard.center, roster.economy)
 	_arm_units()
+	hud.mount(ui_layer, field, roster, side, "Phillips Channel", sim.yard.center, Callable(self, "_on_ability"))
 
 func scripted_playthrough() -> bool:
 	return sim.script_phillips()
@@ -81,52 +83,28 @@ func _ui() -> void:
 	add_child(layer)
 	var bar: HBoxContainer = HBoxContainer.new()
 	bar.name = "Protocols"
-	bar.position = Vector2(16, 12)
+	bar.position = Vector2(250, 48)
 	bar.add_theme_constant_override("separation", 8)
 	layer.add_child(bar)
 	_proto_button(bar, "Logistics", &"logistics")
 	_proto_button(bar, "Arsenal", &"arsenal")
 	_proto_button(bar, "Oracle", &"oracle")
-	var column: VBoxContainer = VBoxContainer.new()
-	column.name = "Sidebar"
-	column.position = Vector2(1060, 16)
-	column.custom_minimum_size = Vector2(200, 640)
-	column.add_theme_constant_override("separation", 6)
-	layer.add_child(column)
-	var title: Label = Label.new()
-	title.text = SMFront.banner()
-	column.add_child(title)
-	var data: Dictionary = SMCatalog.faction(SMFront.current())
-	var units: Array[Dictionary] = SMCatalog.units_of(data)
-	var shown: int = mini(units.size(), 6)
-	for i: int in shown:
-		var row: HBoxContainer = HBoxContainer.new()
-		row.name = "Cameo%d" % i
-		var swatch: ColorRect = ColorRect.new()
-		swatch.custom_minimum_size = Vector2(54, 54)
-		swatch.color = SMFront.primary() if i % 2 == 0 else SMFront.accent()
-		row.add_child(swatch)
-		var cap: Label = Label.new()
-		cap.text = "%s\n%s" % [str(units[i].get("cameo", "")), str(units[i].get("display_name", ""))]
-		row.add_child(cap)
-		column.add_child(row)
-	_action(column, "Train unit", _on_train)
-	_action(column, "Build pipeline", _on_build)
-	_action(column, "Cross channel", _on_cross)
-	_action(column, "Ability (F)", _on_ability)
-	_action(column, "Engage", _on_engage)
+	var actions: HBoxContainer = HBoxContainer.new()
+	actions.name = "MatchActions"
+	actions.position = Vector2(250, 88)
+	actions.add_theme_constant_override("separation", 8)
+	layer.add_child(actions)
+	_action(actions, "Train unit", _on_train)
+	_action(actions, "Build pipeline", _on_build)
+	_action(actions, "Cross channel", _on_cross)
+	_action(actions, "Engage", _on_engage)
 	status = Label.new()
 	status.name = "Status"
 	status.text = "Raise a yard, claim Golden Slag / Aurum-9, cross, then press F."
+	status.position = Vector2(250, 608)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.custom_minimum_size = Vector2(190, 80)
-	column.add_child(status)
-	var hint: Label = Label.new()
-	hint.text = "Left click selects. Drag a box. Right click ground moves. Right click an enemy attacks."
-	hint.position = Vector2(16, 680)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.custom_minimum_size = Vector2(900, 28)
-	layer.add_child(hint)
+	status.custom_minimum_size = Vector2(740, 24)
+	layer.add_child(status)
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
@@ -151,11 +129,11 @@ func _proto_button(bar: HBoxContainer, caption: String, branch: StringName) -> v
 	)
 	bar.add_child(b)
 
-func _action(side: VBoxContainer, caption: String, fn: Callable) -> void:
+func _action(row: HBoxContainer, caption: String, fn: Callable) -> void:
 	var b: Button = Button.new()
 	b.text = caption
 	b.pressed.connect(fn)
-	side.add_child(b)
+	row.add_child(b)
 
 func train_unit() -> String:
 	var done: StringName = roster.train_and_finish(SMFront.train_kind())
@@ -222,6 +200,7 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	hud.refresh()
 
 func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera

@@ -55,6 +55,7 @@ func _run() -> void:
 	await H.section("test_sm_raider", test_sm_raider)
 	await H.section("test_sm_roster", test_sm_roster)
 	await H.section("test_sm_campaign", test_sm_campaign)
+	await H.section("test_sm_hud", test_sm_hud)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -758,11 +759,7 @@ func test_sm_phillips() -> void:
 	var bar: Node = scene.find_child("Protocols", true, false)
 	check(side != null, "command sidebar is present")
 	check(bar != null, "protocols bar is present")
-	var cameos: int = 0
-	for child: Node in side.get_children():
-		if str(child.name).begins_with("Cameo"):
-			cameos += 1
-	check(cameos == 6, "six cameo placeholders")
+	check(scene.find_child("GroupBuildings", true, false) != null and scene.find_child("GroupUnits", true, false) != null and scene.find_child("GroupAbility", true, false) != null, "the command column groups buildings, units, and ability")
 	check(bool(scene.call("scripted_playthrough")), "phillips playthrough finishes")
 	var played: SMMatch = scene.get("sim") as SMMatch
 	check(played.finished and played.winner == 0, "the passive opponent is defeated")
@@ -1019,6 +1016,82 @@ func test_sm_campaign() -> void:
 		var button: Button = boot.find_child("Mission_%s" % id, true, false) as Button
 		check(button != null and button.text == SMCampaign.title_of(id), "boot lists %s" % id)
 	boot.free()
+	await process_frame
+
+func test_sm_hud() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(_hud_text(scene, "HudFaction") == "GTFC", "phillips names the faction")
+	check(_hud_text(scene, "HudCredits") == "Credits 50000", "phillips shows credits")
+	check(_hud_text(scene, "HudPower") == "Power 90", "phillips shows army power")
+	check(_hud_text(scene, "HudMap") == "Phillips Channel", "phillips names the map")
+	check(_hud_text(scene, "HudSelection") == "Nothing selected", "phillips says when nothing is selected")
+	var company: String = _hud_text(scene, "CompanyList")
+	check(company.contains("Your units") and company.contains("Militia") and company.contains("Channel Skiff"), "phillips lists your units")
+	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
+	var trained: Button = scene.find_child("Train_militia", true, false) as Button
+	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
+	check(built != null and trained != null and ability != null and ability.text == "Ability (F)", "phillips can build, train, and use F")
+	var field: SMPointer = scene.get("field") as SMPointer
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	(scene.get("hud") as SMHud).refresh()
+	check(picked == friends[0] and _hud_text(scene, "HudSelection") == "Militia    HP 80/80    F group toggle", "the selection shows name, health, and its F ability")
+	var purse: SMRoster = scene.get("roster") as SMRoster
+	built.pressed.emit()
+	var yard: SMBuildYard = (scene.get("side") as SMSide).yard
+	check(yard.finished.has(&"scaffold_yard") and yard.style == SMBuildYard.Style.SCAFFOLD and purse.economy.credits(0) == 49980 and scene.get_node_or_null("Built_scaffold_yard") is MeshInstance3D, "a building click raises a scaffold yard")
+	var before: int = field.count_team(0)
+	trained.pressed.emit()
+	check(field.count_team(0) == before + 1 and purse.economy.credits(0) == 49900 and _hud_text(scene, "HudPower") == "Power 98", "a unit click trains it and spends credits")
+	scene.free()
+	await _hud_map("res://game/sop_ruak.tscn", "Sop Ruak")
+	await _hud_map("res://game/burma_road.tscn", "Burma Road")
+	await _hud_map("res://game/ten_degree_atolls.tscn", "Ten Degree Atolls")
+	await _hud_map("res://game/mekong_delta.tscn", "Mekong Delta")
+	await _hud_map("res://game/chiang_rai.tscn", "Siege of Chiang Rai")
+	SMFront.faction_id = "nmrf"
+	var burma: Node = (load("res://game/burma_road.tscn") as PackedScene).instantiate()
+	root.add_child(burma)
+	await process_frame
+	check(_hud_text(burma, "HudFaction") == "NMRF", "the hud follows the selected faction")
+	var packer: Button = burma.find_child("MovePacker", true, false) as Button
+	var nmrf_side: SMSide = burma.get("side") as SMSide
+	var origin: Vector3 = nmrf_side.yard.packer_pos
+	packer.pressed.emit()
+	check(packer != null and nmrf_side.yard.packer_pos != origin and nmrf_side.yard.style == SMBuildYard.Style.MOBILE, "the packer button uses the mobile build")
+	var wharf: Button = burma.find_child("Build_gun_wharf", true, false) as Button
+	wharf.pressed.emit()
+	check(nmrf_side.yard.finished.has(&"gun_wharf"), "a wharf click unpacks the mobile core")
+	burma.free()
+	SMFront.faction_id = "mvd"
+	var atoll: Node = (load("res://game/ten_degree_atolls.tscn") as PackedScene).instantiate()
+	root.add_child(atoll)
+	await process_frame
+	var hub: Button = atoll.find_child("Build_command_hub", true, false) as Button
+	hub.pressed.emit()
+	var mvd_side: SMSide = atoll.get("side") as SMSide
+	check(_hud_text(atoll, "HudFaction") == "MVD" and mvd_side.yard.style == SMBuildYard.Style.INTERNAL and mvd_side.yard.finished.has(&"command_hub"), "a hub click uses the internal queue")
+	atoll.free()
+	SMFront.faction_id = "gtfc"
+	check(SMFront.current() == "gtfc", "the hud test restores GTFC")
+	await process_frame
+
+func _hud_text(scene: Node, node_name: String) -> String:
+	var label: Label = scene.find_child(node_name, true, false) as Label
+	if label == null:
+		return ""
+	return label.text
+
+func _hud_map(path: String, map_name: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(_hud_text(scene, "HudMap") == map_name, "%s names the map on the hud" % map_name)
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudPower").begins_with("Power ") and _hud_text(scene, "HudSelection") == "Nothing selected" and scene.find_child("CompanyList", true, false) != null, "%s shows faction, power, and an empty selection" % map_name)
+	scene.free()
 	await process_frame
 
 func test_sm_boot() -> void:

@@ -9,6 +9,7 @@ var field: SMPointer = SMPointer.new()
 var raider: SMRaider = SMRaider.new()
 var roster: SMRoster = SMRoster.new()
 var side: SMSide = SMSide.new()
+var hud: SMHud = SMHud.new()
 var status: Label
 var ui_layer: CanvasLayer
 
@@ -18,8 +19,10 @@ func _ready() -> void:
 	_prepare_ability()
 	_world()
 	_ui()
-	side.prepare(self, ui_layer, status, grid, grid.cell_center(_player_cells()[0]))
+	var rally: Vector3 = grid.cell_center(_player_cells()[0])
+	side.prepare(self, status, grid, rally, roster.economy)
 	_arm_units()
+	hud.mount(ui_layer, field, roster, side, _map_name(), rally, Callable(self, "fire_ability"))
 
 func train_unit() -> String:
 	var done: StringName = roster.train_and_finish(SMFront.train_kind())
@@ -145,44 +148,22 @@ func _chiang_world() -> void:
 func _ui() -> void:
 	ui_layer = CanvasLayer.new()
 	add_child(ui_layer)
-	var title: Label = Label.new()
-	title.text = _title()
-	title.position = Vector2(16, 12)
-	ui_layer.add_child(title)
-	var ability: Button = Button.new()
-	ability.name = "AbilityButton"
-	ability.text = "Ability (F)"
-	ability.position = Vector2(16, 44)
-	ability.pressed.connect(fire_ability)
-	ui_layer.add_child(ability)
-	var train: Button = Button.new()
-	train.name = "TrainButton"
-	train.text = "Train unit"
-	train.position = Vector2(160, 44)
-	train.pressed.connect(train_unit)
-	ui_layer.add_child(train)
 	status = Label.new()
 	status.name = "Status"
 	status.text = _blurb()
-	status.position = Vector2(16, 84)
+	status.position = Vector2(240, 608)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.custom_minimum_size = Vector2(860, 28)
+	status.custom_minimum_size = Vector2(760, 24)
 	ui_layer.add_child(status)
-	var hint: Label = Label.new()
-	hint.text = "Left click selects. Drag a box. Right click ground moves. Right click an enemy attacks. F fires the ability."
-	hint.position = Vector2(16, 680)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.custom_minimum_size = Vector2(980, 28)
-	ui_layer.add_child(hint)
 
-func _title() -> String:
+func _map_name() -> String:
 	if map_id == "ten_degree_atolls":
-		return "%s    Ten Degree Atolls" % SMFront.banner()
+		return "Ten Degree Atolls"
 	if map_id == "mekong_delta":
-		return "%s    Mekong Delta" % SMFront.banner()
+		return "Mekong Delta"
 	if map_id == "chiang_rai":
-		return "%s    Siege of Chiang Rai" % SMFront.banner()
-	return "%s    Burma Road" % SMFront.banner()
+		return "Siege of Chiang Rai"
+	return "Burma Road"
 
 func _blurb() -> String:
 	if map_id == "ten_degree_atolls":
@@ -231,6 +212,7 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	hud.refresh()
 
 func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
