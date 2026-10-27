@@ -15,7 +15,7 @@ var ui_layer: CanvasLayer
 func _ready() -> void:
 	mission_id = SMCampaign.selected
 	if mission_id == "":
-		mission_id = "mae_sai"
+		mission_id = "tachileik"
 	briefing_text = SMCampaign.briefing_of(mission_id)
 	grid = SMDomainGrid.new(18, 12, 2.0, Vector3(-18.0, 0.0, -12.0))
 	_world()

@@ -855,7 +855,7 @@ func test_sm_mission() -> void:
 	check(boot.find_child("GreyboxButton", true, false) != null, "boot offers the greybox")
 	check(boot.find_child("CardPhillips", true, false) != null, "boot offers Phillips Channel")
 	var raid_button: Button = boot.find_child("Mission_kokang", true, false) as Button
-	check(raid_button != null and raid_button.text == "Kokang raid (mission 1)", "boot offers the night raid")
+	check(raid_button != null and raid_button.text == "Kokang and Mogok night raid", "boot offers the night raid")
 	boot.free()
 	scene.free()
 	await process_frame
@@ -1018,7 +1018,7 @@ func test_sm_roster() -> void:
 
 func test_sm_campaign() -> void:
 	var ids: PackedStringArray = SMCampaign.ids()
-	check(ids.size() == 14, "fourteen campaign missions follow Kokang")
+	check(ids.size() == 15, "fifteen story missions are on the campaign")
 	var camp: SMCampaign = SMCampaign.new()
 	for id: String in ids:
 		var brief: String = SMCampaign.briefing_of(id)
@@ -1058,6 +1058,8 @@ func test_sm_campaign() -> void:
 	for id: String in ids:
 		var button: Button = boot.find_child("Mission_%s" % id, true, false) as Button
 		check(button != null and button.text == SMCampaign.title_of(id), "boot lists %s" % id)
+	check(SMCampaign.debug_ids().size() == 14 and boot.find_child("Mission_mae_sai", true, false) == null and boot.find_child("Mission_channel_crossing", true, false) == null, "the old drills stay off the campaign tab")
+	check(camp.play("mae_sai"), "a debug drill can still be finished")
 	boot.free()
 	await process_frame
 
@@ -1900,9 +1902,9 @@ func test_sm_boot() -> void:
 	var act2_button: Button = boot.find_child("ActII", true, false) as Button
 	act2_button.pressed.emit()
 	check(act2.is_visible_in_tree() and not act1.is_visible_in_tree(), "act two replaces act one")
-	var crossing: Button = boot.find_child("Mission_channel_crossing", true, false) as Button
-	var crossing_brief: Label = boot.find_child("Brief_channel_crossing", true, false) as Label
-	check(crossing != null and crossing.text == SMCampaign.title_of("channel_crossing") and crossing_brief != null and crossing_brief.text == SMCampaign.briefing_of("channel_crossing") and crossing.is_visible_in_tree(), "act two shows the crossing briefing")
+	var crossing: Button = boot.find_child("Mission_ghosts_of_patani", true, false) as Button
+	var crossing_brief: Label = boot.find_child("Brief_ghosts_of_patani", true, false) as Label
+	check(crossing != null and crossing.text == SMCampaign.title_of("ghosts_of_patani") and crossing_brief != null and crossing_brief.text == SMCampaign.briefing_of("ghosts_of_patani") and crossing.is_visible_in_tree(), "act two shows Ghosts of Patani")
 	var faction_tab: Button = boot.find_child("TabFaction", true, false) as Button
 	faction_tab.pressed.emit()
 	check(_faction_line(boot, "FactionGtfc", "GTFC", "Scaffold yard", "#B81E2D"), "gtfc shows its color and build style")
