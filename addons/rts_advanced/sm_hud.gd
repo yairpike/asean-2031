@@ -58,6 +58,9 @@ var mission_open: bool = false
 var _layout_key: Vector2i = Vector2i(-1, -1)
 var phone_drawer: Control
 var phone_body: Control
+var _column_drag: float = 0.0
+var _column_dragging: bool = false
+var _swallow_press: bool = false
 var mission_fold: Button
 var mission_panel: Control
 var rotate_banner: Control
@@ -517,6 +520,8 @@ func _header(box: VBoxContainer, node_name: String, text: String) -> void:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Color(0.9, 0.78, 0.45))
+	label.mouse_filter = Control.MOUSE_FILTER_STOP
+	label.gui_input.connect(_drag_column)
 	box.add_child(label)
 
 func _guide(layer: CanvasLayer) -> void:
@@ -671,15 +676,45 @@ func column_hovered() -> bool:
 	return false
 
 func _drag_column(event: InputEvent) -> void:
-	var drag: InputEventScreenDrag = event as InputEventScreenDrag
-	if drag == null or sidebar == null:
-		return
-	var scroll: ScrollContainer = sidebar.get_parent() as ScrollContainer
+	var scroll: ScrollContainer = _column_scroll()
 	if scroll == null:
 		return
-	scroll.scroll_vertical -= int(drag.relative.y)
+	var down: InputEventMouseButton = event as InputEventMouseButton
+	if down != null and down.button_index == MOUSE_BUTTON_LEFT:
+		if down.pressed:
+			_swallow_press = false
+			_column_drag = 0.0
+			_column_dragging = false
+		return
+	var touch: InputEventScreenTouch = event as InputEventScreenTouch
+	if touch != null:
+		if touch.pressed:
+			_swallow_press = false
+			_column_drag = 0.0
+			_column_dragging = false
+		return
+	var rel_y: float = 0.0
+	var screen: InputEventScreenDrag = event as InputEventScreenDrag
+	var motion: InputEventMouseMotion = event as InputEventMouseMotion
+	if screen != null:
+		rel_y = screen.relative.y
+	elif motion != null and (motion.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+		rel_y = motion.relative.y
+	else:
+		return
+	_column_drag += rel_y
+	if not _column_dragging and absf(_column_drag) < 12.0:
+		return
+	_column_dragging = true
+	_swallow_press = true
+	scroll.scroll_vertical -= int(rel_y)
 	if layer_node != null and layer_node.get_viewport() != null:
 		layer_node.get_viewport().set_input_as_handled()
+
+func _column_scroll() -> ScrollContainer:
+	if sidebar == null:
+		return null
+	return sidebar.get_parent() as ScrollContainer
 
 func _enter_tip(text: String) -> void:
 	hover_tip = text
@@ -708,10 +743,16 @@ func _button(box: VBoxContainer, node_name: String, text: String, fn: Callable, 
 	b.add_theme_font_size_override("font_size", 16 if phone else 14)
 	b.mouse_entered.connect(_enter_tip.bind(tip))
 	b.mouse_exited.connect(_exit_tip)
+	b.gui_input.connect(_drag_column)
 	b.pressed.connect(_press_cue.bind(fn, cue))
 	box.add_child(b)
 
 func _press_cue(fn: Callable, cue: String) -> void:
+	if _swallow_press:
+		_swallow_press = false
+		_column_dragging = false
+		_column_drag = 0.0
+		return
 	if sfx != null:
 		sfx.play(cue)
 	if fn.is_valid():

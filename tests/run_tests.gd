@@ -2714,6 +2714,25 @@ func test_sm_guide() -> void:
 	check(short_line != null and overlay != null and short_line.visible and not overlay.is_ancestor_of(short_line) and short_line.text.length() <= 32 and not short_line.text.contains("Shift"), "one short line stays on screen")
 	var column: Control = scene.find_child("CommandColumn", true, false) as Control
 	check(column != null and column.size.x <= 180.0 and column.size.x >= 120.0, "the build column stays narrow")
+	var roster_scroll: ScrollContainer = column as ScrollContainer
+	var roster_row: Button = scene.find_child("Train_militia", true, false) as Button
+	var roster_at: int = roster_scroll.scroll_vertical if roster_scroll != null else 0
+	var roster_nudge: InputEventMouseMotion = InputEventMouseMotion.new()
+	roster_nudge.relative = Vector2(0, -4)
+	roster_nudge.button_mask = MOUSE_BUTTON_MASK_LEFT
+	if roster_row != null:
+		roster_row.gui_input.emit(roster_nudge)
+	var roster_still: int = roster_scroll.scroll_vertical if roster_scroll != null else 0
+	var roster_pull: InputEventMouseMotion = InputEventMouseMotion.new()
+	roster_pull.relative = Vector2(0, -48)
+	roster_pull.button_mask = MOUSE_BUTTON_MASK_LEFT
+	if roster_row != null:
+		roster_row.gui_input.emit(roster_pull)
+	var roster_purse: int = (scene.get("roster") as SMRoster).economy.credits(0)
+	var roster_count: int = (scene.get("field") as SMPointer).count_team(0)
+	if roster_row != null:
+		roster_row.pressed.emit()
+	check(roster_scroll != null and roster_still == roster_at and roster_scroll.scroll_vertical == roster_at + 48 and (scene.get("field") as SMPointer).count_team(0) == roster_count and (scene.get("roster") as SMRoster).economy.credits(0) == roster_purse, "dragging the roster scrolls the column and does not train")
 	var income: Label = scene.find_child("HudIncome", true, false) as Label
 	var map_label: Label = scene.find_child("HudMap", true, false) as Label
 	var mm: Control = scene.find_child("Minimap", true, false) as Control
