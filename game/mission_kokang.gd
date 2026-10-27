@@ -2,14 +2,17 @@ extends Node3D
 ## GTFC night raid. Scaffold, ruby night shift, one rare-earth node. Text briefing.
 
 var mission: SMMission = SMMission.new()
+var field: SMPointer = SMPointer.new()
 var briefing_text: String = ""
 var status: Label
+var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	mission.setup()
 	briefing_text = mission.briefing
 	_world()
 	_ui()
+	_arm_units()
 
 func scripted_playthrough() -> bool:
 	var ok: bool = mission.playthrough()
@@ -43,7 +46,8 @@ func _world() -> void:
 	cam.current = true
 
 func _ui() -> void:
-	var layer: CanvasLayer = CanvasLayer.new()
+	ui_layer = CanvasLayer.new()
+	var layer: CanvasLayer = ui_layer
 	add_child(layer)
 	var brief: Label = Label.new()
 	brief.name = "Briefing"
@@ -64,6 +68,28 @@ func _ui() -> void:
 	status.position = Vector2(24, 160)
 	status.text = "Golden Slag / Aurum-9 stays in the yard ledger. Ruby and rare earth are the raid."
 	layer.add_child(status)
+	var hint: Label = Label.new()
+	hint.text = "Left click selects. Drag a box. Right click ground moves. Right click an enemy attacks. F strikes."
+	hint.position = Vector2(24, 200)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size = Vector2(900, 28)
+	layer.add_child(hint)
+
+func _arm_units() -> void:
+	var cam: RTSCamera = get_node("Camera") as RTSCamera
+	field.bind(self, cam)
+	field.use_open(16, 12, 2.0, Vector3(-16.0, 0.0, -12.0))
+	field.attach_box(ui_layer)
+	field.spawn(SMPointer.PLAYER, Vector3(-2.0, 0.0, -3.0), &"militia")
+	field.spawn(SMPointer.PLAYER, Vector3(0.0, 0.0, -3.0), &"militia")
+	field.spawn(SMPointer.PLAYER, Vector3(2.0, 0.0, -4.0), &"militia")
+	field.spawn(SMPointer.ENEMY, Vector3(8.0, 0.0, -2.0), &"raider")
+	field.spawn(SMPointer.ENEMY, Vector3(9.0, 0.0, 3.0), &"raider")
+
+func fire_secondary() -> int:
+	var n: int = field.secondary_strike()
+	_say("F ability struck an enemy" if n > 0 else "F ability found no enemy")
+	return n
 
 func _btn(row: HBoxContainer, caption: String, fn: Callable) -> void:
 	var b: Button = Button.new()
@@ -109,15 +135,28 @@ func _process(delta: float) -> void:
 		return
 	var vp: Viewport = get_viewport()
 	cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
+	field.tick(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
+	var key: InputEventKey = event as InputEventKey
+	if key != null and key.pressed and not key.echo and key.keycode == KEY_F:
+		fire_secondary()
+		return
 	if cam == null:
 		return
 	var mb: InputEventMouseButton = event as InputEventMouseButton
-	if mb == null or not mb.pressed:
+	if mb != null:
+		if field.handle_button(mb):
+			return
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			cam.zoom_toward(1.0, cam.ground_at(mb.position))
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			cam.zoom_toward(-1.0, cam.ground_at(mb.position))
 		return
-	if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-		cam.zoom_toward(1.0, cam.ground_at(mb.position))
-	elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-		cam.zoom_toward(-1.0, cam.ground_at(mb.position))
+	var motion: InputEventMouseMotion = event as InputEventMouseMotion
+	if motion == null:
+		return
+	field.handle_motion(motion)
+	if (motion.button_mask & MOUSE_BUTTON_MASK_MIDDLE) != 0:
+		cam.orbit(motion.relative.x * 0.25)

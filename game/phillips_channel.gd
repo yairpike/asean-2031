@@ -3,15 +3,18 @@ extends Node3D
 ## RA3-style sidebar with cameo placeholders. Passive opponent on the far shore.
 
 var sim: SMMatch = SMMatch.new()
+var field: SMPointer = SMPointer.new()
 var status: Label
 var explore_bus: AudioStreamPlayer
 var combat_bus: AudioStreamPlayer
+var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	sim.setup_phillips("gtfc")
 	_world()
 	_audio()
 	_ui()
+	_arm_units()
 
 func scripted_playthrough() -> bool:
 	return sim.script_phillips()
@@ -68,7 +71,8 @@ func _audio() -> void:
 	combat_bus.play()
 
 func _ui() -> void:
-	var layer: CanvasLayer = CanvasLayer.new()
+	ui_layer = CanvasLayer.new()
+	var layer: CanvasLayer = ui_layer
 	add_child(layer)
 	var bar: HBoxContainer = HBoxContainer.new()
 	bar.name = "Protocols"
@@ -110,6 +114,22 @@ func _ui() -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.custom_minimum_size = Vector2(190, 80)
 	side.add_child(status)
+	var hint: Label = Label.new()
+	hint.text = "Left click selects. Drag a box. Right click ground moves. Right click an enemy attacks."
+	hint.position = Vector2(16, 680)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size = Vector2(900, 28)
+	layer.add_child(hint)
+
+func _arm_units() -> void:
+	var cam: RTSCamera = get_node("Camera") as RTSCamera
+	field.bind(self, cam)
+	field.use_domain(sim.grid)
+	field.attach_box(ui_layer)
+	for cell: Vector2i in [Vector2i(2, 12), Vector2i(2, 14), Vector2i(3, 15), Vector2i(8, 14)]:
+		field.spawn(SMPointer.PLAYER, sim.grid.cell_center(cell), &"militia")
+	for cell: Vector2i in [Vector2i(30, 12), Vector2i(31, 14), Vector2i(33, 11)]:
+		field.spawn(SMPointer.ENEMY, sim.grid.cell_center(cell), &"raider")
 
 func _proto_button(bar: HBoxContainer, caption: String, branch: StringName) -> void:
 	var b: Button = Button.new()
@@ -176,6 +196,7 @@ func _process(delta: float) -> void:
 	if explore_bus != null and combat_bus != null and sim.audio != null:
 		explore_bus.volume_db = linear_to_db(maxf(sim.audio.exploration, 0.001))
 		combat_bus.volume_db = linear_to_db(maxf(sim.audio.combat, 0.001))
+	field.tick(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
@@ -186,11 +207,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if cam == null:
 		return
 	var mb: InputEventMouseButton = event as InputEventMouseButton
-	if mb != null and mb.pressed:
-		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+	if mb != null:
+		if field.handle_button(mb):
+			return
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			cam.zoom_toward(1.0, cam.ground_at(mb.position))
-		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			cam.zoom_toward(-1.0, cam.ground_at(mb.position))
+		return
 	var motion: InputEventMouseMotion = event as InputEventMouseMotion
-	if motion != null and (motion.button_mask & MOUSE_BUTTON_MASK_MIDDLE) != 0:
+	if motion == null:
+		return
+	field.handle_motion(motion)
+	if (motion.button_mask & MOUSE_BUTTON_MASK_MIDDLE) != 0:
 		cam.orbit(motion.relative.x * 0.25)

@@ -759,6 +759,22 @@ func test_sm_phillips() -> void:
 	check(played.pipeline_ok and played.claimed, "the base is up and a node is claimed")
 	check(played.f_smart == 11 and played.f_toggles == 1, "F fires a smart-cast and a toggle")
 	check(played.domain_log.size() >= 2, "an amphibious unit crossed the channel")
+	var field: SMPointer = scene.get("field") as SMPointer
+	check(field != null and field.count_team(0) >= 3 and field.count_team(1) >= 2, "phillips places friendly and enemy units")
+	check(scene.find_child("SelectionBox", true, false) != null, "phillips shows a selection box")
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	check(picked == friends[0] and field.selection.count() == 1, "left click selects one friendly unit")
+	var step: Vector3 = friends[0].global_position + Vector3(0, 0, 8)
+	var moved: StringName = field.command_at(step, _proj(step), Callable(self, "_proj"))
+	check(moved == &"move" and friends[0].is_moving(), "right click on ground moves the selection")
+	var foes: Array[RTSUnit] = field.units_of(1)
+	var attacked: StringName = field.command_at(foes[0].global_position, _proj(foes[0].global_position), Callable(self, "_proj"))
+	check(attacked == &"attack" and friends[0].attack_target == foes[0], "right click on an enemy attacks")
+	var a: Vector2 = _proj(friends[0].global_position)
+	var b: Vector2 = _proj(friends[1].global_position)
+	var boxed: int = field.select_drag(Rect2(a, b - a).abs().grow(4.0), Callable(self, "_proj"))
+	check(boxed >= 2, "a drag box selects several friendlies")
 	scene.free()
 	await process_frame
 
@@ -788,6 +804,13 @@ func test_sm_mission() -> void:
 	var raid: SMMission = scene.get("mission") as SMMission
 	check(raid.won and raid.ruby_paid >= 30 and raid.goods.stock_of(0) >= 1, "night-shift ruby income and rare-earth stock")
 	check(raid.yard.finished.has(&"scaffold_yard"), "the scaffold yard finishes")
+	var field: SMPointer = scene.get("field") as SMPointer
+	check(field != null and field.count_team(0) >= 2 and field.count_team(1) >= 1, "the raid places a squad and an enemy")
+	check(scene.find_child("SelectionBox", true, false) != null, "the raid shows a selection box")
+	var foe: RTSUnit = field.units_of(1)[0]
+	var before: float = foe.hp
+	var struck: int = int(scene.call("fire_secondary"))
+	check(struck > 0 and foe.hp < before, "F strikes an enemy on the raid")
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
 	await process_frame
