@@ -1135,6 +1135,7 @@ func test_sm_hud() -> void:
 	check(picked == friends[0] and _hud_text(scene, "HudSelection") == "Shan Insurgent Militia    HP 80/80    F Slag Molotov", "the selection shows name, health, and its F ability")
 	var purse: SMRoster = scene.get("roster") as SMRoster
 	built.pressed.emit()
+	check(_hud_text(scene, "HudBuild") == "Construction Yard built", "a finished yard says its name")
 	var yard: SMBuildYard = (scene.get("side") as SMSide).yard
 	check(yard.finished.has(&"scaffold_yard") and yard.style == SMBuildYard.Style.SCAFFOLD and purse.economy.credits(0) == 49980 and scene.get_node_or_null("Built_scaffold_yard") is MeshInstance3D, "a building click raises a scaffold yard")
 	var before: int = field.count_team(0)
@@ -2497,8 +2498,15 @@ func test_sm_web() -> void:
 			if mat != null and mat.shader != null and str(mat.shader.resource_path).ends_with(".gdshader"):
 				warmed += 1
 	check(done != null and done.text == "Done" and other == null, "the campaign tab marks the finished mission")
+	var kokang_brief: Label = boot.find_child("Brief_kokang", true, false) as Label
+	check(kokang_brief != null and kokang_brief.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART and kokang_brief.custom_minimum_size.y >= 44.0, "campaign briefings wrap onto extra lines")
 	check(warmed == 3, "boot warms the cryo, aegis, and slag shaders")
 	boot.free()
+	SMSave.clear()
+	check(SMSave.poll_web(), "campaign progress is ready without waiting off the web")
+	SMSave.mark("tachileik")
+	SMSave.apply_payload(JSON.stringify(JSON.stringify(["kokang"])))
+	check(SMSave.has("kokang") and SMSave.has("tachileik"), "a wrapped IndexedDB campaign record merges into the save")
 	SMSave.clear()
 	SMCampaign.selected = "tachileik"
 	await process_frame
@@ -2543,6 +2551,14 @@ func test_sm_guide() -> void:
 	check(short_line != null and overlay != null and short_line.visible and not overlay.is_ancestor_of(short_line) and short_line.text.length() <= 32 and not short_line.text.contains("Shift"), "one short line stays on screen")
 	var column: Control = scene.find_child("CommandColumn", true, false) as Control
 	check(column != null and column.size.x <= 180.0 and column.size.x >= 120.0, "the build column stays narrow")
+	var income: Label = scene.find_child("HudIncome", true, false) as Label
+	var map_label: Label = scene.find_child("HudMap", true, false) as Label
+	var mm: Control = scene.find_child("Minimap", true, false) as Control
+	var board: SMHud = scene.get("hud") as SMHud
+	check(income != null and income.text == "" and not income.visible, "an empty income readout leaves room for the map name")
+	check(map_label != null and map_label.size_flags_stretch_ratio >= 2.0, "the map name gets more of the top bar")
+	check(mm != null and mm.size.x <= 168.0 and mm.size.y <= 120.0, "the minimap stays clear of the briefing")
+	check(board != null and not board.guide_blocks(), "the how-to does not freeze a desktop sim")
 	var buildings: Label = scene.find_child("GroupBuildings", true, false) as Label
 	var header_font: Font = buildings.get_theme_font(&"font") if buildings != null else null
 	check(buildings != null and buildings.theme_type_variation == "Header" and header_font != null and str(header_font.resource_path).contains("Warheed"), "section headers use the theme font")
@@ -2569,7 +2585,10 @@ func test_sm_guide() -> void:
 	check(cue != null and played != null and SMTone.peak(played) > 1000, "training plays a procedural cue")
 	var tip_label: Label = scene.find_child("UnitTip", true, false) as Label
 	train.mouse_entered.emit()
+	var tip_panel: Control = scene.find_child("TipPanel", true, false) as Control
 	check(tip_label != null and tip_label.visible and tip_label.text.contains("Slag Molotov"), "hovering a unit shows a readable tip")
+	check(tip_panel != null and tip_panel.size.y >= 80.0, "the hover tip is tall enough for the unit name")
+	check(train != null and train.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS, "build buttons ellipsize instead of cutting a word")
 	var saved_size: Vector2i = Vector2i(root.size)
 	root.size = Vector2i(1024, 576)
 	await process_frame
@@ -2597,6 +2616,10 @@ func test_sm_guide() -> void:
 	await process_frame
 	var lesson_label: Label = raid.find_child("TutorialPrompt", true, false) as Label
 	check(lesson_label != null and lesson_label.visible and lesson_label.text == lesson, "kokang shows the first-mission lesson")
+	var raid_brief: Label = raid.find_child("Briefing", true, false) as Label
+	var raid_boot: Button = raid.find_child("MissionBoot", true, false) as Button
+	check(raid_brief != null and raid_brief.position.x >= 210.0 and raid_brief.size.x <= 820.0 and raid_brief.size.y >= 60.0 and raid_brief.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART and raid_brief.clip_text, "the kokang briefing clears the minimap and wraps")
+	check(raid_boot != null and raid_boot.visible and raid_boot.text == "Boot menu", "kokang can return to the boot menu")
 	raid.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"
@@ -2668,6 +2691,18 @@ func test_sm_orders_mark() -> void:
 	var other_unit: RTSUnit = _unit_kind(field, 0, "slag_hauler")
 	var other_tag: Label3D = other_unit.get_node_or_null("NameTag") as Label3D if other_unit != null else null
 	check(named != null and named.visible and other_tag != null and not other_tag.visible, "only the selected unit shows its name")
+	field.select_only([unit, other_unit])
+	field.tick(0.05)
+	var stacked: int = 0
+	if named.visible:
+		stacked += 1
+	if other_tag.visible:
+		stacked += 1
+	check(stacked == 1, "a stacked selection keeps a single name tag")
+	field.select_only([unit])
+	field.tick(0.05)
+	var phillips_status: Label = scene.find_child("Status", true, false) as Label
+	check(phillips_status != null and phillips_status.visible and phillips_status.text.contains("yard"), "the skirmish hint stays on screen")
 	var step: Vector3 = unit.global_position + Vector3(8.0, 0.0, 0.0)
 	var moved: StringName = field.command_at(step, _proj(step), Callable(self, "_proj"))
 	var move_ping: Node = _order_ping(field, "move")
@@ -2685,6 +2720,14 @@ func test_sm_orders_mark() -> void:
 	field.selection.clear()
 	field.tick(0.05)
 	check(reach != null and not reach.visible, "the range ring hides when the unit is deselected")
+	unit.path = PackedVector3Array()
+	unit.attack_target = null
+	unit.set_meta("hunt", false)
+	var prowler: RTSUnit = field.spawn(SMPointer.ENEMY, unit.global_position, &"raider")
+	prowler.incoming_mult = 1.0
+	var idle_hp: float = prowler.hp
+	field.tick(1.2)
+	check(prowler.hp < idle_hp, "an idle skirmish unit shoots an enemy in range")
 	scene.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"
@@ -2705,6 +2748,33 @@ func test_sm_goal() -> void:
 	await process_frame
 	var wave_status: Label = wave.find_child("Status", true, false) as Label
 	check(wave_status != null and wave_status.text.contains("EW towers (2)") and wave_status.text.contains("hangars (2)"), "1027 shows towers before hangars")
+	var wave_field: SMPointer = wave.get("field") as SMPointer
+	var wave_story: SMStory = wave.get("story") as SMStory
+	var jammer_damage: float = -1.0
+	for jammer: RTSUnit in wave_field.units_of(1):
+		if str(jammer.get_meta("duty", "")) == "tower":
+			jammer_damage = jammer.attack_damage
+			break
+	check(is_zero_approx(jammer_damage), "EW towers jam and do not shoot")
+	var shooter: RTSUnit = wave_field.units_of(0)[0]
+	var victim: RTSUnit = wave_field.units_of(1)[0]
+	shooter.global_position = victim.global_position
+	shooter.attack_target = null
+	var before_hp: float = victim.hp
+	wave_story.tick(0.1)
+	wave_field.tick(1.2)
+	check(victim.hp < before_hp, "an idle company shoots an enemy that walks into range")
+	for other: RTSUnit in wave_field.units_of(1):
+		other.global_position = Vector3(30.0, 0.0, 30.0)
+	var close: RTSUnit = wave_field.units_of(1)[0]
+	var far_one: RTSUnit = wave_field.units_of(1)[1]
+	close.global_position = shooter.global_position
+	close.incoming_mult = 1.0
+	shooter.attack_target = far_one
+	var close_hp: float = close.hp
+	wave_story.tick(0.1)
+	wave_field.tick(1.2)
+	check(close.hp < close_hp, "a marching company still shoots the enemy in its face")
 	wave.free()
 	await process_frame
 	SMCampaign.selected = "tonle_sap"

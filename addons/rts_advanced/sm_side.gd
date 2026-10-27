@@ -130,7 +130,7 @@ func _order_scaffold(id: StringName) -> String:
 		_say("scaffold stalled")
 		return "scaffold stalled"
 	_slab("Built_%s" % str(id), SMPointer.building_at(pos), SMPointer.BUILDING_SIZE, SMFront.primary())
-	_say("%s built" % str(id))
+	_say("%s built" % building_label(id))
 	return "built"
 
 func _order_internal(id: StringName) -> String:

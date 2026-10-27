@@ -95,12 +95,15 @@ func _ui() -> void:
 	add_child(ui_layer)
 	status = Label.new()
 	status.name = "Status"
-	status.visible = false
+	status.visible = true
 	status.text = "The enemy builds, expands, and attacks. Cross a ford to reach them."
 	status.position = Vector2(240, 608)
-	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.size = Vector2(760, 40)
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.clip_text = true
-	status.custom_minimum_size = Vector2(760, 24)
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status.add_theme_color_override("font_color", Color(0.95, 0.9, 0.55))
+	status.custom_minimum_size = Vector2(760, 40)
 	ui_layer.add_child(status)
 	sim.protocols.mount_panel(ui_layer, roster.economy, SMPointer.PLAYER, sim.abilities, Callable(self, "_say"))
 
@@ -149,6 +152,8 @@ func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> Mesh
 	return mi
 
 func _process(delta: float) -> void:
+	if hud.guide_blocks():
+		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	if cam != null:
 		var vp: Viewport = get_viewport()

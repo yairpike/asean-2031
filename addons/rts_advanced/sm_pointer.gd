@@ -751,6 +751,10 @@ func handle_button(mb: InputEventMouseButton) -> bool:
 	if box == null or cam == null:
 		return false
 	if mb.button_index == MOUSE_BUTTON_LEFT:
+		if _touch_blocks_select(mb.pressed):
+			if not mb.pressed:
+				box.end()
+			return true
 		if mb.pressed:
 			box.begin(mb.position)
 		else:
@@ -766,6 +770,22 @@ func handle_button(mb: InputEventMouseButton) -> bool:
 	if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
 		command_at(cam.ground_at(mb.position), mb.position, Callable(self, "project_point"), mb.shift_pressed)
 		return true
+	return false
+
+func _touch_blocks_select(pressed: bool) -> bool:
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return false
+	var touch: Node = tree.root.get_node_or_null("SMTouch")
+	if touch == null:
+		return false
+	if bool(touch.get("moved")):
+		return true
+	if not pressed:
+		return false
+	var raw: Variant = touch.get("points")
+	if raw is Dictionary:
+		return not (raw as Dictionary).is_empty()
 	return false
 
 func handle_motion(motion: InputEventMouseMotion) -> void:
@@ -787,6 +807,7 @@ func tick(delta: float) -> void:
 			continue
 		_tick_ability(u, delta)
 		_press_hunt(u)
+		_return_fire(u)
 		_press_bridge(u, delta)
 		var before: Vector3 = u.global_position
 		u.advance(delta)
@@ -881,11 +902,21 @@ func _paint_names(alive: Array[RTSUnit]) -> void:
 			if d <= hover_d:
 				hover_d = d
 				hover_unit = u
+	var lead: RTSUnit = null
+	var chosen: int = 0
+	for u: RTSUnit in alive:
+		if u.selected:
+			chosen += 1
+			if lead == null:
+				lead = u
 	for u: RTSUnit in alive:
 		var tag: Label3D = u.get_node_or_null("NameTag") as Label3D
 		if tag == null:
 			continue
-		tag.visible = u.selected or u == hover_unit
+		var show_name: bool = u == hover_unit
+		if u.selected and (chosen <= 1 or u == lead):
+			show_name = true
+		tag.visible = show_name
 
 func _paint_vitals(u: RTSUnit, delta: float) -> void:
 	var bar: MeshInstance3D = u.get_node_or_null("HealthBar") as MeshInstance3D
@@ -913,6 +944,17 @@ func _paint_vitals(u: RTSUnit, delta: float) -> void:
 				u.set_meta("hurt_until", now + 1600)
 	u.set_meta("seen_hp", u.hp)
 	_rise_pop(u, delta)
+
+func _return_fire(u: RTSUnit) -> void:
+	if u.team != PLAYER or u.attack_damage <= 0.0:
+		return
+	if bool(u.get_meta("hunt", false)) or not u.path.is_empty():
+		return
+	if u.attack_target != null and is_instance_valid(u.attack_target) and u.attack_target.is_alive():
+		return
+	var foe: RTSUnit = nearest_enemy(u.global_position, u.attack_range)
+	if foe != null:
+		u.attack_target = foe
 
 func _press_hunt(u: RTSUnit) -> void:
 	if not bool(u.get_meta("hunt", false)) or bool(u.get_meta("frozen", false)):

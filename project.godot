@@ -25,6 +25,10 @@ window/size/viewport_height=720
 [internationalization]
 locale/translations=PackedStringArray("res://localization/demo.en.translation", "res://localization/demo.fr.translation")
 
+[input_devices]
+
+pointing/emulate_mouse_from_touch=true
+
 [rendering]
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"

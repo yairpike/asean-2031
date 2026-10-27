@@ -26,8 +26,8 @@ func setup(p_grid: SMDomainGrid, p_field: SMPointer, p_camera: RTSCamera) -> voi
 	field = p_field
 	camera = p_camera
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	custom_minimum_size = Vector2(200, 160)
-	size = Vector2(200, 160)
+	custom_minimum_size = Vector2(156, 108)
+	size = Vector2(156, 108)
 
 func map_size() -> Vector2:
 	if size.x < 8.0 or size.y < 8.0:

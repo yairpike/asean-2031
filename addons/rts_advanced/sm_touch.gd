@@ -3,6 +3,8 @@ extends Node
 
 var points: Dictionary[int, Vector2] = {}
 var span: float = 0.0
+var moved: bool = false
+var travel: float = 0.0
 var last_group: int = -1
 var last_group_ms: int = 0
 
@@ -17,6 +19,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if touch != null:
 		if touch.pressed:
 			points[touch.index] = touch.position
+			if points.size() == 1:
+				moved = false
+				travel = 0.0
 		else:
 			points.erase(touch.index)
 		span = _span()
@@ -25,6 +30,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if drag == null:
 		return
 	points[drag.index] = drag.position
+	travel += drag.relative.length()
+	if travel > 12.0:
+		moved = true
 	var camera: RTSCamera = _camera()
 	if camera == null:
 		return
@@ -133,6 +141,11 @@ func _field() -> SMPointer:
 	if raw is SMPointer:
 		return raw as SMPointer
 	return null
+
+func _process(_delta: float) -> void:
+	if points.is_empty():
+		moved = false
+		travel = 0.0
 
 func pan_camera(camera: RTSCamera, slide: Vector2) -> void:
 	if camera == null:

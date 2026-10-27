@@ -82,8 +82,11 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	credits_label = _flow_label(row, "HudCredits", 16)
 	income_label = _flow_label(row, "HudIncome", 15)
 	income_label.add_theme_color_override("font_color", Color(0.55, 0.9, 0.48))
+	income_label.visible = false
 	power_label = _flow_label(row, "HudPower", 16)
 	map_label = _flow_label(row, "HudMap", 16)
+	map_label.size_flags_stretch_ratio = 2.2
+	map_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	weather_label = _flow_label(row, "HudWeather", 15)
 	minimap = SMMinimap.new()
 	minimap.name = "Minimap"
@@ -212,6 +215,7 @@ func _paint_income() -> void:
 		income_label.text = purse_flash
 	else:
 		income_label.text = ""
+	income_label.visible = income_label.text != ""
 
 func show_line(text: String) -> void:
 	if radio_label == null:
@@ -303,6 +307,8 @@ func _order(id: StringName) -> void:
 	if side == null:
 		return
 	var note: String = side.order_building(id)
+	if note == "built":
+		note = "%s built" % side.building_label(id)
 	_note(note)
 	refresh()
 
@@ -553,7 +559,8 @@ func _tip(layer: CanvasLayer) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.clip_contents = true
 	panel.add_theme_stylebox_override("panel", _card_style())
-	_dock(panel, -560.0, -128.0, -194.0, -88.0, 1.0, 1.0, 1.0, 1.0)
+	panel.custom_minimum_size = Vector2(360, 96)
+	_dock(panel, -640.0, -210.0, -196.0, -96.0, 1.0, 1.0, 1.0, 1.0)
 	layer.add_child(panel)
 	tip_panel = panel
 	tip_label = Label.new()
@@ -571,6 +578,9 @@ func _toggle_guide() -> void:
 func _hide_guide() -> void:
 	if guide_panel != null:
 		guide_panel.visible = false
+
+func guide_blocks() -> bool:
+	return OS.has_feature("web") and guide_panel != null and guide_panel.visible
 
 func _enter_tip(text: String) -> void:
 	hover_tip = text
@@ -592,6 +602,7 @@ func _button(box: VBoxContainer, node_name: String, text: String, fn: Callable, 
 	b.text = text
 	b.tooltip_text = tip
 	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.custom_minimum_size = Vector2(0, 40)

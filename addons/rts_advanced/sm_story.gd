@@ -186,8 +186,8 @@ func bind_mission(p_host: Node3D, id: String, p_field: SMPointer, p_side: SMSide
 	elif id == "operation_1027":
 		_towers = true
 		_mount_protocols(layer)
-		_spawn_duty(SMPointer.ENEMY, Vector3(9.0, 0.0, 5.0), &"raider", "tower", "EW tower", 260.0, 0.0, 7.0, true)
-		_spawn_duty(SMPointer.ENEMY, Vector3(9.0, 0.0, -5.0), &"raider", "tower", "EW tower", 260.0, 0.0, 7.0, true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(9.0, 0.0, 5.0), &"raider", "tower", "EW tower", 260.0, 0.0, 0.0, true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(9.0, 0.0, -5.0), &"raider", "tower", "EW tower", 260.0, 0.0, 0.0, true)
 		_spawn_duty(SMPointer.ENEMY, Vector3(14.0, 0.0, 3.0), &"raider", "hangar", "Su-30 hangar", 300.0, 0.0, 0.0, true)
 		_spawn_duty(SMPointer.ENEMY, Vector3(14.0, 0.0, -3.0), &"raider", "hangar", "CH-4 hangar", 300.0, 0.0, 0.0, true)
 		_tag_raider("escort", "Junta escort", 90.0, 7.0, 7.0, false)
@@ -407,6 +407,7 @@ func tick(delta: float) -> bool:
 		return _tick_raid(delta)
 	_occupy(delta)
 	_recount()
+	_cover_fire()
 	_press_enemies()
 	_help_powers()
 	_watch()
@@ -428,6 +429,7 @@ func _tick_raid(delta: float) -> bool:
 		done = true
 		return false
 	_occupy(delta)
+	_cover_fire()
 	_press_enemies()
 	if goods != null:
 		goods.advance(delta, raid.economy)
@@ -581,6 +583,26 @@ func _lock() -> void:
 					u.incoming_mult = 1.0
 			else:
 				u.incoming_mult = 0.0
+
+func _cover_fire() -> void:
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if not _living(u) or bool(u.get_meta("objective", false)) or u.attack_damage <= 0.0:
+			continue
+		var prey: RTSUnit = null
+		var best: float = u.attack_range
+		for foe: RTSUnit in field.units_of(SMPointer.ENEMY):
+			if not _living(foe):
+				continue
+			var dist: float = u.global_position.distance_to(foe.global_position)
+			if dist <= best:
+				best = dist
+				prey = foe
+		if prey == null:
+			continue
+		if u.attack_target != null and is_instance_valid(u.attack_target) and u.attack_target.is_alive():
+			if u.global_position.distance_to(u.attack_target.global_position) <= u.attack_range:
+				continue
+		u.attack_target = prey
 
 func _press_enemies() -> void:
 	var prey: RTSUnit = _hunt_target()

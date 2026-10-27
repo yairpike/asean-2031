@@ -69,11 +69,13 @@ func _ui() -> void:
 	add_child(layer)
 	var brief: Label = Label.new()
 	brief.name = "Briefing"
-	brief.text = briefing_text
-	brief.position = Vector2(176, 40)
-	brief.custom_minimum_size = Vector2(620, 36)
+	brief.position = Vector2(220, 42)
+	brief.size = Vector2(760, 72)
+	brief.custom_minimum_size = Vector2(760, 72)
 	brief.clip_text = true
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	brief.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	brief.text = briefing_text
 	layer.add_child(brief)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.position = Vector2(176, 80)
@@ -84,14 +86,25 @@ func _ui() -> void:
 	_debug(row, "DebugRare", "Secure rare earth", _on_rare)
 	status = Label.new()
 	status.name = "Status"
-	status.position = Vector2(176, 116)
+	status.position = Vector2(220, 118)
 	status.text = "Golden Slag / Aurum-9 stays in the yard ledger. Ruby and rare earth are the raid."
-	status.custom_minimum_size = Vector2(620, 22)
-	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.size = Vector2(760, 44)
+	status.custom_minimum_size = Vector2(760, 44)
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.clip_text = true
 	status.add_theme_font_size_override("font_size", 16)
 	status.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
 	layer.add_child(status)
+	var back: Button = Button.new()
+	back.name = "MissionBoot"
+	back.text = "Boot menu"
+	back.position = Vector2(220, 166)
+	back.custom_minimum_size = Vector2(160, 36)
+	back.pressed.connect(func() -> void:
+		get_tree().change_scene_to_file("res://game/boot.tscn")
+	)
+	layer.add_child(back)
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
@@ -151,6 +164,8 @@ func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> void
 	add_child(mi)
 
 func _process(delta: float) -> void:
+	if hud.guide_blocks():
+		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	if cam == null:
 		return

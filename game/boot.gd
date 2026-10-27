@@ -48,6 +48,7 @@ func _ready() -> void:
 	gear.add_theme_font_size_override("font_size", 18)
 	_style_button(gear, Color(0.14, 0.15, 0.18), Color(0.55, 0.42, 0.18), false)
 	gear.pressed.connect(_toggle_settings)
+	SMSave.pull_web()
 	add_child(gear)
 	preload("res://game/settings_panel.gd").attach(self)
 	preload("res://game/match_settings.gd").apply_scene(self)
@@ -220,19 +221,34 @@ func _mission_row(box: VBoxContainer, mission_id: String) -> void:
 	var brief: Label = Label.new()
 	brief.name = "Brief_%s" % mission_id
 	brief.text = SMCampaign.briefing_of(mission_id)
-	brief.autowrap_mode = TextServer.AUTOWRAP_OFF
-	brief.custom_minimum_size = Vector2(880, 22)
+	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	brief.custom_minimum_size = Vector2(880, 66)
+	brief.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	brief.add_theme_font_size_override("font_size", 15)
 	brief.add_theme_color_override("font_color", Color(0.68, 0.72, 0.76))
 	box.add_child(brief)
-	if SMSave.has(mission_id):
-		var done: Label = Label.new()
-		done.name = "Done_%s" % mission_id
-		done.text = "Done"
-		done.position = Vector2(620, 4)
-		done.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		done.add_theme_color_override("font_color", Color(0.55, 0.78, 0.45))
-		b.add_child(done)
+	_ensure_done(b, mission_id)
+
+func _process(_delta: float) -> void:
+	if not SMSave.poll_web():
+		return
+	for id: String in SMCampaign.ids():
+		var button: Button = find_child("Mission_%s" % id, true, false) as Button
+		_ensure_done(button, id)
+	set_process(false)
+
+func _ensure_done(button: Button, mission_id: String) -> void:
+	if button == null or not SMSave.has(mission_id):
+		return
+	if button.find_child("Done_%s" % mission_id, true, false) != null:
+		return
+	var done: Label = Label.new()
+	done.name = "Done_%s" % mission_id
+	done.text = "Done"
+	done.position = Vector2(620, 4)
+	done.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	done.add_theme_color_override("font_color", Color(0.55, 0.78, 0.45))
+	button.add_child(done)
 
 func _warm_shaders() -> void:
 	var holder: Node3D = Node3D.new()

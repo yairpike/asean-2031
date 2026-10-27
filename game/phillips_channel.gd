@@ -107,12 +107,15 @@ func _ui() -> void:
 	_action(actions, "Engage", _on_engage)
 	status = Label.new()
 	status.name = "Status"
-	status.visible = false
+	status.visible = true
 	status.text = "Raise a yard, claim Golden Slag / Aurum-9, cross, then press F."
 	status.position = Vector2(250, 608)
-	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.size = Vector2(740, 40)
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.clip_text = true
-	status.custom_minimum_size = Vector2(740, 24)
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status.add_theme_color_override("font_color", Color(0.95, 0.9, 0.55))
+	status.custom_minimum_size = Vector2(740, 40)
 	layer.add_child(status)
 
 func _arm_units() -> void:
@@ -215,6 +218,8 @@ func _capsule(node_name: String, pos: Vector3, color: Color) -> void:
 	add_child(mi)
 
 func _process(delta: float) -> void:
+	if hud.guide_blocks():
+		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	if cam != null:
 		var vp: Viewport = get_viewport()

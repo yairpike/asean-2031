@@ -3,7 +3,11 @@ extends RefCounted
 ## Finished story missions, one id per line in user://campaign.save.
 
 const PATH: String = "user://campaign.save"
-const IDB_JS: String = "(function(payload){if(!self.indexedDB)return;var openReq=indexedDB.open('asean2031',1);openReq.onupgradeneeded=function(){openReq.result.createObjectStore('saves');};openReq.onsuccess=function(){var tx=openReq.result.transaction('saves','readwrite');tx.objectStore('saves').put(payload,'campaign');};})(%s);"
+const IDB_JS: String = "(function(payload){if(!self.indexedDB)return;var openReq=indexedDB.open('asean2031',1);openReq.onupgradeneeded=function(){if(!openReq.result.objectStoreNames.contains('saves'))openReq.result.createObjectStore('saves');};openReq.onsuccess=function(){var tx=openReq.result.transaction('saves','readwrite');tx.objectStore('saves').put(payload,'campaign');};})(%s);"
+const PULL_JS: String = "(function(){window.__campaignReady=false;window.__campaignSave='';if(!self.indexedDB){window.__campaignReady=true;return;}var openReq=indexedDB.open('asean2031',1);openReq.onupgradeneeded=function(){if(!openReq.result.objectStoreNames.contains('saves'))openReq.result.createObjectStore('saves');};openReq.onerror=function(){window.__campaignReady=true;};openReq.onsuccess=function(){try{var tx=openReq.result.transaction('saves','readonly');var req=tx.objectStore('saves').get('campaign');req.onerror=function(){window.__campaignReady=true;};req.onsuccess=function(){var v=req.result;window.__campaignSave=(v==null)?'':String(v);window.__campaignReady=true;};}catch(e){window.__campaignReady=true;}};})();"
+
+static var _web_pull: bool = false
+static var _web_done: bool = false
 
 static func clear() -> void:
 	var abs_path: String = ProjectSettings.globalize_path(PATH)
@@ -38,6 +42,49 @@ static func mark(id: String) -> void:
 
 static func idb_script() -> String:
 	return IDB_JS
+
+static func pull_web() -> void:
+	if not OS.has_feature("web") or _web_pull or _web_done:
+		return
+	_web_pull = true
+	JavaScriptBridge.eval(PULL_JS)
+
+static func poll_web() -> bool:
+	if not OS.has_feature("web"):
+		return true
+	if _web_done:
+		return true
+	if not _web_pull:
+		pull_web()
+		return false
+	if not bool(JavaScriptBridge.eval("window.__campaignReady===true")):
+		return false
+	apply_payload(str(JavaScriptBridge.eval("String(window.__campaignSave||'')")))
+	_web_done = true
+	return true
+
+static func apply_payload(raw: String) -> void:
+	var parsed: Variant = JSON.parse_string(raw)
+	if parsed is String:
+		parsed = JSON.parse_string(str(parsed))
+	if not (parsed is Array):
+		return
+	var rows: Array = parsed as Array
+	var have: PackedStringArray = finished()
+	var changed: bool = false
+	for item: Variant in rows:
+		var id: String = str(item).strip_edges()
+		if id != "" and SMCampaign.ids().has(id) and not have.has(id):
+			have.append(id)
+			changed = true
+	if not changed:
+		return
+	var handle: FileAccess = FileAccess.open(PATH, FileAccess.WRITE)
+	if handle == null:
+		return
+	for item: String in have:
+		handle.store_line(item)
+	handle.close()
 
 static func _mirror_web(have: PackedStringArray) -> void:
 	if not OS.has_feature("web"):
