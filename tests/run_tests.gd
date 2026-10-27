@@ -55,6 +55,7 @@ func _run() -> void:
 	await H.section("test_sm_raider", test_sm_raider)
 	await H.section("test_sm_roster", test_sm_roster)
 	await H.section("test_sm_campaign", test_sm_campaign)
+	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -828,8 +829,9 @@ func test_sm_mission() -> void:
 	root.add_child(boot)
 	await process_frame
 	check(boot.find_child("GreyboxButton", true, false) != null, "boot offers the greybox")
-	check(boot.find_child("PhillipsButton", true, false) != null, "boot offers Phillips Channel")
-	check(boot.find_child("MissionButton", true, false) != null, "boot offers the night raid")
+	check(boot.find_child("CardPhillips", true, false) != null, "boot offers Phillips Channel")
+	var raid_button: Button = boot.find_child("Mission_kokang", true, false) as Button
+	check(raid_button != null and raid_button.text == "Kokang raid (mission 1)", "boot offers the night raid")
 	boot.free()
 	scene.free()
 	await process_frame
@@ -865,8 +867,7 @@ func test_sm_sop_ruak() -> void:
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
 	await process_frame
-	var button: Button = boot.find_child("SopRuakButton", true, false) as Button
-	check(button != null and button.text == "Sop Ruak (river skirmish)", "boot names the river skirmish")
+	check(_card_line(boot, "CardSopRuak", "Sop Ruak", "River"), "boot names the river skirmish")
 	boot.free()
 	scene.free()
 	await process_frame
@@ -897,10 +898,10 @@ func test_sm_maps() -> void:
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
 	await process_frame
-	check(_boot_caption(boot, "BurmaRoadButton") == "Burma Road (highland cliffs)", "boot names Burma Road")
-	check(_boot_caption(boot, "AtollsButton") == "Ten Degree Atolls (islands and deep water)", "boot names Ten Degree Atolls")
-	check(_boot_caption(boot, "MekongButton") == "Mekong Delta (canals and bridges)", "boot names the Mekong Delta")
-	check(_boot_caption(boot, "ChiangRaiButton") == "Siege of Chiang Rai (larger team map)", "boot names the Siege of Chiang Rai")
+	check(_card_line(boot, "CardBurma", "Burma Road", "Land"), "boot names Burma Road")
+	check(_card_line(boot, "CardAtolls", "Ten Degree Atolls", "Water"), "boot names Ten Degree Atolls")
+	check(_card_line(boot, "CardMekong", "Mekong Delta", "River"), "boot names the Mekong Delta")
+	check(_card_line(boot, "CardChiang", "Siege of Chiang Rai", "River"), "boot names the Siege of Chiang Rai")
 	boot.free()
 	await process_frame
 
@@ -945,8 +946,8 @@ func test_sm_factions() -> void:
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
 	await process_frame
-	check(_boot_caption(boot, "NmrfButton") == "NMRF (mobile core)", "boot offers NMRF")
-	check(_boot_caption(boot, "MvdButton") == "MVD (internal queue)", "boot offers MVD")
+	check(_faction_line(boot, "FactionNmrf", "NMRF", "Mobile core", "#5A6824") and boot.find_child("NmrfYardButton", true, false) != null, "boot offers NMRF")
+	check(_faction_line(boot, "FactionMvd", "MVD", "Internal queue", "#2A2E32") and boot.find_child("MvdYardButton", true, false) != null, "boot offers MVD")
 	boot.free()
 	await process_frame
 
@@ -1018,6 +1019,60 @@ func test_sm_campaign() -> void:
 		var button: Button = boot.find_child("Mission_%s" % id, true, false) as Button
 		check(button != null and button.text == SMCampaign.title_of(id), "boot lists %s" % id)
 	boot.free()
+	await process_frame
+
+func test_sm_boot() -> void:
+	SMFront.faction_id = "gtfc"
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	check(boot.find_child("TabSkirmish", true, false) != null and boot.find_child("TabCampaign", true, false) != null and boot.find_child("TabFaction", true, false) != null, "boot has three tabs")
+	check(_bar_ok(boot), "the control bar lists select, move, ability, pan, and zoom")
+	var play: Button = boot.find_child("PlayButton", true, false) as Button
+	check(play != null and play.disabled, "play waits for a map")
+	check(_card_line(boot, "CardPhillips", "Phillips Channel", "Water"), "phillips is a water card")
+	check(_card_line(boot, "CardSopRuak", "Sop Ruak", "River"), "sop ruak is a river card")
+	check(_card_line(boot, "CardBurma", "Burma Road", "Land"), "burma road is a land card")
+	check(_card_line(boot, "CardAtolls", "Ten Degree Atolls", "Water"), "the atolls are a water card")
+	check(_card_line(boot, "CardMekong", "Mekong Delta", "River"), "the mekong is a river card")
+	check(_card_line(boot, "CardChiang", "Siege of Chiang Rai", "River"), "chiang rai is a river card")
+	var burma_card: Button = boot.find_child("CardBurma", true, false) as Button
+	burma_card.pressed.emit()
+	check(str(boot.get("selected_map")).contains("burma_road") and not play.disabled, "a card arms play")
+	check(boot.find_child("GreyboxButton", true, false) != null, "greybox stays on the skirmish tab")
+	var campaign: Button = boot.find_child("TabCampaign", true, false) as Button
+	campaign.pressed.emit()
+	var act1: Control = boot.find_child("ActIMissions", true, false) as Control
+	var act2: Control = boot.find_child("ActIIMissions", true, false) as Control
+	var act3: Control = boot.find_child("ActIIIMissions", true, false) as Control
+	check(act1 != null and act1.is_visible_in_tree() and act2 != null and not act2.is_visible_in_tree() and act3 != null and not act3.is_visible_in_tree(), "only the selected act is listed")
+	check(_bar_ok(boot), "the control bar stays up on campaign")
+	var act2_button: Button = boot.find_child("ActII", true, false) as Button
+	act2_button.pressed.emit()
+	check(act2.is_visible_in_tree() and not act1.is_visible_in_tree(), "act two replaces act one")
+	var crossing: Button = boot.find_child("Mission_channel_crossing", true, false) as Button
+	var crossing_brief: Label = boot.find_child("Brief_channel_crossing", true, false) as Label
+	check(crossing != null and crossing.text == SMCampaign.title_of("channel_crossing") and crossing_brief != null and crossing_brief.text == SMCampaign.briefing_of("channel_crossing") and crossing.is_visible_in_tree(), "act two shows the crossing briefing")
+	var faction_tab: Button = boot.find_child("TabFaction", true, false) as Button
+	faction_tab.pressed.emit()
+	check(_faction_line(boot, "FactionGtfc", "GTFC", "Scaffold yard", "#B81E2D"), "gtfc shows its color and build style")
+	check(_faction_line(boot, "FactionNmrf", "NMRF", "Mobile core", "#5A6824"), "nmrf shows its color and build style")
+	check(_faction_line(boot, "FactionMvd", "MVD", "Internal queue", "#2A2E32"), "mvd shows its color and build style")
+	var pick: Button = boot.find_child("FactionNmrf", true, false) as Button
+	pick.pressed.emit()
+	check(SMFront.faction_id == "nmrf", "the next skirmish uses the selected faction")
+	check(_bar_ok(boot), "the control bar stays up on faction")
+	boot.free()
+	var scene: Node = (load("res://game/burma_road.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	check(_has_names(field, PackedStringArray(["River Rifle", "Sampan", "Emerald Gunboat", "Mangrove Tube", "Packer", "Jade Skiff"])), "burma plays the selected nmrf side")
+	check(scene.find_child("MovePacker", true, false) != null, "nmrf skirmish can move the packer")
+	check(str(scene.call("train_unit")) == "Olive Ranger", "nmrf skirmish trains an nmrf unit")
+	scene.free()
+	SMFront.faction_id = "gtfc"
+	check(SMFront.current() == "gtfc", "faction selection resets")
 	await process_frame
 
 func _spawned(faction: String, id: StringName, display: String, weapon: String, secondary: String, damage: float) -> bool:
@@ -1096,11 +1151,33 @@ func _albedo(u: RTSUnit) -> Color:
 	var mat: StandardMaterial3D = body.material_override as StandardMaterial3D
 	return mat.albedo_color
 
-func _boot_caption(boot: Node, node_name: String) -> String:
-	var button: Button = boot.find_child(node_name, true, false) as Button
-	if button == null:
-		return ""
-	return button.text
+func _card_line(boot: Node, node_name: String, map_name: String, terrain: String) -> bool:
+	var card: Button = boot.find_child(node_name, true, false) as Button
+	if card == null:
+		return false
+	var title: Label = card.find_child("Title", true, false) as Label
+	var line: Label = card.find_child("Terrain", true, false) as Label
+	if title == null or line == null:
+		return false
+	return title.text == map_name and line.text == terrain
+
+func _faction_line(boot: Node, node_name: String, faction_name: String, style: String, hex: String) -> bool:
+	var card: Button = boot.find_child(node_name, true, false) as Button
+	if card == null:
+		return false
+	var title: Label = card.find_child("Title", true, false) as Label
+	var style_label: Label = card.find_child("Style", true, false) as Label
+	var swatch: ColorRect = card.find_child("Primary", true, false) as ColorRect
+	if title == null or style_label == null or swatch == null:
+		return false
+	return title.text == faction_name and style_label.text == style and swatch.color == Color.html(hex)
+
+func _bar_ok(boot: Node) -> bool:
+	var bar: Label = boot.find_child("ControlBar", true, false) as Label
+	if bar == null or not bar.is_visible_in_tree():
+		return false
+	var text: String = bar.text
+	return text.contains("Left click selects") and text.contains("Right click moves or attacks") and text.contains("F ability") and text.contains("Edge pan") and text.contains("Wheel zoom")
 
 func _play_map(path: String, mesh_a: String, mesh_b: String, from_cell: Vector2i, to_cell: Vector2i, move_cell: Vector2i) -> void:
 	var scene: Node = (load(path) as PackedScene).instantiate()

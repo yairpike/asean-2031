@@ -6,6 +6,7 @@ var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
 var raider: SMRaider = SMRaider.new()
 var roster: SMRoster = SMRoster.new()
+var side: SMSide = SMSide.new()
 var status: Label
 var explore_bus: AudioStreamPlayer
 var combat_bus: AudioStreamPlayer
@@ -13,10 +14,11 @@ var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	sim.setup_phillips("gtfc")
-	roster.setup("gtfc")
+	roster.setup(SMFront.current())
 	_world()
 	_audio()
 	_ui()
+	side.prepare(self, ui_layer, status, sim.grid, sim.yard.center)
 	_arm_units()
 
 func scripted_playthrough() -> bool:
@@ -38,7 +40,7 @@ func _world() -> void:
 	_slab("DeepChannel", Vector3(0, -0.2, 0), Vector3(40, 0.3, 96), Color(0.08, 0.22, 0.42))
 	_slab("ShallowNorth", Vector3(0, 0.05, -26), Vector3(40, 0.25, 12), Color(0.2, 0.45, 0.55))
 	_slab("ShallowSouth", Vector3(0, 0.05, 26), Vector3(40, 0.25, 12), Color(0.2, 0.45, 0.55))
-	_slab("PlayerYard", sim.yard.center + Vector3(0, 1.2, 0), Vector3(4, 2.4, 4), Color(0.72, 0.12, 0.18))
+	_slab("PlayerYard", sim.yard.center + Vector3(0, 1.2, 0), Vector3(4, 2.4, 4), SMFront.primary())
 	_slab("EnemyBase", sim.grid.cell_center(Vector2i(32, 12)) + Vector3(0, 1.2, 0), Vector3(4, 2.4, 4), Color(0.16, 0.17, 0.18))
 	var slag_pos: Vector3 = sim.goods.nodes[0]["pos"] as Vector3
 	_slab("NodeMarker", slag_pos + Vector3(0, 0.5, 0), Vector3(1.6, 0.8, 1.6), Color(0.88, 0.62, 0.12))
@@ -85,16 +87,16 @@ func _ui() -> void:
 	_proto_button(bar, "Logistics", &"logistics")
 	_proto_button(bar, "Arsenal", &"arsenal")
 	_proto_button(bar, "Oracle", &"oracle")
-	var side: VBoxContainer = VBoxContainer.new()
-	side.name = "Sidebar"
-	side.position = Vector2(1060, 16)
-	side.custom_minimum_size = Vector2(200, 640)
-	side.add_theme_constant_override("separation", 6)
-	layer.add_child(side)
+	var column: VBoxContainer = VBoxContainer.new()
+	column.name = "Sidebar"
+	column.position = Vector2(1060, 16)
+	column.custom_minimum_size = Vector2(200, 640)
+	column.add_theme_constant_override("separation", 6)
+	layer.add_child(column)
 	var title: Label = Label.new()
-	title.text = "GTFC  crimson / amber"
-	side.add_child(title)
-	var data: Dictionary = SMCatalog.faction("gtfc")
+	title.text = SMFront.banner()
+	column.add_child(title)
+	var data: Dictionary = SMCatalog.faction(SMFront.current())
 	var units: Array[Dictionary] = SMCatalog.units_of(data)
 	var shown: int = mini(units.size(), 6)
 	for i: int in shown:
@@ -102,23 +104,23 @@ func _ui() -> void:
 		row.name = "Cameo%d" % i
 		var swatch: ColorRect = ColorRect.new()
 		swatch.custom_minimum_size = Vector2(54, 54)
-		swatch.color = Color(0.72, 0.12, 0.18) if i % 2 == 0 else Color(0.88, 0.62, 0.12)
+		swatch.color = SMFront.primary() if i % 2 == 0 else SMFront.accent()
 		row.add_child(swatch)
 		var cap: Label = Label.new()
 		cap.text = "%s\n%s" % [str(units[i].get("cameo", "")), str(units[i].get("display_name", ""))]
 		row.add_child(cap)
-		side.add_child(row)
-	_action(side, "Train unit", _on_train)
-	_action(side, "Build pipeline", _on_build)
-	_action(side, "Cross channel", _on_cross)
-	_action(side, "Ability (F)", _on_ability)
-	_action(side, "Engage", _on_engage)
+		column.add_child(row)
+	_action(column, "Train unit", _on_train)
+	_action(column, "Build pipeline", _on_build)
+	_action(column, "Cross channel", _on_cross)
+	_action(column, "Ability (F)", _on_ability)
+	_action(column, "Engage", _on_engage)
 	status = Label.new()
 	status.name = "Status"
 	status.text = "Raise a yard, claim Golden Slag / Aurum-9, cross, then press F."
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.custom_minimum_size = Vector2(190, 80)
-	side.add_child(status)
+	column.add_child(status)
 	var hint: Label = Label.new()
 	hint.text = "Left click selects. Drag a box. Right click ground moves. Right click an enemy attacks."
 	hint.position = Vector2(16, 680)
@@ -128,10 +130,10 @@ func _ui() -> void:
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
-	field.bind(self, cam)
+	field.bind_faction(self, cam, SMFront.current())
 	field.use_domain(sim.grid)
 	field.attach_box(ui_layer)
-	var kinds: Array[StringName] = SMPointer.GTFC_KINDS
+	var kinds: Array[StringName] = SMFront.kinds()
 	var cells: Array[Vector2i] = [Vector2i(1, 8), Vector2i(3, 8), Vector2i(5, 8), Vector2i(8, 8), Vector2i(10, 8), Vector2i(12, 8)]
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, sim.grid.cell_center(cells[i]), kinds[i])
@@ -156,7 +158,7 @@ func _action(side: VBoxContainer, caption: String, fn: Callable) -> void:
 	side.add_child(b)
 
 func train_unit() -> String:
-	var done: StringName = roster.train_and_finish(&"crimson_sapper")
+	var done: StringName = roster.train_and_finish(SMFront.train_kind())
 	if done == &"":
 		return ""
 	var at: Vector3 = sim.grid.cell_center(Vector2i(1, 6))

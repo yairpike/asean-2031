@@ -6,15 +6,29 @@ var grid: SMDomainGrid
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
 var raider: SMRaider = SMRaider.new()
+var roster: SMRoster = SMRoster.new()
+var side: SMSide = SMSide.new()
 var status: Label
 var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	grid = SMDomainGrid.sop_ruak_layout()
+	roster.setup(SMFront.current())
 	_prepare_ability()
 	_world()
 	_ui()
+	side.prepare(self, ui_layer, status, grid, grid.cell_center(Vector2i(8, 22)))
 	_arm_units()
+
+func train_unit() -> String:
+	var done: StringName = roster.train_and_finish(SMFront.train_kind())
+	if done == &"":
+		return ""
+	var at: Vector3 = grid.cell_center(Vector2i(8, 24))
+	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, done)
+	var label: String = field.name_of(u)
+	_say(label)
+	return label
 
 func fire_ability() -> bool:
 	var ok: bool = sim.use_f()
@@ -65,7 +79,7 @@ func _ui() -> void:
 	ui_layer = CanvasLayer.new()
 	add_child(ui_layer)
 	var title: Label = Label.new()
-	title.text = "GTFC  crimson / amber    Sop Ruak"
+	title.text = "%s    Sop Ruak" % SMFront.banner()
 	title.position = Vector2(16, 12)
 	ui_layer.add_child(title)
 	var ability: Button = Button.new()
@@ -74,6 +88,12 @@ func _ui() -> void:
 	ability.position = Vector2(16, 44)
 	ability.pressed.connect(fire_ability)
 	ui_layer.add_child(ability)
+	var train: Button = Button.new()
+	train.name = "TrainButton"
+	train.text = "Train unit"
+	train.position = Vector2(160, 44)
+	train.pressed.connect(train_unit)
+	ui_layer.add_child(train)
 	status = Label.new()
 	status.name = "Status"
 	status.text = "The enemy builds, expands, and attacks. Cross a ford to reach them."
@@ -90,10 +110,10 @@ func _ui() -> void:
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
-	field.bind(self, cam)
+	field.bind_faction(self, cam, SMFront.current())
 	field.use_domain(grid)
 	field.attach_box(ui_layer)
-	var kinds: Array[StringName] = SMPointer.GTFC_KINDS
+	var kinds: Array[StringName] = SMFront.kinds()
 	var cells: Array[Vector2i] = [Vector2i(6, 22), Vector2i(8, 22), Vector2i(10, 22), Vector2i(6, 26), Vector2i(8, 26), Vector2i(10, 26)]
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, grid.cell_center(cells[i]), kinds[i])

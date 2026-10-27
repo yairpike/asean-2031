@@ -24,7 +24,37 @@ static func ids() -> PackedStringArray:
 		"protocol_bar",
 	])
 
+static func act_ids() -> PackedStringArray:
+	return PackedStringArray(["act_1", "act_2", "act_3"])
+
+static func act_title(act: String) -> String:
+	if act == "act_1":
+		return "Act I"
+	if act == "act_2":
+		return "Act II"
+	if act == "act_3":
+		return "Act III"
+	return act
+
+static func act_missions(act: String) -> PackedStringArray:
+	if act == "act_1":
+		return PackedStringArray(["kokang", "mae_sai", "ruby_market", "rare_stock"])
+	if act == "act_2":
+		return PackedStringArray([
+			"channel_crossing",
+			"jammer_drill",
+			"cyber_compound",
+			"arms_bazaar",
+			"field_clinic",
+			"hydro_radar",
+		])
+	if act == "act_3":
+		return PackedStringArray(["clearance_two", "packer_sail", "smart_cast", "beam_freeze", "protocol_bar"])
+	return PackedStringArray()
+
 static func title_of(id: String) -> String:
+	if id == "kokang":
+		return "Kokang raid (mission 1)"
 	if id == "mae_sai":
 		return "Mae Sai scaffold (mission)"
 	if id == "ruby_market":
@@ -56,6 +86,8 @@ static func title_of(id: String) -> String:
 	return id
 
 static func briefing_of(id: String) -> String:
+	if id == "kokang":
+		return "Kokang. Text briefing. Raise the scaffold yard, run the ruby night shift, and bring one rare-earth stock home."
 	if id == "mae_sai":
 		return "Mae Sai. Text briefing. Raise the scaffold yard and keep the drain running until the frame is finished."
 	if id == "ruby_market":

@@ -8,19 +8,21 @@ var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
 var raider: SMRaider = SMRaider.new()
 var roster: SMRoster = SMRoster.new()
+var side: SMSide = SMSide.new()
 var status: Label
 var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	grid = _grid_for(map_id)
-	roster.setup("gtfc")
+	roster.setup(SMFront.current())
 	_prepare_ability()
 	_world()
 	_ui()
+	side.prepare(self, ui_layer, status, grid, grid.cell_center(_player_cells()[0]))
 	_arm_units()
 
 func train_unit() -> String:
-	var done: StringName = roster.train_and_finish(&"crimson_sapper")
+	var done: StringName = roster.train_and_finish(SMFront.train_kind())
 	if done == &"":
 		return ""
 	var at: Vector3 = grid.cell_center(_player_cells()[0]) + Vector3(6.0, 0.0, 0.0)
@@ -175,12 +177,12 @@ func _ui() -> void:
 
 func _title() -> String:
 	if map_id == "ten_degree_atolls":
-		return "GTFC  crimson / amber    Ten Degree Atolls"
+		return "%s    Ten Degree Atolls" % SMFront.banner()
 	if map_id == "mekong_delta":
-		return "GTFC  crimson / amber    Mekong Delta"
+		return "%s    Mekong Delta" % SMFront.banner()
 	if map_id == "chiang_rai":
-		return "GTFC  crimson / amber    Siege of Chiang Rai"
-	return "GTFC  crimson / amber    Burma Road"
+		return "%s    Siege of Chiang Rai" % SMFront.banner()
+	return "%s    Burma Road" % SMFront.banner()
 
 func _blurb() -> String:
 	if map_id == "ten_degree_atolls":
@@ -193,10 +195,10 @@ func _blurb() -> String:
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
-	field.bind(self, cam)
+	field.bind_faction(self, cam, SMFront.current())
 	field.use_domain(grid)
 	field.attach_box(ui_layer)
-	var kinds: Array[StringName] = SMPointer.GTFC_KINDS
+	var kinds: Array[StringName] = SMFront.kinds()
 	var cells: Array[Vector2i] = _player_cells()
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, grid.cell_center(cells[i]), kinds[i])
