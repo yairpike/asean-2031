@@ -6,6 +6,9 @@ const CYBER: StringName = &"cyber_scam"
 const BAZAAR: StringName = &"arms_bazaar"
 const CLINIC: StringName = &"field_clinic"
 const RADAR: StringName = &"hydro_radar"
+const SALVAGE: StringName = &"salvage"
+const DERRICK: StringName = &"derrick"
+const BRIDGE: StringName = &"bridge"
 const VISION_RADIUS: float = 24.0
 
 var sites: Array[Dictionary] = []

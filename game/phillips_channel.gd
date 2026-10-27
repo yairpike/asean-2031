@@ -26,6 +26,7 @@ func _ready() -> void:
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, "Phillips Channel", sim.yard.center, Callable(self, "fire_ability"), sim.grid, cam)
+	hud.use_goods(sim.goods)
 	outcome.mount(self, ui_layer)
 	sight.bind(sim.grid)
 	hud.use_sight(sight)
@@ -52,8 +53,7 @@ func _world() -> void:
 	_slab("ShallowSouth", Vector3(0, 0.05, 26), Vector3(40, 0.25, 12), Color(0.2, 0.45, 0.55))
 	_slab("PlayerYard", SMPointer.building_at(sim.yard.center), SMPointer.BUILDING_SIZE, SMFront.primary())
 	_slab("EnemyBase", SMPointer.building_at(sim.grid.cell_center(Vector2i(32, 12))), SMPointer.BUILDING_SIZE, Color(0.16, 0.17, 0.18))
-	var slag_pos: Vector3 = sim.goods.nodes[0]["pos"] as Vector3
-	_slab("NodeMarker", slag_pos + Vector3(0, 0.5, 0), Vector3(1.6, 0.8, 1.6), Color(0.88, 0.62, 0.12))
+	sim.paint_sites(self)
 	_capsule("Jammer", sim.ew.center + Vector3(0, 1.2, 0), Color(0.15, 0.75, 0.82))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
@@ -174,40 +174,12 @@ func _on_ability() -> void:
 	fire_ability()
 
 func _price_scale(id: StringName) -> float:
-	return sim.tech.discount(SMPointer.PLAYER, _unit_tag(id))
-
-func _unit_tag(id: StringName) -> String:
-	for unit: Dictionary in SMCatalog.units_of(SMCatalog.faction(roster.faction_id)):
-		if str(unit.get("id", "")) != str(id):
-			continue
-		var raw: Variant = unit.get("tags", [])
-		if raw is Array:
-			for item: Variant in raw:
-				var tag: String = str(item)
-				if tag == "drone" or tag == "infantry":
-					return tag
-	return ""
+	return sim.tech.discount(SMPointer.PLAYER, roster.unit_tag(id))
 
 ## Income, night shift, rare-earth stock, water harm, cyber siphon, and clinic healing.
 func tick_world(delta: float) -> void:
-	sim.goods.advance(delta, roster.economy)
-	sim.tech.advance(delta, roster.economy, SMPointer.ENEMY)
-	if _owns(SMTechNet.CLINIC):
-		for u: RTSUnit in field.units_of(SMPointer.PLAYER):
-			if field.is_infantry(u) and u.hp < u.max_hp:
-				u.hp = minf(u.max_hp, u.hp + 2.0 * delta)
-	for u: RTSUnit in field.units:
-		if not is_instance_valid(u) or not u.is_alive() or not field.is_infantry(u):
-			continue
-		var harm: float = sim.goods.harm_infantry(u.global_position, bool(u.get_meta("shielded", false)), delta)
-		if harm > 0.0:
-			u.take_damage(harm)
-
-func _owns(kind: StringName) -> bool:
-	for site: Dictionary in sim.tech.sites:
-		if StringName(str(site.get("kind", ""))) == kind and int(site.get("owner", -1)) == SMPointer.PLAYER:
-			return true
-	return false
+	sim.tick_live(delta, roster.economy, field)
+	sim.show_collectors(self)
 
 func _on_engage() -> void:
 	_say("channel clear" if sim.fight_passive() else "still fighting")

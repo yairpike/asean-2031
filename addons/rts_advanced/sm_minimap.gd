@@ -12,9 +12,11 @@ var grid: SMDomainGrid
 var field: SMPointer
 var camera: RTSCamera
 var sight: SMSight
+var goods: SMCommodityNet
 var player_dots: int = 0
 var enemy_dots: int = 0
 var building_dots: int = 0
+var claimed_dots: int = 0
 var saw_land: bool = false
 var saw_water: bool = false
 var camera_rect: Rect2 = Rect2()
@@ -46,6 +48,7 @@ func sample() -> void:
 	player_dots = 0
 	enemy_dots = 0
 	building_dots = 0
+	claimed_dots = 0
 	if grid != null:
 		for y: int in grid.rows:
 			for x: int in grid.cols:
@@ -62,6 +65,10 @@ func sample() -> void:
 		for at: Vector3 in sight.posts:
 			if sight.sees(at):
 				building_dots += 1
+	if goods != null:
+		for node: Dictionary in goods.nodes:
+			if int(node.get("team", -1)) >= 0:
+				claimed_dots += 1
 	camera_rect = _view_rect()
 
 func covers_focus() -> bool:
@@ -104,6 +111,11 @@ func _draw() -> void:
 		for at: Vector3 in sight.posts:
 			if sight.sees(at):
 				_dot(at, Color(0.55, 0.16, 0.14))
+	if goods != null:
+		for node: Dictionary in goods.nodes:
+			if int(node.get("team", -1)) >= 0:
+				var spot: Vector3 = node.get("pos", Vector3.ZERO) as Vector3
+				_dot(spot, Color(0.95, 0.78, 0.22))
 	var local_view: Rect2 = _world_rect_local(camera_rect)
 	if local_view.size.x > 1.0 and local_view.size.y > 1.0:
 		draw_rect(local_view, VIEW_COLOR, false, 2.0)

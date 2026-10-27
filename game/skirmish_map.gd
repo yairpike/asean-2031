@@ -17,7 +17,9 @@ var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	grid = _grid_for(map_id)
+	sim.place_sites(map_id, grid)
 	roster.setup(SMFront.current())
+	roster.price_scale = Callable(self, "_price_scale")
 	_prepare_ability()
 	_world()
 	_ui()
@@ -26,6 +28,7 @@ func _ready() -> void:
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, _map_name(), rally, Callable(self, "fire_ability"), grid, cam)
+	hud.use_goods(sim.goods)
 	outcome.mount(self, ui_layer)
 	sight.bind(grid)
 	hud.use_sight(sight)
@@ -126,6 +129,7 @@ func _world() -> void:
 	cam.focus = grid.cell_center(_player_cells()[0])
 	add_child(cam)
 	cam.current = true
+	sim.paint_sites(self)
 
 func _burma_world() -> void:
 	_slab("HighlandWest", Vector3(-56, 1.4, -40), Vector3(48, 2.8, 32), Color(0.38, 0.34, 0.3))
@@ -196,6 +200,13 @@ func _arm_units() -> void:
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
 	raider.attach(field, grid.cell_center(_enemy_cells()[0]))
 
+func tick_world(delta: float) -> void:
+	sim.tick_live(delta, roster.economy, field)
+	sim.show_collectors(self)
+
+func _price_scale(id: StringName) -> float:
+	return sim.tech.discount(SMPointer.PLAYER, roster.unit_tag(id))
+
 func _say(text: String) -> void:
 	if status != null:
 		status.text = text
@@ -221,6 +232,7 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	tick_world(delta)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
 	hud.refresh()
 	var players: Array[SMBuildYard] = [side.yard, sim.yard]

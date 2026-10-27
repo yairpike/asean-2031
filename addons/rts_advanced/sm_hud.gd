@@ -53,6 +53,10 @@ func use_sight(p_sight: SMSight) -> void:
 	if minimap != null:
 		minimap.sight = p_sight
 
+func use_goods(p_goods: SMCommodityNet) -> void:
+	if minimap != null:
+		minimap.goods = p_goods
+
 func refresh() -> void:
 	if faction_label == null:
 		return

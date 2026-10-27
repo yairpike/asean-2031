@@ -21,6 +21,18 @@ func setup(faction: String) -> void:
 		cat[id] = row
 	queue = RTSProductionQueue.new(0, cat)
 
+func unit_tag(id: StringName) -> String:
+	for unit: Dictionary in SMCatalog.units_of(SMCatalog.faction(faction_id)):
+		if str(unit.get("id", "")) != str(id):
+			continue
+		var raw: Variant = unit.get("tags", [])
+		if raw is Array:
+			for item: Variant in raw:
+				var tag: String = str(item)
+				if tag == "drone" or tag == "infantry":
+					return tag
+	return ""
+
 func train(id: StringName) -> bool:
 	if queue == null:
 		return false

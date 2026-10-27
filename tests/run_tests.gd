@@ -60,6 +60,7 @@ func _run() -> void:
 	await H.section("test_sm_sight", test_sm_sight)
 	await H.section("test_sm_shapes", test_sm_shapes)
 	await H.section("test_sm_field", test_sm_field)
+	await H.section("test_sm_sites", test_sm_sites)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1450,7 +1451,8 @@ func test_sm_field() -> void:
 	scene.call("tick_world", 4.0)
 	check(roster.economy.credits(0) == before + 20, "a Phillips tick pays a claimed node")
 	var night_before: int = roster.economy.credits(0)
-	check(sim.goods.snap_refinery(&"ruby_east", 0) and sim.goods.set_night_shift(&"ruby_east", true), "night shift arms a ruby node")
+	sim.goods.add_node(&"ruby_night", SMCommodityNet.KIND_RUBY, Vector3(48.0, 0.0, 20.0), 15, false)
+	check(sim.goods.snap_refinery(&"ruby_night", 0) and sim.goods.set_night_shift(&"ruby_night", true), "night shift arms a ruby node")
 	scene.call("tick_world", 2.0)
 	check(roster.economy.credits(0) == night_before + 15, "night shift pays ruby in half a loop")
 	check(sim.goods.snap_refinery(&"rare_shore", 0), "a rare-earth node can be claimed")
@@ -1482,6 +1484,75 @@ func test_sm_field() -> void:
 	check(trained != null and roster.economy.credits(0) == cost_before - 56, "a captured bazaar discounts a trained infantry unit")
 	scene.free()
 	await process_frame
+
+func test_sm_sites() -> void:
+	await _sites("res://game/phillips_channel.tscn", 8, 2, 0, 0, 0, 1, 0, 0)
+	await _sites("res://game/sop_ruak.tscn", 12, 3, 1, 0, 0, 0, 0, 0)
+	await _sites("res://game/burma_road.tscn", 8, 0, 2, 0, 2, 0, 0, 0)
+	await _sites("res://game/ten_degree_atolls.tscn", 16, 0, 0, 0, 2, 0, 4, 0)
+	await _sites("res://game/mekong_delta.tscn", 14, 2, 0, 2, 0, 0, 0, 4)
+	await _sites("res://game/chiang_rai.tscn", 24, 4, 2, 0, 0, 0, 0, 0)
+
+func _sites(path: String, nodes: int, cyber: int, bazaar: int, clinic: int, radar: int, salvage: int, derrick: int, bridge: int) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(_site_counts(scene, nodes, cyber, bazaar, clinic, radar, salvage, derrick, bridge), "%s has its blueprint nodes" % path.get_file())
+	if path.ends_with("sop_ruak.tscn"):
+		var sim: SMMatch = scene.get("sim") as SMMatch
+		var roster: SMRoster = scene.get("roster") as SMRoster
+		var before: int = roster.economy.credits(0)
+		var id: StringName = _paying_node(sim)
+		var claimed: bool = sim.goods.snap_refinery(id, 0)
+		scene.call("tick_world", 4.0)
+		var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+		if mm != null:
+			mm.sample()
+		var collector: Node = scene.get_node_or_null("Collector_%s" % str(id))
+		check(claimed and roster.economy.credits(0) > before and collector != null and mm != null and mm.claimed_dots >= 1, "claiming a Sop Ruak node pays, spawns a collector, and marks the minimap")
+	scene.free()
+	await process_frame
+
+func _paying_node(sim: SMMatch) -> StringName:
+	for node: Dictionary in sim.goods.nodes:
+		if int(node.get("rate", 0)) > 0:
+			return StringName(str(node.get("id", "")))
+	return &""
+
+func _site_counts(scene: Node, nodes: int, cyber: int, bazaar: int, clinic: int, radar: int, salvage: int, derrick: int, bridge: int) -> bool:
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var field: SMPointer = scene.get("field") as SMPointer
+	if sim == null or field == null:
+		return false
+	if sim.goods.nodes.size() != nodes:
+		return false
+	if _site_kind(sim, SMTechNet.CYBER) != cyber or _site_kind(sim, SMTechNet.BAZAAR) != bazaar:
+		return false
+	if _site_kind(sim, SMTechNet.CLINIC) != clinic or _site_kind(sim, SMTechNet.RADAR) != radar:
+		return false
+	if _site_kind(sim, SMTechNet.SALVAGE) != salvage or _site_kind(sim, SMTechNet.DERRICK) != derrick or _site_kind(sim, SMTechNet.BRIDGE) != bridge:
+		return false
+	if _prefix_count(scene, "Node_") != nodes:
+		return false
+	if _prefix_count(scene, "Tech_") != cyber + bazaar + clinic + radar:
+		return false
+	if _prefix_count(scene, "Salvage_") != salvage or _prefix_count(scene, "Derrick_") != derrick or _prefix_count(scene, "Bridge_") != bridge:
+		return false
+	return field.count_team(0) >= 1 and field.count_team(1) >= 1
+
+func _site_kind(sim: SMMatch, kind: StringName) -> int:
+	var n: int = 0
+	for site: Dictionary in sim.tech.sites:
+		if StringName(str(site.get("kind", ""))) == kind:
+			n += 1
+	return n
+
+func _prefix_count(scene: Node, prefix: String) -> int:
+	var n: int = 0
+	for child: Node in scene.get_children():
+		if str(child.name).begins_with(prefix):
+			n += 1
+	return n
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"
