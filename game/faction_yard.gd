@@ -12,6 +12,7 @@ var roster: SMRoster = SMRoster.new()
 var yard: SMBuildYard = SMBuildYard.new()
 var economy: RTSEconomy = RTSEconomy.new()
 var outcome: SMOutcome = SMOutcome.new()
+var sight: SMSight = SMSight.new()
 var status: Label
 var ui_layer: CanvasLayer
 var packer_mesh: MeshInstance3D
@@ -27,6 +28,8 @@ func _ready() -> void:
 	_ui()
 	_arm_units()
 	outcome.mount(self, ui_layer)
+	sight.bind(grid)
+	SMSight.update_match(sight, field, self, sim.tech, raider)
 
 func train_unit() -> String:
 	var id: StringName = &"cyan_sentry" if faction_id == "mvd" else &"olive_ranger"
@@ -255,6 +258,7 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	SMSight.update_match(sight, field, self, sim.tech, raider)
 	var players: Array[SMBuildYard] = [yard]
 	var foes: Array[SMBuildYard] = [raider.yard]
 	outcome.tick(field, players, foes, delta)

@@ -49,6 +49,10 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	_column(layer)
 	refresh()
 
+func use_sight(p_sight: SMSight) -> void:
+	if minimap != null:
+		minimap.sight = p_sight
+
 func refresh() -> void:
 	if faction_label == null:
 		return

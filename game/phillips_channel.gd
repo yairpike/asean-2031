@@ -9,6 +9,7 @@ var roster: SMRoster = SMRoster.new()
 var side: SMSide = SMSide.new()
 var hud: SMHud = SMHud.new()
 var outcome: SMOutcome = SMOutcome.new()
+var sight: SMSight = SMSight.new()
 var status: Label
 var explore_bus: AudioStreamPlayer
 var combat_bus: AudioStreamPlayer
@@ -25,6 +26,9 @@ func _ready() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, "Phillips Channel", sim.yard.center, Callable(self, "_on_ability"), sim.grid, cam)
 	outcome.mount(self, ui_layer)
+	sight.bind(sim.grid)
+	hud.use_sight(sight)
+	SMSight.update_match(sight, field, self, sim.tech, raider)
 
 func scripted_playthrough() -> bool:
 	return sim.script_phillips()
@@ -203,6 +207,7 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	SMSight.update_match(sight, field, self, sim.tech, raider)
 	hud.refresh()
 	var players: Array[SMBuildYard] = [side.yard, sim.yard]
 	var foes: Array[SMBuildYard] = [raider.yard]

@@ -11,8 +11,10 @@ const VIEW_COLOR: Color = Color(0.96, 0.92, 0.72)
 var grid: SMDomainGrid
 var field: SMPointer
 var camera: RTSCamera
+var sight: SMSight
 var player_dots: int = 0
 var enemy_dots: int = 0
+var building_dots: int = 0
 var saw_land: bool = false
 var saw_water: bool = false
 var camera_rect: Rect2 = Rect2()
@@ -43,6 +45,7 @@ func sample() -> void:
 	saw_water = false
 	player_dots = 0
 	enemy_dots = 0
+	building_dots = 0
 	if grid != null:
 		for y: int in grid.rows:
 			for x: int in grid.cols:
@@ -52,7 +55,13 @@ func sample() -> void:
 					saw_land = true
 	if field != null:
 		player_dots = field.units_of(SMPointer.PLAYER).size()
-		enemy_dots = field.units_of(SMPointer.ENEMY).size()
+		for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+			if sight == null or sight.sees(u.global_position):
+				enemy_dots += 1
+	if sight != null:
+		for at: Vector3 in sight.posts:
+			if sight.sees(at):
+				building_dots += 1
 	camera_rect = _view_rect()
 
 func covers_focus() -> bool:
@@ -89,7 +98,12 @@ func _draw() -> void:
 		for u: RTSUnit in field.units_of(SMPointer.PLAYER):
 			_dot(u.global_position, friendly)
 		for u: RTSUnit in field.units_of(SMPointer.ENEMY):
-			_dot(u.global_position, hostile)
+			if sight == null or sight.sees(u.global_position):
+				_dot(u.global_position, hostile)
+	if sight != null:
+		for at: Vector3 in sight.posts:
+			if sight.sees(at):
+				_dot(at, Color(0.55, 0.16, 0.14))
 	var local_view: Rect2 = _world_rect_local(camera_rect)
 	if local_view.size.x > 1.0 and local_view.size.y > 1.0:
 		draw_rect(local_view, VIEW_COLOR, false, 2.0)
@@ -97,11 +111,19 @@ func _draw() -> void:
 
 func _cell_color(cell: Vector2i) -> Color:
 	var domain: int = grid.domain_at_cell(cell)
+	var base: Color = LAND_COLOR
 	if domain == SMDomainGrid.Domain.SHALLOW or domain == SMDomainGrid.Domain.DEEP:
-		return WATER_COLOR
-	if domain == SMDomainGrid.Domain.CLIFF:
-		return CLIFF_COLOR
-	return LAND_COLOR
+		base = WATER_COLOR
+	elif domain == SMDomainGrid.Domain.CLIFF:
+		base = CLIFF_COLOR
+	if sight == null:
+		return base
+	var state: int = sight.cell_state(cell)
+	if state == SMSight.HIDDEN:
+		return Color(0.04, 0.05, 0.07)
+	if state == SMSight.DIM:
+		return base.lerp(Color(0.05, 0.05, 0.06), 0.62)
+	return base
 
 func _dot(at: Vector3, color: Color) -> void:
 	var p: Vector2 = _world_to_local(at)

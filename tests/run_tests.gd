@@ -57,6 +57,7 @@ func _run() -> void:
 	await H.section("test_sm_campaign", test_sm_campaign)
 	await H.section("test_sm_hud", test_sm_hud)
 	await H.section("test_sm_outcome", test_sm_outcome)
+	await H.section("test_sm_sight", test_sm_sight)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1065,7 +1066,7 @@ func test_sm_hud() -> void:
 	check(scene.find_child("CompanyList", true, false) == null and mm != null, "phillips uses a minimap instead of a name list")
 	mm.sample()
 	check(mm.terrain_kind(Vector2i(2, 8)) == "land" and mm.terrain_kind(Vector2i(18, 12)) == "water" and mm.saw_land and mm.saw_water, "the minimap draws land and water")
-	check(mm.player_dots == field.count_team(0) and mm.enemy_dots == field.count_team(1) and mm.player_dots >= 6 and mm.enemy_dots >= 1, "the minimap marks your units and enemy units")
+	check(mm.player_dots == field.count_team(0) and mm.player_dots >= 6 and mm.enemy_dots == 0 and field.count_team(1) >= 1, "the minimap shows your units and hides enemies outside sight")
 	check(mm.camera_rect.size.x > 1.0 and mm.covers_focus(), "the minimap draws the camera rectangle")
 	check(_click_east(scene), "clicking the minimap moves the camera")
 	var friends: Array[RTSUnit] = field.units_of(0)
@@ -1258,6 +1259,77 @@ func _outcome_victory(path: String) -> void:
 func _wipe(units: Array[RTSUnit]) -> void:
 	for u: RTSUnit in units:
 		u.take_damage(100000.0)
+
+func test_sm_sight() -> void:
+	var grid: SMDomainGrid = SMDomainGrid.new(10, 10, 4.0, Vector3.ZERO)
+	var book: SMSight = SMSight.new()
+	book.bind(grid)
+	var home: Vector3 = grid.cell_center(Vector2i(1, 1))
+	var far: Vector3 = grid.cell_center(Vector2i(8, 8))
+	book.begin()
+	book.add_seer(home, SMSight.UNIT_RADIUS)
+	book.commit()
+	check(book.sees(home + Vector3(4.0, 0.0, 0.0)) and not book.sees(far), "unit sight reaches 18m and not the far shore")
+	check(book.cell_state(Vector2i(1, 1)) == SMSight.CLEAR and book.cell_state(Vector2i(8, 8)) == SMSight.HIDDEN, "unseen ground stays hidden")
+	book.begin()
+	book.add_seer(grid.cell_center(Vector2i(8, 1)), 3.0)
+	book.commit()
+	check(book.cell_state(Vector2i(1, 1)) == SMSight.DIM and book.cell_state(Vector2i(8, 8)) == SMSight.HIDDEN, "explored ground stays dim")
+	book.begin()
+	book.add_seer(home, SMSight.UNIT_RADIUS)
+	book.add_seer(far, SMTechNet.VISION_RADIUS)
+	book.commit()
+	check(book.sees(far) and book.cell_state(Vector2i(8, 8)) == SMSight.CLEAR, "hydro radar reveals its radius")
+	var paths: PackedStringArray = PackedStringArray([
+		"res://game/phillips_channel.tscn",
+		"res://game/sop_ruak.tscn",
+		"res://game/burma_road.tscn",
+		"res://game/ten_degree_atolls.tscn",
+		"res://game/mekong_delta.tscn",
+		"res://game/chiang_rai.tscn",
+		"res://game/nmrf_yard.tscn",
+		"res://game/mvd_yard.tscn",
+	])
+	for path: String in paths:
+		await _sight_open(path)
+	await _sight_radar("res://game/phillips_channel.tscn")
+
+func _sight_open(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var book: SMSight = scene.get("sight") as SMSight
+	var friends_ok: bool = field != null and field.count_team(0) > 0
+	if field != null:
+		for u: RTSUnit in field.units_of(0):
+			friends_ok = friends_ok and u.visible
+	var foes_hidden: bool = true
+	if field != null:
+		for u: RTSUnit in field.units_of(1):
+			foes_hidden = foes_hidden and not u.visible and book != null and not book.sees(u.global_position)
+	var yard: Node3D = scene.get_node_or_null("EnemyYard") as Node3D
+	var veil: Node = scene.get_node_or_null("FogVeil")
+	check(book != null and veil != null and friends_ok and foes_hidden and yard != null and not yard.visible, "%s hides enemies outside sight" % path.get_file())
+	scene.free()
+	await process_frame
+
+func _sight_radar(path: String) -> void:
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var book: SMSight = scene.get("sight") as SMSight
+	var yard: Node3D = scene.get_node("EnemyYard") as Node3D
+	var tech: SMTechNet = (scene.get("sim") as SMMatch).tech
+	var grid: SMDomainGrid = (scene.get("sim") as SMMatch).grid
+	tech.add_site(&"radar", SMTechNet.RADAR, yard.global_position)
+	tech.capture(&"radar", 0)
+	SMSight.update_match(book, scene.get("field") as SMPointer, scene as Node3D, tech, scene.get("raider") as SMRaider)
+	check(yard.visible and book.sees(yard.global_position), "a captured hydro radar reveals the enemy yard")
+	var corner: Vector2i = Vector2i(0, 23)
+	check(not book.sees(grid.cell_center(corner)) and book.cell_state(corner) == SMSight.HIDDEN, "ground outside the radar stays hidden")
+	scene.free()
+	await process_frame
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"
