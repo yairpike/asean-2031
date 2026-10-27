@@ -44,6 +44,11 @@ func _ready() -> void:
 	_link(box, "Kokang raid (mission 1)", "res://game/mission_kokang.tscn", "MissionButton")
 	_hint(box, "GTFC night raid. Names float on the squad. Select, right click, and press F to strike.")
 
+	_heading(box, "Campaign briefings", 22)
+	_body(box, "Fourteen more solo missions. Each one is a text briefing you can finish with the systems already in the sim.")
+	for mission_id: String in SMCampaign.ids():
+		_mission(box, mission_id)
+
 	_heading(box, "Controls that work", 22)
 	_body(box, "Select. On every skirmish and the Kokang raid, left click a named GTFC unit. Drag a box around several. Greybox has no units to select.")
 	_body(box, "Move. Right click open ground. The selection walks there. Greybox has no move order.")
@@ -76,6 +81,18 @@ func _hint(box: VBoxContainer, text: String) -> void:
 	line.add_theme_font_size_override("font_size", 14)
 	line.add_theme_color_override("font_color", Color(0.62, 0.66, 0.7))
 	box.add_child(line)
+
+func _mission(box: VBoxContainer, mission_id: String) -> void:
+	var b: Button = Button.new()
+	b.name = "Mission_%s" % mission_id
+	b.text = SMCampaign.title_of(mission_id)
+	b.custom_minimum_size = Vector2(420, 36)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.pressed.connect(func() -> void:
+		SMCampaign.selected = mission_id
+		get_tree().change_scene_to_file("res://game/campaign_mission.tscn")
+	)
+	box.add_child(b)
 
 func _link(box: VBoxContainer, caption: String, path: String, node_name: String) -> void:
 	var b: Button = Button.new()

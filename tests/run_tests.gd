@@ -54,6 +54,7 @@ func _run() -> void:
 	await H.section("test_sm_factions", test_sm_factions)
 	await H.section("test_sm_raider", test_sm_raider)
 	await H.section("test_sm_roster", test_sm_roster)
+	await H.section("test_sm_campaign", test_sm_campaign)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -989,6 +990,35 @@ func test_sm_roster() -> void:
 	check(nmrf_name == "Olive Ranger", "nmrf trains a catalog unit onto the field")
 	var mvd_name: String = await _trained("res://game/mvd_yard.tscn")
 	check(mvd_name == "Cyan Sentry", "mvd trains a catalog unit onto the field")
+
+func test_sm_campaign() -> void:
+	var ids: PackedStringArray = SMCampaign.ids()
+	check(ids.size() == 14, "fourteen campaign missions follow Kokang")
+	var camp: SMCampaign = SMCampaign.new()
+	for id: String in ids:
+		var brief: String = SMCampaign.briefing_of(id)
+		var lower: String = brief.to_lower()
+		check(brief != "" and not lower.contains("fmv") and not lower.contains("video"), "%s is a text briefing" % id)
+		check(camp.play(id), "%s can be finished" % id)
+	SMCampaign.selected = "mae_sai"
+	var scene: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	check(str(scene.get("briefing_text")).contains("Mae Sai"), "the mission scene shows the Mae Sai briefing")
+	check(bool(scene.call("scripted_playthrough")), "the mission scene can be finished")
+	check(scene.find_child("SelectionBox", true, false) != null, "the mission scene has select controls")
+	var friends: Array[RTSUnit] = (scene.get("field") as SMPointer).units_of(0)
+	var picked: RTSUnit = (scene.get("field") as SMPointer).select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
+	check(picked == friends[0], "left click selects on a campaign mission")
+	scene.free()
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	for id: String in ids:
+		var button: Button = boot.find_child("Mission_%s" % id, true, false) as Button
+		check(button != null and button.text == SMCampaign.title_of(id), "boot lists %s" % id)
+	boot.free()
+	await process_frame
 
 func _spawned(faction: String, id: StringName, display: String, weapon: String, secondary: String, damage: float) -> bool:
 	var host: Node3D = Node3D.new()
