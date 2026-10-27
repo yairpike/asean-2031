@@ -26,7 +26,7 @@ func _ready() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-30, -20, 60, 40)
-	cam.distance = 28.0
+	cam.distance = 20.0
 	cam.edge_pan_px = 18.0
 	cam.focus = Vector3(0, 0, 1)
 	add_child(cam)

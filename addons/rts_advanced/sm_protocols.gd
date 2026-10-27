@@ -203,21 +203,24 @@ func cool(delta: float) -> void:
 func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: SMAbilities, say: Callable) -> ScrollContainer:
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "Protocols"
-	scroll.position = Vector2(220, 488)
-	scroll.size = Vector2(800, 112)
+	scroll.visible = false
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.clip_contents = true
+	scroll.z_index = 6
+	_dock(scroll, 8.0, 158.0, 328.0, -192.0, 0.0, 0.0, 0.0, 1.0)
 	var grid: GridContainer = GridContainer.new()
-	grid.columns = 5
-	grid.add_theme_constant_override("h_separation", 4)
-	grid.add_theme_constant_override("v_separation", 2)
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 4)
 	scroll.add_child(grid)
 	for id: StringName in power_ids():
 		var b: Button = Button.new()
 		b.name = "Proto_%s" % str(id)
 		b.text = display_name(id)
 		b.clip_text = true
-		b.custom_minimum_size = Vector2(154, 24)
-		b.add_theme_font_size_override("font_size", 13)
+		b.custom_minimum_size = Vector2(148, 40)
+		b.add_theme_font_size_override("font_size", 14)
 		var line: String = blurb(id)
 		b.tooltip_text = line
 		b.mouse_entered.connect(_show_tip.bind(layer, line))
@@ -225,7 +228,30 @@ func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: 
 		b.pressed.connect(_press_power.bind(id, economy, team, abilities, say))
 		grid.add_child(b)
 	layer.add_child(scroll)
+	var toggle: Button = Button.new()
+	toggle.name = "ProtocolsToggle"
+	toggle.text = "Protocols (P)"
+	toggle.clip_text = true
+	toggle.custom_minimum_size = Vector2(168, 44)
+	toggle.z_index = 9
+	toggle.add_theme_font_size_override("font_size", 15)
+	_dock(toggle, 8.0, -136.0, 176.0, -92.0, 0.0, 1.0, 0.0, 1.0)
+	toggle.pressed.connect(_toggle_panel.bind(scroll))
+	layer.add_child(toggle)
 	return scroll
+
+func _toggle_panel(scroll: CanvasItem) -> void:
+	scroll.visible = not scroll.visible
+
+func _dock(node: Control, left: float, top: float, right: float, bottom: float, anchor_l: float, anchor_t: float, anchor_r: float, anchor_b: float) -> void:
+	node.anchor_left = anchor_l
+	node.anchor_top = anchor_t
+	node.anchor_right = anchor_r
+	node.anchor_bottom = anchor_b
+	node.offset_left = left
+	node.offset_top = top
+	node.offset_right = right
+	node.offset_bottom = bottom
 
 func _show_tip(layer: Node, text: String) -> void:
 	SMHud.present_tip(layer, text)

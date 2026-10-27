@@ -62,7 +62,7 @@ func _world() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-90, -60, 180, 120)
-	cam.distance = 48.0
+	cam.distance = 26.0
 	cam.edge_pan_px = 20.0
 	cam.focus = Vector3(-58, 0, -12)
 	add_child(cam)
@@ -98,6 +98,7 @@ func _ui() -> void:
 	actions.name = "MatchActions"
 	actions.position = Vector2(250, 88)
 	actions.add_theme_constant_override("separation", 8)
+	actions.visible = false
 	layer.add_child(actions)
 	_action(actions, "Train unit", _on_train)
 	_action(actions, "Build pipeline", _on_build)
@@ -105,9 +106,11 @@ func _ui() -> void:
 	_action(actions, "Engage", _on_engage)
 	status = Label.new()
 	status.name = "Status"
+	status.visible = false
 	status.text = "Raise a yard, claim Golden Slag / Aurum-9, cross, then press F."
 	status.position = Vector2(250, 608)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.clip_text = true
 	status.custom_minimum_size = Vector2(740, 24)
 	layer.add_child(status)
 

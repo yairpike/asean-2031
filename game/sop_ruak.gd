@@ -90,7 +90,7 @@ func _world() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-80, -80, 160, 160)
-	cam.distance = 46.0
+	cam.distance = 26.0
 	cam.edge_pan_px = 20.0
 	cam.focus = Vector3(-36, 0, 16)
 	add_child(cam)
@@ -102,9 +102,11 @@ func _ui() -> void:
 	add_child(ui_layer)
 	status = Label.new()
 	status.name = "Status"
+	status.visible = false
 	status.text = "The enemy builds, expands, and attacks. Cross a ford to reach them."
 	status.position = Vector2(240, 608)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.clip_text = true
 	status.custom_minimum_size = Vector2(760, 24)
 	ui_layer.add_child(status)
 	sim.protocols.mount_panel(ui_layer, roster.economy, SMPointer.PLAYER, sim.abilities, Callable(self, "_say"))

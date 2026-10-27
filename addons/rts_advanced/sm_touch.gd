@@ -9,6 +9,8 @@ var last_group_ms: int = 0
 func _unhandled_input(event: InputEvent) -> void:
 	if _toggle_help(event):
 		return
+	if _toggle_protocols(event):
+		return
 	if _command_key(event):
 		return
 	var touch: InputEventScreenTouch = event as InputEventScreenTouch
@@ -42,6 +44,17 @@ func _toggle_help(event: InputEvent) -> bool:
 	if overlay == null:
 		return false
 	overlay.visible = not overlay.visible
+	get_viewport().set_input_as_handled()
+	return true
+
+func _toggle_protocols(event: InputEvent) -> bool:
+	var key: InputEventKey = event as InputEventKey
+	if key == null or not key.pressed or key.echo or key.keycode != KEY_P:
+		return false
+	var toggle: BaseButton = get_tree().root.find_child("ProtocolsToggle", true, false) as BaseButton
+	if toggle == null:
+		return false
+	toggle.pressed.emit()
 	get_viewport().set_input_as_handled()
 	return true
 

@@ -53,7 +53,7 @@ func _world() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-20, -16, 40, 32)
-	cam.distance = 22.0
+	cam.distance = 18.0
 	cam.edge_pan_px = 16.0
 	cam.focus = Vector3(0, 0, 2)
 	add_child(cam)
@@ -66,12 +66,13 @@ func _ui() -> void:
 	var brief: Label = Label.new()
 	brief.name = "Briefing"
 	brief.text = briefing_text
-	brief.position = Vector2(224, 48)
-	brief.custom_minimum_size = Vector2(780, 70)
+	brief.position = Vector2(176, 40)
+	brief.custom_minimum_size = Vector2(620, 36)
+	brief.clip_text = true
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	layer.add_child(brief)
 	var row: HBoxContainer = HBoxContainer.new()
-	row.position = Vector2(224, 128)
+	row.position = Vector2(176, 80)
 	row.add_theme_constant_override("separation", 8)
 	layer.add_child(row)
 	_debug(row, "DebugScaffold", "Raise scaffold", _on_scaffold)
@@ -79,11 +80,12 @@ func _ui() -> void:
 	_debug(row, "DebugRare", "Secure rare earth", _on_rare)
 	status = Label.new()
 	status.name = "Status"
-	status.position = Vector2(224, 176)
+	status.position = Vector2(176, 116)
 	status.text = "Golden Slag / Aurum-9 stays in the yard ledger. Ruby and rare earth are the raid."
-	status.custom_minimum_size = Vector2(820, 52)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.add_theme_font_size_override("font_size", 18)
+	status.custom_minimum_size = Vector2(620, 22)
+	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.clip_text = true
+	status.add_theme_font_size_override("font_size", 16)
 	status.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
 	layer.add_child(status)
 

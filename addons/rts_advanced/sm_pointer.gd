@@ -40,6 +40,7 @@ var beacon_at: Vector3 = Vector3.INF
 var line_formation: bool = false
 var last_pick: int = 0
 var last_pick_ms: int = 0
+var hover_at: Vector2 = Vector2.INF
 const FX = preload("res://addons/rts_advanced/sm_fx.gd")
 const Cast = preload("res://addons/rts_advanced/sm_cast.gd")
 const F_COOLDOWN: float = 3.0
@@ -152,8 +153,8 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	var ring: MeshInstance3D = MeshInstance3D.new()
 	ring.name = "Ring"
 	var torus: TorusMesh = TorusMesh.new()
-	torus.inner_radius = 0.75
-	torus.outer_radius = 0.95
+	torus.inner_radius = 0.82
+	torus.outer_radius = 1.05
 	ring.mesh = torus
 	ring.position = Vector3(0, 0.08, 0)
 	var ring_mat: StandardMaterial3D = StandardMaterial3D.new()
@@ -165,13 +166,14 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	var tag: Label3D = Label3D.new()
 	tag.name = "NameTag"
 	tag.text = unit_label(team, kind)
-	tag.font_size = 48
-	tag.pixel_size = 0.02
-	tag.outline_size = 12
+	tag.font_size = 32
+	tag.pixel_size = 0.008
+	tag.outline_size = 8
 	tag.outline_modulate = Color(0.02, 0.02, 0.03)
-	tag.position = Vector3(0, 2.7, 0)
+	tag.position = Vector3(0, 3.35, 0)
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	tag.modulate = Color(0.97, 0.94, 0.84)
+	tag.visible = false
 	u.add_child(tag)
 	u.shot_filter = Callable(self, "filter_shot")
 	u.fired.connect(_on_shot)
@@ -185,9 +187,9 @@ func _add_vitals(u: RTSUnit, team: int) -> void:
 	var bar: MeshInstance3D = MeshInstance3D.new()
 	bar.name = "HealthBar"
 	var slab: BoxMesh = BoxMesh.new()
-	slab.size = Vector3(1.3, 0.14, 0.08)
+	slab.size = Vector3(2.0, 0.16, 0.1)
 	bar.mesh = slab
-	bar.position = Vector3(0.0, 2.35, 0.0)
+	bar.position = Vector3(0.0, 2.9, 0.0)
 	bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var ink: StandardMaterial3D = StandardMaterial3D.new()
 	ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -324,25 +326,25 @@ func _body_mesh(_team: int, kind: StringName) -> MeshInstance3D:
 	var category: String = category_of(kind)
 	if category == "infantry":
 		var cap: CapsuleMesh = CapsuleMesh.new()
-		cap.radius = 0.26
-		cap.height = 1.7
+		cap.radius = 0.32
+		cap.height = 2.15
 		body.mesh = cap
-		body.position = Vector3(0, 0.85, 0)
+		body.position = Vector3(0, 1.08, 0)
 	elif category == "aircraft":
 		var wedge: PrismMesh = PrismMesh.new()
-		wedge.size = Vector3(1.9, 0.28, 2.4)
+		wedge.size = Vector3(2.8, 0.40, 3.6)
 		body.mesh = wedge
-		body.position = Vector3(0, 1.35, 0)
+		body.position = Vector3(0, 1.55, 0)
 	elif category == "boat":
 		var hull: BoxMesh = BoxMesh.new()
-		hull.size = Vector3(0.62, 0.36, 2.9)
+		hull.size = Vector3(1.1, 0.62, 3.6)
 		body.mesh = hull
-		body.position = Vector3(0, 0.2, 0)
+		body.position = Vector3(0, 0.36, 0)
 	else:
 		var wide: BoxMesh = BoxMesh.new()
-		wide.size = Vector3(2.2, 0.8, 1.2)
+		wide.size = Vector3(3.4, 1.25, 2.0)
 		body.mesh = wide
-		body.position = Vector3(0, 0.4, 0)
+		body.position = Vector3(0, 0.65, 0)
 	return body
 
 func units_of(team: int) -> Array[RTSUnit]:
@@ -900,6 +902,7 @@ func handle_button(mb: InputEventMouseButton) -> bool:
 	return false
 
 func handle_motion(motion: InputEventMouseMotion) -> void:
+	hover_at = motion.position
 	if box != null and box.active:
 		box.update_drag(motion.position)
 
@@ -924,6 +927,8 @@ func tick(delta: float) -> void:
 		var ring: Node3D = u.get_node_or_null("Ring") as Node3D
 		if ring != null:
 			ring.visible = u.selected
+			var girth: float = _ring_girth(u)
+			ring.scale = Vector3(girth, 1.0, girth)
 		var reach: MeshInstance3D = u.get_node_or_null("RangeRing") as MeshInstance3D
 		if reach != null:
 			reach.visible = u.selected and u.team == PLAYER
@@ -932,6 +937,7 @@ func tick(delta: float) -> void:
 		_paint_vitals(u, delta)
 		alive.append(u)
 	units = alive
+	_paint_names(alive)
 	_paint_path()
 
 func _drop_wreck(at: Vector3) -> void:
@@ -1003,6 +1009,32 @@ func _first_player() -> RTSUnit:
 		if is_instance_valid(u) and u.is_alive() and u.team == PLAYER:
 			return u
 	return null
+
+func _ring_girth(u: RTSUnit) -> float:
+	var category: String = category_of(u.unit_type)
+	if category == "vehicle":
+		return 1.85
+	if category == "boat" or category == "aircraft":
+		return 1.55
+	return 0.72
+
+func _paint_names(alive: Array[RTSUnit]) -> void:
+	var hover_unit: RTSUnit = null
+	var hover_d: float = PICK_PX
+	if hover_at != Vector2.INF and cam != null:
+		for u: RTSUnit in alive:
+			if u.selected:
+				continue
+			var screen: Vector2 = project_point(u.global_position)
+			var d: float = screen.distance_to(hover_at)
+			if d <= hover_d:
+				hover_d = d
+				hover_unit = u
+	for u: RTSUnit in alive:
+		var tag: Label3D = u.get_node_or_null("NameTag") as Label3D
+		if tag == null:
+			continue
+		tag.visible = u.selected or u == hover_unit
 
 func _paint_vitals(u: RTSUnit, delta: float) -> void:
 	var bar: MeshInstance3D = u.get_node_or_null("HealthBar") as MeshInstance3D

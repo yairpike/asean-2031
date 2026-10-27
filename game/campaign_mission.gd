@@ -65,7 +65,7 @@ func _world() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-24, -20, 48, 40)
-	cam.distance = 24.0
+	cam.distance = 18.0
 	cam.edge_pan_px = 16.0
 	cam.focus = Vector3(0, 0, 2)
 	add_child(cam)
@@ -78,26 +78,28 @@ func _ui() -> void:
 	title.name = "MissionHeading"
 	title.text = SMCampaign.title_of(mission_id)
 	title.theme_type_variation = "Header"
-	title.add_theme_font_size_override("font_size", 22)
-	title.position = Vector2(224, 48)
+	title.add_theme_font_size_override("font_size", 18)
+	title.position = Vector2(176, 40)
+	title.clip_text = true
 	ui_layer.add_child(title)
 	var brief: Label = Label.new()
 	brief.name = "Briefing"
 	brief.text = briefing_text
-	brief.position = Vector2(224, 76)
-	brief.custom_minimum_size = Vector2(780, 48)
+	brief.position = Vector2(176, 66)
+	brief.custom_minimum_size = Vector2(620, 36)
+	brief.clip_text = true
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ui_layer.add_child(brief)
 	var goal: Button = Button.new()
 	goal.name = "ObjectiveButton"
 	goal.text = "Complete objective"
-	goal.position = Vector2(224, 132)
+	goal.position = Vector2(176, 108)
 	goal.visible = false
 	goal.pressed.connect(finish_objective)
 	ui_layer.add_child(goal)
 	var back: Button = Button.new()
 	back.text = "Boot menu"
-	back.position = Vector2(420, 132)
+	back.position = Vector2(360, 108)
 	back.pressed.connect(func() -> void:
 		get_tree().change_scene_to_file("res://game/boot.tscn")
 	)
@@ -105,10 +107,11 @@ func _ui() -> void:
 	status = Label.new()
 	status.name = "Status"
 	status.text = "Read the briefing, then meet it on the field."
-	status.position = Vector2(224, 176)
-	status.custom_minimum_size = Vector2(820, 52)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.add_theme_font_size_override("font_size", 18)
+	status.position = Vector2(176, 146)
+	status.custom_minimum_size = Vector2(620, 22)
+	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.clip_text = true
+	status.add_theme_font_size_override("font_size", 16)
 	status.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
 	ui_layer.add_child(status)
 

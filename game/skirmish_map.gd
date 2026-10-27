@@ -193,7 +193,7 @@ func _world() -> void:
 	cam.name = "Camera"
 	var span: Vector2 = Vector2(float(grid.cols) * grid.cell_size, float(grid.rows) * grid.cell_size)
 	cam.bounds = Rect2(grid.origin.x - 8.0, grid.origin.z - 8.0, span.x + 16.0, span.y + 16.0)
-	cam.distance = 52.0 if map_id == "chiang_rai" else 46.0
+	cam.distance = 32.0 if map_id == "chiang_rai" else 28.0
 	cam.edge_pan_px = 20.0
 	cam.focus = grid.cell_center(_player_cells()[0])
 	add_child(cam)
@@ -232,9 +232,11 @@ func _ui() -> void:
 	add_child(ui_layer)
 	status = Label.new()
 	status.name = "Status"
+	status.visible = false
 	status.text = _blurb()
 	status.position = Vector2(240, 608)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.clip_text = true
 	status.custom_minimum_size = Vector2(760, 24)
 	ui_layer.add_child(status)
 	sim.protocols.mount_panel(ui_layer, roster.economy, SMPointer.PLAYER, sim.abilities, Callable(self, "_say"))

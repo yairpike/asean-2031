@@ -163,7 +163,7 @@ func _world() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-90, -60, 180, 120)
-	cam.distance = 46.0
+	cam.distance = 28.0
 	cam.edge_pan_px = 20.0
 	cam.focus = grid.cell_center(Vector2i(4, 8))
 	add_child(cam)
@@ -202,15 +202,24 @@ func _ui() -> void:
 	status = Label.new()
 	status.name = "Status"
 	status.text = _blurb()
-	status.position = Vector2(16, 84)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.custom_minimum_size = Vector2(900, 28)
+	status.clip_text = true
+	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.anchor_right = 1.0
+	status.offset_left = 16.0
+	status.offset_top = 84.0
+	status.offset_right = -16.0
+	status.offset_bottom = 112.0
 	ui_layer.add_child(status)
 	var hint: Label = Label.new()
-	hint.text = "Left click selects. Drag a box. Right click ground moves. Right click an enemy attacks. F fires the ability."
-	hint.position = Vector2(16, 680)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.custom_minimum_size = Vector2(980, 28)
+	hint.text = "Left click selects. Right click moves. F ability."
+	hint.clip_text = true
+	hint.anchor_top = 1.0
+	hint.anchor_right = 1.0
+	hint.anchor_bottom = 1.0
+	hint.offset_left = 16.0
+	hint.offset_top = -36.0
+	hint.offset_right = -16.0
+	hint.offset_bottom = -8.0
 	ui_layer.add_child(hint)
 
 func _button(node_name: String, caption: String, pos: Vector2, fn: Callable) -> void:

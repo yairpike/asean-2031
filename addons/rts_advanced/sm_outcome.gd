@@ -16,23 +16,27 @@ func mount(p_host: Node, layer: CanvasLayer) -> void:
 	host = p_host
 	panel = Control.new()
 	panel.name = "MatchEnd"
-	panel.position = Vector2.ZERO
-	panel.size = Vector2(1280, 720)
+	panel.anchor_right = 1.0
+	panel.anchor_bottom = 1.0
 	panel.visible = false
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.z_index = 20
 	layer.add_child(panel)
 	var shade: ColorRect = ColorRect.new()
 	shade.color = Color(0.02, 0.03, 0.04, 0.78)
-	shade.position = Vector2.ZERO
-	shade.size = Vector2(1280, 720)
+	shade.anchor_right = 1.0
+	shade.anchor_bottom = 1.0
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	panel.add_child(shade)
 	banner = Label.new()
 	banner.name = "MatchBanner"
 	banner.theme_type_variation = "Header"
-	banner.position = Vector2(0, 260)
-	banner.size = Vector2(1280, 72)
+	banner.anchor_left = 0.0
+	banner.anchor_top = 0.5
+	banner.anchor_right = 1.0
+	banner.anchor_bottom = 0.5
+	banner.offset_top = -36.0
+	banner.offset_bottom = 36.0
 	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	banner.add_theme_font_size_override("font_size", 48)
@@ -41,7 +45,14 @@ func mount(p_host: Node, layer: CanvasLayer) -> void:
 	back = Button.new()
 	back.name = "BootMenuButton"
 	back.text = "Boot menu"
-	back.position = Vector2(520, 360)
+	back.anchor_left = 0.5
+	back.anchor_top = 0.5
+	back.anchor_right = 0.5
+	back.anchor_bottom = 0.5
+	back.offset_left = -120.0
+	back.offset_top = 48.0
+	back.offset_right = 120.0
+	back.offset_bottom = 92.0
 	back.custom_minimum_size = Vector2(240, 44)
 	back.add_theme_font_size_override("font_size", 18)
 	back.pressed.connect(_boot)

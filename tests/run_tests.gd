@@ -1835,6 +1835,17 @@ func test_sm_protocols() -> void:
 	await process_frame
 	var bar: Node = scene.find_child("Protocols", true, false)
 	check(bar != null, "phillips shows the protocol panel")
+	var toggle_protocols: Button = scene.find_child("ProtocolsToggle", true, false) as Button
+	check(bar != null and not bar.visible, "the protocol grid starts hidden")
+	check(toggle_protocols != null and bar != null and toggle_protocols.text == "Protocols (P)" and not bar.is_ancestor_of(toggle_protocols), "Protocols is a button beside the grid")
+	var touch_node: Node = root.get_node_or_null("SMTouch")
+	var poke: InputEventKey = InputEventKey.new()
+	poke.pressed = true
+	poke.keycode = KEY_P
+	poke.physical_keycode = KEY_P
+	if touch_node != null:
+		touch_node._unhandled_input(poke)
+	check(bar != null and bar.visible, "P opens the protocol grid")
 	for id: StringName in ids:
 		var button: Button = scene.find_child("Proto_%s" % str(id), true, false) as Button
 		check(button != null and button.text == book.display_name(id), "phillips lists %s" % book.display_name(id))
@@ -2482,9 +2493,18 @@ func test_sm_guide() -> void:
 	check(controls != null and controls.visible and controls.text == hint, "a match shows the controls hint")
 	check(overlay != null and overlay.visible and body != null and body.text == howto, "a match opens the how-to overlay")
 	var close: Button = scene.find_child("HowToClose", true, false) as Button
+	var overlay_box: Rect2 = overlay.get_global_rect().grow(2.0) if overlay != null else Rect2()
 	var close_box: Rect2 = close.get_global_rect() if close != null else Rect2()
-	var hint_box: Rect2 = controls.get_global_rect()
-	check(close != null and close_box.size.y > 0.0 and close_box.end.y <= hint_box.position.y, "Got it stays above the controls line")
+	check(overlay != null and controls != null and overlay.is_ancestor_of(controls) and close != null and close_box.size.y > 0.0 and overlay_box.encloses(close_box), "the controls line sits inside the how-to panel")
+	var short_line: Label = scene.find_child("MatchHint", true, false) as Label
+	check(short_line != null and overlay != null and short_line.visible and not overlay.is_ancestor_of(short_line) and short_line.text.length() <= 32 and not short_line.text.contains("Shift"), "one short line stays on screen")
+	var column: Control = scene.find_child("CommandColumn", true, false) as Control
+	check(column != null and column.size.x <= 180.0 and column.size.x >= 120.0, "the build column stays narrow")
+	var buildings: Label = scene.find_child("GroupBuildings", true, false) as Label
+	var header_font: Font = buildings.get_theme_font(&"font") if buildings != null else null
+	check(buildings != null and buildings.theme_type_variation == "Header" and header_font != null and str(header_font.resource_path).contains("Warheed"), "section headers use the theme font")
+	var match_cam: RTSCamera = scene.get_node_or_null("Camera") as RTSCamera
+	check(match_cam != null and match_cam.distance <= 32.0, "the match camera starts close to the company")
 	close.pressed.emit()
 	check(overlay != null and not overlay.visible, "Got it hides the how-to overlay")
 	var help: Button = scene.find_child("HelpButton", true, false) as Button
@@ -2493,16 +2513,39 @@ func test_sm_guide() -> void:
 	var train: Button = scene.find_child("Train_militia", true, false) as Button
 	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
 	check(train != null and train.tooltip_text.contains("Slag Molotov"), "the train button tooltip names the F ability")
+	var tap_toggle: Button = scene.find_child("ProtocolsToggle", true, false) as Button
+	check(train != null and train.custom_minimum_size.y >= 40.0 and help != null and help.custom_minimum_size.y >= 44.0 and close != null and close.custom_minimum_size.y >= 44.0 and tap_toggle != null and tap_toggle.custom_minimum_size.y >= 44.0, "match buttons stay large enough to tap")
 	check(ability != null and ability.tooltip_text.contains("closest ready unit"), "the ability button tooltip explains F")
 	var proto: Button = scene.find_child("Proto_cash_bounty", true, false) as Button
 	check(proto != null and proto.tooltip_text.contains("Cash Bounty") and proto.tooltip_text.contains("250"), "a protocol button tooltip names the power and its effect")
 	var cue: AudioStreamPlayer = scene.find_child("CuePlayer", true, false) as AudioStreamPlayer
 	train.pressed.emit()
+	var card: PanelContainer = scene.find_child("UnitCard", true, false) as PanelContainer
+	check(card != null and card.visible and short_line != null and not short_line.is_visible_in_tree(), "a trained unit folds into one card")
 	var played: AudioStreamWAV = cue.stream as AudioStreamWAV if cue != null else null
 	check(cue != null and played != null and SMTone.peak(played) > 1000, "training plays a procedural cue")
 	var tip_label: Label = scene.find_child("UnitTip", true, false) as Label
 	train.mouse_entered.emit()
 	check(tip_label != null and tip_label.visible and tip_label.text.contains("Slag Molotov"), "hovering a unit shows a readable tip")
+	var saved_size: Vector2i = Vector2i(root.size)
+	root.size = Vector2i(1024, 576)
+	await process_frame
+	await process_frame
+	var window_box: Rect2 = Rect2(Vector2.ZERO, Vector2(root.size)).grow(2.0)
+	var toggle_fit: Control = scene.find_child("ProtocolsToggle", true, false) as Control
+	var card_fit: Control = scene.find_child("UnitCard", true, false) as Control
+	var protocols_fit: Control = scene.find_child("Protocols", true, false) as Control
+	if protocols_fit != null:
+		protocols_fit.visible = true
+	await process_frame
+	var column_box: Rect2 = column.get_global_rect() if column != null else Rect2()
+	var toggle_box: Rect2 = toggle_fit.get_global_rect() if toggle_fit != null else Rect2()
+	var guide_box: Rect2 = overlay.get_global_rect() if overlay != null else Rect2()
+	var card_box: Rect2 = card_fit.get_global_rect() if card_fit != null else Rect2()
+	var proto_box: Rect2 = protocols_fit.get_global_rect() if protocols_fit != null else Rect2()
+	check(root.size == Vector2i(1024, 576) and column_box.size.x > 40.0 and toggle_box.size.y > 20.0 and guide_box.size.x > 40.0 and card_box.size.x > 40.0 and proto_box.size.y > 40.0 and window_box.encloses(column_box) and window_box.encloses(toggle_box) and window_box.encloses(guide_box) and window_box.encloses(card_box) and window_box.encloses(proto_box), "the match HUD fits a 1024 by 576 window")
+	root.size = saved_size
+	await process_frame
 	scene.free()
 	await process_frame
 	SMCampaign.selected = "kokang"
@@ -2578,6 +2621,10 @@ func test_sm_orders_mark() -> void:
 	field.tick(0.05)
 	var reach: MeshInstance3D = unit.get_node_or_null("RangeRing") as MeshInstance3D
 	check(reach != null and reach.visible and absf(reach.scale.x - unit.attack_range) < 0.05, "a selected unit shows its weapon range")
+	var named: Label3D = unit.get_node_or_null("NameTag") as Label3D
+	var other_unit: RTSUnit = _unit_kind(field, 0, "slag_hauler")
+	var other_tag: Label3D = other_unit.get_node_or_null("NameTag") as Label3D if other_unit != null else null
+	check(named != null and named.visible and other_tag != null and not other_tag.visible, "only the selected unit shows its name")
 	var step: Vector3 = unit.global_position + Vector3(8.0, 0.0, 0.0)
 	var moved: StringName = field.command_at(step, _proj(step), Callable(self, "_proj"))
 	var move_ping: Node = _order_ping(field, "move")

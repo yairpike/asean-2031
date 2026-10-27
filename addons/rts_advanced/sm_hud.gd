@@ -30,6 +30,8 @@ var tip_label: Label
 var hover_tip: String = ""
 var radio_label: Label
 var radio_until: int = 0
+var unit_card: PanelContainer
+var match_strip: PanelContainer
 var purse_mark: int = -1
 var purse_ms: int = 0
 var purse_rate: int = 0
@@ -47,30 +49,40 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	on_ability = ability
 	var top: Control = Control.new()
 	top.name = "TopBar"
-	top.position = Vector2(0, 0)
-	top.size = Vector2(1280, 40)
+	top.anchor_right = 1.0
+	top.offset_bottom = 36.0
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(top)
 	var shade: ColorRect = ColorRect.new()
 	shade.color = Color(0.05, 0.06, 0.07, 0.92)
-	shade.position = Vector2(0, 0)
-	shade.size = Vector2(1280, 40)
+	shade.anchor_right = 1.0
+	shade.anchor_bottom = 1.0
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(shade)
-	faction_label = _label(top, "HudFaction", Vector2(16, 8), 18)
-	credits_label = _label(top, "HudCredits", Vector2(180, 8), 18)
-	income_label = _label(top, "HudIncome", Vector2(340, 10), 15)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.anchor_right = 1.0
+	row.anchor_bottom = 1.0
+	row.offset_left = 12.0
+	row.offset_top = 4.0
+	row.offset_right = -12.0
+	row.offset_bottom = -4.0
+	row.add_theme_constant_override("separation", 14)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(row)
+	faction_label = _flow_label(row, "HudFaction", 16)
+	credits_label = _flow_label(row, "HudCredits", 16)
+	income_label = _flow_label(row, "HudIncome", 15)
 	income_label.add_theme_color_override("font_color", Color(0.55, 0.9, 0.48))
-	power_label = _label(top, "HudPower", Vector2(460, 8), 18)
-	map_label = _label(top, "HudMap", Vector2(700, 8), 18)
-	weather_label = _label(top, "HudWeather", Vector2(980, 8), 16)
+	power_label = _flow_label(row, "HudPower", 16)
+	map_label = _flow_label(row, "HudMap", 16)
+	weather_label = _flow_label(row, "HudWeather", 15)
 	minimap = SMMinimap.new()
 	minimap.name = "Minimap"
-	minimap.position = Vector2(12, 48)
 	minimap.setup(grid, field, camera)
+	minimap.position = Vector2(8, 42)
+	minimap.custom_minimum_size = Vector2(156, 108)
+	minimap.size = Vector2(156, 108)
 	layer.add_child(minimap)
-	build_label = _label(layer, "HudBuild", Vector2(240, 608), 15)
-	build_label.custom_minimum_size = Vector2(760, 24)
-	selection_label = _label(layer, "HudSelection", Vector2(16, 648), 16)
-	selection_label.custom_minimum_size = Vector2(980, 28)
 	_column(layer)
 	_guide(layer)
 	_tip(layer)
@@ -112,10 +124,12 @@ func refresh() -> void:
 		if minimap != null and minimap.sight != null:
 			sky = minimap.sight.weather_name
 		weather_label.text = sky
-	selection_label.text = _selection_line()
+	if selection_label != null:
+		selection_label.text = _selection_line()
 	_sync_imports()
 	_paint_tip()
 	_paint_radio()
+	_sync_card()
 	if minimap != null:
 		minimap.sample()
 		minimap.queue_redraw()
@@ -126,8 +140,7 @@ func set_rally(at: Vector3) -> void:
 	rally = at
 	if field != null:
 		field.place_rally(at)
-	if build_label != null:
-		build_label.text = "Rally set"
+	_note("Rally set")
 
 func _measure_purse() -> void:
 	var now: int = Time.get_ticks_msec()
@@ -178,6 +191,7 @@ func show_line(text: String) -> void:
 	radio_label.text = text
 	radio_label.visible = text != ""
 	radio_until = Time.get_ticks_msec() + 2800
+	_sync_card()
 
 func _paint_radio() -> void:
 	if radio_label == null or not radio_label.visible:
@@ -203,16 +217,22 @@ static func present_tip(host: Node, text: String) -> void:
 	hud._paint_tip()
 
 func _column(layer: CanvasLayer) -> void:
+	var backdrop: ColorRect = ColorRect.new()
+	backdrop.name = "ColumnShade"
+	backdrop.color = Color(0.05, 0.06, 0.07, 0.9)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dock(backdrop, -186.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
+	layer.add_child(backdrop)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "CommandColumn"
-	scroll.position = Vector2(1032, 44)
-	scroll.size = Vector2(240, 600)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.clip_contents = true
+	_dock(scroll, -186.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
 	layer.add_child(scroll)
 	var box: VBoxContainer = VBoxContainer.new()
 	box.name = "Sidebar"
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.custom_minimum_size = Vector2(220, 0)
+	box.custom_minimum_size = Vector2(0, 0)
 	box.add_theme_constant_override("separation", 4)
 	scroll.add_child(box)
 	sidebar = box
@@ -248,16 +268,14 @@ func _super() -> void:
 	if side == null or field == null:
 		return
 	var hit: int = side.fire_super(field)
-	if build_label != null:
-		build_label.text = side.yard.super_name if hit > 0 else "superweapon cooling"
+	_note(side.yard.super_name if hit > 0 else "superweapon cooling")
 	refresh()
 
 func _order(id: StringName) -> void:
 	if side == null:
 		return
 	var note: String = side.order_building(id)
-	if build_label != null:
-		build_label.text = note
+	_note(note)
 	refresh()
 
 func _sync_imports() -> void:
@@ -284,8 +302,7 @@ func _sync_imports() -> void:
 
 func _import(id: StringName) -> void:
 	if roster == null or field == null or tech == null or not tech.holds(SMTechNet.BAZAAR, SMPointer.PLAYER):
-		if build_label != null:
-			build_label.text = "bazaar required"
+		_note("bazaar required")
 		refresh()
 		return
 	var cost: int = 0
@@ -295,14 +312,12 @@ func _import(id: StringName) -> void:
 			row = unit
 			cost = int(unit.get("cost", 0))
 	if row.is_empty() or not roster.economy.try_spend(SMPointer.PLAYER, cost):
-		if build_label != null:
-			build_label.text = "cannot import"
+		_note("cannot import")
 		refresh()
 		return
 	var at: Vector3 = rally + Vector3(6.0 + float(field.count_team(SMPointer.PLAYER) % 4) * 2.0, 0.0, 2.0)
 	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, id)
-	if build_label != null:
-		build_label.text = field.name_of(u)
+	_note(field.name_of(u))
 	refresh()
 
 func _cancel() -> void:
@@ -314,28 +329,24 @@ func _cancel() -> void:
 		var built: String = side.cancel_order()
 		if note == "":
 			note = built
-	if build_label != null:
-		build_label.text = note if note != "" else "nothing to cancel"
+	_note(note if note != "" else "nothing to cancel")
 	refresh()
 
 func _train(id: StringName) -> void:
 	if roster == null or field == null:
 		return
 	if side != null and not Power.online(side.yard):
-		if build_label != null:
-			build_label.text = "low power"
+		_note("low power")
 		refresh()
 		return
 	var done: StringName = roster.train_and_finish(id)
 	if done == &"":
-		if build_label != null:
-			build_label.text = "cannot train"
+		_note("cannot train")
 		refresh()
 		return
 	var at: Vector3 = rally + Vector3(6.0 + float(field.count_team(SMPointer.PLAYER) % 4) * 2.0, 0.0, 2.0)
 	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, done)
-	if build_label != null:
-		build_label.text = field.name_of(u)
+	_note(field.name_of(u))
 	refresh()
 
 func _ability() -> void:
@@ -397,7 +408,9 @@ func _header(box: VBoxContainer, node_name: String, text: String) -> void:
 	label.name = node_name
 	label.text = text
 	label.theme_type_variation = "Header"
-	label.add_theme_font_size_override("font_size", 15)
+	label.clip_text = true
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Color(0.9, 0.78, 0.45))
 	box.add_child(label)
 
@@ -405,36 +418,49 @@ func _guide(layer: CanvasLayer) -> void:
 	var help: Button = Button.new()
 	help.name = "HelpButton"
 	help.text = "How to play (H)"
-	help.position = Vector2(16, 216)
-	help.custom_minimum_size = Vector2(200, 32)
+	help.clip_text = true
+	help.custom_minimum_size = Vector2(168, 44)
+	help.z_index = 9
 	help.add_theme_font_size_override("font_size", 15)
+	_dock(help, 8.0, -186.0, 176.0, -142.0, 0.0, 1.0, 0.0, 1.0)
 	help.pressed.connect(_toggle_guide)
 	layer.add_child(help)
-	var hint: Label = Label.new()
-	hint.name = "ControlsHint"
-	hint.text = SMGuide.controls_hint()
-	hint.position = Vector2(224, 672)
-	hint.custom_minimum_size = Vector2(780, 44)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.add_theme_font_size_override("font_size", 14)
-	hint.add_theme_color_override("font_color", Color(0.96, 0.94, 0.86))
-	layer.add_child(hint)
-	radio_label = Label.new()
-	radio_label.name = "RadioLine"
+	var card: PanelContainer = PanelContainer.new()
+	card.name = "UnitCard"
+	card.visible = false
+	card.z_index = 8
+	card.clip_contents = true
+	card.add_theme_stylebox_override("panel", _card_style())
+	_dock(card, 8.0, -82.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
+	layer.add_child(card)
+	unit_card = card
+	var stack: VBoxContainer = VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 0)
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.add_child(stack)
+	selection_label = _card_line(stack, "HudSelection", 16)
+	build_label = _card_line(stack, "HudBuild", 14)
+	build_label.visible = false
+	radio_label = _card_line(stack, "RadioLine", 16)
 	radio_label.visible = false
-	radio_label.position = Vector2(224, 46)
-	radio_label.custom_minimum_size = Vector2(760, 28)
-	radio_label.z_index = 18
-	radio_label.add_theme_font_size_override("font_size", 18)
 	radio_label.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
-	layer.add_child(radio_label)
+	var strip: PanelContainer = PanelContainer.new()
+	strip.name = "MatchStrip"
+	strip.z_index = 8
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.add_theme_stylebox_override("panel", _card_style())
+	_dock(strip, 8.0, -46.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
+	layer.add_child(strip)
+	match_strip = strip
+	var short_line: Label = _card_line(strip, "MatchHint", 15)
+	short_line.text = "H guide    P protocols"
+	short_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var panel: PanelContainer = PanelContainer.new()
 	panel.name = "HowToOverlay"
-	panel.position = Vector2(224, 168)
-	panel.custom_minimum_size = Vector2(780, 470)
 	panel.clip_contents = true
 	panel.z_index = 30
 	panel.visible = true
+	_dock(panel, 168.0, 44.0, -194.0, -56.0, 0.0, 0.0, 1.0, 1.0)
 	layer.add_child(panel)
 	guide_panel = panel
 	var box: VBoxContainer = VBoxContainer.new()
@@ -445,12 +471,13 @@ func _guide(layer: CanvasLayer) -> void:
 	var title: Label = Label.new()
 	title.name = "HowToTitle"
 	title.text = "How to play"
+	title.theme_type_variation = "Header"
 	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color(0.95, 0.86, 0.45))
 	box.add_child(title)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "HowToScroll"
-	scroll.custom_minimum_size = Vector2(740, 340)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.add_child(scroll)
@@ -462,7 +489,7 @@ func _guide(layer: CanvasLayer) -> void:
 	tutorial_label.name = "TutorialPrompt"
 	tutorial_label.visible = false
 	tutorial_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tutorial_label.custom_minimum_size = Vector2(720, 0)
+	tutorial_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tutorial_label.add_theme_font_size_override("font_size", 18)
 	tutorial_label.add_theme_color_override("font_color", Color(0.98, 0.96, 0.9))
 	inner.add_child(tutorial_label)
@@ -470,15 +497,22 @@ func _guide(layer: CanvasLayer) -> void:
 	body.name = "HowToBody"
 	body.text = SMGuide.howto_text()
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(720, 0)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_theme_font_size_override("font_size", 16)
 	body.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
 	inner.add_child(body)
+	var hint: Label = Label.new()
+	hint.name = "ControlsHint"
+	hint.text = SMGuide.controls_hint()
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.add_theme_font_size_override("font_size", 15)
+	hint.add_theme_color_override("font_color", Color(0.96, 0.94, 0.86))
+	inner.add_child(hint)
 	var close: Button = Button.new()
 	close.name = "HowToClose"
 	close.text = "Got it"
-	close.custom_minimum_size = Vector2(160, 36)
+	close.custom_minimum_size = Vector2(160, 44)
 	close.add_theme_font_size_override("font_size", 16)
 	close.pressed.connect(_hide_guide)
 	box.add_child(close)
@@ -486,18 +520,19 @@ func _guide(layer: CanvasLayer) -> void:
 func _tip(layer: CanvasLayer) -> void:
 	var panel: PanelContainer = PanelContainer.new()
 	panel.name = "TipPanel"
-	panel.position = Vector2(224, 620)
-	panel.custom_minimum_size = Vector2(780, 56)
 	panel.visible = false
-	panel.z_index = 12
+	panel.z_index = 14
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.clip_contents = true
+	panel.add_theme_stylebox_override("panel", _card_style())
+	_dock(panel, -560.0, -128.0, -194.0, -88.0, 1.0, 1.0, 1.0, 1.0)
 	layer.add_child(panel)
 	tip_panel = panel
 	tip_label = Label.new()
 	tip_label.name = "UnitTip"
 	tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tip_label.custom_minimum_size = Vector2(760, 48)
-	tip_label.add_theme_font_size_override("font_size", 16)
+	tip_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tip_label.add_theme_font_size_override("font_size", 14)
 	tip_label.add_theme_color_override("font_color", Color(0.97, 0.96, 0.92))
 	panel.add_child(tip_label)
 
@@ -520,26 +555,18 @@ func _exit_tip() -> void:
 func _paint_tip() -> void:
 	if tip_label == null or tip_panel == null:
 		return
-	var text: String = hover_tip if hover_tip != "" else _selection_tip()
-	tip_label.text = text
-	tip_panel.visible = text != ""
-
-func _selection_tip() -> String:
-	if field == null or field.selection.count() <= 0:
-		return ""
-	var first: RTSUnit = field.selection.units[0]
-	var ability: String = str(first.get_meta("ability", "ability"))
-	var loco: String = str(first.get_meta("locomotion", "ground"))
-	var weapon: String = str(first.get_meta("weapon", "weapon"))
-	return "%s. HP %d/%d. %s for %d. Moves on %s. F: %s." % [field.name_of(first), int(round(first.hp)), int(round(first.max_hp)), weapon, int(round(first.attack_damage)), loco, ability]
+	tip_label.text = hover_tip
+	tip_panel.visible = hover_tip != ""
 
 func _button(box: VBoxContainer, node_name: String, text: String, fn: Callable, tip: String, cue: String) -> void:
 	var b: Button = Button.new()
 	b.name = node_name
 	b.text = text
 	b.tooltip_text = tip
+	b.clip_text = true
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.custom_minimum_size = Vector2(200, 28)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, 40)
 	b.add_theme_font_size_override("font_size", 14)
 	b.mouse_entered.connect(_enter_tip.bind(tip))
 	b.mouse_exited.connect(_exit_tip)
@@ -560,3 +587,67 @@ func _label(parent: Node, node_name: String, pos: Vector2, size: int) -> Label:
 	label.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
 	parent.add_child(label)
 	return label
+
+func _flow_label(parent: Node, node_name: String, size: int) -> Label:
+	var label: Label = Label.new()
+	label.name = node_name
+	label.clip_text = true
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
+	parent.add_child(label)
+	return label
+
+func _card_line(parent: Node, node_name: String, size: int) -> Label:
+	var label: Label = Label.new()
+	label.name = node_name
+	label.clip_text = true
+	label.custom_minimum_size = Vector2(0, 18)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
+	parent.add_child(label)
+	return label
+
+func _card_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.06, 0.07, 0.92)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	return style
+
+func _note(text: String) -> void:
+	if build_label == null:
+		return
+	build_label.text = text
+	build_label.visible = text != ""
+	_sync_card()
+
+func _sync_card() -> void:
+	var busy: bool = false
+	if selection_label != null:
+		var chosen: bool = selection_label.text != "" and selection_label.text != "Nothing selected"
+		selection_label.visible = chosen
+		if chosen:
+			busy = true
+	if radio_label != null and radio_label.visible and radio_label.text != "":
+		busy = true
+	if build_label != null and build_label.visible and build_label.text != "":
+		busy = true
+	if unit_card != null:
+		unit_card.visible = busy
+	if match_strip != null:
+		match_strip.visible = not busy
+
+func _dock(node: Control, left: float, top: float, right: float, bottom: float, anchor_l: float, anchor_t: float, anchor_r: float, anchor_b: float) -> void:
+	node.anchor_left = anchor_l
+	node.anchor_top = anchor_t
+	node.anchor_right = anchor_r
+	node.anchor_bottom = anchor_b
+	node.offset_left = left
+	node.offset_top = top
+	node.offset_right = right
+	node.offset_bottom = bottom
