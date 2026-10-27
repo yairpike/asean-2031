@@ -59,6 +59,7 @@ func _run() -> void:
 	await H.section("test_sm_outcome", test_sm_outcome)
 	await H.section("test_sm_sight", test_sm_sight)
 	await H.section("test_sm_shapes", test_sm_shapes)
+	await H.section("test_sm_field", test_sm_field)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1381,6 +1382,106 @@ func test_sm_shapes() -> void:
 	nmrf.free()
 	await process_frame
 	SMFront.faction_id = "gtfc"
+
+func test_sm_field() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var roster: SMRoster = scene.get("roster") as SMRoster
+	var friends: Array[RTSUnit] = field.units_of(0)
+	var foes: Array[RTSUnit] = field.units_of(1)
+	var militia: RTSUnit = friends[0]
+	var slag: RTSUnit = friends[1]
+	var ruby: RTSUnit = friends[2]
+	var shooter: RTSUnit = friends[3]
+	var tube: RTSUnit = friends[4]
+	var skiff: RTSUnit = friends[5]
+	field.select_only([militia])
+	check(field.cast_f(militia.global_position) == "toggle" and bool(militia.get_meta("toggled")), "a group toggle flips the selected unit")
+	field.select_only([slag, ruby])
+	check(field.cast_f(slag.global_position) == "smart" and int(slag.get_meta("fired_f", 0)) == 1 and int(ruby.get_meta("fired_f", 0)) == 0, "one F press fires only the closer smart-cast unit")
+	field.select_only([tube])
+	check(field.cast_f(tube.global_position) == "beam" and bool(tube.get_meta("channeling")), "a channeled beam starts on the selected tube")
+	field.tick(1.6)
+	check(int(tube.get_meta("beam_done")) == 1 and bool(foes[0].get_meta("frozen", false)), "a finished beam freezes the nearest enemy")
+	shooter.global_position = sim.ew.center
+	shooter.set_meta("guidance", "gps")
+	shooter.set_meta("fiber_on", false)
+	shooter.attack_range = 30.0
+	var victim: RTSUnit = foes[1]
+	victim.global_position = sim.ew.center + Vector3(3.0, 0.0, 0.0)
+	victim.hp = 200.0
+	shooter.attack_target = victim
+	shooter._cooldown = 0.0
+	var jammed_before: float = victim.hp
+	shooter.advance(0.3)
+	check(is_equal_approx(jammed_before - victim.hp, shooter.attack_damage * sim.ew.penalty), "the jammer cuts a GPS shot")
+	shooter.set_meta("fiber_on", true)
+	shooter._cooldown = 0.0
+	var fiber_before: float = victim.hp
+	shooter.advance(0.3)
+	check(is_equal_approx(fiber_before - victim.hp, shooter.attack_damage), "a fiber link ignores the jammer")
+	shooter.set_meta("fiber_on", false)
+	shooter.set_meta("guidance", "hop")
+	shooter._cooldown = 0.0
+	var hop_before: float = victim.hp
+	shooter.advance(0.3)
+	check(is_equal_approx(hop_before - victim.hp, shooter.attack_damage), "a hop link ignores the jammer")
+	shooter.attack_target = null
+	field.apply_status(skiff, "frozen", 3.0)
+	skiff.set_path(PackedVector3Array([skiff.global_position + Vector3(8.0, 0.0, 0.0)]))
+	var frozen_at: Vector3 = skiff.global_position
+	field.tick(0.4)
+	check(bool(skiff.get_meta("frozen")) and skiff.global_position.is_equal_approx(frozen_at), "frozen stops the unit")
+	field.apply_status(skiff, "shrunk", 3.0)
+	var body: MeshInstance3D = skiff.get_node_or_null("Body") as MeshInstance3D
+	var shrink_hp: float = skiff.hp
+	skiff.take_damage(10.0)
+	check(body != null and body.scale.x < 0.6 and skiff.speed_scale > 1.5 and is_equal_approx(skiff.hp, shrink_hp - 5.0), "shrunk scales the mesh and halves incoming damage")
+	field.apply_status(skiff, "black_hole", 3.0)
+	var hole_hp: float = skiff.hp
+	skiff.take_damage(10.0)
+	check(is_equal_approx(skiff.hp, hole_hp - 2.0), "black-hole armor cuts incoming damage")
+	var before: int = roster.economy.credits(0)
+	check(sim.goods.snap_refinery(&"slag_west", 0) and roster.economy.credits(0) == before, "claiming Golden Slag does not pay until the loop finishes")
+	scene.call("tick_world", 4.0)
+	check(roster.economy.credits(0) == before + 20, "a Phillips tick pays a claimed node")
+	var night_before: int = roster.economy.credits(0)
+	check(sim.goods.snap_refinery(&"ruby_east", 0) and sim.goods.set_night_shift(&"ruby_east", true), "night shift arms a ruby node")
+	scene.call("tick_world", 2.0)
+	check(roster.economy.credits(0) == night_before + 15, "night shift pays ruby in half a loop")
+	check(sim.goods.snap_refinery(&"rare_shore", 0), "a rare-earth node can be claimed")
+	scene.call("tick_world", 4.0)
+	check(sim.goods.stock_of(0) >= 1, "rare-earth stock grows on a Phillips tick")
+	var rare_i: int = sim.goods.find(&"rare_shore")
+	var rare_node: Dictionary = sim.goods.nodes[rare_i]
+	militia.global_position = rare_node["pos"] as Vector3
+	var wet: float = militia.hp
+	scene.call("tick_world", 1.0)
+	check(militia.hp < wet, "water beside rare earth harms infantry")
+	militia.global_position = Vector3(-70.0, 0.0, -30.0)
+	sim.tech.capture(&"cyber", 0)
+	roster.economy.set_credits(1, 80)
+	var siphon_before: int = roster.economy.credits(0)
+	scene.call("tick_world", 1.0)
+	check(roster.economy.credits(0) > siphon_before and sim.tech.siphon_of(&"cyber") > 0, "cyber siphon pays during a Phillips tick")
+	sim.tech.add_site(&"clinic", SMTechNet.CLINIC, Vector3(-70.0, 0.0, -30.0))
+	sim.tech.capture(&"clinic", 0)
+	militia.hp = maxf(1.0, militia.max_hp - 30.0)
+	var hurt: float = militia.hp
+	scene.call("tick_world", 1.0)
+	check(militia.hp > hurt and sim.tech.clinic_healed(0) > 0.0, "a clinic heals infantry during a Phillips tick")
+	sim.tech.add_site(&"bazaar", SMTechNet.BAZAAR, Vector3.ZERO)
+	sim.tech.capture(&"bazaar", 0)
+	var cost_before: int = roster.economy.credits(0)
+	var trained: Button = scene.find_child("Train_militia", true, false) as Button
+	trained.pressed.emit()
+	check(trained != null and roster.economy.credits(0) == cost_before - 56, "a captured bazaar discounts a trained infantry unit")
+	scene.free()
+	await process_frame
 
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"

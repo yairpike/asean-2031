@@ -32,6 +32,12 @@ var occupancy: Object = null
 var cell_of: Callable
 ## Scales movement (e.g. RTSSuppression.speed_mult()).
 var speed_scale: float = 1.0
+## Multiplies outgoing weapon damage. Status effects can lower it.
+var damage_mult: float = 1.0
+## Multiplies damage this unit takes. Shrunk and black-hole armor use it.
+var incoming_mult: float = 1.0
+## Optional filter (unit, target, amount) -> amount. The jammer uses this.
+var shot_filter: Callable
 ## When true an external combat system (RTSCombat) fires; the unit only closes
 ## to range and holds.
 var external_combat: bool = false
@@ -59,7 +65,7 @@ func stop() -> void:
 func take_damage(amount: float) -> void:
 	if not is_alive():
 		return
-	hp = maxf(0.0, hp - amount)
+	hp = maxf(0.0, hp - amount * incoming_mult)
 	if hp <= 0.0:
 		path = PackedVector3Array()
 		if occupancy != null:
@@ -68,6 +74,10 @@ func take_damage(amount: float) -> void:
 
 func advance(delta: float) -> void:
 	if not is_alive():
+		return
+	if bool(get_meta("frozen", false)):
+		path = PackedVector3Array()
+		attack_target = null
 		return
 	_cooldown = maxf(0.0, _cooldown - delta)
 	if attack_target != null and (not is_instance_valid(attack_target) or not attack_target.is_alive()):
@@ -78,8 +88,12 @@ func advance(delta: float) -> void:
 			path = PackedVector3Array()
 			if not external_combat and _cooldown <= 0.0:
 				_cooldown = attack_interval
+				var dealt: float = attack_damage * damage_mult
+				if shot_filter.is_valid():
+					dealt = float(shot_filter.call(self, attack_target, dealt))
 				fired.emit(self, attack_target)
-				attack_target.take_damage(attack_damage)
+				if dealt > 0.0:
+					attack_target.take_damage(dealt)
 			return
 		if path.is_empty():   # chase: head straight for a target that moved
 			path = PackedVector3Array([attack_target.global_position])

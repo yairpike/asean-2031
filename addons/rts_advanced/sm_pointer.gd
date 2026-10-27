@@ -22,6 +22,9 @@ var units: Array[RTSUnit] = []
 var box: RTSSelectionBox
 var cam: RTSCamera
 var host: Node3D
+var ew: SMEwField
+const F_COOLDOWN: float = 3.0
+const BEAM_TIME: float = 1.5
 
 func bind(p_host: Node3D, p_cam: RTSCamera) -> void:
 	host = p_host
@@ -113,6 +116,7 @@ func spawn(team: int, at: Vector3, kind: StringName) -> RTSUnit:
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	tag.modulate = Color(0.97, 0.94, 0.84)
 	u.add_child(tag)
+	u.shot_filter = Callable(self, "filter_shot")
 	host.add_child(u)
 	units.append(u)
 	return u
@@ -145,6 +149,10 @@ func _apply_catalog(u: RTSUnit, kind: StringName) -> void:
 		u.attack_damage = float(unit.get("weapon_damage", u.attack_damage))
 		u.set_meta("weapon", str(unit.get("weapon", "")))
 		u.set_meta("secondary", str(unit.get("secondary", "")))
+		u.set_meta("guidance", str(unit.get("guidance", "none")))
+		u.set_meta("locomotion", str(unit.get("locomotion", "ground")))
+		u.set_meta("role", str(unit.get("role", "")))
+		u.set_meta("tags", _tag_list(unit))
 		return
 
 func _body_color(team: int, kind: StringName) -> Color:
@@ -293,6 +301,141 @@ func secondary_strike() -> int:
 		n += 1
 	return n
 
+func select_only(list: Array[RTSUnit]) -> void:
+	selection.clear()
+	for u: RTSUnit in list:
+		if is_instance_valid(u) and u.is_alive() and u.team == PLAYER:
+			if not selection.units.has(u):
+				selection.units.append(u)
+				u.selected = true
+	selection.changed.emit(selection.units)
+
+func aim_from_camera(camera: RTSCamera, screen: Vector2) -> Vector3:
+	if camera != null:
+		var ground: Vector3 = camera.ground_at(screen)
+		if ground != Vector3.INF:
+			return ground
+	if selection.count() > 0:
+		return selection.units[0].global_position
+	return Vector3.ZERO
+
+## Selected-unit F. Toggles the whole group, smart-casts only the closest ready unit,
+## and starts a beam on the closest ready tube. Returns which kinds fired.
+func cast_f(aim: Vector3) -> String:
+	var toggled: int = 0
+	var smart: RTSUnit = null
+	var smart_d: float = 1.0e20
+	var beam: RTSUnit = null
+	var beam_d: float = 1.0e20
+	for u: RTSUnit in selection.units:
+		if not is_instance_valid(u) or not u.is_alive() or bool(u.get_meta("frozen", false)):
+			continue
+		var kind: String = str(u.get_meta("secondary", ""))
+		var flat: float = Vector2(u.global_position.x, u.global_position.z).distance_to(Vector2(aim.x, aim.z))
+		if kind == "group_toggle":
+			var on: bool = not bool(u.get_meta("toggled", false))
+			u.set_meta("toggled", on)
+			var guidance: String = str(u.get_meta("guidance", "none"))
+			if guidance == "fiber":
+				u.set_meta("fiber_on", on)
+			elif guidance == "hop":
+				u.set_meta("hop_on", on)
+			toggled += 1
+		elif kind == "smart_cast" and float(u.get_meta("f_ready", 0.0)) <= 0.0 and flat < smart_d:
+			smart_d = flat
+			smart = u
+		elif kind == "channeled_beam" and not bool(u.get_meta("channeling", false)) and float(u.get_meta("f_ready", 0.0)) <= 0.0 and flat < beam_d:
+			beam_d = flat
+			beam = u
+	var fired: String = ""
+	if toggled > 0:
+		fired = "toggle"
+	if smart != null:
+		smart.set_meta("fired_f", int(smart.get_meta("fired_f", 0)) + 1)
+		smart.set_meta("f_ready", F_COOLDOWN)
+		var strike: RTSUnit = nearest_enemy(aim, 240.0)
+		if strike != null:
+			strike.take_damage(smart.attack_damage * smart.damage_mult)
+		fired = "smart" if fired == "" else fired + "+smart"
+	if beam != null:
+		beam.set_meta("channeling", true)
+		beam.set_meta("channel_t", BEAM_TIME)
+		beam.set_meta("f_ready", F_COOLDOWN)
+		fired = "beam" if fired == "" else fired + "+beam"
+	return fired
+
+func apply_status(u: RTSUnit, status: String, duration: float) -> void:
+	if not is_instance_valid(u):
+		return
+	var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
+	if body != null:
+		body.scale = Vector3.ONE
+	u.speed_scale = 1.0
+	u.incoming_mult = 1.0
+	u.set_meta("frozen", false)
+	u.set_meta("status", status)
+	u.set_meta("status_t", duration)
+	if status == "frozen":
+		u.set_meta("frozen", true)
+		u.speed_scale = 0.0
+		u.stop()
+	elif status == "shrunk":
+		u.speed_scale = 2.0
+		u.incoming_mult = 0.5
+		if body != null:
+			body.scale = Vector3(0.5, 0.5, 0.5)
+	elif status == "black_hole":
+		u.incoming_mult = 0.2
+
+func filter_shot(u: RTSUnit, _target: RTSUnit, amount: float) -> float:
+	if ew == null or not is_instance_valid(u):
+		return amount
+	var guidance: int = SMEwField.guidance_of(str(u.get_meta("guidance", "none")))
+	var scale: float = ew.accuracy(u.global_position, guidance, bool(u.get_meta("fiber_on", false)), bool(u.get_meta("hop_on", false)))
+	return amount * scale
+
+func is_infantry(u: RTSUnit) -> bool:
+	if not is_instance_valid(u):
+		return false
+	if str(u.get_meta("role", "")) == "infantry":
+		return true
+	var raw: Variant = u.get_meta("tags", PackedStringArray())
+	if raw is PackedStringArray:
+		return (raw as PackedStringArray).has("infantry")
+	return false
+
+func _tag_list(unit: Dictionary) -> PackedStringArray:
+	var tags: PackedStringArray = PackedStringArray()
+	var raw: Variant = unit.get("tags", [])
+	if raw is Array:
+		for item: Variant in raw:
+			tags.append(str(item))
+	return tags
+
+func _tick_ability(u: RTSUnit, delta: float) -> void:
+	u.set_meta("f_ready", maxf(0.0, float(u.get_meta("f_ready", 0.0)) - delta))
+	var status: String = str(u.get_meta("status", "none"))
+	if status != "none":
+		var left: float = float(u.get_meta("status_t", 0.0)) - delta
+		u.set_meta("status_t", left)
+		if left <= 0.0:
+			apply_status(u, "none", 0.0)
+	if not bool(u.get_meta("channeling", false)):
+		return
+	if bool(u.get_meta("frozen", false)):
+		u.set_meta("channeling", false)
+		u.set_meta("channel_t", 0.0)
+		return
+	var channel: float = float(u.get_meta("channel_t", 0.0)) - delta
+	u.set_meta("channel_t", channel)
+	if channel > 0.0:
+		return
+	u.set_meta("channeling", false)
+	u.set_meta("beam_done", int(u.get_meta("beam_done", 0)) + 1)
+	var foe: RTSUnit = nearest_enemy(u.global_position, 240.0)
+	if foe != null:
+		apply_status(foe, "frozen", 3.0)
+
 func nearest_enemy(from: Vector3, reach: float) -> RTSUnit:
 	var best: RTSUnit = null
 	var best_d: float = reach
@@ -335,6 +478,7 @@ func tick(delta: float) -> void:
 		if not u.is_alive():
 			u.queue_free()
 			continue
+		_tick_ability(u, delta)
 		u.advance(delta)
 		var ring: Node3D = u.get_node_or_null("Ring") as Node3D
 		if ring != null:

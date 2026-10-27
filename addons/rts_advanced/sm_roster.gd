@@ -5,6 +5,8 @@ extends RefCounted
 var faction_id: String = ""
 var queue: RTSProductionQueue
 var economy: RTSEconomy = RTSEconomy.new()
+## Optional (id) -> price multiplier. A captured bazaar discounts infantry and drones.
+var price_scale: Callable
 
 func setup(faction: String) -> void:
 	faction_id = faction
@@ -22,7 +24,16 @@ func setup(faction: String) -> void:
 func train(id: StringName) -> bool:
 	if queue == null:
 		return false
-	return queue.enqueue(id, economy)
+	if not queue.enqueue(id, economy):
+		return false
+	if price_scale.is_valid():
+		var mult: float = float(price_scale.call(id))
+		if mult > 0.0 and mult < 1.0:
+			var cost: int = int(queue.catalog[id]["cost"])
+			var refund: int = cost - int(roundf(float(cost) * mult))
+			if refund > 0:
+				economy.earn(0, refund)
+	return true
 
 func finish_head() -> StringName:
 	if queue == null or queue.items.is_empty():

@@ -18,13 +18,14 @@ var ui_layer: CanvasLayer
 func _ready() -> void:
 	sim.setup_phillips("gtfc")
 	roster.setup(SMFront.current())
+	roster.price_scale = Callable(self, "_price_scale")
 	_world()
 	_audio()
 	_ui()
 	side.prepare(self, status, sim.grid, sim.yard.center, roster.economy)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
-	hud.mount(ui_layer, field, roster, side, "Phillips Channel", sim.yard.center, Callable(self, "_on_ability"), sim.grid, cam)
+	hud.mount(ui_layer, field, roster, side, "Phillips Channel", sim.yard.center, Callable(self, "fire_ability"), sim.grid, cam)
 	outcome.mount(self, ui_layer)
 	sight.bind(sim.grid)
 	hud.use_sight(sight)
@@ -116,6 +117,7 @@ func _ui() -> void:
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	field.bind_faction(self, cam, SMFront.current())
+	field.ew = sim.ew
 	field.use_domain(sim.grid)
 	field.attach_box(ui_layer)
 	var kinds: Array[StringName] = SMFront.kinds()
@@ -161,8 +163,51 @@ func _on_build() -> void:
 func _on_cross() -> void:
 	_say("crossed" if sim.cross_channel() else "cannot cross")
 
+func fire_ability() -> bool:
+	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
+	var cast: String = field.cast_f(field.aim_from_camera(cam, get_viewport().get_mouse_position()))
+	var ok: bool = cast != "" or sim.use_f()
+	_say("ability fired" if ok else "ability not ready")
+	return ok
+
 func _on_ability() -> void:
-	_say("ability fired" if sim.use_f() else "ability not ready")
+	fire_ability()
+
+func _price_scale(id: StringName) -> float:
+	return sim.tech.discount(SMPointer.PLAYER, _unit_tag(id))
+
+func _unit_tag(id: StringName) -> String:
+	for unit: Dictionary in SMCatalog.units_of(SMCatalog.faction(roster.faction_id)):
+		if str(unit.get("id", "")) != str(id):
+			continue
+		var raw: Variant = unit.get("tags", [])
+		if raw is Array:
+			for item: Variant in raw:
+				var tag: String = str(item)
+				if tag == "drone" or tag == "infantry":
+					return tag
+	return ""
+
+## Income, night shift, rare-earth stock, water harm, cyber siphon, and clinic healing.
+func tick_world(delta: float) -> void:
+	sim.goods.advance(delta, roster.economy)
+	sim.tech.advance(delta, roster.economy, SMPointer.ENEMY)
+	if _owns(SMTechNet.CLINIC):
+		for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+			if field.is_infantry(u) and u.hp < u.max_hp:
+				u.hp = minf(u.max_hp, u.hp + 2.0 * delta)
+	for u: RTSUnit in field.units:
+		if not is_instance_valid(u) or not u.is_alive() or not field.is_infantry(u):
+			continue
+		var harm: float = sim.goods.harm_infantry(u.global_position, bool(u.get_meta("shielded", false)), delta)
+		if harm > 0.0:
+			u.take_damage(harm)
+
+func _owns(kind: StringName) -> bool:
+	for site: Dictionary in sim.tech.sites:
+		if StringName(str(site.get("kind", ""))) == kind and int(site.get("owner", -1)) == SMPointer.PLAYER:
+			return true
+	return false
 
 func _on_engage() -> void:
 	_say("channel clear" if sim.fight_passive() else "still fighting")
@@ -207,6 +252,7 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	tick_world(delta)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
 	hud.refresh()
 	var players: Array[SMBuildYard] = [side.yard, sim.yard]

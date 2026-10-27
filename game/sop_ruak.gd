@@ -41,7 +41,9 @@ func train_unit() -> String:
 	return label
 
 func fire_ability() -> bool:
-	var ok: bool = sim.use_f()
+	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
+	var cast: String = field.cast_f(field.aim_from_camera(cam, get_viewport().get_mouse_position()))
+	var ok: bool = cast != "" or sim.use_f()
 	_say("ability fired" if ok else "ability not ready")
 	return ok
 
