@@ -40,7 +40,7 @@ func tick(_delta: float) -> void:
 
 func show_markers(host: Node3D) -> void:
 	if built and host.get_node_or_null("EnemyYard") == null:
-		_marker(host, "EnemyYard", yard.center + Vector3(0.0, 1.2, 0.0), Vector3(3.2, 2.4, 3.2), Color(0.45, 0.16, 0.14))
+		_marker(host, "EnemyYard", SMPointer.building_at(yard.center), SMPointer.BUILDING_SIZE, Color(0.45, 0.16, 0.14))
 	if expanded and host.get_node_or_null("EnemyClaim") == null:
 		var spot: Vector3 = yard.center + Vector3(3.0, 0.5, 2.0)
 		_marker(host, "EnemyClaim", spot, Vector3(1.2, 0.8, 1.2), Color(0.7, 0.12, 0.22))

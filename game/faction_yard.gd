@@ -53,7 +53,7 @@ func move_packer() -> bool:
 	var dest: Vector3 = grid.cell_center(Vector2i(18, 5))
 	var ok: bool = yard.move_packer(dest)
 	if ok and packer_mesh != null:
-		packer_mesh.position = dest + Vector3(0, 0.8, 0)
+		packer_mesh.position = SMPointer.building_at(dest)
 	_say("packer sailed" if ok else "packer stayed packed")
 	return ok
 
@@ -94,7 +94,7 @@ func place_hub() -> bool:
 	var pos: Vector3 = Vector3(4.0, 0.0, 0.0)
 	var ok: bool = yard.place_finished(&"command_hub", pos)
 	if ok and hub_mesh != null:
-		hub_mesh.position = pos + Vector3(0, 1.2, 0)
+		hub_mesh.position = SMPointer.building_at(pos)
 		hub_mesh.visible = true
 	_say("hub placed" if ok else "hub not ready")
 	return ok
@@ -145,12 +145,12 @@ func _world() -> void:
 	if faction_id == "mvd":
 		_slab("CharcoalPad", Vector3(-40, 0, 0), Vector3(70, 0.35, 90), Color(0.16, 0.18, 0.2))
 		_slab("CyanRing", Vector3(4, 0.1, 0), Vector3(10, 0.2, 10), Color(0.15, 0.75, 0.82))
-		hub_mesh = _slab("HubShell", Vector3(4, 1.2, 0), Vector3(4, 2.4, 4), Color(0.15, 0.75, 0.82))
+		hub_mesh = _slab("HubShell", SMPointer.building_at(Vector3(4, 0, 0)), SMPointer.BUILDING_SIZE, Color(0.15, 0.75, 0.82))
 		hub_mesh.visible = false
 	else:
 		_slab("OliveGround", Vector3(-40, 0, 0), Vector3(70, 0.35, 90), Color(0.35, 0.4, 0.16))
 		_slab("EmeraldWater", Vector3(8, -0.15, -28), Vector3(36, 0.25, 14), Color(0.12, 0.45, 0.32))
-		packer_mesh = _slab("PackerCore", yard.packer_pos + Vector3(0, 0.8, 0), Vector3(3.2, 1.6, 5.0), Color(0.12, 0.62, 0.4))
+		packer_mesh = _slab("PackerCore", SMPointer.building_at(yard.packer_pos), SMPointer.BUILDING_SIZE, Color(0.12, 0.62, 0.4))
 	_slab("FarShore", Vector3(50, 0, 0), Vector3(50, 0.35, 90), Color(0.28, 0.3, 0.26))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"

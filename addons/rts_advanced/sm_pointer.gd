@@ -7,6 +7,7 @@ const PLAYER: int = 0
 const ENEMY: int = 1
 const PICK_PX: float = 28.0
 const ATTACK_M: float = 2.2
+const BUILDING_SIZE: Vector3 = Vector3(2.2, 4.6, 2.2)
 const GTFC_KINDS: Array[StringName] = [&"militia", &"slag_hauler", &"ruby_lancer", &"amber_tank", &"monsoon_tube", &"channel_skiff"]
 const MVD_KINDS: Array[StringName] = [&"clearance_trooper", &"hub_drone", &"charcoal_apc", &"cyan_ifv", &"relay_van", &"river_drone"]
 const NMRF_KINDS: Array[StringName] = [&"river_rifle", &"sampan", &"emerald_gunboat", &"mangrove_tube", &"packer", &"jade_skiff"]
@@ -162,49 +163,64 @@ func _accent_kind(kind: StringName) -> bool:
 			return i % 2 == 1
 	return false
 
-func _role_of(kind: StringName) -> String:
+static func building_at(at: Vector3) -> Vector3:
+	return at + Vector3(0.0, BUILDING_SIZE.y * 0.5, 0.0)
+
+func category_of(kind: StringName) -> String:
+	var unit: Dictionary = _unit_row(kind)
+	if unit.is_empty():
+		return "infantry"
+	var role: String = str(unit.get("role", ""))
+	var loco: String = str(unit.get("locomotion", ""))
+	if role == "infantry" or _tagged(unit, "infantry"):
+		return "infantry"
+	if role == "air" or role == "drone" or loco == "air" or _tagged(unit, "air"):
+		return "aircraft"
+	if role == "boat" or role == "amphibious" or loco == "naval" or _tagged(unit, "naval"):
+		return "boat"
+	return "vehicle"
+
+func _unit_row(kind: StringName) -> Dictionary:
 	var units: Array[Dictionary] = SMCatalog.units_of(SMCatalog.faction(faction_id))
 	for unit: Dictionary in units:
 		if str(unit.get("id", "")) == str(kind):
-			return str(unit.get("role", ""))
-	return ""
+			return unit
+	return {}
 
-func _body_mesh(team: int, kind: StringName) -> MeshInstance3D:
-	if faction_id != "gtfc":
-		var shaped: MeshInstance3D = MeshInstance3D.new()
-		if team == PLAYER and _role_of(kind) == "infantry":
-			var cap: CapsuleMesh = CapsuleMesh.new()
-			cap.radius = 0.42
-			cap.height = 1.6
-			shaped.mesh = cap
-			shaped.position = Vector3(0, 0.85, 0)
-		else:
-			var alt_box: BoxMesh = BoxMesh.new()
-			alt_box.size = Vector3(1.3, 0.8, 2.1)
-			shaped.mesh = alt_box
-			shaped.position = Vector3(0, 0.4, 0)
-		return shaped
+func _tagged(unit: Dictionary, tag: String) -> bool:
+	var raw: Variant = unit.get("tags", [])
+	if not (raw is Array):
+		return false
+	for item: Variant in raw:
+		if str(item) == tag:
+			return true
+	return false
+
+func _body_mesh(_team: int, kind: StringName) -> MeshInstance3D:
 	var body: MeshInstance3D = MeshInstance3D.new()
-	if team != PLAYER or kind == &"amber_tank" or kind == &"slag_hauler" or kind == &"monsoon_tube" or kind == &"channel_skiff":
-		var box_mesh: BoxMesh = BoxMesh.new()
-		if kind == &"monsoon_tube":
-			box_mesh.size = Vector3(0.7, 0.7, 2.6)
-		elif kind == &"channel_skiff":
-			box_mesh.size = Vector3(1.2, 0.45, 2.3)
-		elif kind == &"amber_tank":
-			box_mesh.size = Vector3(1.7, 0.9, 2.3)
-		elif kind == &"slag_hauler":
-			box_mesh.size = Vector3(1.4, 1.0, 2.2)
-		else:
-			box_mesh.size = Vector3(1.15, 1.25, 1.15)
-		body.mesh = box_mesh
-		body.position = Vector3(0, box_mesh.size.y * 0.5, 0)
-	else:
+	body.name = "Body"
+	var category: String = category_of(kind)
+	if category == "infantry":
 		var cap: CapsuleMesh = CapsuleMesh.new()
-		cap.radius = 0.4 if kind == &"ruby_lancer" else 0.45
-		cap.height = 1.8 if kind == &"ruby_lancer" else 1.6
+		cap.radius = 0.26
+		cap.height = 1.7
 		body.mesh = cap
 		body.position = Vector3(0, 0.85, 0)
+	elif category == "aircraft":
+		var wedge: PrismMesh = PrismMesh.new()
+		wedge.size = Vector3(1.9, 0.28, 2.4)
+		body.mesh = wedge
+		body.position = Vector3(0, 1.35, 0)
+	elif category == "boat":
+		var hull: BoxMesh = BoxMesh.new()
+		hull.size = Vector3(0.62, 0.36, 2.9)
+		body.mesh = hull
+		body.position = Vector3(0, 0.2, 0)
+	else:
+		var wide: BoxMesh = BoxMesh.new()
+		wide.size = Vector3(2.2, 0.8, 1.2)
+		body.mesh = wide
+		body.position = Vector3(0, 0.4, 0)
 	return body
 
 func units_of(team: int) -> Array[RTSUnit]:

@@ -28,13 +28,13 @@ func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector
 	if style_name == "internal":
 		yard.style = SMBuildYard.Style.INTERNAL
 		yard.clearance = 1
-		hub_mesh = _slab("HubShell", center + Vector3(4.0, 1.2, 0.0), Vector3(4, 2.4, 4), Color.html("#26BFD1"))
+		hub_mesh = _slab("HubShell", SMPointer.building_at(center + Vector3(4.0, 0.0, 0.0)), SMPointer.BUILDING_SIZE, Color.html("#26BFD1"))
 		hub_mesh.visible = false
 	elif style_name == "mobile":
 		yard.style = SMBuildYard.Style.MOBILE
 		yard.grid = grid
 		yard.packer_pos = center
-		packer_mesh = _slab("PackerCore", center + Vector3(0, 0.8, 0), Vector3(3.2, 1.6, 5.0), Color.html("#1F9E66"))
+		packer_mesh = _slab("PackerCore", SMPointer.building_at(center), SMPointer.BUILDING_SIZE, Color.html("#1F9E66"))
 	else:
 		yard.style = SMBuildYard.Style.SCAFFOLD
 
@@ -51,7 +51,7 @@ func move_packer() -> bool:
 	var dest: Vector3 = yard.packer_pos + Vector3(8.0, 0.0, 0.0)
 	var ok: bool = yard.move_packer(dest)
 	if ok and packer_mesh != null:
-		packer_mesh.position = dest + Vector3(0, 0.8, 0)
+		packer_mesh.position = SMPointer.building_at(dest)
 	_say("packer sailed" if ok else "packer stayed packed")
 	return ok
 
@@ -92,7 +92,7 @@ func place_hub() -> bool:
 	var pos: Vector3 = yard.center + Vector3(4.0, 0.0, 0.0)
 	var ok: bool = yard.place_finished(&"command_hub", pos)
 	if ok and hub_mesh != null:
-		hub_mesh.position = pos + Vector3(0, 1.2, 0)
+		hub_mesh.position = SMPointer.building_at(pos)
 		hub_mesh.visible = true
 	_say("hub placed" if ok else "hub not ready")
 	return ok
@@ -109,7 +109,7 @@ func _order_scaffold(id: StringName) -> String:
 	if not yard.finished.has(id):
 		_say("scaffold stalled")
 		return "scaffold stalled"
-	_slab("Built_%s" % str(id), pos + Vector3(0, 1.2, 0), Vector3(3.2, 2.4, 3.2), SMFront.primary())
+	_slab("Built_%s" % str(id), SMPointer.building_at(pos), SMPointer.BUILDING_SIZE, SMFront.primary())
 	_say("%s built" % str(id))
 	return "built"
 
@@ -132,10 +132,10 @@ func _order_internal(id: StringName) -> String:
 			_say("hub not ready")
 			return "hub not ready"
 	if hub_mesh != null and yard.placed.size() == 1:
-		hub_mesh.position = pos + Vector3(0, 1.2, 0)
+		hub_mesh.position = SMPointer.building_at(pos)
 		hub_mesh.visible = true
 	else:
-		_slab("Built_%s" % str(id), pos + Vector3(0, 1.2, 0), Vector3(3.2, 2.4, 3.2), SMFront.accent())
+		_slab("Built_%s" % str(id), SMPointer.building_at(pos), SMPointer.BUILDING_SIZE, SMFront.accent())
 	_say("hub placed")
 	return "placed"
 
@@ -151,7 +151,7 @@ func _order_mobile(id: StringName) -> String:
 	move_packer()
 	var ok: bool = yard.unpack(id)
 	if ok:
-		_slab("Built_%s" % str(id), yard.packer_pos + Vector3(0, 1.2, 0), Vector3(4.0, 2.2, 6.0), SMFront.accent())
+		_slab("Built_%s" % str(id), SMPointer.building_at(yard.packer_pos), SMPointer.BUILDING_SIZE, SMFront.accent())
 	_say("wharf unpacked" if ok else "already unpacked")
 	return "unpacked" if ok else "already unpacked"
 

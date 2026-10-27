@@ -49,8 +49,8 @@ func _world() -> void:
 	_slab("DeepChannel", Vector3(0, -0.2, 0), Vector3(40, 0.3, 96), Color(0.08, 0.22, 0.42))
 	_slab("ShallowNorth", Vector3(0, 0.05, -26), Vector3(40, 0.25, 12), Color(0.2, 0.45, 0.55))
 	_slab("ShallowSouth", Vector3(0, 0.05, 26), Vector3(40, 0.25, 12), Color(0.2, 0.45, 0.55))
-	_slab("PlayerYard", sim.yard.center + Vector3(0, 1.2, 0), Vector3(4, 2.4, 4), SMFront.primary())
-	_slab("EnemyBase", sim.grid.cell_center(Vector2i(32, 12)) + Vector3(0, 1.2, 0), Vector3(4, 2.4, 4), Color(0.16, 0.17, 0.18))
+	_slab("PlayerYard", SMPointer.building_at(sim.yard.center), SMPointer.BUILDING_SIZE, SMFront.primary())
+	_slab("EnemyBase", SMPointer.building_at(sim.grid.cell_center(Vector2i(32, 12))), SMPointer.BUILDING_SIZE, Color(0.16, 0.17, 0.18))
 	var slag_pos: Vector3 = sim.goods.nodes[0]["pos"] as Vector3
 	_slab("NodeMarker", slag_pos + Vector3(0, 0.5, 0), Vector3(1.6, 0.8, 1.6), Color(0.88, 0.62, 0.12))
 	_capsule("Jammer", sim.ew.center + Vector3(0, 1.2, 0), Color(0.15, 0.75, 0.82))

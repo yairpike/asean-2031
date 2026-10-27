@@ -58,6 +58,7 @@ func _run() -> void:
 	await H.section("test_sm_hud", test_sm_hud)
 	await H.section("test_sm_outcome", test_sm_outcome)
 	await H.section("test_sm_sight", test_sm_sight)
+	await H.section("test_sm_shapes", test_sm_shapes)
 	await H.section("test_sm_boot", test_sm_boot)
 	quit(H.finish())
 
@@ -1331,6 +1332,56 @@ func _sight_radar(path: String) -> void:
 	scene.free()
 	await process_frame
 
+func test_sm_shapes() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	check(_shape_is(field, 0, "militia", "capsule") and _shape_is(field, 0, "ruby_lancer", "capsule"), "infantry is a thin capsule")
+	check(_shape_is(field, 0, "slag_hauler", "wide") and _shape_is(field, 0, "amber_tank", "wide") and _shape_is(field, 0, "monsoon_tube", "wide"), "vehicles are a wide box")
+	check(_shape_is(field, 0, "channel_skiff", "hull"), "boats are a long hull")
+	check(_shape_is(field, 1, "raider", "capsule"), "enemy soldiers are a thin capsule")
+	check(field.name_of(_unit_kind(field, 0, "militia")) == "Militia", "the floating name stays")
+	var player_yard: BoxMesh = (scene.get_node("PlayerYard") as MeshInstance3D).mesh as BoxMesh
+	var enemy_yard: BoxMesh = (scene.get_node("EnemyYard") as MeshInstance3D).mesh as BoxMesh
+	check(_taller(player_yard) and _taller(enemy_yard), "yard buildings are a taller block")
+	var side: SMSide = scene.get("side") as SMSide
+	side.order_building(&"scaffold_yard")
+	var built: MeshInstance3D = scene.get_node_or_null("Built_scaffold_yard") as MeshInstance3D
+	var built_mesh: BoxMesh = null
+	if built != null:
+		built_mesh = built.mesh as BoxMesh
+	check(_taller(built_mesh), "a finished building is a taller block")
+	field.faction_id = "mvd"
+	var gunship: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(-40, 0, -20), &"cyan_gunship")
+	check(_mesh_kind(gunship) == "wedge", "aircraft is a flat wedge")
+	var tint: Color = _albedo(_unit_kind(field, 0, "militia"))
+	check(tint.r > 0.6 and tint.g < 0.3, "unit color stays with the faction")
+	scene.free()
+	await process_frame
+	var mvd: Node = (load("res://game/mvd_yard.tscn") as PackedScene).instantiate()
+	root.add_child(mvd)
+	await process_frame
+	var mfield: SMPointer = mvd.get("field") as SMPointer
+	check(_shape_is(mfield, 0, "clearance_trooper", "capsule"), "mvd infantry is a thin capsule")
+	check(_shape_is(mfield, 0, "hub_drone", "wedge") and _shape_is(mfield, 0, "river_drone", "wedge"), "mvd aircraft is a flat wedge")
+	check(_shape_is(mfield, 0, "charcoal_apc", "wide"), "mvd vehicles are a wide box")
+	check(_taller((mvd.get_node("HubShell") as MeshInstance3D).mesh as BoxMesh), "the mvd hub is a taller block")
+	mvd.free()
+	await process_frame
+	var nmrf: Node = (load("res://game/nmrf_yard.tscn") as PackedScene).instantiate()
+	root.add_child(nmrf)
+	await process_frame
+	var nfield: SMPointer = nmrf.get("field") as SMPointer
+	check(_shape_is(nfield, 0, "river_rifle", "capsule"), "nmrf infantry is a thin capsule")
+	check(_shape_is(nfield, 0, "sampan", "hull") and _shape_is(nfield, 0, "emerald_gunboat", "hull"), "nmrf boats are a long hull")
+	check(_shape_is(nfield, 0, "packer", "wide"), "the packer unit is a wide box")
+	check(_taller((nmrf.get_node("PackerCore") as MeshInstance3D).mesh as BoxMesh), "the packer building is a taller block")
+	nmrf.free()
+	await process_frame
+	SMFront.faction_id = "gtfc"
+
 func test_sm_boot() -> void:
 	SMFront.faction_id = "gtfc"
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
@@ -1455,6 +1506,43 @@ func _has_names(field: SMPointer, need: PackedStringArray) -> bool:
 		if not names.has(item):
 			return false
 	return true
+
+func _unit_kind(field: SMPointer, team: int, kind: String) -> RTSUnit:
+	for u: RTSUnit in field.units_of(team):
+		if str(u.unit_type) == kind:
+			return u
+	return null
+
+func _mesh_kind(u: RTSUnit) -> String:
+	if u == null:
+		return ""
+	var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
+	if body == null or body.mesh == null or u.get_node_or_null("NameTag") == null:
+		return ""
+	if body.mesh is CapsuleMesh:
+		var cap: CapsuleMesh = body.mesh as CapsuleMesh
+		if cap.radius <= 0.34 and cap.height >= 1.4:
+			return "capsule"
+		return "fat"
+	if body.mesh is PrismMesh:
+		var prism: PrismMesh = body.mesh as PrismMesh
+		if prism.size.y <= 0.45 and prism.size.z > prism.size.y * 3.0:
+			return "wedge"
+		return "prism"
+	if body.mesh is BoxMesh:
+		var box: BoxMesh = body.mesh as BoxMesh
+		if box.size.z >= box.size.x * 3.0 and box.size.y < box.size.x:
+			return "hull"
+		if box.size.x > box.size.z and box.size.x > box.size.y:
+			return "wide"
+		return "box"
+	return ""
+
+func _shape_is(field: SMPointer, team: int, kind: String, want: String) -> bool:
+	return _mesh_kind(_unit_kind(field, team, kind)) == want
+
+func _taller(box: BoxMesh) -> bool:
+	return box != null and box.size.y > box.size.x and box.size.y > box.size.z
 
 func _albedo(u: RTSUnit) -> Color:
 	var body: MeshInstance3D = u.get_child(0) as MeshInstance3D
