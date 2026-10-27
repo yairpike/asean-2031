@@ -241,6 +241,63 @@ func bind_raid(p_host: Node3D, p_raid: SMMission, p_field: SMPointer, p_side: SM
 	goods = p_raid.goods
 	_ruby = true
 
+func progress() -> String:
+	if raid != null:
+		return _raid_line()
+	if _towers:
+		return "Drop the EW towers (%d), then the hangars (%d)." % [_left("tower"), _left("hangar")]
+	if _fleet:
+		return "Sink the joint fleet (%d)." % _left("fleet")
+	if _column:
+		return "Freeze the column (%d/%d), then destroy it (%d left)." % [_column_frozen, _column_need, _left("column")]
+	if _supers:
+		return "Destroy both superweapons (%d left)." % _left("super")
+	if _beam:
+		var beam: String = "beam fired" if _beamed else "fire the beam"
+		var frozen: String = "phantom frozen" if _phantom_frozen else "freeze the phantom"
+		return "Plain of Jars: %s, %s. Phantom %d, battery %d." % [beam, frozen, _left("phantom"), _left("battery")]
+	if _kill:
+		var ghost: String = "ghost down" if not _living(_first_enemy()) else "ghost standing"
+		return "Patani: %s. GPS shots must miss. Fiber stays true." % ghost
+	if _cross:
+		if _crossed():
+			return "Clear the shore (%d). A boat is on the far shore." % _left("clear")
+		return "Clear the shore (%d). Land a boat on the far shore." % _left("clear")
+	if _packer:
+		var level: int = 0
+		if sail != null:
+			level = sail.factory_level(&"gun_wharf")
+		return "Sink the boats (%d). Raise the wharf to level 2 (now %d)." % [_left("clear"), level]
+	if _haze:
+		if tech == null or not tech.reveals_water(SMPointer.PLAYER):
+			return "Capture the radar, then hold it through the haze."
+		return "Hold the radar through the haze. %d seconds left." % _secs()
+	if _radar:
+		if _left("clear") > 0:
+			return "Clear the garrison (%d) and hold the hydro radar." % _left("clear")
+		if tech != null and tech.reveals_water(SMPointer.PLAYER):
+			return "Garrison clear. Hydro radar is held."
+		return "Garrison clear. Hold the hydro radar."
+	if _cyber:
+		if _left("clear") > 0:
+			return "Clear the garrison (%d), then siphon the compound." % _left("clear")
+		var siphon: int = 0
+		if tech != null:
+			siphon = tech.siphon_of(&"compound")
+		return "Garrison clear. Siphon the compound (%d)." % siphon
+	if _ruby:
+		var paid: int = 0
+		if goods != null:
+			paid = goods.paid_of(&"ruby")
+		if _left("clear") > 0:
+			return "Clear the ambush (%d). Then run the ruby night shift." % _left("clear")
+		return "Ambush clear. Ruby night shift %d/30." % paid
+	if _hold:
+		return "Keep the ferry alive. %d seconds left." % _secs()
+	if ending != "":
+		return ending
+	return "Fight the briefing."
+
 func tick(delta: float) -> bool:
 	if done or lost or field == null or ending == "":
 		return false
@@ -457,6 +514,29 @@ func _freeze_duty(duty: String, duration: float) -> void:
 	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
 		if _living(u) and str(u.get_meta("duty", "")) == duty and not bool(u.get_meta("frozen", false)):
 			field.apply_status(u, "frozen", duration)
+
+func _raid_line() -> String:
+	var yard_up: bool = raid.yard.finished.has(&"scaffold_yard")
+	var paid: int = raid.ruby_paid
+	if goods != null:
+		paid = maxi(paid, goods.paid_of(&"ruby"))
+	var stock: int = 0
+	if raid.goods != null:
+		stock = raid.goods.stock_of(0)
+	var yard_bit: String = "yard up" if yard_up else "raise the yard"
+	var ruby_bit: String = "ruby paid"
+	if paid < 30:
+		ruby_bit = "ruby night shift %d/30" % paid
+	var rare_bit: String = "rare earth home" if stock >= 1 else "bring one rare-earth stock"
+	return "Kokang: %s. %s. %s." % [yard_bit, ruby_bit, rare_bit]
+
+func _left(duty: String) -> int:
+	if not _alive.has(duty):
+		return 0
+	return int(_alive[duty])
+
+func _secs() -> int:
+	return int(ceil(hold_left))
 
 func _company_alive() -> bool:
 	for u: RTSUnit in field.units_of(SMPointer.PLAYER):

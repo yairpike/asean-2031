@@ -74,6 +74,7 @@ func _run() -> void:
 	await H.section("test_sm_guide", test_sm_guide)
 	await H.section("test_sm_bark", test_sm_bark)
 	await H.section("test_sm_orders_mark", test_sm_orders_mark)
+	await H.section("test_sm_goal", test_sm_goal)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2527,6 +2528,66 @@ func test_sm_orders_mark() -> void:
 	var jumped: Vector3 = mm.pan_to(Vector2(190, 10))
 	check(mm != null and mm.camera.focus.distance_to(jumped) < 1.0 and mm.covers_focus(), "a minimap click jumps the camera")
 	scene.free()
+	await process_frame
+	SMCampaign.selected = "tachileik"
+	SMFront.faction_id = "gtfc"
+
+func test_sm_goal() -> void:
+	SMCampaign.selected = "kokang"
+	var raid: Node = (load("res://game/mission_kokang.tscn") as PackedScene).instantiate()
+	root.add_child(raid)
+	await process_frame
+	var raid_status: Label = raid.find_child("Status", true, false) as Label
+	check(raid_status != null and raid_status.text.contains("raise the yard") and raid_status.text.contains("rare-earth"), "kokang shows the yard, ruby, and rare-earth goal")
+	raid.free()
+	await process_frame
+	SMCampaign.selected = "operation_1027"
+	var wave: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(wave)
+	await process_frame
+	var wave_status: Label = wave.find_child("Status", true, false) as Label
+	check(wave_status != null and wave_status.text.contains("EW towers (2)") and wave_status.text.contains("hangars (2)"), "1027 shows towers before hangars")
+	wave.free()
+	await process_frame
+	SMCampaign.selected = "tonle_sap"
+	var ferry: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(ferry)
+	await process_frame
+	var ferry_status: Label = ferry.find_child("Status", true, false) as Label
+	var ferry_story: SMStory = ferry.get("story") as SMStory
+	var shown: int = int(ceil(ferry_story.hold_left))
+	check(ferry_status != null and ferry_status.text.contains("ferry") and ferry_status.text.contains(str(shown)), "tonle sap shows the ferry timer")
+	ferry._process(1.0)
+	var next: int = int(ceil(ferry_story.hold_left))
+	check(next < shown and ferry_status.text.contains(str(next)), "the ferry timer counts down")
+	ferry.free()
+	await process_frame
+	SMCampaign.selected = "keng_tung"
+	var column: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(column)
+	await process_frame
+	var column_status: Label = column.find_child("Status", true, false) as Label
+	check(column_status != null and column_status.text.contains("Freeze the column (0/3)"), "keng tung says to freeze the column first")
+	column.free()
+	await process_frame
+	SMCampaign.selected = "black_haze"
+	var haze: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(haze)
+	await process_frame
+	var haze_status: Label = haze.find_child("Status", true, false) as Label
+	check(haze_status != null and haze_status.text.contains("Capture the radar") and haze_status.text.contains("haze"), "black haze says to capture the radar before the hold")
+	haze.free()
+	await process_frame
+	SMCampaign.selected = "tachileik"
+	var ambush: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(ambush)
+	await process_frame
+	var field: SMPointer = ambush.get("field") as SMPointer
+	_wipe(field.units_of(0))
+	ambush._process(0.2)
+	var ambush_status: Label = ambush.find_child("Status", true, false) as Label
+	check(ambush_status != null and ambush_status.text == "Objective failed", "a wiped company still reads Objective failed")
+	ambush.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"
 	SMFront.faction_id = "gtfc"

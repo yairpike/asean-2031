@@ -79,6 +79,10 @@ func _ui() -> void:
 	status.name = "Status"
 	status.position = Vector2(224, 176)
 	status.text = "Golden Slag / Aurum-9 stays in the yard ledger. Ruby and rare earth are the raid."
+	status.custom_minimum_size = Vector2(820, 52)
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.add_theme_font_size_override("font_size", 18)
+	status.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
 	layer.add_child(status)
 
 func _arm_units() -> void:
@@ -146,11 +150,15 @@ func _process(delta: float) -> void:
 	cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
 	story.tick(delta)
-	if story.lost and status != null and status.text != "Objective failed":
-		_say("Objective failed")
-	elif story.done and status != null and status.text != "Objective complete":
-		_say("Objective complete")
-		SMSave.mark("kokang")
+	if story.lost:
+		if status != null and status.text != "Objective failed":
+			_say("Objective failed")
+	elif story.done:
+		if status != null and status.text != "Objective complete":
+			_say("Objective complete")
+			SMSave.mark("kokang")
+	elif status != null:
+		status.text = story.progress()
 	hud.refresh()
 
 func _unhandled_input(event: InputEvent) -> void:
