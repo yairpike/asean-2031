@@ -1906,6 +1906,14 @@ func test_sm_boot() -> void:
 	root.add_child(boot)
 	await process_frame
 	check(boot.find_child("TabSkirmish", true, false) != null and boot.find_child("TabCampaign", true, false) != null and boot.find_child("TabFaction", true, false) != null, "boot has three tabs")
+	var game_title: Label = boot.find_child("GameTitle", true, false) as Label
+	var control_bar: Label = boot.find_child("ControlBar", true, false) as Label
+	var title_font: Font = game_title.get_theme_font("font") if game_title != null else null
+	var bar_font: Font = control_bar.get_theme_font("font") if control_bar != null else null
+	check(game_title != null and game_title.text == "ASEAN 2031" and str(ProjectSettings.get_setting("application/config/name")) == "ASEAN 2031", "the boot title and window title are ASEAN 2031")
+	check(title_font != null and title_font.resource_path.contains("Warheed") and game_title.theme_type_variation == "Header", "the boot title uses Warheed")
+	check(bar_font != null and bar_font.resource_path.contains("OperationNapalm"), "the control bar uses Operation Napalm")
+	check(SMCampaign.title_of("shattered_monsoon") == "Operation Shattered Monsoon", "the final mission keeps its story name")
 	check(_bar_ok(boot), "the control bar lists select, move, ability, pan, and zoom")
 	var play: Button = boot.find_child("PlayButton", true, false) as Button
 	check(play != null and play.disabled, "play waits for a map")
@@ -1947,6 +1955,8 @@ func test_sm_boot() -> void:
 	await process_frame
 	var field: SMPointer = scene.get("field") as SMPointer
 	check(_has_names(field, PackedStringArray(["Patani Corsair Guard", "Malacca Pocket-Sub", "Krakatoa Dreadnought", "Phillips Wave-Cannon", "Garuda Mecha-Overlord", "Johor Loiter-Swarm"])), "burma plays the selected nmrf side")
+	var hud_title: Label = scene.find_child("HudTitle", true, false) as Label
+	check(hud_title != null and hud_title.text == "ASEAN 2031" and hud_title.theme_type_variation == "Header", "the hud titles the match ASEAN 2031")
 	check(scene.find_child("MovePacker", true, false) != null, "nmrf skirmish can move the packer")
 	check(str(scene.call("train_unit")) == "Sulu Tank-Buster", "nmrf skirmish trains an nmrf unit")
 	scene.free()

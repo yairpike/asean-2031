@@ -30,6 +30,7 @@ func mount(p_host: Node, layer: CanvasLayer) -> void:
 	panel.add_child(shade)
 	banner = Label.new()
 	banner.name = "MatchBanner"
+	banner.theme_type_variation = "Header"
 	banner.position = Vector2(0, 260)
 	banner.size = Vector2(1280, 72)
 	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

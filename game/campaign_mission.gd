@@ -69,7 +69,10 @@ func _ui() -> void:
 	ui_layer = CanvasLayer.new()
 	add_child(ui_layer)
 	var title: Label = Label.new()
+	title.name = "MissionHeading"
 	title.text = SMCampaign.title_of(mission_id)
+	title.theme_type_variation = "Header"
+	title.add_theme_font_size_override("font_size", 22)
 	title.position = Vector2(224, 48)
 	ui_layer.add_child(title)
 	var brief: Label = Label.new()

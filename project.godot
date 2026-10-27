@@ -2,13 +2,16 @@
 config_version=5
 
 [application]
-config/name="Shattered Monsoon"
+config/name="ASEAN 2031"
 run/main_scene="res://game/boot.tscn"
 config/features=PackedStringArray("4.7")
 
 [debug]
 gdscript/warnings/untyped_declaration=2
 gdscript/warnings/inferred_declaration=0
+
+[gui]
+theme/custom="res://assets/theme/game_theme.tres"
 
 [display]
 window/size/viewport_width=1280

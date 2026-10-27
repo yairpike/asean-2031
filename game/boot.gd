@@ -18,8 +18,10 @@ func _ready() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var title: Label = Label.new()
-	title.text = "Shattered Monsoon"
+	title.name = "GameTitle"
+	title.text = "ASEAN 2031"
 	title.position = Vector2(48, 16)
+	title.theme_type_variation = "Header"
 	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", Color(0.95, 0.94, 0.9))
 	add_child(title)
@@ -73,6 +75,7 @@ func _skirmish() -> void:
 	play_button = Button.new()
 	play_button.name = "PlayButton"
 	play_button.text = "Play"
+	play_button.theme_type_variation = "HeaderButton"
 	play_button.position = Vector2(980, 448)
 	play_button.custom_minimum_size = Vector2(200, 56)
 	play_button.disabled = true
@@ -93,6 +96,7 @@ func _campaign() -> void:
 		var b: Button = Button.new()
 		b.name = _act_button_name(act)
 		b.text = SMCampaign.act_title(act)
+		b.theme_type_variation = "HeaderButton"
 		b.position = Vector2(48, 48 + i * 56)
 		b.custom_minimum_size = Vector2(180, 44)
 		_style_button(b, Color(0.12, 0.14, 0.18), Color(0.35, 0.38, 0.42), false)
@@ -152,6 +156,7 @@ func _tab(caption: String, node_name: String, which: String, x: float) -> void:
 	var b: Button = Button.new()
 	b.name = node_name
 	b.text = caption
+	b.theme_type_variation = "HeaderButton"
 	b.position = Vector2(x, 56)
 	b.custom_minimum_size = Vector2(180, 38)
 	b.add_theme_font_size_override("font_size", 18)
@@ -171,6 +176,7 @@ func _card(panel: Control, node_name: String, map_name: String, terrain: String,
 	var title: Label = Label.new()
 	title.name = "Title"
 	title.text = map_name
+	title.theme_type_variation = "Header"
 	title.position = Vector2(16, 16)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.add_theme_font_size_override("font_size", 18)
@@ -192,6 +198,7 @@ func _mission_row(box: VBoxContainer, mission_id: String) -> void:
 	var b: Button = Button.new()
 	b.name = "Mission_%s" % mission_id
 	b.text = SMCampaign.title_of(mission_id)
+	b.theme_type_variation = "HeaderButton"
 	b.custom_minimum_size = Vector2(720, 34)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_style_button(b, Color(0.12, 0.13, 0.16), Color(0.32, 0.34, 0.38), false)
@@ -220,6 +227,7 @@ func _faction_card(id: String, node_name: String, pos: Vector2) -> void:
 	var title: Label = Label.new()
 	title.name = "Title"
 	title.text = SMFront.display_name()
+	title.theme_type_variation = "Header"
 	title.position = Vector2(18, 16)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.add_theme_font_size_override("font_size", 26)

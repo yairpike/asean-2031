@@ -92,6 +92,7 @@ func _column(layer: CanvasLayer) -> void:
 	box.custom_minimum_size = Vector2(220, 0)
 	box.add_theme_constant_override("separation", 4)
 	scroll.add_child(box)
+	_header(box, "HudTitle", "ASEAN 2031")
 	_header(box, "GroupBuildings", "Buildings")
 	var data: Dictionary = SMCatalog.faction(_faction_id())
 	var raw: Variant = data.get("buildings", [])
@@ -209,6 +210,7 @@ func _header(box: VBoxContainer, node_name: String, text: String) -> void:
 	var label: Label = Label.new()
 	label.name = node_name
 	label.text = text
+	label.theme_type_variation = "Header"
 	label.add_theme_font_size_override("font_size", 15)
 	label.add_theme_color_override("font_color", Color(0.9, 0.78, 0.45))
 	box.add_child(label)

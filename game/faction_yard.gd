@@ -167,7 +167,10 @@ func _ui() -> void:
 	ui_layer = CanvasLayer.new()
 	add_child(ui_layer)
 	var title: Label = Label.new()
+	title.name = "YardTitle"
 	title.text = _title()
+	title.theme_type_variation = "Header"
+	title.add_theme_font_size_override("font_size", 22)
 	title.position = Vector2(16, 12)
 	ui_layer.add_child(title)
 	var ability: Button = Button.new()
