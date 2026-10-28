@@ -3,6 +3,7 @@ extends Control
 ## a unit card, and a slot for the protocol panel. Our frames and colors, not a copy of another game's art.
 
 const SWEEP := preload("res://game/cameo_sweep.gd")
+const Art = preload("res://game/served_art.gd")
 
 static func install(layer: CanvasLayer, hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	var root: Control = (load("res://game/match_hud.tscn") as PackedScene).instantiate() as Control
@@ -12,6 +13,7 @@ static func install(layer: CanvasLayer, hud: SMHud, grid: SMDomainGrid, camera: 
 func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	hud.use_tiles = true
 	_style_self()
+	_command_bar(hud)
 	var top: HBoxContainer = _top_bar()
 	var now_playing: Label = Label.new()
 	now_playing.name = "NowPlaying"
@@ -257,6 +259,30 @@ func _top_bar() -> HBoxContainer:
 	top.add_child(row)
 	return row
 
+func _command_bar(hud: SMHud) -> void:
+	var tex: Texture2D = Art.texture("ui/frames/%s_command_bar.webp" % _faction(hud))
+	if tex == null:
+		return
+	var bar: TextureRect = TextureRect.new()
+	bar.name = "CommandBarArt"
+	bar.texture = tex
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_anchor(bar, 0.0, 1.0, 1.0, 1.0, 0.0, -168.0, 0.0, 0.0)
+	add_child(bar)
+	move_child(bar, 0)
+
+func _faction(hud: SMHud) -> String:
+	if hud != null and hud.field != null:
+		var id: String = str(hud.field.get("faction_id"))
+		if id == "gtfc" or id == "nmrf" or id == "mvd":
+			return id
+	var front: String = SMFront.current()
+	if front == "nmrf" or front == "mvd":
+		return front
+	return "gtfc"
+
 func _column() -> ScrollContainer:
 	var shade: ColorRect = ColorRect.new()
 	shade.name = "ColumnShade"
@@ -264,6 +290,17 @@ func _column() -> ScrollContainer:
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_anchor(shade, 1.0, 0.0, 1.0, 1.0, -186.0, 40.0, -8.0, -8.0)
 	add_child(shade)
+	var plate: TextureRect = TextureRect.new()
+	plate.name = "SidebarArt"
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	plate.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	var side_tex: Texture2D = Art.texture("ui/frames/%s_sidebar.webp" % _faction(null))
+	if side_tex != null:
+		plate.texture = side_tex
+		shade.visible = false
+	_anchor(plate, 1.0, 0.0, 1.0, 1.0, -186.0, 40.0, -8.0, -8.0)
+	add_child(plate)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "CommandColumn"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -331,8 +368,8 @@ func _column() -> ScrollContainer:
 	modes.name = "ModeRow"
 	modes.add_theme_constant_override("separation", 4)
 	wrap.add_child(modes)
-	_mode_button(modes, "RepairButton", "Repair")
-	_mode_button(modes, "SellButton", "Sell")
+	_mode_button(modes, "RepairButton", "Repair", "ui/icons/repair.webp")
+	_mode_button(modes, "SellButton", "Sell", "ui/icons/sell.webp")
 	var tabs: GridContainer = GridContainer.new()
 	tabs.name = "BuildTabs"
 	tabs.columns = 3
@@ -340,12 +377,12 @@ func _column() -> ScrollContainer:
 	tabs.add_theme_constant_override("h_separation", 4)
 	tabs.add_theme_constant_override("v_separation", 4)
 	wrap.add_child(tabs)
-	_tab_button(tabs, "TabBuildings", "Buildings")
-	_tab_button(tabs, "TabDefenses", "Defenses")
-	_tab_button(tabs, "TabInfantry", "Infantry")
-	_tab_button(tabs, "TabVehicles", "Vehicles")
-	_tab_button(tabs, "TabAircraft", "Aircraft")
-	_tab_button(tabs, "TabNaval", "Naval")
+	_tab_button(tabs, "TabBuildings", "Buildings", "ui/icons/tab_buildings.webp")
+	_tab_button(tabs, "TabDefenses", "Defenses", "ui/icons/tab_defenses.webp")
+	_tab_button(tabs, "TabInfantry", "Infantry", "ui/icons/tab_infantry.webp")
+	_tab_button(tabs, "TabVehicles", "Vehicles", "ui/icons/tab_vehicles.webp")
+	_tab_button(tabs, "TabAircraft", "Aircraft", "ui/icons/tab_aircraft.webp")
+	_tab_button(tabs, "TabNaval", "Naval", "ui/icons/tab_naval.webp")
 	var grid: GridContainer = GridContainer.new()
 	grid.name = "PhoneIconGrid"
 	grid.columns = 3
@@ -428,7 +465,7 @@ func _unit_card() -> void:
 	commands.add_theme_constant_override("separation", 4)
 	stack.add_child(commands)
 
-func _mode_button(row: HBoxContainer, node_name: String, text: String) -> void:
+func _mode_button(row: HBoxContainer, node_name: String, text: String, icon_path: String) -> void:
 	var button: Button = Button.new()
 	button.name = node_name
 	button.text = text
@@ -436,9 +473,10 @@ func _mode_button(row: HBoxContainer, node_name: String, text: String) -> void:
 	button.custom_minimum_size = Vector2(0, 40)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 14)
+	_set_icon(button, icon_path)
 	row.add_child(button)
 
-func _tab_button(grid: GridContainer, node_name: String, text: String) -> void:
+func _tab_button(grid: GridContainer, node_name: String, text: String, icon_path: String) -> void:
 	var button: Button = Button.new()
 	button.name = node_name
 	button.text = text
@@ -447,7 +485,15 @@ func _tab_button(grid: GridContainer, node_name: String, text: String) -> void:
 	button.custom_minimum_size = Vector2(0, 28)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 11)
+	_set_icon(button, icon_path)
 	grid.add_child(button)
+
+func _set_icon(button: Button, icon_path: String) -> void:
+	var tex: Texture2D = Art.texture(icon_path)
+	if tex == null:
+		return
+	button.icon = tex
+	button.expand_icon = true
 
 func _label(parent: Node, node_name: String, size: int) -> Label:
 	var label: Label = Label.new()

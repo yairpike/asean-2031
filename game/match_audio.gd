@@ -16,6 +16,7 @@ static var _queue: PackedStringArray = PackedStringArray()
 static var _at: int = 0
 static var _player_name: String = ""
 static var now_title: String = ""
+static var _said: Dictionary = {}
 
 static func arm(host: Node, mode: String) -> void:
 	if host == null or host.get_node_or_null("MatchAudio") != null:
@@ -61,7 +62,43 @@ static func current_title() -> String:
 	return now_title
 
 static func is_lazy(rel: String) -> bool:
-	return rel.begins_with("music/user/")
+	return rel.begins_with("music/user/") or rel.begins_with("announcer/")
+
+static func alert_key(text: String) -> String:
+	var line: String = text.to_lower().strip_edges()
+	if line == "low power":
+		return "low_power"
+	if line.ends_with(" built"):
+		return "construction_complete"
+	if line == "cannot train" or line == "cannot import":
+		return "insufficient_funds"
+	if line == "build blocked" or line == "scaffold stalled":
+		return "cannot_deploy_here"
+	if line.begins_with("raid complete") or line == "objective complete":
+		return "mission_accomplished"
+	if line == "objective failed" or line == "raid stalled":
+		return "mission_failed"
+	return ""
+
+static func announce_line(host: Node, faction: String, text: String) -> void:
+	announce_key(host, faction, alert_key(text))
+
+static func announce_key(host: Node, faction: String, key: String) -> void:
+	if host == null or key == "":
+		return
+	var id: String = faction
+	if id != "gtfc" and id != "nmrf" and id != "mvd":
+		id = "gtfc"
+	var now: int = Time.get_ticks_msec()
+	var stamp: int = int(_said.get(key, 0))
+	if now - stamp < 1600:
+		return
+	_said[key] = now
+	_buses()
+	var player: AudioStreamPlayer = _ensure(host, "Announcer")
+	player.bus = "Radio"
+	player.volume_db = -2.0
+	_assign(player, "announcer/%s/%s.ogg" % [id, key], false)
 
 static func tick(host: Node) -> void:
 	if host == null or _queue.is_empty():
@@ -79,9 +116,14 @@ static func tick(host: Node) -> void:
 	_play_current(host)
 
 static func clip_for(unit_id: String, event: String) -> AudioStream:
-	if unit_id == "" or (event != "select" and event != "move" and event != "attack"):
+	if unit_id == "":
 		return null
-	var found: PackedStringArray = _variants(unit_id, event)
+	var file_event: String = event
+	if event == "hurt":
+		file_event = "under_attack"
+	if file_event != "select" and file_event != "move" and file_event != "attack" and file_event != "ability" and file_event != "under_attack":
+		return null
+	var found: PackedStringArray = _variants(unit_id, file_event)
 	if found.is_empty():
 		return null
 	var which: int = absi(("%s:%s" % [unit_id, event]).hash()) % found.size()

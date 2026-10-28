@@ -23,12 +23,16 @@ func mount(p_host: Node, layer: CanvasLayer) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.z_index = 20
 	layer.add_child(panel)
-	var shade: ColorRect = ColorRect.new()
-	shade.color = Color(0.02, 0.03, 0.04, 0.78)
-	shade.anchor_right = 1.0
-	shade.anchor_bottom = 1.0
-	shade.mouse_filter = Control.MOUSE_FILTER_STOP
-	panel.add_child(shade)
+	var art: Control = (load("res://game/menu_backdrop.gd") as GDScript).new() as Control
+	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var faction: String = "gtfc"
+	var field: Variant = p_host.get("field")
+	if field != null:
+		faction = str(field.get("faction_id"))
+	art.call("set_screen", "faction")
+	art.call("set_faction", faction)
+	panel.add_child(art)
 	banner = Label.new()
 	banner.name = "MatchBanner"
 	banner.theme_type_variation = "Header"
@@ -38,24 +42,25 @@ func mount(p_host: Node, layer: CanvasLayer) -> void:
 	banner.anchor_bottom = 0.5
 	banner.offset_top = -36.0
 	banner.offset_bottom = 36.0
-	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	banner.offset_left = 64.0
+	banner.offset_right = -64.0
 	banner.add_theme_font_size_override("font_size", 48)
-	banner.add_theme_color_override("font_color", Color(0.95, 0.94, 0.9))
+	banner.add_theme_color_override("font_color", Color(1, 1, 1))
 	panel.add_child(banner)
-	back = Button.new()
+	back = (load("res://game/menu_plate.gd") as GDScript).new() as Button
 	back.name = "BootMenuButton"
 	back.text = "Boot menu"
-	back.anchor_left = 0.5
+	back.anchor_left = 0.0
 	back.anchor_top = 0.5
-	back.anchor_right = 0.5
+	back.anchor_right = 0.0
 	back.anchor_bottom = 0.5
-	back.offset_left = -120.0
+	back.offset_left = 64.0
 	back.offset_top = 48.0
-	back.offset_right = 120.0
-	back.offset_bottom = 92.0
-	back.custom_minimum_size = Vector2(240, 44)
-	back.add_theme_font_size_override("font_size", 18)
+	back.offset_right = 360.0
+	back.offset_bottom = 100.0
+	back.custom_minimum_size = Vector2(320, 52)
 	back.pressed.connect(_boot)
 	panel.add_child(back)
 
@@ -179,8 +184,7 @@ func _finish(win: bool) -> void:
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	if banner != null:
 		banner.text = "Victory" if win else "Defeat"
-		var ink: Color = Color(0.95, 0.86, 0.45) if win else Color(0.9, 0.32, 0.28)
-		banner.add_theme_color_override("font_color", ink)
+		banner.add_theme_color_override("font_color", Color(1, 1, 1))
 	var status: Label = null
 	if host != null:
 		status = host.find_child("Status", true, false) as Label

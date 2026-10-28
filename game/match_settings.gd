@@ -88,6 +88,16 @@ static func set_edge(on: bool) -> void:
 	edge = on
 	_write()
 
+static func restore() -> void:
+	ensure()
+	graphics = "high"
+	master = 1.0
+	sfx = 1.0
+	pan = 1.0
+	edge = true
+	difficulty = "normal"
+	_write()
+
 static func set_difficulty(id: String) -> void:
 	ensure()
 	if id == "easy" or id == "hard":

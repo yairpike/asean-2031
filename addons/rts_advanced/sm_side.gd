@@ -252,6 +252,11 @@ func _load_buildings(data: Dictionary) -> void:
 func _say(text: String) -> void:
 	if status != null:
 		status.text = text
+	if host == null:
+		return
+	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
+	if clips != null:
+		clips.call("announce_line", host, faction_id, text)
 
 func toggle_repair() -> void:
 	repair_armed = not repair_armed

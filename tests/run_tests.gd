@@ -3485,6 +3485,8 @@ func test_sm_boot() -> void:
 	check(_bar_ok(boot), "the control bar lists select, move, ability, pan, and zoom")
 	var play: Button = boot.find_child("PlayButton", true, false) as Button
 	check(play != null and play.disabled, "play waits for a map")
+	var submenu: Control = boot.find_child("FactionSubmenu", true, false) as Control
+	check(boot.find_child("MenuBackdrop", true, false) != null and submenu != null and not submenu.visible and SMTone.peak(SMTone.cue("ui_click")) > 1000 and SMTone.peak(SMTone.cue("ui_hover")) > 1000, "the menu starts folded, with a sunburst and audible plates")
 	check(_card_line(boot, "CardPhillips", "Phillips Channel", "Water"), "phillips is a water card")
 	check(_card_line(boot, "CardSopRuak", "Sop Ruak", "River"), "sop ruak is a river card")
 	check(_card_line(boot, "CardBurma", "Burma Road", "Land"), "burma road is a land card")
@@ -3497,9 +3499,13 @@ func test_sm_boot() -> void:
 	check(boot.find_child("GreyboxButton", true, false) != null, "greybox stays on the skirmish tab")
 	var campaign: Button = boot.find_child("TabCampaign", true, false) as Button
 	campaign.pressed.emit()
+	var folded: Control = boot.find_child("FactionSubmenu", true, false) as Control
 	var act1: Control = boot.find_child("ActIMissions", true, false) as Control
 	var act2: Control = boot.find_child("ActIIMissions", true, false) as Control
 	var act3: Control = boot.find_child("ActIIIMissions", true, false) as Control
+	check(boot.find_child("MenuBackdrop", true, false) != null and folded != null and folded.is_visible_in_tree() and act1 != null and not act1.is_visible_in_tree(), "campaign opens the faction plates inline")
+	var faction_plate: Button = boot.find_child("FactionGtfc", true, false) as Button
+	faction_plate.pressed.emit()
 	check(act1 != null and act1.is_visible_in_tree() and act2 != null and not act2.is_visible_in_tree() and act3 != null and not act3.is_visible_in_tree(), "only the selected act is listed")
 	check(_bar_ok(boot), "the control bar stays up on campaign")
 	var act2_button: Button = boot.find_child("ActII", true, false) as Button

@@ -4,8 +4,8 @@
 set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="$ROOT/build/web"
-# Optional trees. Set AUDIO_SRC and CAMEO_SRC in the environment, or pass
-# --audio DIR and --cameos DIR. Without them, audio/ and cameos/ already
+# Optional trees. Set AUDIO_SRC, CAMEO_SRC, and MENU_SRC in the environment, or pass
+# --audio DIR, --cameos DIR, and --menu DIR. Without them, folders already
 # next to the export are left in place.
 if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
   DEST="$1"
@@ -29,6 +29,30 @@ while [ $# -gt 0 ]; do
       CAMEO_SRC="$2"
       shift 2
       ;;
+    --menu)
+      if [ $# -lt 2 ]; then
+        echo "finish_web_export: --menu needs a directory"
+        exit 1
+      fi
+      MENU_SRC="$2"
+      shift 2
+      ;;
+    --terrain)
+      if [ $# -lt 2 ]; then
+        echo "finish_web_export: --terrain needs a directory"
+        exit 1
+      fi
+      TERRAIN_SRC="$2"
+      shift 2
+      ;;
+    --ui)
+      if [ $# -lt 2 ]; then
+        echo "finish_web_export: --ui needs a directory"
+        exit 1
+      fi
+      UI_SRC="$2"
+      shift 2
+      ;;
     *)
       echo "finish_web_export: unknown argument $1"
       exit 1
@@ -37,6 +61,9 @@ while [ $# -gt 0 ]; do
 done
 AUDIO_SRC="${AUDIO_SRC:-}"
 CAMEO_SRC="${CAMEO_SRC:-}"
+MENU_SRC="${MENU_SRC:-}"
+TERRAIN_SRC="${TERRAIN_SRC:-}"
+UI_SRC="${UI_SRC:-}"
 # Keep the project worker. Godot's exported worker reloads every open client
 # when it receives "update", which boots a match back to the menu.
 cp "$ROOT/web/sw.js" "$DEST/sw.js"
@@ -136,6 +163,10 @@ if [ -n "$AUDIO_SRC" ]; then
   if [ -f "$AUDIO_SRC/manifest.json" ]; then
     cp "$AUDIO_SRC/manifest.json" "$DEST/audio/manifest.json"
   fi
+  if [ -d "$AUDIO_SRC/announcer" ]; then
+    rm -rf "$DEST/audio/announcer"
+    cp -R "$AUDIO_SRC/announcer" "$DEST/audio/announcer"
+  fi
   # music/user/ is fetched when a song starts, not with the startup clip list.
   find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' ! -path '*/music/user/*' 2>/dev/null \
     | sed "s#^$DEST/audio/##" \
@@ -164,6 +195,46 @@ if [ -n "$CAMEO_SRC" ]; then
     echo "finish_web_export: cameo index is missing militia"
     exit 1
   fi
+fi
+if [ -n "$MENU_SRC" ]; then
+  if [ ! -d "$MENU_SRC" ]; then
+    echo "finish_web_export: menu source is not a directory"
+    exit 1
+  fi
+  if [ ! -d "$MENU_SRC/cinematic" ]; then
+    echo "finish_web_export: menu source has no cinematic folder"
+    exit 1
+  fi
+  rm -rf "$DEST/ui/menu"
+  mkdir -p "$DEST/ui/menu/cinematic"
+  find "$MENU_SRC/cinematic" -maxdepth 1 -type f \( -name '*.webp' -o -name '*.png' -o -name '*.jpg' \) -exec cp {} "$DEST/ui/menu/cinematic/" \;
+  find "$DEST/ui/menu/cinematic" -maxdepth 1 -type f \( -name '*.webp' -o -name '*.png' -o -name '*.jpg' \) -printf 'cinematic/%f\n' | sort > "$DEST/ui/menu/index.txt"
+  : > "$DEST/ui/menu/.gdignore"
+  : > "$DEST/ui/menu/cinematic/.gdignore"
+fi
+if [ -n "$TERRAIN_SRC" ]; then
+  if [ ! -d "$TERRAIN_SRC" ]; then
+    echo "finish_web_export: terrain source is not a directory"
+    exit 1
+  fi
+  mkdir -p "$DEST/terrain"
+  find "$TERRAIN_SRC" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/terrain/" \;
+  : > "$DEST/terrain/.gdignore"
+fi
+if [ -n "$UI_SRC" ]; then
+  if [ ! -d "$UI_SRC/frames" ] || [ ! -d "$UI_SRC/icons" ]; then
+    echo "finish_web_export: ui source needs frames and icons"
+    exit 1
+  fi
+  mkdir -p "$DEST/ui/frames" "$DEST/ui/icons" "$DEST/ui/emblems"
+  find "$UI_SRC/frames" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/ui/frames/" \;
+  find "$UI_SRC/icons" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/ui/icons/" \;
+  if [ -d "$UI_SRC/emblems" ]; then
+    find "$UI_SRC/emblems" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/ui/emblems/" \;
+  fi
+  : > "$DEST/ui/frames/.gdignore"
+  : > "$DEST/ui/icons/.gdignore"
+  : > "$DEST/ui/emblems/.gdignore"
 fi
 if ! grep -q "brotli" "$DEST/brotli_host.conf" || ! grep -q "wasm" "$DEST/brotli_host.conf"; then
   echo "finish_web_export: brotli host config is missing"

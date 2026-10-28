@@ -142,6 +142,7 @@ func _arm_units() -> void:
 func _say(text: String) -> void:
 	if status != null:
 		status.text = text
+	(load("res://game/match_audio.gd") as GDScript).call("announce_line", self, SMFront.current(), text)
 
 func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	var mi: MeshInstance3D = MeshInstance3D.new()
@@ -169,13 +170,18 @@ func _process(delta: float) -> void:
 	if story.lost:
 		if status != null and status.text != "Objective failed":
 			_say("Objective failed")
+		_outro(false)
 	elif story.done:
 		if status != null and status.text != "Objective complete":
 			_say("Objective complete")
 			SMSave.mark(mission_id)
+		_outro(true)
 	elif status != null:
 		status.text = story.progress()
 	hud.refresh()
+
+func _outro(won: bool) -> void:
+	preload("res://game/menu_outro.gd").show(ui_layer, won)
 
 func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera

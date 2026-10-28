@@ -5,6 +5,7 @@ extends RefCounted
 const WATER_SHADER = preload("res://game/shaders/channel_water.gdshader")
 const RAIN_SHADER = preload("res://game/shaders/monsoon_rain.gdshader")
 const Settings = preload("res://game/match_settings.gd")
+const Art = preload("res://game/served_art.gd")
 const RAIN_CAP: int = 24
 const TREE_REACH: float = 80.0
 
@@ -26,15 +27,20 @@ static var _prop_cache: Dictionary = {}
 static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	if host == null or grid == null:
 		return
-	var land: SurfaceTool = _begin(_land_material())
-	var road: SurfaceTool = _begin(_land_material())
+	var land_stem: String = "sand" if profile == "atolls" else "grass"
+	var land: SurfaceTool = _begin(_ground(land_stem, profile != "atolls"))
+	var mud: SurfaceTool = _begin(_ground("mud", false))
+	var sand: SurfaceTool = _begin(_ground("sand", false))
+	var road: SurfaceTool = _begin(_ground("road", false))
 	var water: SurfaceTool = _begin(_water_material())
-	var paddy: SurfaceTool = _begin(_land_material())
+	var paddy: SurfaceTool = _begin(_ground("paddy", false))
 	var trees: Array[Transform3D] = []
 	var palms: Array[Transform3D] = []
 	var houses: Array[Transform3D] = []
 	var stilts: Array[Transform3D] = []
 	var land_n: int = 0
+	var mud_n: int = 0
+	var sand_n: int = 0
 	var road_n: int = 0
 	var water_n: int = 0
 	var paddy_n: int = 0
@@ -52,9 +58,15 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 			var track: bool = domain == SMDomainGrid.Domain.LAND and _track(profile, cell)
 			var cut: bool = profile == "burma" and _burma_cut(cell)
 			var tint: Color = _tint(profile, cell, domain, bank, track or cut)
-			if cut:
+			if cut or track:
 				_sloped(road, grid, cell, high, tint)
 				road_n += 1
+			elif profile != "atolls" and tint == SAND:
+				_sloped(sand, grid, cell, high, tint)
+				sand_n += 1
+			elif profile != "atolls" and (tint == MUD or tint == DIRT):
+				_sloped(mud, grid, cell, high, tint)
+				mud_n += 1
 			else:
 				_sloped(land, grid, cell, high, tint)
 				land_n += 1
@@ -74,9 +86,13 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 				_flat(paddy, grid, cell, high + 0.05, PADDY)
 				paddy_n += 1
 	_commit(host, _land_name(profile), land, land_n > 0)
+	_commit(host, "TerrainMud", mud, mud_n > 0)
+	_commit(host, "TerrainSand", sand, sand_n > 0)
 	_commit(host, _water_name(profile), water, water_n > 0)
 	if profile == "burma":
 		_commit(host, "Road", road, road_n > 0)
+	elif road_n > 0:
+		_commit(host, "TerrainRoad", road, true)
 	if paddy_n > 0:
 		_commit(host, "Paddy", paddy, true)
 	_multi(host, "JungleTrees", _prop("tree"), trees)
@@ -292,13 +308,17 @@ static func _corner(grid: SMDomainGrid, cell: Vector2i, sx: int, sz: int, high: 
 	return high
 
 static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color) -> void:
+	_vert(st, a, color)
+	_vert(st, b, color)
+	_vert(st, c, color)
+	_vert(st, a, color)
+	_vert(st, c, color)
+	_vert(st, d, color)
+
+static func _vert(st: SurfaceTool, p: Vector3, color: Color) -> void:
+	st.set_uv(Vector2(p.x, p.z) / 4.0)
 	st.set_color(color)
-	st.add_vertex(a)
-	st.add_vertex(b)
-	st.add_vertex(c)
-	st.add_vertex(a)
-	st.add_vertex(c)
-	st.add_vertex(d)
+	st.add_vertex(p)
 
 static func _box(st: SurfaceTool, c: Vector3, s: Vector3, color: Color) -> void:
 	var hx: float = s.x * 0.5
@@ -325,10 +345,33 @@ static func _land_material() -> StandardMaterial3D:
 		_land_ink.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return _land_ink
 
+static func _ground(stem: String, tint: bool) -> StandardMaterial3D:
+	var key: String = "ground:%s:%s" % [stem, str(tint)]
+	if _prop_cache.has(key):
+		return _prop_cache[key] as StandardMaterial3D
+	var mat := StandardMaterial3D.new()
+	mat.roughness = 0.92
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var tex: Texture2D = Art.texture("terrain/%s.webp" % stem)
+	if tex != null:
+		mat.albedo_texture = tex
+		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		mat.vertex_color_use_as_albedo = tint
+	else:
+		mat.vertex_color_use_as_albedo = true
+	_prop_cache[key] = mat
+	return mat
+
 static func _water_material() -> ShaderMaterial:
 	if _water_ink == null:
 		_water_ink = ShaderMaterial.new()
 		_water_ink.shader = WATER_SHADER
+	var shallow: Texture2D = Art.texture("terrain/shallow_water.webp")
+	var deep: Texture2D = Art.texture("terrain/deep_water.webp")
+	if shallow != null and deep != null:
+		_water_ink.set_shader_parameter("shallow_tex", shallow)
+		_water_ink.set_shader_parameter("deep_tex", deep)
+		_water_ink.set_shader_parameter("use_tex", 1.0)
 	return _water_ink
 
 static func _site_material() -> StandardMaterial3D:
