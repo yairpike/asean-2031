@@ -1,0 +1,489 @@
+{
+  "game": "ASEAN 2031",
+  "kind": "announcer (EVA-style) lines",
+  "generated_at": "2026-10-28T05:25:23+00:00",
+  "dry_run": false,
+  "models": {
+    "tts": [
+      "models/gemini-3.1-flash-tts-preview",
+      "models/gemini-2.5-pro-preview-tts"
+    ],
+    "verify": "gemini-3.5-flash-lite"
+  },
+  "encoding": "Ogg Vorbis 64 kbps mono 24000 Hz, peak -1 dBFS, dry",
+  "path_pattern": "announcer/<faction>/<key>.ogg",
+  "keys": {
+    "construction_complete": "Construction complete.",
+    "unit_ready": "Unit ready.",
+    "base_under_attack": "Our base is under attack.",
+    "unit_lost": "Unit lost.",
+    "low_power": "Low power.",
+    "building_captured": "Building captured.",
+    "superweapon_ready": "Superweapon ready.",
+    "superweapon_launched": "Superweapon launched.",
+    "enemy_superweapon_detected": "Warning: enemy superweapon detected.",
+    "insufficient_funds": "Insufficient funds.",
+    "cannot_deploy_here": "Cannot deploy here.",
+    "mission_accomplished": "Mission accomplished.",
+    "mission_failed": "Mission failed."
+  },
+  "voices": {
+    "gtfc": {
+      "voice": "Charon",
+      "style": "calm, gravelly command-network announcer, the coalition's field radio AI",
+      "accent": "Burmese / Shan highland accent, clipped and steady"
+    },
+    "nmrf": {
+      "voice": "Aoede",
+      "style": "cool, confident shipboard command AI announcer",
+      "accent": "Malay / Indonesian accent, smooth naval bridge delivery"
+    },
+    "mvd": {
+      "voice": "Kore",
+      "style": "precise, emotionless high-tech directorate command AI announcer",
+      "accent": "Vietnamese accent, crisp and exact"
+    }
+  },
+  "totals": {
+    "files": 39,
+    "bytes": 897177
+  },
+  "clips": {
+    "gtfc": {
+      "construction_complete": {
+        "file": "gtfc/construction_complete.ogg",
+        "text": "Construction complete.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Construction complete.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "construction complete",
+        "score": 1.0,
+        "seconds": 2.16,
+        "review": false,
+        "present": true
+      },
+      "unit_ready": {
+        "file": "gtfc/unit_ready.ogg",
+        "text": "Unit ready.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Unit ready.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Unit ready.",
+        "score": 1.0,
+        "seconds": 1.54,
+        "review": false,
+        "present": true
+      },
+      "base_under_attack": {
+        "file": "gtfc/base_under_attack.ogg",
+        "text": "Our base is under attack.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Our base is under attack.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Our base is under attack.",
+        "score": 1.0,
+        "seconds": 2.52,
+        "review": false,
+        "present": true
+      },
+      "unit_lost": {
+        "file": "gtfc/unit_lost.ogg",
+        "text": "Unit lost.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Unit lost.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "unit lost",
+        "score": 1.0,
+        "seconds": 1.86,
+        "review": false,
+        "present": true
+      },
+      "low_power": {
+        "file": "gtfc/low_power.ogg",
+        "text": "Low power.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Low power.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "low power",
+        "score": 1.0,
+        "seconds": 1.64,
+        "review": false,
+        "present": true
+      },
+      "building_captured": {
+        "file": "gtfc/building_captured.ogg",
+        "text": "Building captured.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Building captured.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "building captured",
+        "score": 1.0,
+        "seconds": 2.0,
+        "review": false,
+        "present": true
+      },
+      "superweapon_ready": {
+        "file": "gtfc/superweapon_ready.ogg",
+        "text": "Superweapon ready.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Superweapon ready.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Super weapon, ready.",
+        "score": 0.97,
+        "seconds": 2.44,
+        "review": false,
+        "present": true
+      },
+      "superweapon_launched": {
+        "file": "gtfc/superweapon_launched.ogg",
+        "text": "Superweapon launched.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Superweapon launched.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Superweapon launched.",
+        "score": 1.0,
+        "seconds": 2.26,
+        "review": false,
+        "present": true
+      },
+      "enemy_superweapon_detected": {
+        "file": "gtfc/enemy_superweapon_detected.ogg",
+        "text": "Warning: enemy superweapon detected.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Warning: enemy superweapon detected.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Warning, enemy super weapon detected.",
+        "score": 0.99,
+        "seconds": 4.12,
+        "review": false,
+        "present": true
+      },
+      "insufficient_funds": {
+        "file": "gtfc/insufficient_funds.ogg",
+        "text": "Insufficient funds.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Insufficient funds.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "insufficient funds",
+        "score": 1.0,
+        "seconds": 2.32,
+        "review": false,
+        "present": true
+      },
+      "cannot_deploy_here": {
+        "file": "gtfc/cannot_deploy_here.ogg",
+        "text": "Cannot deploy here.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Cannot deploy here.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "cannot deploy here",
+        "score": 1.0,
+        "seconds": 2.26,
+        "review": false,
+        "present": true
+      },
+      "mission_accomplished": {
+        "file": "gtfc/mission_accomplished.ogg",
+        "text": "Mission accomplished.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Mission accomplished.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Mission accomplished.",
+        "score": 1.0,
+        "seconds": 2.04,
+        "review": false,
+        "present": true
+      },
+      "mission_failed": {
+        "file": "gtfc/mission_failed.ogg",
+        "text": "Mission failed.",
+        "prompt": "Say as a calm, gravelly command-network announcer, the coalition's field radio AI, Burmese / Shan highland accent, clipped and steady, terse battlefield radio bark: Mission failed.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Mission fehlt.",
+        "score": 0.74,
+        "seconds": 1.72,
+        "review": false,
+        "present": true
+      }
+    },
+    "nmrf": {
+      "construction_complete": {
+        "file": "nmrf/construction_complete.ogg",
+        "text": "Construction complete.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Construction complete.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Construction Complete",
+        "score": 1.0,
+        "seconds": 1.98,
+        "review": false,
+        "present": true
+      },
+      "unit_ready": {
+        "file": "nmrf/unit_ready.ogg",
+        "text": "Unit ready.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Unit ready.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "unit ready",
+        "score": 1.0,
+        "seconds": 1.72,
+        "review": false,
+        "present": true
+      },
+      "base_under_attack": {
+        "file": "nmrf/base_under_attack.ogg",
+        "text": "Our base is under attack.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Our base is under attack.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Our base is under attack.",
+        "score": 1.0,
+        "seconds": 2.32,
+        "review": false,
+        "present": true
+      },
+      "unit_lost": {
+        "file": "nmrf/unit_lost.ogg",
+        "text": "Unit lost.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Unit lost.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "unit lost",
+        "score": 1.0,
+        "seconds": 1.64,
+        "review": false,
+        "present": true
+      },
+      "low_power": {
+        "file": "nmrf/low_power.ogg",
+        "text": "Low power.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Low power.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "low power",
+        "score": 1.0,
+        "seconds": 1.56,
+        "review": false,
+        "present": true
+      },
+      "building_captured": {
+        "file": "nmrf/building_captured.ogg",
+        "text": "Building captured.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Building captured.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "building captured",
+        "score": 1.0,
+        "seconds": 1.76,
+        "review": false,
+        "present": true
+      },
+      "superweapon_ready": {
+        "file": "nmrf/superweapon_ready.ogg",
+        "text": "Superweapon ready.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Superweapon ready.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Superweapon ready.",
+        "score": 1.0,
+        "seconds": 2.22,
+        "review": false,
+        "present": true
+      },
+      "superweapon_launched": {
+        "file": "nmrf/superweapon_launched.ogg",
+        "text": "Superweapon launched.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Superweapon launched.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Superweapon launched.",
+        "score": 1.0,
+        "seconds": 2.34,
+        "review": false,
+        "present": true
+      },
+      "enemy_superweapon_detected": {
+        "file": "nmrf/enemy_superweapon_detected.ogg",
+        "text": "Warning: enemy superweapon detected.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Warning: enemy superweapon detected.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Warning: Enemy super weapon detected.",
+        "score": 0.99,
+        "seconds": 3.86,
+        "review": false,
+        "present": true
+      },
+      "insufficient_funds": {
+        "file": "nmrf/insufficient_funds.ogg",
+        "text": "Insufficient funds.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Insufficient funds.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "insufficient funds",
+        "score": 1.0,
+        "seconds": 2.38,
+        "review": false,
+        "present": true
+      },
+      "cannot_deploy_here": {
+        "file": "nmrf/cannot_deploy_here.ogg",
+        "text": "Cannot deploy here.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Cannot deploy here.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "cannot deploy here",
+        "score": 1.0,
+        "seconds": 1.98,
+        "review": false,
+        "present": true
+      },
+      "mission_accomplished": {
+        "file": "nmrf/mission_accomplished.ogg",
+        "text": "Mission accomplished.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Mission accomplished.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Mission accomplished.",
+        "score": 1.0,
+        "seconds": 1.88,
+        "review": false,
+        "present": true
+      },
+      "mission_failed": {
+        "file": "nmrf/mission_failed.ogg",
+        "text": "Mission failed.",
+        "prompt": "Say as a cool, confident shipboard command AI announcer, Malay / Indonesian accent, smooth naval bridge delivery, terse battlefield radio bark: Mission failed.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "mission failed",
+        "score": 1.0,
+        "seconds": 1.5,
+        "review": false,
+        "present": true
+      }
+    },
+    "mvd": {
+      "construction_complete": {
+        "file": "mvd/construction_complete.ogg",
+        "text": "Construction complete.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Construction complete.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "construction complete",
+        "score": 1.0,
+        "seconds": 2.18,
+        "review": false,
+        "present": true
+      },
+      "unit_ready": {
+        "file": "mvd/unit_ready.ogg",
+        "text": "Unit ready.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Unit ready.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Unit ready.",
+        "score": 1.0,
+        "seconds": 1.76,
+        "review": false,
+        "present": true
+      },
+      "base_under_attack": {
+        "file": "mvd/base_under_attack.ogg",
+        "text": "Our base is under attack.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Our base is under attack.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Albase is under attack.",
+        "score": 0.87,
+        "seconds": 2.7,
+        "review": false,
+        "present": true
+      },
+      "unit_lost": {
+        "file": "mvd/unit_lost.ogg",
+        "text": "Unit lost.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Unit lost.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "unit lost",
+        "score": 1.0,
+        "seconds": 1.56,
+        "review": false,
+        "present": true
+      },
+      "low_power": {
+        "file": "mvd/low_power.ogg",
+        "text": "Low power.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Low power.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "low power",
+        "score": 1.0,
+        "seconds": 1.38,
+        "review": false,
+        "present": true
+      },
+      "building_captured": {
+        "file": "mvd/building_captured.ogg",
+        "text": "Building captured.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Building captured.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "building capture",
+        "score": 0.97,
+        "seconds": 1.64,
+        "review": false,
+        "present": true
+      },
+      "superweapon_ready": {
+        "file": "mvd/superweapon_ready.ogg",
+        "text": "Superweapon ready.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Superweapon ready.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Superweapon ready.",
+        "score": 1.0,
+        "seconds": 2.1,
+        "review": false,
+        "present": true
+      },
+      "superweapon_launched": {
+        "file": "mvd/superweapon_launched.ogg",
+        "text": "Superweapon launched.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Superweapon launched.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "super weapon launched",
+        "score": 0.98,
+        "seconds": 2.38,
+        "review": false,
+        "present": true
+      },
+      "enemy_superweapon_detected": {
+        "file": "mvd/enemy_superweapon_detected.ogg",
+        "text": "Warning: enemy superweapon detected.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Warning: enemy superweapon detected.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Warning: Enemy Super Weapon detected.",
+        "score": 0.99,
+        "seconds": 4.04,
+        "review": false,
+        "present": true
+      },
+      "insufficient_funds": {
+        "file": "mvd/insufficient_funds.ogg",
+        "text": "Insufficient funds.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Insufficient funds.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "insufficient funds",
+        "score": 1.0,
+        "seconds": 2.22,
+        "review": false,
+        "present": true
+      },
+      "cannot_deploy_here": {
+        "file": "mvd/cannot_deploy_here.ogg",
+        "text": "Cannot deploy here.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Cannot deploy here.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "cannot deploy here.",
+        "score": 1.0,
+        "seconds": 1.86,
+        "review": false,
+        "present": true
+      },
+      "mission_accomplished": {
+        "file": "mvd/mission_accomplished.ogg",
+        "text": "Mission accomplished.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Mission accomplished.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Mission accomplished.",
+        "score": 1.0,
+        "seconds": 2.0,
+        "review": false,
+        "present": true
+      },
+      "mission_failed": {
+        "file": "mvd/mission_failed.ogg",
+        "text": "Mission failed.",
+        "prompt": "Say as a precise, emotionless high-tech directorate command AI announcer, Vietnamese accent, crisp and exact, terse battlefield radio bark: Mission failed.",
+        "model": "models/gemini-3.1-flash-tts-preview",
+        "heard": "Mission failed.",
+        "score": 1.0,
+        "seconds": 1.74,
+        "review": false,
+        "present": true
+      }
+    }
+  },
+  "failures": []
+}

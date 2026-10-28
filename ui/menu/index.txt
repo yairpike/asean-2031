@@ -1,0 +1,6 @@
+cinematic/gtfc_tank.webp
+cinematic/gtfc.webp
+cinematic/mvd.webp
+cinematic/neutral_embers.webp
+cinematic/neutral_rain.webp
+cinematic/nmrf.webp
