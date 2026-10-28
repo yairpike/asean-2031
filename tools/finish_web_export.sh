@@ -191,6 +191,10 @@ if [ -n "$AUDIO_SRC" ]; then
     find "$AUDIO_SRC/sfx" -maxdepth 1 -type f -name '*.ogg' ! -name '*.conflict.ogg' -exec cp {} "$DEST/audio/sfx/" \;
     find "$DEST/audio/sfx" -maxdepth 1 -type f -name '*.ogg' -printf '%f\n' | sort > "$DEST/audio/sfx/index.txt"
   fi
+  if [ -d "$AUDIO_SRC/dialogue" ]; then
+    rm -rf "$DEST/audio/dialogue"
+    cp -R "$AUDIO_SRC/dialogue" "$DEST/audio/dialogue"
+  fi
   # The retired European takes and the old flat clips stay off the page.
   rm -rf "$DEST/audio/_retired"
   if [ -d "$DEST/audio" ]; then
@@ -280,6 +284,31 @@ for lang, files in spoken.items():
             out.write(name + "\n")
 print("voice indexes", {lang: len(files) for lang, files in sorted(names.items())})
 print("line indexes", {lang: len(files) for lang, files in sorted(spoken.items())})
+dialogue_path = os.path.join(audio, "dialogue", "manifest.json")
+spoken_lines = defaultdict(set)
+if os.path.isfile(dialogue_path):
+    dialogue = json.load(open(dialogue_path, encoding="utf-8"))
+    for missions in dialogue.get("clips", {}).values():
+        if not isinstance(missions, dict):
+            continue
+        for beats in missions.values():
+            if not isinstance(beats, dict):
+                continue
+            for take in beats.values():
+                if not playable(take):
+                    continue
+                parts = (take.get("file") or "").split("/")
+                if len(parts) != 4 or parts[0] != "dialogue" or not parts[3].endswith(".ogg"):
+                    continue
+                if os.path.isfile(os.path.join(audio, *parts)):
+                    spoken_lines[parts[1]].add(parts[2] + "/" + parts[3])
+    for lang, files in spoken_lines.items():
+        folder = os.path.join(audio, "dialogue", lang)
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "index.txt"), "w", encoding="utf-8") as out:
+            for name in sorted(files):
+                out.write(name + "\n")
+print("dialogue indexes", {lang: len(files) for lang, files in sorted(spoken_lines.items())})
 PY
   if ! grep -q "music/menu.ogg" "$DEST/audio/clips.txt"; then
     echo "finish_web_export: clips.txt missing menu"
@@ -316,6 +345,20 @@ PY
   if ! grep -qx "gtfc/low_power.ogg" "$DEST/audio/announcer/en/index.txt"; then
     echo "finish_web_export: the passing low power line is missing from the index"
     exit 1
+  fi
+  if grep -q "^dialogue/" "$DEST/audio/clips.txt"; then
+    echo "finish_web_export: dialogue is in the startup download"
+    exit 1
+  fi
+  if [ -f "$DEST/audio/dialogue/manifest.json" ]; then
+    if grep -qx "kokang/open.ogg" "$DEST/audio/dialogue/en/index.txt"; then
+      echo "finish_web_export: a failed English dialogue line is in the index"
+      exit 1
+    fi
+    if ! grep -qx "tachileik/open.ogg" "$DEST/audio/dialogue/my/index.txt"; then
+      echo "finish_web_export: the passing Tachileik line is missing from the index"
+      exit 1
+    fi
   fi
   : > "$DEST/audio/.gdignore"
 fi

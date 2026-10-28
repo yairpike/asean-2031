@@ -2380,6 +2380,20 @@ func _set_piece_prop(scene: Node, id: String) -> bool:
 		return count != null and count.text.begins_with("Count:") and _duty_units(field, "spectacle").size() >= 2
 	return false
 
+func _remove_tree(path: String) -> void:
+	if path == "" or not DirAccess.dir_exists_absolute(path):
+		return
+	var dir: DirAccess = DirAccess.open(path)
+	if dir == null:
+		return
+	for name: String in dir.get_files():
+		DirAccess.remove_absolute(path.path_join(name))
+	for name: String in dir.get_directories():
+		_remove_tree(path.path_join(name))
+	var parent: DirAccess = DirAccess.open(path.get_base_dir())
+	if parent != null:
+		parent.remove(path.get_file())
+
 func test_set_piece() -> void:
 	var orders: PackedStringArray = PackedStringArray()
 	for id: String in ["kokang", "tachileik", "shwe_kokko", "operation_1027", "andaman", "ghosts_of_patani", "kilometer_watch", "black_haze", "archipelago_rising", "wrath_of_the_garuda", "fog_over_pakbeng", "keng_tung", "plain_of_jars", "tonle_sap", "shattered_monsoon"]:
@@ -2428,21 +2442,78 @@ func test_set_piece() -> void:
 	root.add_child(plain)
 	await process_frame
 	check(plain.get_node_or_null("SetPiece") == null, "drill missions keep the short briefing")
-	var quiet: bool = not (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
-	var clip_root: String = ProjectSettings.globalize_path("res://").path_join("build/web/audio/dialogue/en/tachileik")
-	DirAccess.make_dir_recursive_absolute(clip_root)
-	var clip_path: String = clip_root.path_join("open.ogg")
-	var sting: String = ProjectSettings.globalize_path("res://").path_join("build/web/audio/music/victory_sting.ogg")
-	var wrote: bool = false
-	if FileAccess.file_exists(sting):
-		wrote = DirAccess.copy_absolute(sting, clip_path) == OK
-	Settings.set_voice("malay")
-	var other_tongue: bool = not (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
+	var audio_root: String = ProjectSettings.globalize_path("res://").path_join("build/web/audio")
+	var dialogue_dir: String = audio_root.path_join("dialogue")
+	var stash: String = audio_root.path_join("_dialogue_hold")
+	if DirAccess.dir_exists_absolute(stash) and not DirAccess.dir_exists_absolute(dialogue_dir):
+		DirAccess.rename_absolute(stash, dialogue_dir)
+	if DirAccess.dir_exists_absolute(stash):
+		_remove_tree(stash)
+	var held: bool = false
+	if DirAccess.dir_exists_absolute(dialogue_dir):
+		held = DirAccess.rename_absolute(dialogue_dir, stash) == OK
 	Settings.set_voice("english")
-	var heard: bool = (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
-	if FileAccess.file_exists(clip_path):
-		DirAccess.remove_absolute(clip_path)
-	check(quiet and wrote and other_tongue and heard and plain.get_node_or_null("Dialogue") != null, "dialogue plays in the selected language and stays a subtitle otherwise")
+	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
+	var quiet: bool = not clips.call("dialogue", plain, "tachileik", "open")
+	var sting: String = audio_root.path_join("music/victory_sting.ogg")
+	var wrote: bool = false
+	if not DirAccess.dir_exists_absolute(dialogue_dir) and FileAccess.file_exists(sting):
+		DirAccess.make_dir_recursive_absolute(dialogue_dir.path_join("en/tachileik"))
+		DirAccess.make_dir_recursive_absolute(dialogue_dir.path_join("my/tachileik"))
+		DirAccess.make_dir_recursive_absolute(dialogue_dir.path_join("th/andaman"))
+		var copied: bool = DirAccess.copy_absolute(sting, dialogue_dir.path_join("en/tachileik/open.ogg")) == OK
+		copied = copied and DirAccess.copy_absolute(sting, dialogue_dir.path_join("en/tachileik/escort.ogg")) == OK
+		copied = copied and DirAccess.copy_absolute(sting, dialogue_dir.path_join("my/tachileik/open.ogg")) == OK
+		copied = copied and DirAccess.copy_absolute(sting, dialogue_dir.path_join("th/andaman/open.ogg")) == OK
+		var manifest: Dictionary = {
+			"clips": {
+				"en": {
+					"tachileik": {
+						"open": {"file": "dialogue/en/tachileik/open.ogg", "accent_fail": true},
+						"escort": {"file": "dialogue/en/tachileik/escort.ogg", "status": "removed"},
+					},
+					"andaman": {
+						"open": {"file": "dialogue/en/andaman/open.ogg", "accent_fail": true},
+					},
+				},
+				"my": {
+					"tachileik": {
+						"open": {"file": "dialogue/my/tachileik/open.ogg", "accent_fail": false},
+					},
+				},
+				"ms": {
+					"tachileik": {
+						"open": {"file": "dialogue/ms/tachileik/open.ogg", "accent_fail": true},
+					},
+				},
+				"th": {
+					"andaman": {
+						"open": {"file": "dialogue/th/andaman/open.ogg", "accent_fail": false},
+					},
+				},
+			},
+		}
+		var handle: FileAccess = FileAccess.open(dialogue_dir.path_join("manifest.json"), FileAccess.WRITE)
+		if handle != null:
+			handle.store_string(JSON.stringify(manifest))
+			handle.close()
+			wrote = copied
+	Settings.set_voice("malay")
+	var other_tongue: bool = not clips.call("dialogue", plain, "tachileik", "open")
+	Settings.set_voice("english")
+	var removed: bool = not clips.call("dialogue", plain, "tachileik", "escort")
+	var heard: bool = clips.call("dialogue", plain, "tachileik", "open")
+	var player: Node = plain.get_node_or_null("Dialogue")
+	var played_my: bool = player != null and str(player.get_meta("clip", "")) == "dialogue/my/tachileik/open.ogg"
+	var andaman: bool = clips.call("dialogue", plain, "andaman", "open")
+	var played_th: bool = player != null and str(player.get_meta("clip", "")) == "dialogue/th/andaman/open.ogg"
+	var silent: bool = not clips.call("dialogue", plain, "kokang", "open")
+	if wrote:
+		_remove_tree(dialogue_dir)
+	if held and DirAccess.dir_exists_absolute(stash) and not DirAccess.dir_exists_absolute(dialogue_dir):
+		DirAccess.rename_absolute(stash, dialogue_dir)
+	Settings.set_voice("english")
+	check(quiet and wrote and other_tongue and removed and heard and played_my and andaman and played_th and silent and player != null, "dialogue skips a failed take, falls back by region, and stays a subtitle otherwise")
 	plain.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"

@@ -5,7 +5,8 @@ extends Node
 ## Each mission keeps its own order. At most two of the shared beats
 ## (ambush, bridge, relief, weather) are on a mission, plus the side cache.
 ## A hero line plays from dialogue/<language>/<mission>/<beat>.ogg
-## when that clip exists. Otherwise the subtitle stands alone.
+## when that take passes. English falls back to the mission region.
+## The subtitle stays on screen either way.
 
 const Clips = preload("res://game/match_audio.gd")
 const Cameos = preload("res://game/match_cameos.gd")
@@ -35,6 +36,7 @@ var last_voiced: bool = false
 var beat_ids: PackedStringArray = PackedStringArray()
 var beat_at: PackedFloat32Array = PackedFloat32Array()
 var fired: PackedStringArray = PackedStringArray()
+var _voiced_beat: String = ""
 var hack_end: float = -1.0
 var count_end: float = -1.0
 
@@ -81,6 +83,7 @@ func drive(delta: float) -> void:
 	if _host == null:
 		return
 	_clock += maxf(delta, 0.0)
+	_retry_voice()
 	if not _armed:
 		_arm_camera()
 	var story: SMStory = _host.get("story") as SMStory
@@ -747,9 +750,26 @@ func _say(text: String, key: String, beat: String) -> void:
 		_subtitle.text = text
 	if _speaker != null:
 		_speaker.text = speaker_name
-	last_voiced = Clips.dialogue(_host, mission_id, beat)
+	_voiced_beat = ""
+	_offer_voice(beat)
 	if key != "":
 		Clips.announce_key(_host, faction, key)
+
+func _retry_voice() -> void:
+	var beat: String = "open"
+	if not fired.is_empty():
+		beat = str(fired[fired.size() - 1])
+	if _voiced_beat == beat:
+		return
+	_offer_voice(beat)
+
+func _offer_voice(beat: String) -> void:
+	var played: bool = Clips.dialogue(_host, mission_id, beat)
+	if played or Clips.dialogue_settled(mission_id):
+		last_voiced = played
+		_voiced_beat = beat
+	else:
+		last_voiced = false
 
 func _timer(node_name: String, text: String) -> Label:
 	var layer: CanvasLayer = _host.get("ui_layer") as CanvasLayer
