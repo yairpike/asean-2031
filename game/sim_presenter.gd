@@ -92,7 +92,12 @@ static func _follow_match(sim: SMMatch) -> void:
 	sim.deck_fit.connect(Callable(World, "fit_deck"))
 
 static func _on_unit(u: RTSUnit, team: int, kind: String, role: String, loco: String, tint: Color, label: String, field: SMPointer) -> void:
-	var body: MeshInstance3D = Forms.dress_unit(kind, role, loco, tint)
+	var primary: Color = tint
+	var trim: Color = tint
+	if team == SMPointer.PLAYER:
+		primary = field.primary_color
+		trim = field.accent_color
+	var body: MeshInstance3D = Forms.dress_unit(kind, role, loco, tint, primary, trim)
 	u.add_child(body)
 	World.dress_spawn(u, team, label)
 	field.visual_node = body

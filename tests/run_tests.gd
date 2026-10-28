@@ -859,6 +859,33 @@ func test_sm_greybox() -> void:
 	plain.mesh = kept
 	host.add_child(plain)
 	check(not ModelBook.apply_unit(plain, "no_such_model_2031") and plain.mesh == kept, "a missing model keeps the procedural mesh")
+	var mvd_ink: Color = ModelBook.body_ink(Color.html("#2A2E32"))
+	check(mvd_ink.b > mvd_ink.r and mvd_ink.r > 0.35, "mvd charcoal lifts toward a readable blue-grey")
+	var market_ink: Color = ModelBook.body_ink(Color.html("#1C1C1C"))
+	check(market_ink.r > 0.45 and market_ink.r > market_ink.b + 0.05, "black market black lifts to a warm grey")
+	var troop: MeshInstance3D = MeshInstance3D.new()
+	var troop_box: BoxMesh = BoxMesh.new()
+	troop_box.size = Vector3(1.2, 1.8, 0.8)
+	troop.mesh = troop_box
+	host.add_child(troop)
+	var dressed_troop: bool = ModelBook.apply_unit(troop, "militia", Color.html("#B81E2D"), Color.html("#E0A106"))
+	var troop_body: MeshInstance3D = troop.find_child("Body", true, false) as MeshInstance3D
+	var body_mat: StandardMaterial3D = null
+	var trim_mat: StandardMaterial3D = null
+	if troop_body != null and troop_body.mesh != null:
+		body_mat = troop_body.get_surface_override_material(0) as StandardMaterial3D
+		if troop_body.mesh.get_surface_count() > 1:
+			trim_mat = troop_body.get_surface_override_material(1) as StandardMaterial3D
+	check(dressed_troop and body_mat != null and trim_mat != null and body_mat.albedo_color.is_equal_approx(Color.html("#B81E2D")) and trim_mat.albedo_color.is_equal_approx(Color.html("#E0A106")) and troop_body.material_override == null, "militia body stays crimson and trim is amber")
+	var loaded: MeshInstance3D = MeshInstance3D.new()
+	loaded.set_meta("model", "Model")
+	var loaded_gun: MeshInstance3D = MeshInstance3D.new()
+	loaded_gun.name = "Turret"
+	loaded_gun.mesh = BoxMesh.new()
+	loaded.add_child(loaded_gun)
+	host.add_child(loaded)
+	Forms.paint_status(loaded, StandardMaterial3D.new())
+	check(loaded.material_override == null and loaded_gun.material_override == null, "a loaded model does not override turret materials")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(probe))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(probe + ".import"))
 	host.free()
@@ -1614,7 +1641,7 @@ func test_sm_shapes() -> void:
 	var built_mesh: Mesh = null
 	if built != null:
 		built_mesh = built.mesh
-	check(_tall_mesh(built_mesh), "a finished building is a taller block")
+	check(_tall_mesh(built_mesh) or (built != null and str(built.get_meta("model", "")) != ""), "a finished building is a taller block or a loaded model")
 	field.faction_id = "mvd"
 	var gunship: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(-40, 0, -20), &"hub_drone")
 	check(_mesh_kind(gunship) == "heli", "a helicopter is a rotor aircraft")
@@ -3659,7 +3686,9 @@ func _mesh_kind(u: RTSUnit) -> String:
 	if u == null:
 		return ""
 	var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
-	if body == null or body.mesh == null or u.get_node_or_null("NameTag") == null:
+	if body == null or u.get_node_or_null("NameTag") == null:
+		return ""
+	if body.mesh == null and str(body.get_meta("model", "")) == "":
 		return ""
 	return str(body.get_meta("form", ""))
 

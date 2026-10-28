@@ -1,6 +1,6 @@
 extends RefCounted
-## Low-poly silhouettes made from boxes and cylinders. No imported assets.
-## One shared vertex-color material. Turrets, rotors, and wakes are the only extra draws.
+## Low-poly silhouettes made from boxes and cylinders.
+## A file in game/models replaces the silhouette. Turrets, rotors, and wakes stay separate draws.
 
 const METAL: Color = Color(0.22, 0.23, 0.26)
 const RUBBER: Color = Color(0.12, 0.12, 0.13)
@@ -11,7 +11,7 @@ static var _ink: StandardMaterial3D
 static var _foam: StandardMaterial3D
 static var _cache: Dictionary = {}
 
-static func dress_unit(kind: String, role: String, loco: String, accent: Color) -> MeshInstance3D:
+static func dress_unit(kind: String, role: String, loco: String, accent: Color, primary: Color = Color.WHITE, trim: Color = Color.WHITE) -> MeshInstance3D:
 	var form: String = unit_form(kind, role, loco)
 	var body: MeshInstance3D = MeshInstance3D.new()
 	body.name = "Body"
@@ -29,7 +29,9 @@ static func dress_unit(kind: String, role: String, loco: String, accent: Color) 
 		var wake: MeshInstance3D = _part(body, "Wake", "wake", accent, Vector3(0.0, 0.05, 1.85))
 		wake.visible = false
 		wake.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	Models.apply_unit(body, kind, accent)
+	var body_ink: Color = primary if not primary.is_equal_approx(Color.WHITE) or accent.is_equal_approx(Color.WHITE) else accent
+	var trim_ink: Color = trim if not trim.is_equal_approx(Color.WHITE) or accent.is_equal_approx(Color.WHITE) else accent
+	Models.apply_unit(body, kind, body_ink, trim_ink)
 	return body
 
 static func dress_structure(mi: MeshInstance3D, size: Vector3, accent: Color) -> bool:
@@ -40,7 +42,7 @@ static func dress_structure(mi: MeshInstance3D, size: Vector3, accent: Color) ->
 	mi.material_override = null
 	mi.set_meta("form", form)
 	mi.set_meta("paint", accent)
-	Models.apply_structure(mi, Models.model_id_for(str(mi.name)), accent)
+	Models.apply_structure(mi, Models.model_id_for(str(mi.name)), SMFront.primary(), SMFront.accent())
 	return true
 
 static func animate(u: RTSUnit, delta: float) -> void:
@@ -64,6 +66,8 @@ static func animate(u: RTSUnit, delta: float) -> void:
 
 static func paint_status(body: MeshInstance3D, mat: Material) -> void:
 	if body == null:
+		return
+	if str(body.get_meta("model", "")) != "":
 		return
 	body.material_override = mat
 	var turret: MeshInstance3D = body.get_node_or_null("Turret") as MeshInstance3D

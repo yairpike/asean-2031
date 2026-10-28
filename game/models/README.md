@@ -12,7 +12,7 @@ Drop a file here and the match uses it instead of the procedural mesh.
 - Up is +Y.
 - Forward is -Z, the same axis the procedural meshes face. Do not export the model facing +Z.
 
-The game measures the procedural mesh, then uniformly scales the model so its horizontal footprint fits inside that mesh, and sits the model's base on the procedural mesh's lowest point.
+The game measures the procedural mesh, then uniformly scales the model so its horizontal footprint fits inside that mesh, and sits the model's base on the procedural mesh's lowest point. A `Wake` node is left out of that measurement so foam behind a hull does not shrink the boat.
 
 ## Optional nodes
 
@@ -25,23 +25,22 @@ These names are case-sensitive. Leave them out when the unit has no moving part.
 | `Rotor` | Direct child of the scene root | Spun while the unit is alive |
 | `Wake` | Direct child of the scene root | Shown while a boat is moving |
 
-## Web budget
+## Budget
 
-The web build is one download. Stay inside this per file:
+The stand-ins in this folder were built to these limits. Two or three materials are allowed.
 
-- Units: 1,500 triangles, one material, one 512×512 albedo.
-- Structures: 3,000 triangles, one material, one 1024×512 or 512×512 albedo.
-- At most two textures. A packed roughness/metal map counts as the second.
-- UVs on every face, 0–1 per surface is enough. Vertex color is optional.
+- Infantry: 1,500 triangles.
+- Vehicles: 3,000 triangles.
+- Buildings: 5,000 triangles.
 
-The procedural meshes already store a UV on each face. Their material multiplies that vertex color by an albedo texture when one is assigned, so a painted texture can be dropped on later without rebuilding the mesh.
+`Body` carries one small grey palette so the faction primary can multiply it. `Trim` is a flat accent. `Wake` is white foam.
 
 ## Faction colour
 
-Give the model a neutral base material and a second material or node named `Trim` (any capitalisation). The match tints `Trim` with the faction colour. A model with no `Trim` slot is tinted as a whole.
+`Body` is multiplied by the faction primary. MVD's charcoal and Black Market's near-black are lifted first, so they do not multiply down to plain grey. `Trim` is set to the faction accent. A model with no `Trim` surface keeps the primary on every other surface. `Wake` is not recolored.
 
 ## Web
 
-`.glb` and `.gltf` files in this folder are left out of the web pack. The export copies them to `models/` beside the page, and the match fetches a file when a unit needs it. The procedural mesh stays in place until that file is on disk.
+`.glb` and `.gltf` files in this folder are left out of the web pack. The export copies them to `models/` beside the page, with `models/index.txt`. The page does not download them at startup. A match fetches the index, then each file, and writes it under `user://models/`. The procedural mesh stays in place until that file is on disk.
 
-CC0 stand-in credits belong in `CREDITS.md` next to the models.
+CC0 stand-in credits are in `CREDITS.md` next to the models.
