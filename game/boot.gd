@@ -161,6 +161,56 @@ func _lan_panel() -> void:
 	found.size = Vector2(420.0, 96.0)
 	found.item_selected.connect(_pick_lan)
 	lan_panel.add_child(found)
+	var lobby: Label = Label.new()
+	lobby.name = "LanLobby"
+	lobby.position = Vector2(0.0, 250.0)
+	lobby.size = Vector2(440.0, 36.0)
+	lobby.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lobby.text = "Pick a faction and a map, then ready up."
+	lan_panel.add_child(lobby)
+	_lan_choice("LanFaction_gtfc", "GTFC", Vector2(0.0, 290.0), _lan_faction.bind("gtfc"))
+	_lan_choice("LanFaction_nmrf", "NMRF", Vector2(88.0, 290.0), _lan_faction.bind("nmrf"))
+	_lan_choice("LanFaction_mvd", "MVD", Vector2(176.0, 290.0), _lan_faction.bind("mvd"))
+	_lan_choice("LanFaction_black_market", "Market", Vector2(264.0, 290.0), _lan_faction.bind("black_market"))
+	_lan_choice("LanMap_phillips_channel", "Phillips", Vector2(0.0, 330.0), _lan_map_pick.bind("res://game/phillips_channel.tscn"))
+	_lan_choice("LanMap_sop_ruak", "Sop Ruak", Vector2(88.0, 330.0), _lan_map_pick.bind("res://game/sop_ruak.tscn"))
+	_lan_choice("LanMap_burma_road", "Burma", Vector2(176.0, 330.0), _lan_map_pick.bind("res://game/burma_road.tscn"))
+	_lan_choice("LanMap_ten_degree_atolls", "Atolls", Vector2(264.0, 330.0), _lan_map_pick.bind("res://game/ten_degree_atolls.tscn"))
+	_lan_choice("LanMap_mekong_delta", "Mekong", Vector2(0.0, 368.0), _lan_map_pick.bind("res://game/mekong_delta.tscn"))
+	_lan_choice("LanMap_chiang_rai", "Chiang Rai", Vector2(88.0, 368.0), _lan_map_pick.bind("res://game/chiang_rai.tscn"))
+	var ready: Button = Button.new()
+	ready.name = "LanReady"
+	ready.text = "Ready"
+	ready.position = Vector2(264.0, 368.0)
+	ready.custom_minimum_size = Vector2(120.0, 32.0)
+	ready.pressed.connect(_lan_ready)
+	lan_panel.add_child(ready)
+	var count: Label = Label.new()
+	count.name = "LanCount"
+	count.position = Vector2(0.0, 408.0)
+	count.size = Vector2(420.0, 24.0)
+	count.text = ""
+	lan_panel.add_child(count)
+	var chat: Label = Label.new()
+	chat.name = "LanChat"
+	chat.position = Vector2(0.0, 432.0)
+	chat.size = Vector2(420.0, 48.0)
+	chat.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	chat.text = ""
+	lan_panel.add_child(chat)
+	var entry: LineEdit = LineEdit.new()
+	entry.name = "LanChatLine"
+	entry.placeholder_text = "Chat"
+	entry.position = Vector2(0.0, 484.0)
+	entry.size = Vector2(300.0, 32.0)
+	lan_panel.add_child(entry)
+	var send: Button = Button.new()
+	send.name = "LanChatSend"
+	send.text = "Send"
+	send.position = Vector2(308.0, 484.0)
+	send.custom_minimum_size = Vector2(80.0, 32.0)
+	send.pressed.connect(_lan_say)
+	lan_panel.add_child(send)
 
 func _host_lan() -> void:
 	var err: Error = Lan.open_host()
@@ -168,6 +218,9 @@ func _host_lan() -> void:
 	if status == null:
 		return
 	if err == OK:
+		Lan.faction = SMFront.faction_id
+		if selected_map != "":
+			Lan.map_path = selected_map
 		status.text = "Waiting on port %d." % Lan.port
 	else:
 		status.text = "The port is busy."
@@ -177,7 +230,7 @@ func _join_lan() -> void:
 	var dest: String = "127.0.0.1"
 	if addr != null and addr.text.strip_edges() != "":
 		dest = addr.text.strip_edges()
-	Lan.faction = SMFront.current()
+	Lan.faction = SMFront.faction_id
 	var err: Error = Lan.open_client(dest)
 	var status: Label = find_child("LanStatus", true, false) as Label
 	if status == null:
@@ -220,7 +273,7 @@ func _fill_lan() -> void:
 	for row: String in rows:
 		found.add_item(row)
 
-func _lan_poll() -> void:
+func _lan_poll(delta: float) -> void:
 	if not Lan.show_controls():
 		return
 	if lan_panel != null and lan_panel.visible and Lan.role != "host":
@@ -234,22 +287,75 @@ func _lan_poll() -> void:
 	while raw != "":
 		_lan_packet(raw)
 		raw = Lan.take()
+	if Lan.seat().tick_lobby(delta) == "start":
+		SMFront.faction_id = Lan.faction
+		_open(Lan.map_path)
+		return
+	_paint_lobby()
 
 func _lan_packet(raw: String) -> void:
-	var parsed: Variant = JSON.parse_string(raw)
-	if typeof(parsed) != TYPE_DICTIONARY:
-		return
-	var row: Dictionary = parsed
-	var kind: String = str(row.get("k", ""))
-	if kind == "hello" and Lan.role == "host" and not Lan.started:
-		var guest: String = str(row.get("faction", "nmrf"))
-		Lan.send_start(_lan_map(), SMFront.current(), guest)
-		Lan.started = true
-		_open(_lan_map())
-	elif kind == "start" and Lan.role == "client" and not Lan.started:
-		Lan.started = true
-		Lan.map_path = str(row.get("map", "res://game/phillips_channel.tscn"))
+	var kind: String = Lan.ingest(raw)
+	if kind == "start" and Lan.role == "client":
 		_open("res://game/lan_mirror.tscn")
+
+func _lan_choice(node_name: String, caption: String, at: Vector2, fn: Callable) -> void:
+	var b: Button = Button.new()
+	b.name = node_name
+	b.text = caption
+	b.position = at
+	b.custom_minimum_size = Vector2(84.0, 32.0)
+	b.clip_text = true
+	b.pressed.connect(fn)
+	lan_panel.add_child(b)
+
+func _lan_faction(id: String) -> void:
+	if Lan.role == "host":
+		SMFront.faction_id = id
+	Lan.seat().pick_faction(id)
+	_paint_lobby()
+
+func _lan_map_pick(path: String) -> void:
+	if Lan.role != "host":
+		return
+	selected_map = path
+	Lan.seat().pick_map(path)
+	_paint_lobby()
+
+func _lan_ready() -> void:
+	if Lan.role == "":
+		Lan.seat().host_ready = not Lan.seat().host_ready
+		_paint_lobby()
+		return
+	var on: bool = not (Lan.seat().host_ready if Lan.role == "host" else Lan.seat().guest_ready)
+	Lan.seat().set_ready(on)
+	_paint_lobby()
+
+func _lan_say() -> void:
+	var entry: LineEdit = find_child("LanChatLine", true, false) as LineEdit
+	if entry == null:
+		return
+	if Lan.role == "":
+		return
+	Lan.seat().say(entry.text)
+	entry.text = ""
+	_paint_lobby()
+
+func _paint_lobby() -> void:
+	var lobby: Label = find_child("LanLobby", true, false) as Label
+	var chat: Label = find_child("LanChat", true, false) as Label
+	var count: Label = find_child("LanCount", true, false) as Label
+	if lobby != null:
+		var guest: String = Lan.seat().guest_faction if Lan.seat().guest_joined else "waiting"
+		lobby.text = "Host %s %s    Guest %s %s" % [Lan.seat().faction, "ready" if Lan.seat().host_ready else "open", guest, "ready" if Lan.seat().guest_ready else "open"]
+	if chat != null:
+		var lines: String = ""
+		for line: String in Lan.seat().chat_lines:
+			if lines != "":
+				lines += "\n"
+			lines += line
+		chat.text = lines
+	if count != null:
+		count.text = "Starting in %d." % Lan.seat().count_shown if Lan.seat().counting else ""
 
 func _skirmish() -> void:
 	_card(skirmish_panel, "CardPhillips", "Phillips Channel", "Water", "res://game/phillips_channel.tscn", Vector2(48, 16))
@@ -411,7 +517,7 @@ func _mission_row(box: VBoxContainer, mission_id: String) -> void:
 	_ensure_done(b, mission_id)
 
 func _process(delta: float) -> void:
-	_lan_poll()
+	_lan_poll(delta)
 	if not _save_polled and SMSave.poll_web():
 		_save_polled = true
 		for id: String in SMCampaign.ids():
@@ -871,7 +977,7 @@ func _layout_menu(size: Vector2) -> void:
 		multi_note.size = Vector2(plate_w if narrow else 420.0, 72)
 	if lan_panel != null:
 		lan_panel.position = multi_note.position + Vector2(0.0, 80.0)
-		lan_panel.size = Vector2(plate_w if narrow else 440.0, 260.0)
+		lan_panel.size = Vector2(plate_w if narrow else 440.0, 530.0)
 	var content_y: float = y + 8.0 if narrow else 168.0
 	var content_x: float = 8.0 if narrow else 460.0
 	var content_w: float = size.x - 16.0 if narrow else size.x - content_x - 24.0

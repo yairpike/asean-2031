@@ -7,6 +7,7 @@ const Forms = preload("res://game/unit_meshes.gd")
 const Settings = preload("res://game/match_settings.gd")
 const ModelBook = preload("res://game/model_registry.gd")
 const Lan = preload("res://game/lan_link.gd")
+const Seat = preload("res://game/lan_seat.gd")
 var H: Harness
 var duel_note: String = ""
 
@@ -90,6 +91,7 @@ func _run() -> void:
 	await H.section("test_sm_difficulty", test_sm_difficulty)
 	await H.section("test_sm_guns", test_sm_guns)
 	await H.section("test_lan", test_lan)
+	await H.section("test_lan_match", test_lan_match)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2374,6 +2376,10 @@ func test_lan() -> void:
 	host.pressed.emit()
 	var status: Label = boot.find_child("LanStatus", true, false) as Label
 	check(status != null and status.text.contains("Waiting") and status.text.contains("47931"), "hosting opens a LAN port")
+	var ready: Button = boot.find_child("LanReady", true, false) as Button
+	var chat_line: LineEdit = boot.find_child("LanChatLine", true, false) as LineEdit
+	var count: Label = boot.find_child("LanCount", true, false) as Label
+	check(ready != null and chat_line != null and count != null, "the lobby has faction, ready, and chat controls")
 	Lan.close()
 	Lan.port = 7777
 	boot.free()
@@ -2390,21 +2396,159 @@ func test_lan() -> void:
 	check(seated == OK and Lan.attach_peer(seat, true) == OK and Lan.role == "host" and Lan.peer == seat, "a WebRTC peer can take the same session slot later")
 	Lan.close()
 	Lan.forget_hosts()
+	Lan.port = 7777
+
+func test_lan_match() -> void:
+	Lan.close()
+	Lan.port = 47951
+	Lan.silence_pause = 2.0
+	Lan.drop_after = 15.0
+	check(Lan.open_host() == OK, "the match host opens a port")
+	var guest: Seat = Seat.new()
+	guest.port = 47951
+	guest.faction = "gtfc"
+	check(guest.open_client("127.0.0.1") == OK, "the guest dials the host")
+	var joined: bool = false
+	for _i: int in 30:
+		Lan.pump()
+		guest.pump()
+		var raw: String = Lan.take()
+		while raw != "":
+			Lan.ingest(raw)
+			raw = Lan.take()
+		var back: String = guest.take()
+		while back != "":
+			guest.ingest(back)
+			back = guest.take()
+		if guest.role == "client" and Lan.seat().guest_joined:
+			joined = true
+			break
+		OS.delay_msec(20)
+	check(joined, "the guest hello reaches the host")
+	guest.say("on the river")
+	guest.set_ready(true)
+	Lan.pump()
+	guest.pump()
+	var wish: String = Lan.take()
+	while wish != "":
+		Lan.ingest(wish)
+		wish = Lan.take()
+	check(Lan.seat().chat_lines.size() >= 1 and Lan.seat().chat_lines[0].contains("on the river") and Lan.seat().guest_ready, "chat and ready-up cross the lobby")
+	Lan.seat().pick_map("res://game/phillips_channel.tscn")
+	Lan.seat().set_ready(true)
+	var starting: String = ""
+	for _step: int in 8:
+		starting = Lan.seat().tick_lobby(0.5)
+		guest.pump()
+		var heard: String = guest.take()
+		while heard != "":
+			guest.ingest(heard)
+			heard = guest.take()
+		if starting == "start":
+			break
+	check(starting == "start" and guest.started and guest.map_path.ends_with("phillips_channel.tscn"), "ready players count down into the map")
 	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
 	root.add_child(scene)
 	await process_frame
 	var field: SMPointer = scene.get("field") as SMPointer
-	var mover: RTSUnit = field.units_of(0)[0]
-	var dest: Vector3 = mover.global_position + Vector3(8.0, 0.0, 0.0)
-	var moved: int = Lan.apply_line(scene, JSON.stringify({"k": "go", "x": dest.x, "z": dest.z}))
-	check(moved > 0 and not mover.path.is_empty(), "a guest move order reaches the host company")
-	var snap: Dictionary = Lan.state_of(scene)
-	var xs: Array = snap.get("x", []) as Array
-	check(str(snap.get("k", "")) == "state" and xs.size() > 0, "the host snapshot lists the company")
+	var raider: SMRaider = scene.get("raider") as SMRaider
+	var seat: Seat = Lan.seat()
+	check(raider.human and seat.guest_side != null and not raider.yard.finished.has(&"enemy_yard"), "the guest replaces the bot")
+	var pair: Vector2i = preload("res://addons/rts_advanced/sm_power.gd").tally(seat.guest_side.yard)
+	check(pair.x >= pair.y and pair.x > 0 and seat.guest_roster.economy.credits(SMPointer.ENEMY) > 1000, "the guest has a base, power, and credits")
+	var player: RTSUnit = field.units_of(SMPointer.PLAYER)[0]
+	var before: Vector3 = player.global_position
+	var blocked: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "move", "ids": [player.get_instance_id()], "x": before.x + 6.0, "z": before.z}))
+	check(blocked == 0 and player.path.is_empty() and seat.last_note == "rejected", "a guest order cannot move the host company")
+	var owned: RTSUnit = field.units_of(SMPointer.ENEMY)[0]
+	var moved: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "move", "ids": [owned.get_instance_id()], "x": owned.global_position.x + 8.0, "z": owned.global_position.z}))
+	check(moved == 1 and not owned.path.is_empty() and player.path.is_empty(), "the guest move order moves only the guest company")
+	var struck: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "attack", "ids": [owned.get_instance_id()], "tid": player.get_instance_id()}))
+	var friendly: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "attack", "ids": [owned.get_instance_id()], "tid": owned.get_instance_id()}))
+	check(struck == 1 and owned.attack_target == player and friendly == 0, "the guest can attack the host and not itself")
+	var built: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "build", "id": "war_factory"}))
+	check(built == 1 and seat.guest_side.yard.finished.has(&"war_factory"), "the host builds the guest's next structure")
+	var queued: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "train", "id": "militia"}))
+	seat.tick_guest(4.0)
+	var trained: int = 0
+	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if u.unit_type == &"militia":
+			trained += 1
+	check(queued == 1 and trained == 1, "the guest production queue trains a unit")
+	var militia: RTSUnit = null
+	for u_m: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if u_m.unit_type == &"militia":
+			militia = u_m
+	var fired: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "ability", "ids": [militia.get_instance_id()], "x": militia.global_position.x, "z": militia.global_position.z}))
+	check(fired == 1 and bool(militia.get_meta("toggled", false)), "the guest ability is validated on the guest unit")
+	var bank: int = seat.guest_roster.economy.credits(SMPointer.ENEMY)
+	var cast: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "protocol", "id": "cash_bounty"}))
+	var again: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "protocol", "id": "cash_bounty"}))
+	var sim: SMMatch = scene.get("sim") as SMMatch
+	var host_book: SMProtocols = sim.protocols
+	check(cast == 1 and again == 0 and seat.guest_roster.economy.credits(SMPointer.ENEMY) == bank + 250 and int(host_book.cast_count.get(&"cash_bounty", 0)) == 0, "the guest protocol spends the guest book")
+	var hp_before: float = float(seat.guest_side.yard.structure_hp.get(&"barracks", 0.0))
+	seat.guest_side.yard.structure_hp[&"barracks"] = 40.0
+	var repairing: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "repair", "id": "barracks"}))
+	seat.guest_side.yard.tick_repair(1.0)
+	check(repairing == 1 and float(seat.guest_side.yard.structure_hp[&"barracks"]) > 40.0, "the guest repair spends the guest yard")
+	var sold: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "sell", "id": "slag_refinery"}))
+	check(sold == 1 and not seat.guest_side.yard.finished.has(&"slag_refinery"), "the guest can sell a guest structure")
+	seat.guest_side.yard.style = SMBuildYard.Style.INTERNAL
+	seat.guest_side.yard.ready.append(&"lan_pad")
+	var outside: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "place", "id": "lan_pad", "x": 400.0, "z": 400.0}))
+	var placed: int = seat.apply_line(scene, JSON.stringify({"k": "cmd", "op": "place", "id": "lan_pad", "x": seat.guest_side.yard.center.x, "z": seat.guest_side.yard.center.z}))
+	check(outside == 0 and placed == 1 and seat.guest_side.yard.finished.has(&"lan_pad"), "placement stays inside the guest base")
+	var home: Vector3 = owned.global_position
+	for n: int in 55:
+		field.spawn(SMPointer.ENEMY, home + Vector3(0.2 * float(n % 10), 0.0, 0.2 * float(n / 10)), &"raider")
+	var full: Dictionary = seat.state_of(scene, true)
+	var listed: Array = full.get("u", [])
+	var seen_host: bool = false
+	for row: Variant in listed:
+		var bits: Array = row
+		if int(bits[4]) == SMPointer.PLAYER:
+			seen_host = true
+	check(int(full.get("n", 0)) > 48 and listed.size() > 48 and not seen_host and str(full.get("fog", "")).length() == 960 and full.has("credits") and full.has("q") and (full.get("b", []) as Array).size() > 0, "the snapshot carries fog, economy, structures, and more than 48 units")
+	var delta: Dictionary = seat.state_of(scene, false)
+	var changed: Array = delta.get("u", [])
+	check(int(delta.get("n", 0)) > 48 and changed.size() < int(delta.get("n", 0)) and not delta.has("fog"), "later snapshots send only what changed")
+	guest.close()
+	Lan.silence_pause = 0.05
+	Lan.drop_after = 0.2
+	seat.watch(0.1)
+	check(seat.paused and seat.winner == "", "a dropped guest pauses the match")
+	seat.watch(0.3)
+	await process_frame
+	var outcome: SMOutcome = scene.get("outcome") as SMOutcome
+	check(seat.winner == "host" and outcome.victory, "the host wins after the disconnect timeout")
 	scene.free()
 	await process_frame
 	Lan.close()
+	var other_host: Seat = Seat.new()
+	var other_guest: Seat = Seat.new()
+	other_host.port = 47961
+	other_guest.port = 47961
+	other_host.silence_pause = 0.05
+	other_host.drop_after = 0.2
+	other_guest.silence_pause = 0.05
+	other_guest.drop_after = 0.2
+	other_host.open_host()
+	other_guest.open_client("127.0.0.1")
+	for _j: int in 30:
+		other_host.pump()
+		other_guest.pump()
+		if other_guest.peer != null and other_guest.peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+			break
+		OS.delay_msec(20)
+	other_guest.started = true
+	other_host.close()
+	other_guest.watch(0.4)
+	check(other_guest.paused and other_guest.winner == "guest", "a dropped host gives the guest the win")
+	other_guest.close()
 	Lan.port = 7777
+	Lan.silence_pause = 2.0
+	Lan.drop_after = 15.0
 
 func test_sm_story() -> void:
 	for id: String in SMCampaign.ids():

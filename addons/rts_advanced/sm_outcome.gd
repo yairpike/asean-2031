@@ -160,6 +160,9 @@ func _hide(id: StringName) -> void:
 	if built is Node3D:
 		(built as Node3D).visible = false
 
+func finish(win: bool) -> void:
+	_finish(win)
+
 func _finish(win: bool) -> void:
 	if over:
 		return

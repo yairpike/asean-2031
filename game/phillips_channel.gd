@@ -222,6 +222,8 @@ func _capsule(node_name: String, pos: Vector3, color: Color) -> void:
 func _process(delta: float) -> void:
 	if hud.guide_blocks():
 		return
+	if preload("res://game/lan_link.gd").holding():
+		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	if cam != null:
 		var vp: Viewport = get_viewport()

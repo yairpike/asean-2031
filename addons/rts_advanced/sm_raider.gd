@@ -61,6 +61,8 @@ var wrecked: Dictionary[StringName, bool] = {}
 var income_scale: float = 1.0
 var react_scale: float = 1.0
 var _income_frac: float = 0.0
+## A human guest owns this seat. The bot does not build, train, or attack.
+var human: bool = false
 
 func attach(p_field: SMPointer, center: Vector3) -> void:
 	field = p_field
@@ -135,7 +137,7 @@ func apply_pace(income: float, wave_time: float, wave_size: float, react: float)
 	_retune_units()
 
 func tick(delta: float) -> void:
-	if field == null:
+	if human or field == null:
 		return
 	_step = delta
 	clock += delta
