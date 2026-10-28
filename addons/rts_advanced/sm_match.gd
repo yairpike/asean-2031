@@ -2,6 +2,10 @@ class_name SMMatch
 extends RefCounted
 ## Headless match: faction pipeline, channel crossing, abilities, passive enemy, bots.
 
+signal site_made(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color, form: String)
+signal plate_sunk(host: Node3D, node_name: String)
+signal deck_fit(host: Node3D, deck_name: String, north_up: bool, south_up: bool)
+
 var economy: RTSEconomy = RTSEconomy.new()
 var grid: SMDomainGrid
 var yard: SMBuildYard
@@ -48,7 +52,6 @@ func setup_phillips(faction: String = "gtfc") -> void:
 	abilities = SMAbilities.new()
 	ew = SMEwField.new()
 	ew.center = grid.cell_center(Vector2i(10, 6))
-	ew.radius = 10.0
 	protocols = SMProtocols.new()
 	audio = SMAudioDirector.new()
 	domain_log.clear()
@@ -195,7 +198,7 @@ func run_bot(bot: SMBot) -> Dictionary:
 		frozen = frozen or abilities.status_of(2) == SMAbilities.ST_FROZEN
 	if bot.personality == &"bo_mya":
 		var drone_cost: int = int(roundf(100.0 * tech.discount(player, "drone")))
-		fired = fired and drone_cost == 70
+		fired = fired and drone_cost == 80
 	audio.set_combat(true)
 	audio.advance(1.1)
 	var target: int = 2 if abilities.index_of(2) >= 0 else -1
@@ -238,11 +241,18 @@ func place_sites(map_id: String, p_grid: SMDomainGrid) -> void:
 	else:
 		_sites_phillips()
 
-func tick_live(delta: float, purse: RTSEconomy, squad: SMPointer) -> void:
+func tick_live(delta: float, purse: RTSEconomy, squad: SMPointer, foe_purse: RTSEconomy = null) -> void:
 	goods.advance(delta, purse)
 	tech.advance(delta, purse, SMPointer.ENEMY)
+	var bank: RTSEconomy = purse if foe_purse == null else foe_purse
+	tech.skim_bazaar(purse, bank, SMPointer.PLAYER, SMPointer.ENEMY, delta)
 	if squad == null:
 		return
+	for u: RTSUnit in squad.units:
+		if not is_instance_valid(u) or not u.is_alive():
+			continue
+		goods.claim_at(u.global_position, u.team, 2.4)
+		tech.capture_at(u.global_position, u.team, 2.4)
 	if _owns(SMTechNet.CLINIC):
 		for u: RTSUnit in squad.units_of(SMPointer.PLAYER):
 			if squad.is_infantry(u) and u.hp < u.max_hp:
@@ -272,19 +282,52 @@ func paint_sites(host: Node3D) -> void:
 		return
 	for node: Dictionary in goods.nodes:
 		var spot: Vector3 = node.get("pos", Vector3.ZERO) as Vector3
-		_site_mesh(host, "Node_%s" % str(node.get("id", "")), spot + Vector3(0.0, 0.35, 0.0), Vector3(1.15, 0.4, 1.15), _node_color(StringName(str(node.get("kind", "")))))
+		var goods_kind: StringName = StringName(str(node.get("kind", "")))
+		_site_mesh(host, "Node_%s" % str(node.get("id", "")), spot, Vector3(1.15, 0.4, 1.15), _node_color(goods_kind), _goods_form(goods_kind))
 	for site: Dictionary in tech.sites:
 		var kind: StringName = StringName(str(site.get("kind", "")))
 		var spot: Vector3 = site.get("pos", Vector3.ZERO) as Vector3
 		var node_name: String = "%s%s" % [_site_prefix(kind), str(site.get("id", ""))]
 		var size: Vector3 = Vector3(1.3, 1.5, 1.3)
+		var lift: float = 0.0
 		if kind == SMTechNet.BRIDGE:
 			size = Vector3(2.6, 0.28, 1.1)
+			lift = 0.16
 		elif kind == SMTechNet.DERRICK:
 			size = Vector3(0.36, 2.3, 0.36)
 		elif kind == SMTechNet.SALVAGE:
 			size = Vector3(1.8, 0.45, 1.1)
-		_site_mesh(host, node_name, spot + Vector3(0.0, size.y * 0.5, 0.0), size, _site_color(kind))
+		_site_mesh(host, node_name, spot + Vector3(0.0, lift, 0.0), size, _site_color(kind), _tech_form(kind))
+
+func collapse_bridge(id: StringName, squad: SMPointer, host: Node3D) -> void:
+	var span: Rect2i = _bridge_span(id)
+	if grid != null and span.size.x > 0 and span.size.y > 0:
+		grid.fill_rect(span, SMDomainGrid.Domain.DEEP)
+	if squad != null and grid != null:
+		squad.use_domain(grid)
+	if host == null:
+		return
+	plate_sunk.emit(host, "Bridge_%s" % str(id))
+	_fit_deck(host, id)
+
+func _bridge_span(id: StringName) -> Rect2i:
+	var key: String = str(id)
+	if key == "bridge_a":
+		return Rect2i(12, 14, 3, 2)
+	if key == "bridge_b":
+		return Rect2i(12, 16, 3, 2)
+	if key == "bridge_c":
+		return Rect2i(26, 14, 3, 2)
+	if key == "bridge_d":
+		return Rect2i(26, 16, 3, 2)
+	return Rect2i(0, 0, 0, 0)
+
+func _fit_deck(host: Node3D, id: StringName) -> void:
+	var west: bool = str(id) == "bridge_a" or str(id) == "bridge_b"
+	var deck_name: String = "BridgeWest" if west else "BridgeEast"
+	var north_id: StringName = &"bridge_a" if west else &"bridge_c"
+	var south_id: StringName = &"bridge_b" if west else &"bridge_d"
+	deck_fit.emit(host, deck_name, tech.bridge_alive(north_id), tech.bridge_alive(south_id))
 
 func _owns(kind: StringName) -> bool:
 	for site: Dictionary in tech.sites:
@@ -403,6 +446,10 @@ func _sites_chiang() -> void:
 	tech.add_site(&"cyber_d", SMTechNet.CYBER, grid.cell_center(Vector2i(46, 30)))
 	tech.add_site(&"bazaar_a", SMTechNet.BAZAAR, grid.cell_center(Vector2i(12, 22)))
 	tech.add_site(&"bazaar_b", SMTechNet.BAZAAR, grid.cell_center(Vector2i(42, 24)))
+	tech.add_site(&"garrison_a", SMTechNet.GARRISON, grid.cell_center(Vector2i(12, 4)))
+	tech.add_site(&"garrison_b", SMTechNet.GARRISON, grid.cell_center(Vector2i(24, 16)))
+	tech.add_site(&"garrison_c", SMTechNet.GARRISON, grid.cell_center(Vector2i(38, 36)))
+	tech.add_site(&"garrison_d", SMTechNet.GARRISON, grid.cell_center(Vector2i(52, 10)))
 
 func _node(id: StringName, kind: StringName, cell: Vector2i, rate: int, water: bool) -> void:
 	goods.add_node(id, kind, grid.cell_center(cell), rate, water)
@@ -425,6 +472,8 @@ func _site_prefix(kind: StringName) -> String:
 		return "Derrick_"
 	if kind == SMTechNet.BRIDGE:
 		return "Bridge_"
+	if kind == SMTechNet.GARRISON:
+		return "Garrison_"
 	return "Tech_"
 
 func _site_color(kind: StringName) -> Color:
@@ -440,16 +489,41 @@ func _site_color(kind: StringName) -> Color:
 		return Color(0.35, 0.32, 0.28)
 	if kind == SMTechNet.BRIDGE:
 		return Color(0.42, 0.38, 0.32)
+	if kind == SMTechNet.GARRISON:
+		return Color(0.62, 0.58, 0.5)
 	return Color(0.4, 0.28, 0.18)
 
-func _site_mesh(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
-	var mi: MeshInstance3D = MeshInstance3D.new()
-	mi.name = node_name
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	mi.mesh = mesh
-	mi.position = pos
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
-	host.add_child(mi)
+func _goods_form(kind: StringName) -> String:
+	if kind == SMCommodityNet.KIND_SLAG:
+		return "slag"
+	if kind == SMCommodityNet.KIND_RARE:
+		return "rare"
+	if kind == SMCommodityNet.KIND_RUBY:
+		return "ruby"
+	if kind == SMCommodityNet.KIND_JADE:
+		return "jade"
+	if kind == SMCommodityNet.KIND_BULLION:
+		return "bullion"
+	return "slag"
+
+func _tech_form(kind: StringName) -> String:
+	if kind == SMTechNet.CYBER:
+		return "cyber"
+	if kind == SMTechNet.BAZAAR:
+		return "bazaar"
+	if kind == SMTechNet.CLINIC:
+		return "clinic"
+	if kind == SMTechNet.RADAR:
+		return "radar"
+	if kind == SMTechNet.DERRICK:
+		return "derrick"
+	if kind == SMTechNet.SALVAGE:
+		return "salvage"
+	if kind == SMTechNet.BRIDGE:
+		return "bridge"
+	if kind == SMTechNet.GARRISON:
+		return "garrison"
+	return "salvage"
+
+func _site_mesh(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color, form: String = "") -> void:
+	site_made.emit(host, node_name, pos, size, color, form)

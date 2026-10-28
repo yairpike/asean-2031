@@ -1,6 +1,11 @@
 extends Node3D
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
+const Fx = preload("res://game/fx_view.gd")
+const Forms = preload("res://game/unit_meshes.gd")
+const Ground = preload("res://game/ground_view.gd")
 ## Phillips Channel. Two land masses, a deep channel, shallow crossings.
-## RA3-style sidebar with cameo placeholders. The far shore builds, expands, and attacks.
+## The far shore builds, expands, and attacks.
 
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
@@ -16,6 +21,7 @@ var combat_bus: AudioStreamPlayer
 var ui_layer: CanvasLayer
 
 func _ready() -> void:
+	preload("res://game/sim_presenter.gd").follow(self)
 	sim.setup_phillips("gtfc")
 	roster.setup(SMFront.current())
 	roster.price_scale = Callable(self, "_price_scale")
@@ -30,13 +36,16 @@ func _ready() -> void:
 	outcome.mount(self, ui_layer)
 	sight.bind(sim.grid)
 	hud.use_sight(sight)
+	hud.use_tech(sim.tech)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func scripted_playthrough() -> bool:
 	return sim.script_phillips()
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.08, 0.12, 0.16)
@@ -46,11 +55,7 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, 20, 0)
 	add_child(sun)
-	_slab("WestLand", Vector3(-50, 0, 0), Vector3(60, 0.4, 96), Color(0.34, 0.32, 0.24))
-	_slab("EastLand", Vector3(50, 0, 0), Vector3(60, 0.4, 96), Color(0.28, 0.34, 0.26))
-	_slab("DeepChannel", Vector3(0, -0.2, 0), Vector3(40, 0.3, 96), Color(0.08, 0.22, 0.42))
-	_slab("ShallowNorth", Vector3(0, 0.05, -26), Vector3(40, 0.25, 12), Color(0.2, 0.45, 0.55))
-	_slab("ShallowSouth", Vector3(0, 0.05, 26), Vector3(40, 0.25, 12), Color(0.2, 0.45, 0.55))
+	Ground.dress(self, sim.grid, "phillips")
 	_slab("PlayerYard", SMPointer.building_at(sim.yard.center), SMPointer.BUILDING_SIZE, SMFront.primary())
 	_slab("EnemyBase", SMPointer.building_at(sim.grid.cell_center(Vector2i(32, 12))), SMPointer.BUILDING_SIZE, Color(0.16, 0.17, 0.18))
 	sim.paint_sites(self)
@@ -58,7 +63,7 @@ func _world() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-90, -60, 180, 120)
-	cam.distance = 48.0
+	cam.distance = 26.0
 	cam.edge_pan_px = 20.0
 	cam.focus = Vector3(-58, 0, -12)
 	add_child(cam)
@@ -89,18 +94,12 @@ func _ui() -> void:
 	ui_layer = CanvasLayer.new()
 	var layer: CanvasLayer = ui_layer
 	add_child(layer)
-	var bar: HBoxContainer = HBoxContainer.new()
-	bar.name = "Protocols"
-	bar.position = Vector2(250, 48)
-	bar.add_theme_constant_override("separation", 8)
-	layer.add_child(bar)
-	_proto_button(bar, "Logistics", &"logistics")
-	_proto_button(bar, "Arsenal", &"arsenal")
-	_proto_button(bar, "Oracle", &"oracle")
+	sim.protocols.mount_panel(layer, roster.economy, sim.player, sim.abilities, Callable(self, "_say"))
 	var actions: HBoxContainer = HBoxContainer.new()
 	actions.name = "MatchActions"
 	actions.position = Vector2(250, 88)
 	actions.add_theme_constant_override("separation", 8)
+	actions.visible = false
 	layer.add_child(actions)
 	_action(actions, "Train unit", _on_train)
 	_action(actions, "Build pipeline", _on_build)
@@ -108,10 +107,15 @@ func _ui() -> void:
 	_action(actions, "Engage", _on_engage)
 	status = Label.new()
 	status.name = "Status"
+	status.visible = true
 	status.text = "Raise a yard, claim Golden Slag / Aurum-9, cross, then press F."
 	status.position = Vector2(250, 608)
+	status.size = Vector2(740, 40)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.custom_minimum_size = Vector2(740, 24)
+	status.clip_text = true
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status.add_theme_color_override("font_color", Color(0.95, 0.9, 0.55))
+	status.custom_minimum_size = Vector2(740, 40)
 	layer.add_child(status)
 
 func _arm_units() -> void:
@@ -119,24 +123,18 @@ func _arm_units() -> void:
 	field.bind_faction(self, cam, SMFront.current())
 	field.ew = sim.ew
 	field.use_domain(sim.grid)
+	field.bind_tech(sim.tech, Callable(self, "_bridge_down"))
 	field.attach_box(ui_layer)
 	var kinds: Array[StringName] = SMFront.kinds()
 	var cells: Array[Vector2i] = [Vector2i(1, 8), Vector2i(3, 8), Vector2i(5, 8), Vector2i(8, 8), Vector2i(10, 8), Vector2i(12, 8)]
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, sim.grid.cell_center(cells[i]), kinds[i])
+	field.spawn_support(sim.grid.cell_center(Vector2i(1, 6)))
 	for cell: Vector2i in [Vector2i(30, 12), Vector2i(31, 14), Vector2i(33, 11)]:
 		field.spawn(SMPointer.ENEMY, sim.grid.cell_center(cell), &"raider")
 	raider.attach(field, sim.grid.cell_center(Vector2i(30, 12)))
-
-func _proto_button(bar: HBoxContainer, caption: String, branch: StringName) -> void:
-	var b: Button = Button.new()
-	b.text = caption
-	b.pressed.connect(func() -> void:
-		var target: int = 10 if sim.abilities.index_of(10) >= 0 else -1
-		var ok: bool = sim.protocols.cast(branch, sim.economy, sim.player, sim.abilities, target)
-		_say("protocol %s" % str(branch) if ok else "protocol spent")
-	)
-	bar.add_child(b)
+	raider.bind_plan(sim.goods, sim.tech, &"bullion_east", &"bullion_north", &"cyber", "Bo Mya")
+	preload("res://game/match_settings.gd").apply_raider(raider)
 
 func _action(row: HBoxContainer, caption: String, fn: Callable) -> void:
 	var b: Button = Button.new()
@@ -145,6 +143,8 @@ func _action(row: HBoxContainer, caption: String, fn: Callable) -> void:
 	row.add_child(b)
 
 func train_unit() -> String:
+	if not Power.online(side.yard):
+		return ""
 	var done: StringName = roster.train_and_finish(SMFront.train_kind())
 	if done == &"":
 		return ""
@@ -177,9 +177,14 @@ func _price_scale(id: StringName) -> float:
 	return sim.tech.discount(SMPointer.PLAYER, roster.unit_tag(id))
 
 ## Income, night shift, rare-earth stock, water harm, cyber siphon, and clinic healing.
+func _bridge_down(id: StringName) -> void:
+	sim.collapse_bridge(id, field, self)
+
 func tick_world(delta: float) -> void:
-	sim.tick_live(delta, roster.economy, field)
+	sim.tick_live(delta, roster.economy, field, raider.economy)
 	sim.show_collectors(self)
+	side.yard.cool_super(delta)
+	sim.protocols.cool(delta)
 
 func _on_engage() -> void:
 	_say("channel clear" if sim.fight_passive() else "still fighting")
@@ -191,13 +196,14 @@ func _say(text: String) -> void:
 func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	mi.name = node_name
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	mi.mesh = mesh
 	mi.position = pos
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
+	if not Forms.dress_structure(mi, size, color):
+		var mesh: BoxMesh = BoxMesh.new()
+		mesh.size = size
+		mi.mesh = mesh
+		var mat: StandardMaterial3D = StandardMaterial3D.new()
+		mat.albedo_color = color
+		mi.material_override = mat
 	add_child(mi)
 
 func _capsule(node_name: String, pos: Vector3, color: Color) -> void:
@@ -214,6 +220,10 @@ func _capsule(node_name: String, pos: Vector3, color: Color) -> void:
 	add_child(mi)
 
 func _process(delta: float) -> void:
+	if hud.guide_blocks():
+		return
+	if preload("res://game/lan_link.gd").holding():
+		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	if cam != null:
 		var vp: Viewport = get_viewport()
@@ -224,9 +234,11 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	field.place_beacon(field.enemy_anchor())
 	tick_world(delta)
 	sight.advance_weather(delta)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	Fx.drive(self, field, sim.goods, sim.ew)
 	hud.refresh()
 	var players: Array[SMBuildYard] = [side.yard, sim.yard]
 	var foes: Array[SMBuildYard] = [raider.yard]
@@ -236,6 +248,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	var key: InputEventKey = event as InputEventKey
 	if key != null and key.pressed and not key.echo and key.keycode == KEY_F:
+		preload("res://game/sim_presenter.gd").play_selected_ability(self)
 		_on_ability()
 		return
 	if cam == null:
@@ -243,6 +256,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	var mb: InputEventMouseButton = event as InputEventMouseButton
 	if mb != null:
 		if field.handle_button(mb):
+			return
+		if hud.column_hovered() and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 			return
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			cam.zoom_toward(1.0, cam.ground_at(mb.position))

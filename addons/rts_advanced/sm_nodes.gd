@@ -8,6 +8,10 @@ const KIND_RARE: StringName = &"rare_earth"
 const KIND_RUBY: StringName = &"mogok_ruby"
 const KIND_JADE: StringName = &"hpakant_jade"
 const KIND_BULLION: StringName = &"gold_bullion"
+const TRICKLE: int = 50
+## Full trips before a mine falls back to the leftover payment. Long enough that a
+## five-minute match still sees the full loop.
+const FULL_LOOPS: int = 120
 
 var nodes: Array[Dictionary] = []
 var rare_stock: Dictionary[int, int] = {}
@@ -43,6 +47,7 @@ func add_node(id: StringName, kind: StringName, pos: Vector3, rate: int, water_a
 		"night": false,
 		"fog_visible": false,
 		"paid": 0,
+		"reserve": -1,
 	})
 
 func find(id: StringName) -> int:
@@ -56,6 +61,24 @@ func kind_of(id: StringName) -> StringName:
 	if i < 0:
 		return &""
 	return StringName(str(nodes[i]["kind"]))
+
+func claim_at(pos: Vector3, team: int, reach: float) -> StringName:
+	var best_i: int = -1
+	var best_d: float = reach
+	for i: int in nodes.size():
+		if int(nodes[i]["team"]) >= 0:
+			continue
+		var spot: Vector3 = nodes[i]["pos"]
+		var dist: float = pos.distance_to(spot)
+		if dist <= best_d:
+			best_d = dist
+			best_i = i
+	if best_i < 0:
+		return &""
+	var id: StringName = StringName(str(nodes[best_i]["id"]))
+	if snap_refinery(id, team):
+		return id
+	return &""
 
 func snap_refinery(id: StringName, team: int) -> bool:
 	var i: int = find(id)
@@ -74,6 +97,19 @@ func has_collector(id: StringName) -> bool:
 	if i < 0:
 		return false
 	return bool(nodes[i]["collector"])
+
+func release_collector(id: StringName) -> bool:
+	var i: int = find(id)
+	if i < 0:
+		return false
+	var node: Dictionary = nodes[i]
+	if not bool(node["collector"]):
+		return false
+	node["team"] = -1
+	node["collector"] = false
+	node["loop_t"] = 0.0
+	nodes[i] = node
+	return true
 
 func set_night_shift(id: StringName, on: bool) -> bool:
 	var i: int = find(id)
@@ -116,13 +152,39 @@ func advance(delta: float, economy: RTSEconomy) -> int:
 			if kind == KIND_RARE:
 				rare_stock[owner] = rare_stock.get(owner, 0) + 1
 			else:
-				var amount: int = int(node["rate"])
+				var amount: int = _pay_credits(node)
 				economy.earn(owner, amount)
 				paid += amount
 				node["paid"] = int(node["paid"]) + amount
 		node["loop_t"] = t
 		nodes[i] = node
 	return paid
+
+## A negative reserve means the deposit is still full. After it is spent, the
+## collector keeps a 50-credit trickle instead of stopping.
+func set_reserve(id: StringName, amount: int) -> bool:
+	var i: int = find(id)
+	if i < 0:
+		return false
+	var node: Dictionary = nodes[i]
+	node["reserve"] = amount
+	nodes[i] = node
+	return true
+
+func _pay_credits(node: Dictionary) -> int:
+	var kind: StringName = StringName(str(node["kind"]))
+	var full: int = 400 if kind == KIND_BULLION else 250
+	var reserve: int = int(node["reserve"])
+	if reserve < 0:
+		reserve = full * FULL_LOOPS
+	var pay: int = TRICKLE
+	if reserve >= full:
+		pay = full
+		reserve -= full
+	else:
+		reserve = 0
+	node["reserve"] = reserve
+	return pay
 
 func paid_of(id: StringName) -> int:
 	var i: int = find(id)

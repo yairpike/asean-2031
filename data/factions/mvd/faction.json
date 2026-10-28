@@ -2,31 +2,452 @@
   "id": "mvd",
   "display_name": "MVD",
   "build_style": "internal",
-  "colors": {"primary": "charcoal", "accent": "cyan", "primary_hex": "#2A2E32", "accent_hex": "#26BFD1"},
+  "colors": {
+    "primary": "charcoal",
+    "accent": "cyan",
+    "primary_hex": "#2A2E32",
+    "accent_hex": "#26BFD1"
+  },
   "yard_radius": 14,
   "clearance_radius_step": 6,
-  "tech_order": ["command_hub", "drone_bay", "siege_works"],
-  "buildings": [
-    {"id": "command_hub", "tier": 1, "time": 4, "cost": 250, "hp": 500},
-    {"id": "drone_bay", "tier": 2, "time": 5, "cost": 200, "hp": 280},
-    {"id": "siege_works", "tier": 3, "time": 7, "cost": 320, "hp": 340, "rare_earth_cost": 1}
+  "tech_order": [
+    "command_hub",
+    "solar_biomass",
+    "hub_refinery",
+    "drone_bay",
+    "war_factory",
+    "naval_yard",
+    "airfield",
+    "defender_vx",
+    "spectrum_prism",
+    "siege_works"
   ],
+  "buildings": [
+    {
+      "id": "command_hub",
+      "display_name": "Construction Yard",
+      "role": "yard",
+      "tier": 1,
+      "time": 4,
+      "cost": 250,
+      "hp": 500
+    },
+    {
+      "id": "solar_biomass",
+      "display_name": "Solar-Biomass Plant",
+      "role": "power",
+      "tier": 1,
+      "time": 5,
+      "cost": 180,
+      "hp": 280
+    },
+    {
+      "id": "hub_refinery",
+      "display_name": "Hub Refinery",
+      "role": "refinery",
+      "tier": 1,
+      "time": 5,
+      "cost": 160,
+      "hp": 300
+    },
+    {
+      "id": "drone_bay",
+      "display_name": "Barracks",
+      "role": "barracks",
+      "tier": 2,
+      "time": 5,
+      "cost": 200,
+      "hp": 280
+    },
+    {
+      "id": "war_factory",
+      "display_name": "War Factory",
+      "role": "factory",
+      "tier": 2,
+      "time": 6,
+      "cost": 240,
+      "hp": 340
+    },
+    {
+      "id": "naval_yard",
+      "display_name": "Naval Yard",
+      "role": "naval",
+      "tier": 2,
+      "time": 6,
+      "cost": 240,
+      "hp": 320,
+      "water": true
+    },
+    {
+      "id": "airfield",
+      "display_name": "Airfield",
+      "role": "air",
+      "tier": 2,
+      "time": 6,
+      "cost": 260,
+      "hp": 300
+    },
+    {
+      "id": "defender_vx",
+      "display_name": "Defender-VX",
+      "role": "defense",
+      "tier": 3,
+      "time": 4,
+      "cost": 140,
+      "hp": 260
+    },
+    {
+      "id": "spectrum_prism",
+      "display_name": "Spectrum Prism",
+      "role": "defense",
+      "tier": 3,
+      "time": 5,
+      "cost": 200,
+      "hp": 240
+    },
+    {
+      "id": "siege_works",
+      "display_name": "Tech Center",
+      "role": "tech",
+      "tier": 3,
+      "time": 7,
+      "cost": 320,
+      "hp": 340,
+      "rare_earth_cost": 1
+    }
+  ],
+  "superweapon": {
+    "id": "ion_cryo",
+    "display_name": "Ion-Cryo Collider",
+    "cooldown": 20,
+    "damage": 55,
+    "radius": 7,
+    "water": false
+  },
   "units": [
-    {"id": "clearance_trooper", "display_name": "Clearance Trooper", "cameo": "CLR", "role": "infantry", "cost": 90, "time": 3, "hp": 95, "speed": 5, "weapon": "carbine", "weapon_damage": 9, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
-    {"id": "hub_drone", "display_name": "Hub Drone", "cameo": "DRN", "role": "drone", "cost": 150, "time": 4, "hp": 60, "speed": 8, "weapon": "stinger", "weapon_damage": 8, "secondary": "smart_cast", "guidance": "gps", "locomotion": "air", "tags": ["drone"]},
-    {"id": "charcoal_apc", "display_name": "Charcoal APC", "cameo": "APC", "role": "armor", "cost": 240, "time": 6, "hp": 200, "speed": 5, "weapon": "autocannon", "weapon_damage": 12, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["armor"]},
-    {"id": "cyan_ifv", "display_name": "Cyan IFV", "cameo": "IFV", "role": "armor", "cost": 260, "time": 6, "hp": 180, "speed": 5.4, "weapon": "cannon", "weapon_damage": 16, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["armor"]},
-    {"id": "relay_van", "display_name": "Relay Van", "cameo": "VAN", "role": "support", "cost": 200, "time": 5, "hp": 90, "speed": 6, "weapon": "mast", "weapon_damage": 4, "secondary": "channeled_beam", "guidance": "hop", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "river_drone", "display_name": "River Drone", "cameo": "RDR", "role": "drone", "cost": 170, "time": 4, "hp": 70, "speed": 7, "weapon": "dart", "weapon_damage": 9, "secondary": "smart_cast", "guidance": "fpv", "locomotion": "amphibious", "tags": ["drone"]},
-    {"id": "cyan_sentry", "display_name": "Cyan Sentry", "cameo": "SEN", "role": "infantry", "cost": 90, "time": 3, "hp": 90, "speed": 5.0, "weapon": "carbine", "weapon_damage": 9, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
-    {"id": "charcoal_mortar", "display_name": "Charcoal Mortar", "cameo": "CMR", "role": "artillery", "cost": 220, "time": 6, "hp": 95, "speed": 3.1, "weapon": "mortar", "weapon_damage": 18, "secondary": "channeled_beam", "guidance": "none", "locomotion": "ground", "tags": ["artillery"]},
-    {"id": "hub_lifter", "display_name": "Hub Lifter", "cameo": "LFT", "role": "vehicle", "cost": 160, "time": 5, "hp": 140, "speed": 4.2, "weapon": "hook", "weapon_damage": 6, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "clearance_engineer", "display_name": "Clearance Engineer", "cameo": "ENG", "role": "infantry", "cost": 120, "time": 4, "hp": 85, "speed": 4.8, "weapon": "welder", "weapon_damage": 8, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["infantry"]},
-    {"id": "cyan_gunship", "display_name": "Cyan Gunship", "cameo": "GNS", "role": "air", "cost": 320, "time": 8, "hp": 150, "speed": 8.0, "weapon": "cannon", "weapon_damage": 16, "secondary": "smart_cast", "guidance": "gps", "locomotion": "air", "tags": ["air"]},
-    {"id": "siege_tube", "display_name": "Siege Tube", "cameo": "SGE", "role": "artillery", "cost": 280, "time": 7, "hp": 110, "speed": 3.0, "weapon": "tube", "weapon_damage": 24, "secondary": "channeled_beam", "guidance": "none", "locomotion": "ground", "tags": ["artillery"]},
-    {"id": "relay_mast", "display_name": "Relay Mast", "cameo": "MST", "role": "vehicle", "cost": 180, "time": 5, "hp": 80, "speed": 5.5, "weapon": "mast", "weapon_damage": 4, "secondary": "group_toggle", "guidance": "hop", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "charcoal_bike", "display_name": "Charcoal Bike", "cameo": "BIK", "role": "vehicle", "cost": 100, "time": 3, "hp": 70, "speed": 8.5, "weapon": "smg", "weapon_damage": 7, "secondary": "smart_cast", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]},
-    {"id": "cyan_skiff", "display_name": "Cyan Skiff", "cameo": "CSK", "role": "amphibious", "cost": 170, "time": 4, "hp": 100, "speed": 6.4, "weapon": "bow_gun", "weapon_damage": 9, "secondary": "smart_cast", "guidance": "none", "locomotion": "amphibious", "tags": ["naval"]},
-    {"id": "hub_hauler", "display_name": "Hub Hauler", "cameo": "HAU", "role": "vehicle", "cost": 150, "time": 4, "hp": 120, "speed": 5.8, "weapon": "cab_gun", "weapon_damage": 6, "secondary": "group_toggle", "guidance": "none", "locomotion": "ground", "tags": ["vehicle"]}
-  ]
+    {
+      "id": "clearance_trooper",
+      "display_name": "Vanguard Shock-Trooper",
+      "cameo": "CLR",
+      "role": "infantry",
+      "cost": 90,
+      "time": 3,
+      "hp": 95,
+      "speed": 5,
+      "weapon": "carbine",
+      "weapon_damage": 9,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "infantry"
+      ],
+      "ability": "Ballistic Riot Shield",
+      "f_stat": "incoming"
+    },
+    {
+      "id": "hub_drone",
+      "display_name": "Agent-Zero Cryo-Copter",
+      "cameo": "DRN",
+      "role": "drone",
+      "cost": 150,
+      "time": 4,
+      "hp": 60,
+      "speed": 8,
+      "weapon": "stinger",
+      "weapon_damage": 8,
+      "secondary": "smart_cast",
+      "guidance": "gps",
+      "locomotion": "air",
+      "tags": [
+        "drone"
+      ],
+      "ability": "S.H.R.I.N.K. Ray",
+      "f_stat": "speed"
+    },
+    {
+      "id": "charcoal_apc",
+      "display_name": "Delta Amphibious IFV",
+      "cameo": "APC",
+      "role": "armor",
+      "cost": 240,
+      "time": 6,
+      "hp": 200,
+      "speed": 5,
+      "weapon": "autocannon",
+      "weapon_damage": 12,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "armor"
+      ],
+      "ability": "Eject and Repair",
+      "f_stat": "hp"
+    },
+    {
+      "id": "cyan_ifv",
+      "display_name": "Saigon Prism-Lock Tank",
+      "cameo": "IFV",
+      "role": "armor",
+      "cost": 260,
+      "time": 6,
+      "hp": 180,
+      "speed": 5.4,
+      "weapon": "cannon",
+      "weapon_damage": 16,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "armor"
+      ],
+      "ability": "Target Painter",
+      "f_stat": "damage"
+    },
+    {
+      "id": "relay_van",
+      "display_name": "Colonel Nguyen Phantom",
+      "cameo": "VAN",
+      "role": "infantry",
+      "cost": 200,
+      "time": 5,
+      "hp": 90,
+      "speed": 6,
+      "weapon": "mast",
+      "weapon_damage": 4,
+      "secondary": "channeled_beam",
+      "guidance": "hop",
+      "locomotion": "ground",
+      "tags": [
+        "infantry",
+        "hero"
+      ],
+      "ability": "Chrono-Phase Recall",
+      "f_stat": "speed"
+    },
+    {
+      "id": "river_drone",
+      "display_name": "Athena Orbital Designator",
+      "cameo": "RDR",
+      "role": "drone",
+      "cost": 170,
+      "time": 4,
+      "hp": 70,
+      "speed": 7,
+      "weapon": "dart",
+      "weapon_damage": 9,
+      "secondary": "smart_cast",
+      "guidance": "fpv",
+      "locomotion": "amphibious",
+      "tags": [
+        "drone"
+      ],
+      "ability": "Aegis Dome",
+      "f_stat": "incoming"
+    },
+    {
+      "id": "cyan_sentry",
+      "display_name": "Cu Chi Tunnel Hound",
+      "cameo": "SEN",
+      "role": "infantry",
+      "cost": 90,
+      "time": 3,
+      "hp": 90,
+      "speed": 5.0,
+      "weapon": "carbine",
+      "weapon_damage": 9,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "infantry"
+      ],
+      "ability": "Pheromone Bark",
+      "f_stat": "damage"
+    },
+    {
+      "id": "charcoal_mortar",
+      "display_name": "Mirage Camo-Tank",
+      "cameo": "CMR",
+      "role": "artillery",
+      "cost": 220,
+      "time": 6,
+      "hp": 95,
+      "speed": 3.1,
+      "weapon": "mortar",
+      "weapon_damage": 18,
+      "secondary": "channeled_beam",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "artillery"
+      ],
+      "ability": "Banyan Hologram",
+      "f_stat": "speed"
+    },
+    {
+      "id": "hub_lifter",
+      "display_name": "Mekong Combat Sapper",
+      "cameo": "LFT",
+      "role": "vehicle",
+      "cost": 160,
+      "time": 5,
+      "hp": 140,
+      "speed": 4.2,
+      "weapon": "hook",
+      "weapon_damage": 6,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "vehicle"
+      ],
+      "ability": "Field Medical Tent",
+      "f_stat": "hp"
+    },
+    {
+      "id": "clearance_engineer",
+      "display_name": "Viet-Tech Laser Operator",
+      "cameo": "ENG",
+      "role": "infantry",
+      "cost": 120,
+      "time": 4,
+      "hp": 85,
+      "speed": 4.8,
+      "weapon": "welder",
+      "weapon_damage": 8,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "infantry"
+      ],
+      "ability": "Laser Target Lock",
+      "f_stat": "damage"
+    },
+    {
+      "id": "cyan_gunship",
+      "display_name": "Tonkin Supersonic Fighter",
+      "cameo": "GNS",
+      "role": "air",
+      "cost": 320,
+      "time": 8,
+      "hp": 150,
+      "speed": 8.0,
+      "weapon": "cannon",
+      "weapon_damage": 16,
+      "secondary": "smart_cast",
+      "guidance": "gps",
+      "locomotion": "air",
+      "tags": [
+        "air",
+        "jet"
+      ],
+      "ability": "Afterburner Return",
+      "f_stat": "speed"
+    },
+    {
+      "id": "siege_tube",
+      "display_name": "Vindicator Bomber",
+      "cameo": "SGE",
+      "role": "air",
+      "cost": 280,
+      "time": 7,
+      "hp": 110,
+      "speed": 3.0,
+      "weapon": "tube",
+      "weapon_damage": 24,
+      "secondary": "channeled_beam",
+      "guidance": "none",
+      "locomotion": "air",
+      "tags": [
+        "air",
+        "jet"
+      ],
+      "ability": "Emergency Evasive Return",
+      "f_stat": "speed"
+    },
+    {
+      "id": "relay_mast",
+      "display_name": "Mekong Assault Destroyer",
+      "cameo": "MST",
+      "role": "boat",
+      "cost": 180,
+      "time": 5,
+      "hp": 80,
+      "speed": 5.5,
+      "weapon": "mast",
+      "weapon_damage": 4,
+      "secondary": "group_toggle",
+      "guidance": "hop",
+      "locomotion": "naval",
+      "tags": [
+        "naval"
+      ],
+      "ability": "Black-Hole Armor",
+      "f_stat": "incoming"
+    },
+    {
+      "id": "charcoal_bike",
+      "display_name": "Infiltrator Operative",
+      "cameo": "BIK",
+      "role": "infantry",
+      "cost": 100,
+      "time": 3,
+      "hp": 70,
+      "speed": 8.5,
+      "weapon": "smg",
+      "weapon_damage": 7,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "ground",
+      "tags": [
+        "infantry"
+      ],
+      "ability": "Cash Bribe",
+      "f_stat": "hp"
+    },
+    {
+      "id": "cyan_skiff",
+      "display_name": "Ha Long Hydrofoil",
+      "cameo": "CSK",
+      "role": "amphibious",
+      "cost": 170,
+      "time": 4,
+      "hp": 100,
+      "speed": 6.4,
+      "weapon": "bow_gun",
+      "weapon_damage": 9,
+      "secondary": "smart_cast",
+      "guidance": "none",
+      "locomotion": "amphibious",
+      "tags": [
+        "naval"
+      ],
+      "ability": "Scrambler",
+      "f_stat": "damage"
+    },
+    {
+      "id": "hub_hauler",
+      "display_name": "Indochina Drone Carrier",
+      "cameo": "HAU",
+      "role": "boat",
+      "cost": 150,
+      "time": 4,
+      "hp": 120,
+      "speed": 5.8,
+      "weapon": "cab_gun",
+      "weapon_damage": 6,
+      "secondary": "group_toggle",
+      "guidance": "none",
+      "locomotion": "naval",
+      "tags": [
+        "naval"
+      ],
+      "ability": "Blackout EMP",
+      "f_stat": "damage"
+    }
+  ],
+  "balance": "placeholder"
 }

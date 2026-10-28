@@ -1,0 +1,6 @@
+Operation Napalm
+Designer: GGBotNet
+Official page: https://ggbot.itch.io/operation-napalm-font
+Downloaded from: https://github.com/ggbotnet/fonts-cc0 (OperationNapalm-Regular.ttf)
+License file: OperationNapalm-CC0.txt
+Terms: CC0 1.0. Commercial use is allowed.

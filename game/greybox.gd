@@ -26,7 +26,7 @@ func _ready() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-30, -20, 60, 40)
-	cam.distance = 28.0
+	cam.distance = 20.0
 	cam.edge_pan_px = 18.0
 	cam.focus = Vector3(0, 0, 1)
 	add_child(cam)
@@ -38,6 +38,12 @@ func _ready() -> void:
 	var layer: CanvasLayer = CanvasLayer.new()
 	layer.add_child(label)
 	add_child(layer)
+	preload("res://game/settings_panel.gd").attach(layer)
+	preload("res://game/match_settings.gd").apply_scene(self)
+	var fitter: Node = Node.new()
+	fitter.name = "CameraFit"
+	fitter.set_script(preload("res://game/camera_fit.gd"))
+	add_child(fitter)
 
 func _process(delta: float) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera

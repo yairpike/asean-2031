@@ -2,18 +2,104 @@
   "id": "black_market",
   "display_name": "Black Market",
   "build_style": "none",
-  "colors": {"primary": "charcoal", "accent": "amber", "primary_hex": "#1C1C1C", "accent_hex": "#C4922A"},
+  "colors": {
+    "primary": "charcoal",
+    "accent": "amber",
+    "primary_hex": "#1C1C1C",
+    "accent_hex": "#C4922A"
+  },
   "import_flags": {
     "rotary_slot": true,
     "strike_slot": true,
     "spotter_slot": true
   },
-  "discount_tags": ["drone", "infantry"],
-  "units": [
-    {"id": "ch4", "display_name": "CH-4", "cameo": "CH4", "role": "air", "cost": 340, "time": 8, "hp": 130, "speed": 7.5, "weapon": "autocannon", "weapon_damage": 14, "secondary": "smart_cast", "guidance": "gps", "locomotion": "air", "tags": ["air"]},
-    {"id": "su30", "display_name": "Su-30", "cameo": "SU", "role": "air", "cost": 480, "time": 10, "hp": 180, "speed": 9.0, "weapon": "cannon", "weapon_damage": 26, "secondary": "group_toggle", "guidance": "gps", "locomotion": "air", "tags": ["air"]},
-    {"id": "orlan10", "display_name": "Orlan-10", "cameo": "ORL", "role": "air", "cost": 160, "time": 4, "hp": 50, "speed": 8.0, "weapon": "camera", "weapon_damage": 4, "secondary": "channeled_beam", "guidance": "gps", "locomotion": "air", "tags": ["air"]},
-    {"id": "import_spotter", "display_name": "Import Spotter", "cameo": "IMP", "role": "air", "cost": 140, "time": 4, "hp": 55, "speed": 7.2, "weapon": "rifle", "weapon_damage": 6, "secondary": "smart_cast", "guidance": "hop", "locomotion": "air", "tags": ["air"]}
+  "discount_tags": [
+    "drone",
+    "infantry"
   ],
-  "buildings": []
+  "units": [
+    {
+      "id": "ch4",
+      "display_name": "CH-4",
+      "cameo": "CH4",
+      "role": "air",
+      "cost": 340,
+      "time": 8,
+      "hp": 130,
+      "speed": 7.5,
+      "weapon": "autocannon",
+      "weapon_damage": 14,
+      "secondary": "smart_cast",
+      "guidance": "gps",
+      "locomotion": "air",
+      "tags": [
+        "air"
+      ],
+      "ability": "Satellite Laser Designation",
+      "f_stat": "damage"
+    },
+    {
+      "id": "su30",
+      "display_name": "Su-30",
+      "cameo": "SU",
+      "role": "air",
+      "cost": 480,
+      "time": 10,
+      "hp": 180,
+      "speed": 9.0,
+      "weapon": "cannon",
+      "weapon_damage": 26,
+      "secondary": "group_toggle",
+      "guidance": "gps",
+      "locomotion": "air",
+      "tags": [
+        "air",
+        "jet"
+      ],
+      "ability": "Stand-Off Glide Barrage",
+      "f_stat": "damage"
+    },
+    {
+      "id": "orlan10",
+      "display_name": "Orlan-10",
+      "cameo": "ORL",
+      "role": "air",
+      "cost": 160,
+      "time": 4,
+      "hp": 50,
+      "speed": 8.0,
+      "weapon": "camera",
+      "weapon_damage": 4,
+      "secondary": "channeled_beam",
+      "guidance": "gps",
+      "locomotion": "air",
+      "tags": [
+        "air"
+      ],
+      "ability": "Artillery Telemetry Link",
+      "f_stat": "damage"
+    },
+    {
+      "id": "flh7",
+      "display_name": "FLH7 Squad",
+      "cameo": "IMP",
+      "role": "air",
+      "cost": 140,
+      "time": 4,
+      "hp": 55,
+      "speed": 7.2,
+      "weapon": "rifle",
+      "weapon_damage": 6,
+      "secondary": "smart_cast",
+      "guidance": "hop",
+      "locomotion": "air",
+      "tags": [
+        "air"
+      ],
+      "ability": "Frequency Hop",
+      "f_stat": "speed"
+    }
+  ],
+  "buildings": [],
+  "balance": "placeholder"
 }

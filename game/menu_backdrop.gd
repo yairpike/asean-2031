@@ -1,0 +1,335 @@
+extends Control
+## Cinematic still under a lazy Theora loop.
+## The main menu crossfades gtfc, nmrf, mvd, and mvd_bunker.
+## A faction screen holds that faction's loop. Settings stays on stills.
+## Headless runs never open a video. A missing file keeps the still.
+## Quiet beds in ui/menu/video/bed/ are not played.
+
+const HOLD: float = 8.0
+const FADE: float = 0.65
+
+var _main_reel: PackedStringArray = PackedStringArray([
+	"gtfc", "nmrf", "mvd", "mvd_bunker",
+])
+var _neutral_reel: PackedStringArray = PackedStringArray([
+	"neutral_embers", "neutral_rain",
+])
+
+var faction_id: String = ""
+var screen: String = "main"
+var _spin: float = 0.0
+var _aim: Vector2 = Vector2.ZERO
+var _art: Texture2D
+var _reel_t: float = 0.0
+var _reel_i: int = 0
+var _players: Array[VideoStreamPlayer] = []
+var _show: int = 0
+var _fading: bool = false
+var _fade: float = 1.0
+var _current: String = ""
+var _headless: bool = false
+var _video_wait: Dictionary = {}
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_headless = DisplayServer.get_name() == "headless"
+	_apply_art()
+	if not _headless:
+		for i: int in 2:
+			var player := VideoStreamPlayer.new()
+			player.name = "MenuVideo%d" % i
+			player.set_anchors_preset(Control.PRESET_FULL_RECT)
+			player.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			player.expand = true
+			player.loop = true
+			player.volume_db = -80.0
+			player.visible = false
+			player.modulate.a = 0.0
+			add_child(player)
+			_players.append(player)
+		_sync_video(false)
+	var scrim: Control = (load("res://game/menu_scrim.gd") as GDScript).new() as Control
+	scrim.name = "MenuScrim"
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(scrim)
+	if OS.has_feature("web"):
+		for stem: String in _main_reel:
+			var poster: String = "mvd" if stem == "mvd_bunker" else stem
+			if texture(poster) == null:
+				_pull("cinematic/%s.webp" % poster, poster)
+
+func set_faction(id: String) -> void:
+	faction_id = id
+	_apply_art()
+	_sync_video(true)
+
+func set_screen(which: String) -> void:
+	screen = which
+	_apply_art()
+	_sync_video(true)
+
+func _apply_art() -> void:
+	var stem: String = _stem()
+	_art = texture(stem)
+	if _art == null and OS.has_feature("web") and stem != "":
+		_pull("cinematic/%s.webp" % stem, stem)
+	queue_redraw()
+
+func _stem() -> String:
+	if faction_id == "gtfc" or faction_id == "nmrf" or faction_id == "mvd":
+		return faction_id
+	if screen == "settings":
+		if _neutral_reel.is_empty():
+			return ""
+		return _neutral_reel[_reel_i % _neutral_reel.size()]
+	var clip: String = _video_stem()
+	if clip == "mvd_bunker":
+		return "mvd"
+	return clip
+
+func _video_stem() -> String:
+	if screen == "settings" or _headless:
+		return ""
+	if faction_id == "gtfc" or faction_id == "nmrf" or faction_id == "mvd":
+		return faction_id
+	if _main_reel.is_empty():
+		return ""
+	return _main_reel[_reel_i % _main_reel.size()]
+
+func _process(delta: float) -> void:
+	_spin += delta * 0.22
+	var held: bool = faction_id == "gtfc" or faction_id == "nmrf" or faction_id == "mvd"
+	if not held and screen != "settings":
+		_reel_t += delta
+		if _reel_t >= HOLD:
+			_reel_t = 0.0
+			_reel_i += 1
+			_apply_art()
+			_sync_video(true)
+	var view: Vector2 = get_viewport_rect().size
+	var mouse: Vector2 = get_viewport().get_mouse_position()
+	var norm := Vector2.ZERO
+	if view.x > 1.0 and view.y > 1.0:
+		norm = Vector2(mouse.x / view.x, mouse.y / view.y) * 2.0 - Vector2.ONE
+	_aim = _aim.lerp(norm, minf(1.0, delta * 3.0))
+	_tick_video(delta)
+	queue_redraw()
+
+func _sync_video(fade: bool) -> void:
+	if _headless or _players.size() < 2:
+		return
+	var stem: String = _video_stem()
+	if stem == "":
+		_stop_video()
+		return
+	if stem == _current:
+		return
+	var path: String = _video_file(stem)
+	if path == "":
+		_stop_video()
+		return
+	var nxt: int = 1 - _show
+	var player: VideoStreamPlayer = _players[nxt]
+	var stream := VideoStreamTheora.new()
+	stream.file = path
+	player.stream = stream
+	player.play()
+	player.visible = true
+	player.set_meta("since", Time.get_ticks_msec())
+	_current = stem
+	var front: VideoStreamPlayer = _players[_show]
+	if not fade or not front.visible:
+		player.modulate.a = 1.0
+		front.visible = false
+		front.stop()
+		_show = nxt
+		_fading = false
+		return
+	player.modulate.a = 0.0
+	_fade = 0.0
+	_fading = true
+	_show = nxt
+
+func _tick_video(delta: float) -> void:
+	if _players.is_empty():
+		return
+	var front: VideoStreamPlayer = _players[_show]
+	if front.visible and front.stream != null and not front.is_playing():
+		var since: int = int(front.get_meta("since", 0))
+		if Time.get_ticks_msec() - since > 800:
+			_stop_video()
+			return
+	if not _fading:
+		return
+	_fade += delta / FADE
+	var a: float = clampf(_fade, 0.0, 1.0)
+	_players[_show].modulate.a = a
+	_players[1 - _show].modulate.a = 1.0 - a
+	if _fade < 1.0:
+		return
+	_fading = false
+	var back: VideoStreamPlayer = _players[1 - _show]
+	back.visible = false
+	back.stop()
+
+func _stop_video() -> void:
+	_current = ""
+	_fading = false
+	for player: VideoStreamPlayer in _players:
+		player.stop()
+		player.visible = false
+		player.modulate.a = 0.0
+
+func _video_file(stem: String) -> String:
+	if stem == "" or stem.contains("..") or stem.contains("/") or stem.contains("\\"):
+		return ""
+	var name: String = "%s.ogv" % stem
+	var user_path: String = "user://menu/video/%s" % name
+	if FileAccess.file_exists(user_path):
+		return ProjectSettings.globalize_path(user_path)
+	var packed: String = "res://ui/menu/video/%s" % name
+	if FileAccess.file_exists(packed):
+		return ProjectSettings.globalize_path(packed)
+	var roots: PackedStringArray = PackedStringArray()
+	roots.append(ProjectSettings.globalize_path("res://").path_join("build/web/ui/menu/video"))
+	roots.append(OS.get_executable_path().get_base_dir().path_join("ui/menu/video"))
+	for root: String in roots:
+		var path: String = root.path_join(name)
+		if FileAccess.file_exists(path):
+			return path
+	if OS.has_feature("web"):
+		_pull_video(stem)
+	return ""
+
+func _draw() -> void:
+	if _art != null:
+		_cover(_art)
+	else:
+		_gradient()
+
+func _gradient() -> void:
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.012, 0.014, 0.02))
+	draw_rect(Rect2(0.0, 0.0, size.x, size.y * 0.62), Color(0.03, 0.036, 0.048))
+	draw_rect(Rect2(size.x * 0.55, size.y * 0.2, size.x * 0.45, size.y * 0.5), Color(0.05, 0.045, 0.04, 0.35))
+
+func _cover(tex: Texture2D) -> void:
+	var pulse: float = 1.0 + sin(_spin) * 0.018
+	var pad: float = 36.0 * pulse
+	var drift := Vector2(sin(_spin * 0.35) * 16.0, cos(_spin * 0.28) * 8.0)
+	var nudge := Vector2(_aim.x * 14.0, _aim.y * 8.0) + drift
+	draw_texture_rect(tex, Rect2(-pad + nudge.x, -pad + nudge.y, size.x + pad * 2.0, size.y + pad * 2.0), false)
+
+func _pull(file_name: String, slot: String) -> void:
+	if not OS.has_feature("web") or file_name.contains("..") or file_name.contains("\\"):
+		return
+	var http := HTTPRequest.new()
+	http.timeout = 20.0
+	add_child(http)
+	http.request_completed.connect(_got.bind(http, slot))
+	var err: Error = http.request(_page() + "ui/menu/" + file_name)
+	if err != OK:
+		http.queue_free()
+
+func _got(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest, slot: String) -> void:
+	if is_instance_valid(http):
+		http.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		return
+	var image := Image.new()
+	var err: Error = image.load_webp_from_buffer(body)
+	if err != OK:
+		err = image.load_png_from_buffer(body)
+	if err != OK:
+		err = image.load_jpg_from_buffer(body)
+	if err != OK:
+		return
+	var tex := ImageTexture.create_from_image(image)
+	_cache[slot] = tex
+	if slot == _stem():
+		_art = tex
+		queue_redraw()
+
+func _pull_video(stem: String) -> void:
+	if _video_wait.has(stem) or stem.contains(".."):
+		return
+	_video_wait[stem] = true
+	var http := HTTPRequest.new()
+	http.timeout = 60.0
+	http.accept_gzip = false
+	add_child(http)
+	http.request_completed.connect(_got_video.bind(http, stem))
+	var err: Error = http.request(_page() + "ui/menu/video/%s.ogv" % stem)
+	if err != OK:
+		_video_wait.erase(stem)
+		http.queue_free()
+
+func _got_video(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest, stem: String) -> void:
+	if is_instance_valid(http):
+		http.queue_free()
+	_video_wait.erase(stem)
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or body.is_empty():
+		return
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://menu/video"))
+	var file := FileAccess.open("user://menu/video/%s.ogv" % stem, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_buffer(body)
+	file.close()
+	if stem == _video_stem():
+		_current = ""
+		_sync_video(false)
+
+func _page() -> String:
+	var href: String = str(JavaScriptBridge.eval("window.location.href", true))
+	var cut: int = href.find("?")
+	if cut >= 0:
+		href = href.substr(0, cut)
+	cut = href.find("#")
+	if cut >= 0:
+		href = href.substr(0, cut)
+	var slash: int = href.rfind("/")
+	if slash >= 0:
+		href = href.substr(0, slash + 1)
+	return href
+
+static var _cache: Dictionary = {}
+
+static func texture(stem: String) -> Texture2D:
+	if stem == "" or stem.contains("..") or stem.contains("main_bg") or stem.contains("key_art") or stem.contains("\\"):
+		return null
+	if _cache.has(stem):
+		return _cache[stem] as Texture2D
+	for ext: String in ["webp", "png", "jpg"]:
+		var bytes: PackedByteArray = _read("cinematic/%s.%s" % [stem, ext])
+		if bytes.is_empty():
+			continue
+		var image := Image.new()
+		var err: Error = FAILED
+		if ext == "webp":
+			err = image.load_webp_from_buffer(bytes)
+		elif ext == "png":
+			err = image.load_png_from_buffer(bytes)
+		else:
+			err = image.load_jpg_from_buffer(bytes)
+		if err != OK:
+			continue
+		var tex := ImageTexture.create_from_image(image)
+		_cache[stem] = tex
+		return tex
+	return null
+
+static func _read(file_name: String) -> PackedByteArray:
+	if file_name.contains("..") or file_name.begins_with("/") or file_name.contains("\\"):
+		return PackedByteArray()
+	var packed: String = "res://ui/menu/%s" % file_name
+	if FileAccess.file_exists(packed):
+		return FileAccess.get_file_as_bytes(packed)
+	var roots: PackedStringArray = PackedStringArray()
+	roots.append(ProjectSettings.globalize_path("res://").path_join("build/web/ui/menu"))
+	roots.append(OS.get_executable_path().get_base_dir().path_join("ui/menu"))
+	for root: String in roots:
+		var path: String = root.path_join(file_name)
+		if FileAccess.file_exists(path):
+			return FileAccess.get_file_as_bytes(path)
+	return PackedByteArray()

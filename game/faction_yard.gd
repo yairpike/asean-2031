@@ -1,4 +1,9 @@
 extends Node3D
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
+const Fx = preload("res://game/fx_view.gd")
+const Forms = preload("res://game/unit_meshes.gd")
+const Ground = preload("res://game/ground_view.gd")
 ## NMRF mobile packer, or MVD internal queue with clearance.
 ## Same pointer controls as Sop Ruak. Six named placeholders.
 
@@ -19,6 +24,7 @@ var packer_mesh: MeshInstance3D
 var hub_mesh: MeshInstance3D
 
 func _ready() -> void:
+	preload("res://game/sim_presenter.gd").follow(self)
 	grid = SMDomainGrid.phillips_layout()
 	roster.setup(faction_id)
 	economy.set_credits(0, 4000)
@@ -30,8 +36,12 @@ func _ready() -> void:
 	outcome.mount(self, ui_layer)
 	sight.bind(grid)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	preload("res://game/settings_panel.gd").attach(ui_layer)
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func train_unit() -> String:
+	if not Power.online(yard):
+		return ""
 	var id: StringName = &"cyan_sentry" if faction_id == "mvd" else &"olive_ranger"
 	var done: StringName = roster.train_and_finish(id)
 	if done == &"":
@@ -43,6 +53,7 @@ func train_unit() -> String:
 	return label
 
 func fire_ability() -> bool:
+	preload("res://game/sim_presenter.gd").play_selected_ability(self)
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	var cast: String = field.cast_f(field.aim_from_camera(cam, get_viewport().get_mouse_position()))
 	var ok: bool = cast != "" or sim.use_f()
@@ -111,6 +122,7 @@ func _prepare_yard() -> void:
 	if faction_id == "mvd":
 		yard.style = SMBuildYard.Style.INTERNAL
 		yard.clearance = 1
+		yard.radius = 25.0
 	else:
 		yard.style = SMBuildYard.Style.MOBILE
 		yard.grid = grid
@@ -135,6 +147,7 @@ func _prepare_ability() -> void:
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.07, 0.1, 0.12)
@@ -145,19 +158,16 @@ func _world() -> void:
 	sun.rotation_degrees = Vector3(-48, 25, 0)
 	add_child(sun)
 	if faction_id == "mvd":
-		_slab("CharcoalPad", Vector3(-40, 0, 0), Vector3(70, 0.35, 90), Color(0.16, 0.18, 0.2))
-		_slab("CyanRing", Vector3(4, 0.1, 0), Vector3(10, 0.2, 10), Color(0.15, 0.75, 0.82))
+		Ground.dress(self, grid, "mvd")
 		hub_mesh = _slab("HubShell", SMPointer.building_at(Vector3(4, 0, 0)), SMPointer.BUILDING_SIZE, Color(0.15, 0.75, 0.82))
 		hub_mesh.visible = false
 	else:
-		_slab("OliveGround", Vector3(-40, 0, 0), Vector3(70, 0.35, 90), Color(0.35, 0.4, 0.16))
-		_slab("EmeraldWater", Vector3(8, -0.15, -28), Vector3(36, 0.25, 14), Color(0.12, 0.45, 0.32))
+		Ground.dress(self, grid, "nmrf")
 		packer_mesh = _slab("PackerCore", SMPointer.building_at(yard.packer_pos), SMPointer.BUILDING_SIZE, Color(0.12, 0.62, 0.4))
-	_slab("FarShore", Vector3(50, 0, 0), Vector3(50, 0.35, 90), Color(0.28, 0.3, 0.26))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-90, -60, 180, 120)
-	cam.distance = 46.0
+	cam.distance = 28.0
 	cam.edge_pan_px = 20.0
 	cam.focus = grid.cell_center(Vector2i(4, 8))
 	add_child(cam)
@@ -167,7 +177,10 @@ func _ui() -> void:
 	ui_layer = CanvasLayer.new()
 	add_child(ui_layer)
 	var title: Label = Label.new()
+	title.name = "YardTitle"
 	title.text = _title()
+	title.theme_type_variation = "Header"
+	title.add_theme_font_size_override("font_size", 22)
 	title.position = Vector2(16, 12)
 	ui_layer.add_child(title)
 	var ability: Button = Button.new()
@@ -193,15 +206,24 @@ func _ui() -> void:
 	status = Label.new()
 	status.name = "Status"
 	status.text = _blurb()
-	status.position = Vector2(16, 84)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.custom_minimum_size = Vector2(900, 28)
+	status.clip_text = true
+	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.anchor_right = 1.0
+	status.offset_left = 16.0
+	status.offset_top = 84.0
+	status.offset_right = -16.0
+	status.offset_bottom = 112.0
 	ui_layer.add_child(status)
 	var hint: Label = Label.new()
-	hint.text = "Left click selects. Drag a box. Right click ground moves. Right click an enemy attacks. F fires the ability."
-	hint.position = Vector2(16, 680)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.custom_minimum_size = Vector2(980, 28)
+	hint.text = "Left click selects. Right click moves. F ability."
+	hint.clip_text = true
+	hint.anchor_top = 1.0
+	hint.anchor_right = 1.0
+	hint.anchor_bottom = 1.0
+	hint.offset_left = 16.0
+	hint.offset_top = -36.0
+	hint.offset_right = -16.0
+	hint.offset_bottom = -8.0
 	ui_layer.add_child(hint)
 
 func _button(node_name: String, caption: String, pos: Vector2, fn: Callable) -> void:
@@ -231,9 +253,11 @@ func _arm_units() -> void:
 	var cells: Array[Vector2i] = [Vector2i(1, 8), Vector2i(3, 8), Vector2i(5, 8), Vector2i(8, 8), Vector2i(10, 8), Vector2i(12, 8)]
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, grid.cell_center(cells[i]), kinds[i])
+	field.spawn_support(grid.cell_center(Vector2i(1, 6)))
 	for cell: Vector2i in [Vector2i(30, 12), Vector2i(31, 14), Vector2i(33, 11)]:
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
 	raider.attach(field, grid.cell_center(Vector2i(30, 12)))
+	preload("res://game/match_settings.gd").apply_raider(raider)
 
 func _say(text: String) -> void:
 	if status != null:
@@ -242,13 +266,14 @@ func _say(text: String) -> void:
 func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	mi.name = node_name
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	mi.mesh = mesh
 	mi.position = pos
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
+	if not Forms.dress_structure(mi, size, color):
+		var mesh: BoxMesh = BoxMesh.new()
+		mesh.size = size
+		mi.mesh = mesh
+		var mat: StandardMaterial3D = StandardMaterial3D.new()
+		mat.albedo_color = color
+		mi.material_override = mat
 	add_child(mi)
 	return mi
 
@@ -260,8 +285,10 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	field.place_beacon(field.enemy_anchor())
 	sight.advance_weather(delta)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	Fx.drive(self, field, sim.goods, sim.ew)
 	var players: Array[SMBuildYard] = [yard]
 	var foes: Array[SMBuildYard] = [raider.yard]
 	outcome.tick(field, players, foes, delta)

@@ -1,6 +1,7 @@
 class_name SMOutcome
 extends RefCounted
-## Ends a skirmish after both sides have fielded something and one side is wiped out.
+## Ends a skirmish when one side has no units and no production left.
+## Killing the army does not raze the base. Structures fall only to fire in range.
 
 var saw_player: bool = false
 var saw_enemy: bool = false
@@ -12,39 +13,40 @@ var banner: Label
 var back: Button
 var _cool: Dictionary[int, float] = {}
 
+signal chrome_wanted(outcome: SMOutcome, panel: Control, faction: String)
+signal base_struck
+
 func mount(p_host: Node, layer: CanvasLayer) -> void:
 	host = p_host
 	panel = Control.new()
 	panel.name = "MatchEnd"
-	panel.position = Vector2.ZERO
-	panel.size = Vector2(1280, 720)
+	panel.anchor_right = 1.0
+	panel.anchor_bottom = 1.0
 	panel.visible = false
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.z_index = 20
 	layer.add_child(panel)
-	var shade: ColorRect = ColorRect.new()
-	shade.color = Color(0.02, 0.03, 0.04, 0.78)
-	shade.position = Vector2.ZERO
-	shade.size = Vector2(1280, 720)
-	shade.mouse_filter = Control.MOUSE_FILTER_STOP
-	panel.add_child(shade)
+	var faction: String = "gtfc"
+	var field: Variant = p_host.get("field")
+	if field != null:
+		faction = str(field.get("faction_id"))
 	banner = Label.new()
 	banner.name = "MatchBanner"
-	banner.position = Vector2(0, 260)
-	banner.size = Vector2(1280, 72)
-	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner.theme_type_variation = "Header"
+	banner.anchor_left = 0.0
+	banner.anchor_top = 0.5
+	banner.anchor_right = 1.0
+	banner.anchor_bottom = 0.5
+	banner.offset_top = -36.0
+	banner.offset_bottom = 36.0
+	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	banner.offset_left = 64.0
+	banner.offset_right = -64.0
 	banner.add_theme_font_size_override("font_size", 48)
-	banner.add_theme_color_override("font_color", Color(0.95, 0.94, 0.9))
+	banner.add_theme_color_override("font_color", Color(1, 1, 1))
 	panel.add_child(banner)
-	back = Button.new()
-	back.name = "BootMenuButton"
-	back.text = "Boot menu"
-	back.position = Vector2(520, 360)
-	back.custom_minimum_size = Vector2(240, 44)
-	back.add_theme_font_size_override("font_size", 18)
-	back.pressed.connect(_boot)
-	panel.add_child(back)
+	chrome_wanted.emit(self, panel, faction)
 
 func consider(player_units: int, player_buildings: int, enemy_units: int, enemy_buildings: int) -> void:
 	if over:
@@ -65,8 +67,10 @@ func consider(player_units: int, player_buildings: int, enemy_units: int, enemy_
 func tick(field: SMPointer, player_yards: Array[SMBuildYard], enemy_yards: Array[SMBuildYard], delta: float) -> void:
 	if over or field == null:
 		return
-	var player_units: int = field.count_team(SMPointer.PLAYER)
-	var enemy_units: int = field.count_team(SMPointer.ENEMY)
+	var friends: Array[RTSUnit] = _side_units(field, true)
+	var hostiles: Array[RTSUnit] = _side_units(field, false)
+	var player_units: int = friends.size()
+	var enemy_units: int = hostiles.size()
 	var player_buildings: int = _living(player_yards)
 	var enemy_buildings: int = _living(enemy_yards)
 	if (player_units > 0 or player_buildings > 0) and (enemy_units > 0 or enemy_buildings > 0):
@@ -77,13 +81,21 @@ func tick(field: SMPointer, player_yards: Array[SMBuildYard], enemy_yards: Array
 	elif enemy_units > 0 or enemy_buildings > 0:
 		saw_enemy = true
 	if saw_player and saw_enemy:
-		if enemy_units == 0 and player_units > 0:
-			_press(field, field.units_of(SMPointer.PLAYER), enemy_yards, delta)
-		elif player_units == 0 and enemy_units > 0:
-			_press(field, field.units_of(SMPointer.ENEMY), player_yards, delta)
+		_press(field, friends, enemy_yards, delta, false)
+		_press(field, hostiles, player_yards, delta, true)
 		player_buildings = _living(player_yards)
 		enemy_buildings = _living(enemy_yards)
 	consider(player_units, player_buildings, enemy_units, enemy_buildings)
+
+func _side_units(field: SMPointer, friendly: bool) -> Array[RTSUnit]:
+	var out: Array[RTSUnit] = []
+	for u: RTSUnit in field.units:
+		if not is_instance_valid(u) or not u.is_alive():
+			continue
+		var with_player: bool = field.teams.are_allies(SMPointer.PLAYER, u.team)
+		if with_player == friendly:
+			out.append(u)
+	return out
 
 func _living(yards: Array[SMBuildYard]) -> int:
 	var total: int = 0
@@ -92,13 +104,12 @@ func _living(yards: Array[SMBuildYard]) -> int:
 			total += yard.living_count()
 	return total
 
-func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], delta: float) -> void:
+func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], delta: float, player_base: bool) -> void:
 	for u: RTSUnit in units:
 		if not is_instance_valid(u) or not u.is_alive():
 			continue
 		var best_yard: SMBuildYard = null
 		var best_id: StringName = &""
-		var best_pos: Vector3 = Vector3.ZERO
 		var best_d: float = INF
 		for yard: SMBuildYard in yards:
 			if yard == null:
@@ -112,23 +123,14 @@ func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], 
 				best_d = dist
 				best_yard = yard
 				best_id = id
-				best_pos = pos
-		if best_yard == null:
+		if best_yard == null or best_d > u.attack_range:
 			continue
-		if best_d <= u.attack_range:
-			u.stop()
-			if _fire(u, delta):
-				best_yard.damage_structure(best_id, u.attack_damage)
-				if not best_yard.structure_alive(best_id):
-					_hide(best_id)
-		elif not u.is_moving():
-			var path: PackedVector3Array = PackedVector3Array()
-			var used: RTSGridNav = field.nav_for_unit(u)
-			if used != null:
-				path = used.find_path(u.global_position, best_pos)
-			if path.is_empty() and field.domain == null:
-				path = PackedVector3Array([best_pos])
-			u.set_path(path)
+		if _fire(u, delta):
+			best_yard.damage_structure(best_id, u.attack_damage)
+			if player_base:
+				base_struck.emit()
+			if not best_yard.structure_alive(best_id):
+				_hide(best_id)
 
 func _fire(u: RTSUnit, delta: float) -> bool:
 	var id: int = u.get_instance_id()
@@ -158,6 +160,9 @@ func _hide(id: StringName) -> void:
 	if built is Node3D:
 		(built as Node3D).visible = false
 
+func finish(win: bool) -> void:
+	_finish(win)
+
 func _finish(win: bool) -> void:
 	if over:
 		return
@@ -168,10 +173,9 @@ func _finish(win: bool) -> void:
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	if banner != null:
 		banner.text = "Victory" if win else "Defeat"
-		var ink: Color = Color(0.95, 0.86, 0.45) if win else Color(0.9, 0.32, 0.28)
-		banner.add_theme_color_override("font_color", ink)
-
-func _boot() -> void:
-	if host == null:
-		return
-	host.get_tree().change_scene_to_file("res://game/boot.tscn")
+		banner.add_theme_color_override("font_color", Color(1, 1, 1))
+	var status: Label = null
+	if host != null:
+		status = host.find_child("Status", true, false) as Label
+	if status != null:
+		status.text = "Objective complete" if win else "Objective failed"

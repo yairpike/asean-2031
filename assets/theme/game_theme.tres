@@ -1,0 +1,14 @@
+[gd_resource type="Theme" format=3]
+
+[ext_resource type="FontFile" uid="uid://cgkg6emarldx7" path="res://assets/fonts/Warheed.otf" id="1_k528p"]
+[ext_resource type="FontFile" uid="uid://4xjms140g51t" path="res://assets/fonts/OperationNapalm-Regular.ttf" id="2_cu4xe"]
+
+[resource]
+default_font = ExtResource("2_cu4xe")
+default_font_size = 16
+Button/fonts/font = ExtResource("2_cu4xe")
+Label/fonts/font = ExtResource("2_cu4xe")
+Header/base_type = &"Label"
+Header/fonts/font = ExtResource("1_k528p")
+HeaderButton/base_type = &"Button"
+HeaderButton/fonts/font = ExtResource("1_k528p")

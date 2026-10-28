@@ -2,13 +2,21 @@
 config_version=5
 
 [application]
-config/name="Shattered Monsoon"
+config/name="ASEAN 2031"
 run/main_scene="res://game/boot.tscn"
 config/features=PackedStringArray("4.7")
+
+[autoload]
+
+SMTouch="*res://addons/rts_advanced/sm_touch.gd"
+SMWeb="*res://addons/rts_advanced/sm_web.gd"
 
 [debug]
 gdscript/warnings/untyped_declaration=2
 gdscript/warnings/inferred_declaration=0
+
+[gui]
+theme/custom="res://assets/theme/game_theme.tres"
 
 [display]
 window/size/viewport_width=1280
@@ -17,6 +25,15 @@ window/size/viewport_height=720
 [internationalization]
 locale/translations=PackedStringArray("res://localization/demo.en.translation", "res://localization/demo.fr.translation")
 
+[input_devices]
+
+pointing/emulate_mouse_from_touch=true
+
 [rendering]
+textures/vram_compression/import_etc2_astc=true
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+anti_aliasing/quality/msaa_2d=0
+anti_aliasing/quality/msaa_3d=0
+shading/overrides/force_lambert_over_burley=true
+lights_and_shadows/directional_shadow/size=512

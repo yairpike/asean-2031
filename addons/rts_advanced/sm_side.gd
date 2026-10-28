@@ -1,6 +1,12 @@
 class_name SMSide
 extends RefCounted
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
 ## Build-style buttons for the faction chosen on the boot screen.
+
+signal slab_made(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color)
+signal line_voiced(text: String)
+signal super_launched
 
 var faction_id: String = "gtfc"
 var yard: SMBuildYard = SMBuildYard.new()
@@ -10,6 +16,13 @@ var hub_mesh: MeshInstance3D
 var host: Node3D
 var status: Label
 var building_hp: Dictionary[StringName, float] = {}
+var building_names: Dictionary[StringName, String] = {}
+var repair_armed: bool = false
+var sell_armed: bool = false
+var defender_air: bool = false
+var occupants: Dictionary = {}
+var gun_units: Dictionary = {}
+var gun_cool: Dictionary = {}
 
 func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector3, purse: RTSEconomy, p_faction: String = "") -> void:
 	host = p_host
@@ -28,8 +41,10 @@ func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector
 	if style_name == "internal":
 		yard.style = SMBuildYard.Style.INTERNAL
 		yard.clearance = 1
+		yard.radius = 25.0
 		hub_mesh = _slab("HubShell", SMPointer.building_at(center + Vector3(4.0, 0.0, 0.0)), SMPointer.BUILDING_SIZE, Color.html("#26BFD1"))
-		hub_mesh.visible = false
+		if hub_mesh != null:
+			hub_mesh.visible = false
 	elif style_name == "mobile":
 		yard.style = SMBuildYard.Style.MOBILE
 		yard.grid = grid
@@ -39,6 +54,15 @@ func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector
 		yard.style = SMBuildYard.Style.SCAFFOLD
 
 func order_building(id: StringName) -> String:
+	if id == &"defender_vx" and yard != null and yard.finished.has(id):
+		defender_air = not defender_air
+		var mode: String = "defender air" if defender_air else "defender ground"
+		_say(mode)
+		return mode
+	var role: String = str(yard.building_role.get(id, ""))
+	if not Power.allows(yard, role):
+		_say("low power")
+		return "low power"
 	if yard.style == SMBuildYard.Style.SCAFFOLD:
 		return _order_scaffold(id)
 	if yard.style == SMBuildYard.Style.INTERNAL:
@@ -78,6 +102,15 @@ func queue_hub() -> bool:
 	_say("hub ready to place" if ok and yard.ready.has(&"command_hub") else "hub not queued")
 	return ok and yard.ready.has(&"command_hub")
 
+func cancel_order() -> String:
+	var was_scaffold: bool = yard.scaffold_active
+	yard.abort_scaffold()
+	if was_scaffold or yard.cancel_internal() != &"":
+		_say("cancelled")
+		return "cancelled"
+	_say("nothing to cancel")
+	return "nothing to cancel"
+
 func buy_clearance() -> bool:
 	if faction_id != "mvd":
 		return false
@@ -110,7 +143,7 @@ func _order_scaffold(id: StringName) -> String:
 		_say("scaffold stalled")
 		return "scaffold stalled"
 	_slab("Built_%s" % str(id), SMPointer.building_at(pos), SMPointer.BUILDING_SIZE, SMFront.primary())
-	_say("%s built" % str(id))
+	_say("%s built" % building_label(id))
 	return "built"
 
 func _order_internal(id: StringName) -> String:
@@ -142,10 +175,17 @@ func _order_internal(id: StringName) -> String:
 func _order_mobile(id: StringName) -> String:
 	if str(id) == "packer":
 		return "packer sailed" if move_packer() else "packer stayed packed"
-	if yard.unpacked and yard.factory_level(id) >= 1:
+	if yard.unpacked and yard.finished.has(id):
 		var raised: bool = upgrade_factory_named(id)
 		return "upgraded" if raised else "wharf not ready"
 	if yard.unpacked:
+		var slot: int = yard.finished.size()
+		if yard.place_annex(id):
+			var at: Vector3 = yard.packer_pos + Vector3(float(slot) * 4.0, 0.0, 2.0)
+			yard.structure_pos[id] = at
+			_slab("Built_%s" % str(id), SMPointer.building_at(at), SMPointer.BUILDING_SIZE, SMFront.accent())
+			_say("%s built" % building_label(id))
+			return "built"
 		_say("packer already unpacked")
 		return "packer already unpacked"
 	move_packer()
@@ -162,7 +202,37 @@ func upgrade_factory_named(id: StringName) -> bool:
 	_say("wharf level %d" % yard.factory_level(id) if ok else "wharf not ready")
 	return ok
 
+func building_label(id: StringName) -> String:
+	if building_names.has(id):
+		return building_names[id]
+	return str(id)
+
+func fire_super(field: SMPointer) -> int:
+	if field == null or yard.super_damage <= 0.0 or yard.super_left > 0.0:
+		_say("superweapon cooling")
+		return 0
+	var foes: Array[RTSUnit] = field.units_of(SMPointer.ENEMY)
+	if foes.is_empty():
+		_say("no target")
+		return 0
+	var aim: Vector3 = foes[0].global_position
+	var n: int = 0
+	for u: RTSUnit in foes:
+		if is_instance_valid(u) and u.is_alive() and u.global_position.distance_to(aim) <= yard.super_radius:
+			u.take_damage(yard.super_damage)
+			n += 1
+	if n <= 0:
+		return 0
+	yard.super_left = yard.super_cooldown
+	var size: Vector3 = Vector3(2.2, 7.4, 2.2)
+	_slab("Super_%s" % str(yard.super_id), aim + Vector3(0.0, size.y * 0.5, 0.0), size, Color(0.92, 0.32, 0.12))
+	_say(yard.super_name)
+	super_launched.emit()
+	return n
+
 func _load_order(data: Dictionary) -> void:
+	if not yard.tech_order.is_empty():
+		return
 	var raw: Variant = data.get("tech_order", [])
 	if not (raw is Array):
 		return
@@ -170,30 +240,54 @@ func _load_order(data: Dictionary) -> void:
 		yard.tech_order.append(StringName(str(step)))
 
 func _load_buildings(data: Dictionary) -> void:
+	yard.load_catalog(data)
 	var raw: Variant = data.get("buildings", [])
 	if not (raw is Array):
 		return
 	for item: Variant in raw:
 		if item is Dictionary:
-			var id: StringName = StringName(str(item.get("id", "")))
-			yard.building_tier[id] = int(item.get("tier", 1))
-			yard.building_time[id] = float(item.get("time", 4.0))
-			building_hp[id] = float(item.get("hp", 200.0))
-			yard.structure_max[id] = building_hp[id]
+			var row: Dictionary = item
+			var id: StringName = StringName(str(row.get("id", "")))
+			building_hp[id] = float(row.get("hp", 200.0))
+			var label: String = str(row.get("display_name", ""))
+			building_names[id] = label if label != "" else str(id)
 
 func _say(text: String) -> void:
 	if status != null:
 		status.text = text
+	line_voiced.emit(text)
+
+func toggle_repair() -> void:
+	repair_armed = not repair_armed
+	if repair_armed:
+		sell_armed = false
+	elif yard != null:
+		yard.stop_repair()
+
+func toggle_sell() -> void:
+	sell_armed = not sell_armed
+	if sell_armed:
+		repair_armed = false
+		if yard != null:
+			yard.stop_repair()
+
+func sell_structure(id: StringName) -> int:
+	if yard == null:
+		return 0
+	SMGuns.unload(self, id)
+	var refund: int = yard.sell(id)
+	if refund > 0 and host != null:
+		var built: Node = host.get_node_or_null("Built_%s" % str(id))
+		if built != null:
+			built.queue_free()
+	return refund
+
+func tick_modes(delta: float) -> void:
+	if repair_armed and yard != null:
+		yard.tick_repair(delta)
 
 func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
-	var mi: MeshInstance3D = MeshInstance3D.new()
-	mi.name = node_name
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	mi.mesh = mesh
-	mi.position = pos
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
-	host.add_child(mi)
-	return mi
+	if host == null:
+		return null
+	slab_made.emit(host, node_name, pos, size, color)
+	return host.get_node_or_null(node_name) as MeshInstance3D

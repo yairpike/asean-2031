@@ -1,4 +1,8 @@
 extends Node3D
+
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
+const Fx = preload("res://game/fx_view.gd")
+const Ground = preload("res://game/ground_view.gd")
 ## Sop Ruak. Three land sectors split by a Y-shaped river.
 ## GTFC versus one enemy across a Y-shaped river. Same pointer controls as Phillips Channel.
 
@@ -15,6 +19,7 @@ var status: Label
 var ui_layer: CanvasLayer
 
 func _ready() -> void:
+	preload("res://game/sim_presenter.gd").follow(self)
 	grid = SMDomainGrid.sop_ruak_layout()
 	sim.place_sites("sop_ruak", grid)
 	roster.setup(SMFront.current())
@@ -31,9 +36,13 @@ func _ready() -> void:
 	outcome.mount(self, ui_layer)
 	sight.bind(grid)
 	hud.use_sight(sight)
+	hud.use_tech(sim.tech)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	preload("res://game/match_settings.gd").apply_scene(self)
 
 func train_unit() -> String:
+	if not Power.online(side.yard):
+		return ""
 	var done: StringName = roster.train_and_finish(SMFront.train_kind())
 	if done == &"":
 		return ""
@@ -60,6 +69,7 @@ func _prepare_ability() -> void:
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.07, 0.1, 0.13)
@@ -69,22 +79,11 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, 25, 0)
 	add_child(sun)
-	_slab("WestSector", Vector3(-38, 0, 18), Vector3(48, 0.4, 56), Color(0.36, 0.32, 0.22))
-	_slab("EastSector", Vector3(38, 0, 18), Vector3(48, 0.4, 56), Color(0.3, 0.34, 0.24))
-	_slab("NorthSector", Vector3(0, 0, -32), Vector3(28, 0.4, 36), Color(0.34, 0.36, 0.26))
-	_slab("RiverStem", Vector3(0, -0.25, 34), Vector3(16, 0.3, 52), Color(0.08, 0.24, 0.42))
-	_slab("RiverJunction", Vector3(0, -0.25, 0), Vector3(20, 0.3, 20), Color(0.08, 0.22, 0.4))
-	var left: MeshInstance3D = _slab("RiverLeft", Vector3(-32, -0.22, -32), Vector3(14, 0.28, 62), Color(0.1, 0.28, 0.46))
-	left.rotation_degrees = Vector3(0, 45, 0)
-	var right: MeshInstance3D = _slab("RiverRight", Vector3(32, -0.22, -32), Vector3(14, 0.28, 62), Color(0.1, 0.28, 0.46))
-	right.rotation_degrees = Vector3(0, -45, 0)
-	_slab("FordSouth", Vector3(0, 0.08, 26), Vector3(16, 0.22, 8), Color(0.42, 0.38, 0.26))
-	_slab("FordWest", Vector3(-30, 0.08, -30), Vector3(12, 0.22, 12), Color(0.42, 0.38, 0.26))
-	_slab("FordEast", Vector3(30, 0.08, -30), Vector3(12, 0.22, 12), Color(0.42, 0.38, 0.26))
+	Ground.dress(self, grid, "sop")
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-80, -80, 160, 160)
-	cam.distance = 46.0
+	cam.distance = 26.0
 	cam.edge_pan_px = 20.0
 	cam.focus = Vector3(-36, 0, 16)
 	add_child(cam)
@@ -96,28 +95,43 @@ func _ui() -> void:
 	add_child(ui_layer)
 	status = Label.new()
 	status.name = "Status"
+	status.visible = true
 	status.text = "The enemy builds, expands, and attacks. Cross a ford to reach them."
 	status.position = Vector2(240, 608)
+	status.size = Vector2(760, 40)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status.custom_minimum_size = Vector2(760, 24)
+	status.clip_text = true
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status.add_theme_color_override("font_color", Color(0.95, 0.9, 0.55))
+	status.custom_minimum_size = Vector2(760, 40)
 	ui_layer.add_child(status)
+	sim.protocols.mount_panel(ui_layer, roster.economy, SMPointer.PLAYER, sim.abilities, Callable(self, "_say"))
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	field.bind_faction(self, cam, SMFront.current())
 	field.use_domain(grid)
+	field.bind_tech(sim.tech, Callable(self, "_bridge_down"))
 	field.attach_box(ui_layer)
 	var kinds: Array[StringName] = SMFront.kinds()
 	var cells: Array[Vector2i] = [Vector2i(6, 22), Vector2i(8, 22), Vector2i(10, 22), Vector2i(6, 26), Vector2i(8, 26), Vector2i(10, 26)]
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, grid.cell_center(cells[i]), kinds[i])
+	field.spawn_support(grid.cell_center(Vector2i(6, 20)))
 	for cell: Vector2i in [Vector2i(26, 22), Vector2i(28, 22), Vector2i(27, 26)]:
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
 	raider.attach(field, grid.cell_center(Vector2i(26, 22)))
+	raider.bind_plan(sim.goods, sim.tech, &"bullion_a", &"bullion_b", &"cyber_b", "Iskandar")
+	preload("res://game/match_settings.gd").apply_raider(raider)
+
+func _bridge_down(id: StringName) -> void:
+	sim.collapse_bridge(id, field, self)
 
 func tick_world(delta: float) -> void:
-	sim.tick_live(delta, roster.economy, field)
+	sim.tick_live(delta, roster.economy, field, raider.economy)
 	sim.show_collectors(self)
+	side.yard.cool_super(delta)
+	sim.protocols.cool(delta)
 
 func _price_scale(id: StringName) -> float:
 	return sim.tech.discount(SMPointer.PLAYER, roster.unit_tag(id))
@@ -140,6 +154,10 @@ func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> Mesh
 	return mi
 
 func _process(delta: float) -> void:
+	if hud.guide_blocks():
+		return
+	if preload("res://game/lan_link.gd").holding():
+		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	if cam != null:
 		var vp: Viewport = get_viewport()
@@ -147,9 +165,11 @@ func _process(delta: float) -> void:
 	raider.tick(delta)
 	raider.show_markers(self)
 	field.tick(delta)
+	field.place_beacon(field.enemy_anchor())
 	tick_world(delta)
 	sight.advance_weather(delta)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
+	Fx.drive(self, field, sim.goods, sim.ew)
 	hud.refresh()
 	var players: Array[SMBuildYard] = [side.yard, sim.yard]
 	var foes: Array[SMBuildYard] = [raider.yard]
@@ -159,6 +179,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	var key: InputEventKey = event as InputEventKey
 	if key != null and key.pressed and not key.echo and key.keycode == KEY_F:
+		preload("res://game/sim_presenter.gd").play_selected_ability(self)
 		fire_ability()
 		return
 	if cam == null:
@@ -166,6 +187,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	var mb: InputEventMouseButton = event as InputEventMouseButton
 	if mb != null:
 		if field.handle_button(mb):
+			return
+		if hud.column_hovered() and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 			return
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			cam.zoom_toward(1.0, cam.ground_at(mb.position))
