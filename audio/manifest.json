@@ -1,6 +1,6 @@
 {
   "game": "ASEAN 2031",
-  "generated_at": "2026-10-28T01:24:24+00:00",
+  "generated_at": "2026-10-28T02:42:28+00:00",
   "dry_run": false,
   "models": {
     "music": "models/lyria-realtime-exp",
@@ -18,10 +18,10 @@
   },
   "totals": {
     "music_files": 7,
-    "bark_files": 60,
+    "bark_files": 222,
     "music_bytes": 5432249,
-    "bark_bytes": 1288678,
-    "total_bytes": 6720927,
+    "bark_bytes": 5109157,
+    "total_bytes": 10541406,
     "music_under_8mb": true
   },
   "music": {
@@ -107,66 +107,60 @@
           {
             "file": "barks/militia_select_1.ogg",
             "text": "Shan Brigade, weapons loaded!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.8-flash-tts",
+            "heard": "Shion Brigade. Weapons loaded.",
+            "score": 0.95,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/militia_select_2.ogg",
             "text": "Highland militia, ready.",
-            "present": true
-          },
-          {
-            "file": "barks/militia_select_1.ogg",
-            "text": "Shan Brigade, weapons loaded!",
-            "present": true
-          },
-          {
-            "file": "barks/militia_select_2.ogg",
-            "text": "Highland militia, ready.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.8-flash-tts",
+            "heard": "Heiland Miliz, ready.",
+            "score": 0.83,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "move": [
           {
             "file": "barks/militia_move_1.ogg",
             "text": "Moving through the brush!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.8-flash-tts",
+            "heard": "moving through the brush",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/militia_move_2.ogg",
             "text": "Into the hills!",
-            "present": true
-          },
-          {
-            "file": "barks/militia_move_1.ogg",
-            "text": "Moving through the brush!",
-            "present": true
-          },
-          {
-            "file": "barks/militia_move_2.ogg",
-            "text": "Into the hills!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.8-flash-tts",
+            "heard": "into the hills",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "attack": [
           {
             "file": "barks/militia_attack_1.ogg",
             "text": "Take their supplies!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.8-flash-tts",
+            "heard": "Take their supplies.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/militia_attack_2.ogg",
             "text": "Burn them out!",
-            "present": true
-          },
-          {
-            "file": "barks/militia_attack_1.ogg",
-            "text": "Take their supplies!",
-            "present": true
-          },
-          {
-            "file": "barks/militia_attack_2.ogg",
-            "text": "Burn them out!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.8-flash-tts",
+            "heard": "Burn them out.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ]
       },
@@ -184,66 +178,60 @@
           {
             "file": "barks/ruby_mortar_select_1.ogg",
             "text": "Bo Mya commands.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-2.5-flash-preview-tts",
+            "heard": "Bomaya, commands.",
+            "score": 0.93,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/ruby_mortar_select_2.ogg",
             "text": "Speak, and the highlands answer.",
-            "present": true
-          },
-          {
-            "file": "barks/ruby_mortar_select_1.ogg",
-            "text": "Bo Mya commands.",
-            "present": true
-          },
-          {
-            "file": "barks/ruby_mortar_select_2.ogg",
-            "text": "Speak, and the highlands answer.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-2.5-flash-preview-tts",
+            "heard": "Speak, and the Highlands answer.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "move": [
           {
             "file": "barks/ruby_mortar_move_1.ogg",
             "text": "My army follows me.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-2.5-flash-preview-tts",
+            "heard": "my army follows me",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/ruby_mortar_move_2.ogg",
             "text": "Advance, brothers!",
-            "present": true
-          },
-          {
-            "file": "barks/ruby_mortar_move_1.ogg",
-            "text": "My army follows me.",
-            "present": true
-          },
-          {
-            "file": "barks/ruby_mortar_move_2.ogg",
-            "text": "Advance, brothers!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-2.5-flash-preview-tts",
+            "heard": "Advance, Brothers.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "attack": [
           {
             "file": "barks/ruby_mortar_attack_1.ogg",
             "text": "Everyone has a price.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-2.5-flash-preview-tts",
+            "heard": "Everyone has a price.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/ruby_mortar_attack_2.ogg",
             "text": "Break their line!",
-            "present": true
-          },
-          {
-            "file": "barks/ruby_mortar_attack_1.ogg",
-            "text": "Everyone has a price.",
-            "present": true
-          },
-          {
-            "file": "barks/ruby_mortar_attack_2.ogg",
-            "text": "Break their line!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-2.5-flash-preview-tts",
+            "heard": "break their line",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ]
       },
@@ -333,36 +321,60 @@
           {
             "file": "barks/ruby_lancer_select_1.ogg",
             "text": "Rocket tube loaded.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Rocket to loaded.",
+            "score": 0.88,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/ruby_lancer_select_2.ogg",
             "text": "Salween RPG, standing by.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Salween RPG standing by",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "move": [
           {
             "file": "barks/ruby_lancer_move_1.ogg",
             "text": "Shifting position.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "shifting position",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/ruby_lancer_move_2.ogg",
             "text": "Down to the riverbank.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "down to the river bank",
+            "score": 0.98,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "attack": [
           {
             "file": "barks/ruby_lancer_attack_1.ogg",
             "text": "Rocket out!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Rocket out",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/ruby_lancer_attack_2.ogg",
             "text": "Crack that armor!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "cracked that armor",
+            "score": 0.94,
+            "verified": "after generation (free-tier run)"
           }
         ]
       },
@@ -379,36 +391,60 @@
           {
             "file": "barks/amber_tank_select_1.ogg",
             "text": "Behemoth, awake.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Behemoth Awake",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/amber_tank_select_2.ogg",
             "text": "Harpoons primed.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Harpun-Prime",
+            "score": 0.77,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "move": [
           {
             "file": "barks/amber_tank_move_1.ogg",
             "text": "The mountain moves.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "The mountain moves.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/amber_tank_move_2.ogg",
             "text": "Crushing a new road.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "crushing new road",
+            "score": 0.94,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "attack": [
           {
             "file": "barks/amber_tank_attack_1.ogg",
             "text": "Reel them in!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Reel them in.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/amber_tank_attack_2.ogg",
             "text": "Grind them down!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "grind them down",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ]
       },
@@ -425,36 +461,60 @@
           {
             "file": "barks/monsoon_tube_select_1.ogg",
             "text": "Slag mortar, tube's hot.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "slag mortgage tubes hot",
+            "score": 0.91,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/monsoon_tube_select_2.ogg",
             "text": "Give me coordinates.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Give me coordinates.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "move": [
           {
             "file": "barks/monsoon_tube_move_1.ogg",
             "text": "Packing the tube!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "packing the tube",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/monsoon_tube_move_2.ogg",
             "text": "Thrusters ready, moving.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Thrusters ready, moving.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "attack": [
           {
             "file": "barks/monsoon_tube_attack_1.ogg",
             "text": "Shells away!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "shells away",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/monsoon_tube_attack_2.ogg",
             "text": "Rain it on them!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "rij niet om dem",
+            "score": 0.67,
+            "verified": "after generation (free-tier run)"
           }
         ]
       },
@@ -471,36 +531,60 @@
           {
             "file": "barks/channel_skiff_select_1.ogg",
             "text": "Smuggler boat, no questions.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Smuggler boat. No questions.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/channel_skiff_select_2.ogg",
             "text": "Engine's purring.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "engines purring",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "move": [
           {
             "file": "barks/channel_skiff_move_1.ogg",
             "text": "Running the river!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "running the river",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/channel_skiff_move_2.ogg",
             "text": "Legs out, going ashore!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Legs out going ashore.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "attack": [
           {
             "file": "barks/channel_skiff_attack_1.ogg",
             "text": "Hit and run!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "hit and run",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/channel_skiff_attack_2.ogg",
             "text": "Open the hold, fire!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Open the hold, fire!",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ]
       },
@@ -517,7 +601,11 @@
           {
             "file": "barks/crimson_sapper_select_1.ogg",
             "text": "Charges are set.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Chasses à cette.",
+            "score": 0.62,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/crimson_sapper_select_2.ogg",
@@ -533,29 +621,45 @@
           {
             "file": "barks/crimson_sapper_move_1.ogg",
             "text": "Slipping through.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "sleeping clue",
+            "score": 0.55,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/crimson_sapper_move_2.ogg",
             "text": "Inflating the raft.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "inflating treft",
+            "score": 0.85,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "attack": [
           {
             "file": "barks/crimson_sapper_attack_1.ogg",
             "text": "Plant the C4!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Plantage vor",
+            "score": 0.58,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/crimson_sapper_attack_2.ogg",
             "text": "Boom time.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Dumetime",
+            "score": 0.59,
+            "verified": "after generation (free-tier run)"
           }
         ]
       },
       "model": "models/gemini-3.1-flash-tts-preview",
-      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "method": "batched (5 clips) + select_2 regenerated per line with a new line",
       "prompt_single_template": "Say as a whispering, sneaky demolitionist, Burmese / Shan highland accent, gritty insurgent radio chatter, terse battlefield radio bark: <line>"
     },
     "amber_scout": {
@@ -568,36 +672,60 @@
           {
             "file": "barks/amber_scout_select_1.ogg",
             "text": "The mixture is ready.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "The mixture is ready.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/amber_scout_select_2.ogg",
             "text": "Alchemist, at your service.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Alchemist at your service.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "move": [
           {
             "file": "barks/amber_scout_move_1.ogg",
             "text": "Mind the beakers!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Mind the beagles.",
+            "score": 0.88,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/amber_scout_move_2.ogg",
             "text": "Carrying the formula.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Carrying the formula.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "attack": [
           {
             "file": "barks/amber_scout_attack_1.ogg",
             "text": "A little cloud for you!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "A little cloud for you.",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/amber_scout_attack_2.ogg",
             "text": "Breathe deep, friends.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Breathe deep, Frents.",
+            "score": 0.92,
+            "verified": "after generation (free-tier run)"
           }
         ]
       },
@@ -614,36 +742,60 @@
           {
             "file": "barks/yard_crane_select_1.ogg",
             "text": "Half-track, loaded up.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Hafð þrek, lokað upp.",
+            "score": 0.69,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/yard_crane_select_2.ogg",
             "text": "Tachileik convoy.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "tatile convoy",
+            "score": 0.83,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "move": [
           {
             "file": "barks/yard_crane_move_1.ogg",
             "text": "Hauling out!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "holding out",
+            "score": 0.82,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/yard_crane_move_2.ogg",
             "text": "Taking the border road.",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "taking the border road",
+            "score": 1.0,
+            "verified": "after generation (free-tier run)"
           }
         ],
         "attack": [
           {
             "file": "barks/yard_crane_attack_1.ogg",
             "text": "Gunner, open up!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Gunnar, upp och hoppa!",
+            "score": 0.47,
+            "verified": "after generation (free-tier run)"
           },
           {
             "file": "barks/yard_crane_attack_2.ogg",
             "text": "Mines behind us!",
-            "present": true
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Mind's behind us.",
+            "score": 0.93,
+            "verified": "after generation (free-tier run)"
           }
         ]
       },
@@ -660,40 +812,51 @@
           {
             "file": "barks/slag_dozer_select_1.ogg",
             "text": "Dozer blade down, cannon ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/slag_dozer_select_2.ogg",
             "text": "Bulldozer, rumbling.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/slag_dozer_move_1.ogg",
             "text": "Rolling down the Burma Road!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/slag_dozer_move_2.ogg",
             "text": "Clear the way!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/slag_dozer_attack_1.ogg",
             "text": "Crushing their steel!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/slag_dozer_attack_2.ogg",
             "text": "Leech beam, strip them!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "amber_welder": {
       "name": "Federal Wings Ag-Bomber Hexacopter",
@@ -705,40 +868,51 @@
           {
             "file": "barks/amber_welder_select_1.ogg",
             "text": "Hexacopter, rotors spinning.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/amber_welder_select_2.ogg",
             "text": "Federal Wings, airborne.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/amber_welder_move_1.ogg",
             "text": "Skimming the paddies!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/amber_welder_move_2.ogg",
             "text": "Spooling fiber, moving.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/amber_welder_attack_1.ogg",
             "text": "Payload away!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/amber_welder_attack_2.ogg",
             "text": "Dropping on target!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "monsoon_spotter": {
       "name": "Mekong Spider Drone",
@@ -750,40 +924,51 @@
           {
             "file": "barks/monsoon_spotter_select_1.ogg",
             "text": "Spider drone, active.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/monsoon_spotter_select_2.ogg",
             "text": "Eight legs ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/monsoon_spotter_move_1.ogg",
             "text": "Crawling forward.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/monsoon_spotter_move_2.ogg",
             "text": "Skittering through.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/monsoon_spotter_attack_1.ogg",
             "text": "Tether locked!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/monsoon_spotter_attack_2.ogg",
             "text": "Stun them!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "bullion_truck": {
       "name": "Irrawaddy Gyro-Gunship",
@@ -795,40 +980,51 @@
           {
             "file": "barks/bullion_truck_select_1.ogg",
             "text": "Gyro-gunship, rotors up.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/bullion_truck_select_2.ogg",
             "text": "Irrawaddy air, reporting.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/bullion_truck_move_1.ogg",
             "text": "Lifting off!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/bullion_truck_move_2.ogg",
             "text": "Following the river.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/bullion_truck_attack_1.ogg",
             "text": "Guns hot!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/bullion_truck_attack_2.ogg",
             "text": "Winch them up!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "scaffold_rig": {
       "name": "Golden Dragon Dirigible",
@@ -840,40 +1036,51 @@
           {
             "file": "barks/scaffold_rig_select_1.ogg",
             "text": "The Dragon floats.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/scaffold_rig_select_2.ogg",
             "text": "Golden Dragon, aloft.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/scaffold_rig_move_1.ogg",
             "text": "Drifting forward.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/scaffold_rig_move_2.ogg",
             "text": "Riding the monsoon wind.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/scaffold_rig_attack_1.ogg",
             "text": "Dragon's breath!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/scaffold_rig_attack_2.ogg",
             "text": "Bombs from the clouds!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "channel_ferry": {
       "name": "Andaman Siege Barge",
@@ -885,40 +1092,51 @@
           {
             "file": "barks/channel_ferry_select_1.ogg",
             "text": "Siege barge, guns loaded.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/channel_ferry_select_2.ogg",
             "text": "Andaman barge, afloat.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/channel_ferry_move_1.ogg",
             "text": "Pushing up the coast.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/channel_ferry_move_2.ogg",
             "text": "Full ahead!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/channel_ferry_attack_1.ogg",
             "text": "Broadside!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/channel_ferry_attack_2.ogg",
             "text": "Overload the barrels!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "kachin_dog": {
       "name": "Kachin Sapper Dog",
@@ -930,40 +1148,62 @@
           {
             "file": "barks/kachin_dog_select_1.ogg",
             "text": "Good dog. Ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/kachin_dog_select_2.ogg",
             "text": "Kachin sapper, nose up.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/kachin_dog_move_1.ogg",
             "text": "Go, girl, go!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Go, girl. Go.",
+            "score": 1.0,
+            "seconds": 3.5
           },
           {
             "file": "barks/kachin_dog_move_2.ogg",
             "text": "Following the scent.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Following the scent.",
+            "score": 1.0,
+            "seconds": 2.06
           }
         ],
         "attack": [
           {
             "file": "barks/kachin_dog_attack_1.ogg",
             "text": "Sic them!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Sick them. Woof.",
+            "score": 0.73,
+            "seconds": 2.48
           },
           {
             "file": "barks/kachin_dog_attack_2.ogg",
             "text": "Howl, girl!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "How girl",
+            "score": 0.94,
+            "seconds": 2.46
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a warm handler speaking for his dog, then a growl, Burmese / Shan highland accent, gritty insurgent radio chatter, terse battlefield radio bark: <line>",
+      "model": "models/gemini-3.1-flash-tts-preview"
     },
     "river_rifle": {
       "name": "Patani Corsair Guard",
@@ -975,40 +1215,51 @@
           {
             "file": "barks/river_rifle_select_1.ogg",
             "text": "Corsair guard, blade drawn.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/river_rifle_select_2.ogg",
             "text": "Patani steel, ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/river_rifle_move_1.ogg",
             "text": "Across the deck!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/river_rifle_move_2.ogg",
             "text": "Moving fast!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/river_rifle_attack_1.ogg",
             "text": "Kris rush!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/river_rifle_attack_2.ogg",
             "text": "Board them!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "sampan": {
       "name": "Malacca Pocket-Sub",
@@ -1020,40 +1271,51 @@
           {
             "file": "barks/sampan_select_1.ogg",
             "text": "Pocket-sub, running silent.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/sampan_select_2.ogg",
             "text": "Periscope up.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/sampan_move_1.ogg",
             "text": "Diving now.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/sampan_move_2.ogg",
             "text": "Slipping under the strait.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/sampan_attack_1.ogg",
             "text": "Torpedo away!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/sampan_attack_2.ogg",
             "text": "Ram speed!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "emerald_gunboat": {
       "name": "Krakatoa Dreadnought",
@@ -1065,40 +1327,51 @@
           {
             "file": "barks/emerald_gunboat_select_1.ogg",
             "text": "Dreadnought, all hands.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/emerald_gunboat_select_2.ogg",
             "text": "Krakatoa answers.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/emerald_gunboat_move_1.ogg",
             "text": "Steam ahead!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/emerald_gunboat_move_2.ogg",
             "text": "Setting course.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/emerald_gunboat_attack_1.ogg",
             "text": "All batteries, fire!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/emerald_gunboat_attack_2.ogg",
             "text": "Shields up, ram them!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "mangrove_tube": {
       "name": "Phillips Wave-Cannon",
@@ -1110,40 +1383,51 @@
           {
             "file": "barks/mangrove_tube_select_1.ogg",
             "text": "Wave-cannon, charging.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/mangrove_tube_select_2.ogg",
             "text": "Capacitors full.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/mangrove_tube_move_1.ogg",
             "text": "Repositioning the battery.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/mangrove_tube_move_2.ogg",
             "text": "Rolling to the shore.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/mangrove_tube_attack_1.ogg",
             "text": "Release the wave!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/mangrove_tube_attack_2.ogg",
             "text": "Fire the cannon!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "packer": {
       "name": "Garuda Mecha-Overlord",
@@ -1155,40 +1439,51 @@
           {
             "file": "barks/packer_select_1.ogg",
             "text": "Garuda awakens.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/packer_select_2.ogg",
             "text": "I am the storm.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/packer_move_1.ogg",
             "text": "The earth trembles.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/packer_move_2.ogg",
             "text": "Garuda strides.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/packer_attack_1.ogg",
             "text": "Monsoon charge!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/packer_attack_2.ogg",
             "text": "Kneel before Garuda!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "jade_skiff": {
       "name": "Johor Loiter-Swarm",
@@ -1200,40 +1495,51 @@
           {
             "file": "barks/jade_skiff_select_1.ogg",
             "text": "Swarm is buzzing.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/jade_skiff_select_2.ogg",
             "text": "Johor swarm, linked.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/jade_skiff_move_1.ogg",
             "text": "Swarm, follow me!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/jade_skiff_move_2.ogg",
             "text": "Skimming the water.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/jade_skiff_attack_1.ogg",
             "text": "Swarm, dive!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/jade_skiff_attack_2.ogg",
             "text": "Sting them!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "olive_ranger": {
       "name": "Sulu Tank-Buster",
@@ -1245,40 +1551,51 @@
           {
             "file": "barks/olive_ranger_select_1.ogg",
             "text": "Tank-buster, waiting.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/olive_ranger_select_2.ogg",
             "text": "Sulu ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/olive_ranger_move_1.ogg",
             "text": "Digging in elsewhere.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/olive_ranger_move_2.ogg",
             "text": "Moving low.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/olive_ranger_attack_1.ogg",
             "text": "Spring the ambush!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/olive_ranger_attack_2.ogg",
             "text": "Armor down!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "emerald_cutter": {
       "name": "Nusantara Boarder",
@@ -1290,40 +1607,51 @@
           {
             "file": "barks/emerald_cutter_select_1.ogg",
             "text": "Boarder, hooks ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/emerald_cutter_select_2.ogg",
             "text": "Nusantara crew.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/emerald_cutter_move_1.ogg",
             "text": "Swimming out!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/emerald_cutter_move_2.ogg",
             "text": "Closing the distance.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/emerald_cutter_attack_1.ogg",
             "text": "Breach the hull!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/emerald_cutter_attack_2.ogg",
             "text": "Take the ship!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "mangrove_skiff": {
       "name": "Aceh Tsunami Tank",
@@ -1335,40 +1663,51 @@
           {
             "file": "barks/mangrove_skiff_select_1.ogg",
             "text": "Tsunami tank, sealed.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/mangrove_skiff_select_2.ogg",
             "text": "Aceh armor, ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/mangrove_skiff_move_1.ogg",
             "text": "Rolling through the surf.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/mangrove_skiff_move_2.ogg",
             "text": "Wave goes forward.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/mangrove_skiff_attack_1.ogg",
             "text": "Hit them hard!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/mangrove_skiff_attack_2.ogg",
             "text": "Deflectors up, fire!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "river_tug": {
       "name": "Malacca Recon Drone",
@@ -1380,40 +1719,51 @@
           {
             "file": "barks/river_tug_select_1.ogg",
             "text": "Recon drone, eyes up.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/river_tug_select_2.ogg",
             "text": "Watching the strait.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/river_tug_move_1.ogg",
             "text": "Scouting ahead.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/river_tug_move_2.ogg",
             "text": "Flying low.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/river_tug_attack_1.ogg",
             "text": "Latch on!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/river_tug_attack_2.ogg",
             "text": "Detonate!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "jade_mortar": {
       "name": "Sumatra Hover-Technical",
@@ -1425,40 +1775,64 @@
           {
             "file": "barks/jade_mortar_select_1.ogg",
             "text": "Hover-fans at max RPM!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/jade_mortar_select_2.ogg",
             "text": "Technical, revved up.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-2.5-pro-preview-tts",
+            "heard": "technical ratchet",
+            "score": 0.67,
+            "seconds": 1.67
           }
         ],
         "move": [
           {
             "file": "barks/jade_mortar_move_1.ogg",
             "text": "Skimming the waves!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "skimming the waves",
+            "score": 1.0,
+            "seconds": 2.2
           },
           {
             "file": "barks/jade_mortar_move_2.ogg",
             "text": "Hold on tight!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Hold on tight!",
+            "score": 1.0,
+            "seconds": 1.68
           }
         ],
         "attack": [
           {
             "file": "barks/jade_mortar_attack_1.ogg",
             "text": "Rockets out!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Rockets out.",
+            "score": 1.0,
+            "seconds": 1.44
           },
           {
             "file": "barks/jade_mortar_attack_2.ogg",
             "text": "Light them up!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Light them up.",
+            "score": 1.0,
+            "seconds": 1.22
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a hyper, thrill-seeking driver, Malay / Indonesian accent, swaggering naval-corsair radio chatter, terse battlefield radio bark: <line>",
+      "model": "models/gemini-3.1-flash-tts-preview"
     },
     "packer_escort": {
       "name": "Siti The Kraken",
@@ -1470,40 +1844,51 @@
           {
             "file": "barks/packer_escort_select_1.ogg",
             "text": "Siti here. Make it count.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/packer_escort_select_2.ogg",
             "text": "The Kraken rises.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/packer_escort_move_1.ogg",
             "text": "The sea parts for me.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/packer_escort_move_2.ogg",
             "text": "Moving out.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/packer_escort_attack_1.ogg",
             "text": "Drown in the maelstrom!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/packer_escort_attack_2.ogg",
             "text": "The tide takes you!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "olive_sapper": {
       "name": "Riau Syndicate Fixer",
@@ -1515,40 +1900,51 @@
           {
             "file": "barks/olive_sapper_select_1.ogg",
             "text": "Fixer's in. What's the job?",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/olive_sapper_select_2.ogg",
             "text": "Riau syndicate, listening.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/olive_sapper_move_1.ogg",
             "text": "Skates on!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/olive_sapper_move_2.ogg",
             "text": "On my way, boss.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/olive_sapper_attack_1.ogg",
             "text": "Nothing personal!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/olive_sapper_attack_2.ogg",
             "text": "Let's settle this!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "emerald_ferry": {
       "name": "Singapore Trimaran",
@@ -1560,40 +1956,51 @@
           {
             "file": "barks/emerald_ferry_select_1.ogg",
             "text": "Trimaran, on station.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/emerald_ferry_select_2.ogg",
             "text": "Singapore fleet, ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/emerald_ferry_move_1.ogg",
             "text": "Plotting course.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/emerald_ferry_move_2.ogg",
             "text": "Full speed.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/emerald_ferry_attack_1.ogg",
             "text": "Torpedo fan, spread!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/emerald_ferry_attack_2.ogg",
             "text": "Engaging target.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "wharf_gun": {
       "name": "Mindanao Striker Walker",
@@ -1605,40 +2012,51 @@
           {
             "file": "barks/wharf_gun_select_1.ogg",
             "text": "Striker walker, systems green.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/wharf_gun_select_2.ogg",
             "text": "Mindanao mech, ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/wharf_gun_move_1.ogg",
             "text": "Stomping forward!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/wharf_gun_move_2.ogg",
             "text": "Rotors or legs, your call.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/wharf_gun_attack_1.ogg",
             "text": "Striker, engage!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/wharf_gun_attack_2.ogg",
             "text": "Chopper mode, fire!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "clearance_trooper": {
       "name": "Vanguard Shock-Trooper",
@@ -1650,40 +2068,51 @@
           {
             "file": "barks/clearance_trooper_select_1.ogg",
             "text": "Vanguard, ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/clearance_trooper_select_2.ogg",
             "text": "Shield up.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/clearance_trooper_move_1.ogg",
             "text": "Advancing.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/clearance_trooper_move_2.ogg",
             "text": "Holding formation.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/clearance_trooper_attack_1.ogg",
             "text": "Push forward!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/clearance_trooper_attack_2.ogg",
             "text": "Open fire!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "hub_drone": {
       "name": "Agent-Zero Cryo-Copter",
@@ -1695,40 +2124,51 @@
           {
             "file": "barks/hub_drone_select_1.ogg",
             "text": "Agent-Zero, airborne.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/hub_drone_select_2.ogg",
             "text": "Cryo systems ready.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/hub_drone_move_1.ogg",
             "text": "Moving in.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/hub_drone_move_2.ogg",
             "text": "Gliding over.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/hub_drone_attack_1.ogg",
             "text": "Shrink ray, firing!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/hub_drone_attack_2.ogg",
             "text": "Freeze them!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "charcoal_apc": {
       "name": "Delta Amphibious IFV",
@@ -1740,40 +2180,51 @@
           {
             "file": "barks/charcoal_apc_select_1.ogg",
             "text": "Delta IFV, sealed.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/charcoal_apc_select_2.ogg",
             "text": "Crew on board.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "move": [
           {
             "file": "barks/charcoal_apc_move_1.ogg",
             "text": "Into the delta.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/charcoal_apc_move_2.ogg",
             "text": "Wheels to water.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ],
         "attack": [
           {
             "file": "barks/charcoal_apc_attack_1.ogg",
             "text": "Suppressing fire!",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/charcoal_apc_attack_2.ogg",
             "text": "Engaging.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           }
         ]
-      },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      }
     },
     "cyan_ifv": {
       "name": "Saigon Prism-Lock Tank",
@@ -1785,40 +2236,64 @@
           {
             "file": "barks/cyan_ifv_select_1.ogg",
             "text": "Prism-lock, online.",
-            "present": false
+            "present": true,
+            "verified": "at generation: transcription score >= 0.6 (per-clip transcript lost when the run was stopped)",
+            "model": "models/gemini-3.1-flash-tts-preview"
           },
           {
             "file": "barks/cyan_ifv_select_2.ogg",
             "text": "Saigon armor, ready.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Seigon arma, ready.",
+            "score": 0.86,
+            "seconds": 2.38
           }
         ],
         "move": [
           {
             "file": "barks/cyan_ifv_move_1.ogg",
             "text": "Repositioning.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "repositioning",
+            "score": 1.0,
+            "seconds": 1.56
           },
           {
             "file": "barks/cyan_ifv_move_2.ogg",
             "text": "Rolling.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "rolling",
+            "score": 1.0,
+            "seconds": 0.9
           }
         ],
         "attack": [
           {
             "file": "barks/cyan_ifv_attack_1.ogg",
             "text": "Target painted!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Target painted.",
+            "score": 1.0,
+            "seconds": 1.96
           },
           {
             "file": "barks/cyan_ifv_attack_2.ogg",
             "text": "Prism, fire!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "prison fire",
+            "score": 0.86,
+            "seconds": 1.56
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a clinical, focused tank commander, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "model": "models/gemini-3.1-flash-tts-preview"
     },
     "relay_van": {
       "name": "Colonel Nguyen Phantom",
@@ -1830,40 +2305,66 @@
           {
             "file": "barks/relay_van_select_1.ogg",
             "text": "Phantom here.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Fenton hier.",
+            "score": 0.61,
+            "seconds": 1.76
           },
           {
             "file": "barks/relay_van_select_2.ogg",
             "text": "Colonel Nguyen. Proceed.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Coron Wien, procede.",
+            "score": 0.7,
+            "seconds": 2.68
           }
         ],
         "move": [
           {
             "file": "barks/relay_van_move_1.ogg",
             "text": "You won't see me.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "You won't see me.",
+            "score": 1.0,
+            "seconds": 2.26
           },
           {
             "file": "barks/relay_van_move_2.ogg",
             "text": "Moving like smoke.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "moving like smoke",
+            "score": 1.0,
+            "seconds": 2.2
           }
         ],
         "attack": [
           {
             "file": "barks/relay_van_attack_1.ogg",
             "text": "Time is on my side.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Time is on my side.",
+            "score": 1.0,
+            "seconds": 2.66
           },
           {
             "file": "barks/relay_van_attack_2.ogg",
             "text": "Strike now.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Strike, now.",
+            "score": 1.0,
+            "seconds": 1.82
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a quiet, dangerous, confident commander, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "model": "models/gemini-3.1-flash-tts-preview"
     },
     "river_drone": {
       "name": "Athena Orbital Designator",
@@ -1908,7 +2409,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a serene, precise satellite controller, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "cyan_sentry": {
       "name": "Cu Chi Tunnel Hound",
@@ -1953,7 +2456,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a low, gentle dog handler, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "charcoal_mortar": {
       "name": "Mirage Camo-Tank",
@@ -1998,7 +2503,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a soft-spoken, sly tank commander, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "hub_lifter": {
       "name": "Mekong Combat Sapper",
@@ -2043,7 +2550,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a brisk, caring field medic engineer, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "clearance_engineer": {
       "name": "Viet-Tech Laser Operator",
@@ -2088,7 +2597,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a sharp, technical specialist, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "cyan_gunship": {
       "name": "Tonkin Supersonic Fighter",
@@ -2133,7 +2644,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a fast, adrenaline jet pilot, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "siege_tube": {
       "name": "Vindicator Bomber",
@@ -2178,7 +2691,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a deep, deliberate bomber pilot, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "relay_mast": {
       "name": "Mekong Assault Destroyer",
@@ -2223,7 +2738,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a authoritative destroyer captain, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "charcoal_bike": {
       "name": "Infiltrator Operative",
@@ -2268,7 +2785,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a smooth, whispering spy, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "cyan_skiff": {
       "name": "Ha Long Hydrofoil",
@@ -2313,7 +2832,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a quick, upbeat boat pilot, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "hub_hauler": {
       "name": "Indochina Drone Carrier",
@@ -2358,7 +2879,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a grand, calm carrier captain, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "ch4": {
       "name": "CH-4",
@@ -2403,7 +2926,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a flat, professional drone contractor, neutral contractor accent, terse mercenary pilot radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "su30": {
       "name": "Su-30",
@@ -2448,7 +2973,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a arrogant ace mercenary pilot, neutral contractor accent, terse mercenary pilot radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "orlan10": {
       "name": "Orlan-10",
@@ -2493,7 +3020,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a dry, detached spotter, neutral contractor accent, terse mercenary pilot radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     },
     "flh7": {
       "name": "FLH7 Squad",
@@ -2538,7 +3067,9 @@
           }
         ]
       },
-      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a slick, rapid squad leader, neutral contractor accent, terse mercenary pilot radio chatter, terse battlefield radio bark: <line>",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     }
   },
   "failures": []
