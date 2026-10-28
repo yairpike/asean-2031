@@ -1,6 +1,6 @@
 {
   "game": "ASEAN 2031",
-  "generated_at": "2026-10-28T02:42:28+00:00",
+  "generated_at": "2026-10-28T02:43:53+00:00",
   "dry_run": false,
   "models": {
     "music": "models/lyria-realtime-exp",
@@ -9,7 +9,12 @@
       "models/gemini-2.5-flash-preview-tts",
       "models/gemini-3.1-flash-tts-preview",
       "models/gemini-3.8-flash-tts"
-    ]
+    ],
+    "tts_fallback_configured": "models/gemini-2.5-pro-preview-tts",
+    "tts_rejected": {
+      "models/gemini-3.8-flash-lite-tts": "reads instructions aloud",
+      "models/gemini-3.8-flash-tts": "reads any direction aloud and rejects system instructions; only usable with the bare line"
+    }
   },
   "unit_id_source": "Unit ids and display names from data/factions/<faction>/faction.json on branch cursor/web-playtest (internal/web-playtest.bundle, commit 947b910). Lines are storefront-safe; no street-drug names.",
   "encoding": {
@@ -18,10 +23,10 @@
   },
   "totals": {
     "music_files": 7,
-    "bark_files": 222,
+    "bark_files": 241,
     "music_bytes": 5432249,
-    "bark_bytes": 5109157,
-    "total_bytes": 10541406,
+    "bark_bytes": 5516046,
+    "total_bytes": 10948295,
     "music_under_8mb": true
   },
   "music": {
@@ -2376,42 +2381,66 @@
           {
             "file": "barks/river_drone_select_1.ogg",
             "text": "Athena, uplink stable.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Affina, afflink stabile.",
+            "score": 0.71,
+            "seconds": 2.86
           },
           {
             "file": "barks/river_drone_select_2.ogg",
             "text": "Orbit confirmed.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Orbit confirm",
+            "score": 0.93,
+            "seconds": 1.94
           }
         ],
         "move": [
           {
             "file": "barks/river_drone_move_1.ogg",
             "text": "Adjusting position.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "adjusting position",
+            "score": 1.0,
+            "seconds": 1.96
           },
           {
             "file": "barks/river_drone_move_2.ogg",
             "text": "Tracking.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "tracking",
+            "score": 1.0,
+            "seconds": 1.16
           }
         ],
         "attack": [
           {
             "file": "barks/river_drone_attack_1.ogg",
             "text": "Designating target.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "designating target",
+            "score": 1.0,
+            "seconds": 2.18
           },
           {
             "file": "barks/river_drone_attack_2.ogg",
             "text": "Aegis ready, strike approved.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Aegis Ready Strike Approved",
+            "score": 1.0,
+            "seconds": 3.28
           }
         ]
       },
       "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
       "prompt_single_template": "Say as a serene, precise satellite controller, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
-      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+      "model": "models/gemini-3.1-flash-tts-preview"
     },
     "cyan_sentry": {
       "name": "Cu Chi Tunnel Hound",
@@ -2423,42 +2452,66 @@
           {
             "file": "barks/cyan_sentry_select_1.ogg",
             "text": "Hound, steady.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Halt. Steady.",
+            "score": 0.7,
+            "seconds": 2.14
           },
           {
             "file": "barks/cyan_sentry_select_2.ogg",
             "text": "Tunnel team, ready.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Tunnel Team ready",
+            "score": 1.0,
+            "seconds": 1.98
           }
         ],
         "move": [
           {
             "file": "barks/cyan_sentry_move_1.ogg",
             "text": "Down the tunnel.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "down the turnpike",
+            "score": 0.81,
+            "seconds": 1.98
           },
           {
             "file": "barks/cyan_sentry_move_2.ogg",
             "text": "Follow the scent.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "follow the scent",
+            "score": 1.0,
+            "seconds": 1.56
           }
         ],
         "attack": [
           {
             "file": "barks/cyan_sentry_attack_1.ogg",
             "text": "Go! Take them!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Go! Take them!",
+            "score": 1.0,
+            "seconds": 1.66
           },
           {
             "file": "barks/cyan_sentry_attack_2.ogg",
             "text": "Bark them out!",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Box them out.",
+            "score": 0.8,
+            "seconds": 1.66
           }
         ]
       },
       "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
       "prompt_single_template": "Say as a low, gentle dog handler, Vietnamese accent, crisp disciplined high-tech military radio chatter, terse battlefield radio bark: <line>",
-      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+      "model": "models/gemini-3.1-flash-tts-preview"
     },
     "charcoal_mortar": {
       "name": "Mirage Camo-Tank",
@@ -2470,24 +2523,40 @@
           {
             "file": "barks/charcoal_mortar_select_1.ogg",
             "text": "Mirage, hidden.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Mirage Hidden",
+            "score": 1.0,
+            "seconds": 2.36
           },
           {
             "file": "barks/charcoal_mortar_select_2.ogg",
             "text": "You see nothing.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "You see nothing.",
+            "score": 1.0,
+            "seconds": 1.94
           }
         ],
         "move": [
           {
             "file": "barks/charcoal_mortar_move_1.ogg",
             "text": "Moving unseen.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Moving unseen.",
+            "score": 1.0,
+            "seconds": 1.74
           },
           {
             "file": "barks/charcoal_mortar_move_2.ogg",
             "text": "Like a shadow.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Like a shadow.",
+            "score": 1.0,
+            "seconds": 2.02
           }
         ],
         "attack": [
@@ -2611,12 +2680,20 @@
           {
             "file": "barks/cyan_gunship_select_1.ogg",
             "text": "Tonkin fighter, wheels up.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Punkin' Futer, what's up?",
+            "score": 0.71,
+            "seconds": 1.78
           },
           {
             "file": "barks/cyan_gunship_select_2.ogg",
             "text": "Supersonic, ready.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Supersonic ready.",
+            "score": 1.0,
+            "seconds": 1.78
           }
         ],
         "move": [
@@ -2846,7 +2923,11 @@
           {
             "file": "barks/hub_hauler_select_1.ogg",
             "text": "Carrier, deck ready.",
-            "present": false
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "carrier deck ready",
+            "score": 1.0,
+            "seconds": 2.5
           },
           {
             "file": "barks/hub_hauler_select_2.ogg",
@@ -3072,5 +3153,80 @@
       "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
     }
   },
-  "failures": []
+  "failures": [
+    {
+      "kind": "barks",
+      "id": "charcoal_mortar",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "hub_lifter",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "clearance_engineer",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "cyan_gunship",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "siege_tube",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "relay_mast",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "charcoal_bike",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "cyan_skiff",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "hub_hauler",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "ch4",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "su30",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "orlan10",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    },
+    {
+      "kind": "barks",
+      "id": "flh7",
+      "error": "ClientError: 402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ', 'status': 'RESOURCE_EXHAUSTED'}}"
+    }
+  ],
+  "line_changes": {
+    "crimson_sapper_select_2": {
+      "old": "Saboteur, quiet as fog.",
+      "new": "Saboteur, standing by.",
+      "why": "old take was transcribed as a profanity"
+    }
+  },
+  "music_policy": "No more generated music. The 7 Lyria tracks stay; the user will add their own MP3s alongside them.",
+  "status": "241/312 barks; stopped twice by HTTP 402 prepayment credits depleted (01:50 and about 02:55 UTC)"
 }

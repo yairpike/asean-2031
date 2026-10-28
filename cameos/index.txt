@@ -19,6 +19,7 @@ cyan_sentry.webp
 cyan_skiff.webp
 defender_vx.webp
 drone_bay.webp
+emerald_gunboat.webp
 flak_slag_mast.webp
 flh7.webp
 gtfc_airfield.webp
@@ -29,13 +30,17 @@ hub_hauler.webp
 hub_lifter.webp
 hub_refinery.webp
 kachin_dog.webp
+mangrove_tube.webp
 militia.webp
 monsoon_spotter.webp
 monsoon_tube.webp
 mvd_airfield.webp
 mvd_naval_yard.webp
 mvd_war_factory.webp
+nmrf_airfield.webp
+olive_ranger.webp
 orlan10.webp
+packer.webp
 relay_mast.webp
 relay_van.webp
 river_drone.webp
@@ -56,4 +61,6 @@ solar_biomass.webp
 spectrum_prism.webp
 su30.webp
 tech_center.webp
+tidal_turbine.webp
+wharf_gun.webp
 yard_crane.webp
