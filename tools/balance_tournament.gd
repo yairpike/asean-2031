@@ -26,7 +26,7 @@ func _run() -> void:
 		for home_id: String in _factions():
 			for away_id: String in _factions():
 				for who: String in _commanders():
-					for seed: int in 5:
+					for seed: int in _seed_count():
 						var row: Dictionary = await _match(map_id, home_id, away_id, who, seed)
 						handle.store_line(JSON.stringify(row))
 						handle.flush()
@@ -117,10 +117,32 @@ func _factions() -> PackedStringArray:
 	return PackedStringArray(["gtfc", "nmrf", "mvd", "black_market"])
 
 func _commanders() -> PackedStringArray:
-	return PackedStringArray(["Bo Mya", "Iskandar", "Tran"])
+	var picked: String = OS.get_environment("BALANCE_COMMANDERS")
+	if picked == "":
+		return PackedStringArray(["Bo Mya", "Iskandar", "Tran"])
+	var out: PackedStringArray = PackedStringArray()
+	for part: String in picked.split(",", false):
+		var name: String = part.strip_edges()
+		if name != "":
+			out.append(name)
+	return out
 
 func _maps() -> PackedStringArray:
-	return PackedStringArray(["phillips", "sop_ruak", "burma_road", "ten_degree_atolls", "mekong_delta", "chiang_rai"])
+	var picked: String = OS.get_environment("BALANCE_MAPS")
+	if picked == "":
+		return PackedStringArray(["phillips", "sop_ruak", "burma_road", "ten_degree_atolls", "mekong_delta", "chiang_rai"])
+	var out: PackedStringArray = PackedStringArray()
+	for part: String in picked.split(",", false):
+		var name: String = part.strip_edges()
+		if name != "":
+			out.append(name)
+	return out
+
+func _seed_count() -> int:
+	var picked: String = OS.get_environment("BALANCE_SEEDS")
+	if picked == "":
+		return 5
+	return clampi(int(picked), 1, 5)
 
 func _layout(map_id: String) -> SMDomainGrid:
 	if map_id == "sop_ruak":

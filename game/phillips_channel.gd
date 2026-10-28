@@ -39,9 +39,44 @@ func _ready() -> void:
 	hud.use_tech(sim.tech)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
 	preload("res://game/match_settings.gd").apply_scene(self)
+	_late_crowd()
 
 func scripted_playthrough() -> bool:
 	return sim.script_phillips()
+
+func _late_crowd() -> void:
+	if not OS.has_feature("web"):
+		return
+	var href: String = str(JavaScriptBridge.eval("window.location.search", true))
+	if href == "" or href == "null" or href == "<null>":
+		return
+	var settings: GDScript = preload("res://game/match_settings.gd")
+	if href.contains("gfx=high"):
+		settings.call("set_graphics", "high")
+		settings.call("apply_scene", self)
+	elif href.contains("gfx=low"):
+		settings.call("set_graphics", "low")
+		settings.call("apply_scene", self)
+	var mark: int = href.find("late=")
+	if mark < 0:
+		return
+	var digits: String = ""
+	var rest: String = href.substr(mark + 5)
+	for i: int in rest.length():
+		var ch: String = rest.substr(i, 1)
+		if ch < "0" or ch > "9":
+			break
+		digits += ch
+	var count: int = 150 if digits == "" else int(digits)
+	count = clampi(count, 0, 220)
+	var half: int = int(count / 2)
+	for i: int in half:
+		var col: float = float(i % 12)
+		var row: float = float(int(i / 12))
+		field.spawn(SMPointer.PLAYER, Vector3(-20.0 + col * 1.8, 0.0, -18.0 + row * 1.8), &"militia")
+		field.spawn(SMPointer.ENEMY, Vector3(8.0 + col * 1.8, 0.0, 4.0 + row * 1.8), &"militia")
+	if count % 2 == 1:
+		field.spawn(SMPointer.PLAYER, Vector3(-20.0, 0.0, -8.0), &"militia")
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
