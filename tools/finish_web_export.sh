@@ -72,6 +72,19 @@ fi
 if ! grep -q 'serviceWorker.register("sw.js")' "$DEST/index.html"; then
   sed -i 's#</body>#<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script></body>#' "$DEST/index.html"
 fi
+cp "$ROOT/web/audio_unlock.js" "$DEST/audio_unlock.js"
+if [ -f "$DEST/index.html" ] && ! grep -q 'audio_unlock.js' "$DEST/index.html"; then
+  python3 - "$DEST/index.html" << 'PY'
+import sys
+path = sys.argv[1]
+html = open(path, encoding="utf-8").read()
+needle = "<head>"
+tag = '<head>\n\t\t<script src="audio_unlock.js"></script>'
+if needle not in html:
+    raise SystemExit("finish_web_export: index.html has no head")
+open(path, "w", encoding="utf-8").write(html.replace(needle, tag, 1))
+PY
+fi
 cp "$ROOT/tools/brotli_host.conf" "$DEST/brotli_host.conf"
 AUDIO_SRC="/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/audio"
 if [ -d "$AUDIO_SRC/music" ] || [ -d "$AUDIO_SRC/barks" ]; then
@@ -83,10 +96,27 @@ if [ -d "$AUDIO_SRC/music" ] || [ -d "$AUDIO_SRC/barks" ]; then
   if [ -d "$AUDIO_SRC/barks" ]; then
     rm -rf "$DEST/audio/barks"
     cp -R "$AUDIO_SRC/barks" "$DEST/audio/barks"
+    rm -f "$DEST/audio/barks/crimson_sapper_select_2.ogg"
   fi
   if [ -f "$AUDIO_SRC/manifest.json" ]; then
     cp "$AUDIO_SRC/manifest.json" "$DEST/audio/manifest.json"
   fi
+  find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' 2>/dev/null \
+    | sed "s#^$DEST/audio/##" \
+    | sort > "$DEST/audio/clips.txt"
+  if [ -f "$DEST/audio/barks/crimson_sapper_select_2.ogg" ]; then
+    echo "finish_web_export: held bark was copied"
+    exit 1
+  fi
+  if ! grep -q "music/menu.ogg" "$DEST/audio/clips.txt"; then
+    echo "finish_web_export: clips.txt missing menu"
+    exit 1
+  fi
+  if grep -q "crimson_sapper_select_2" "$DEST/audio/clips.txt"; then
+    echo "finish_web_export: clips.txt lists the held bark"
+    exit 1
+  fi
+  : > "$DEST/audio/.gdignore"
 fi
 if ! grep -q "brotli" "$DEST/brotli_host.conf" || ! grep -q "wasm" "$DEST/brotli_host.conf"; then
   echo "finish_web_export: brotli host config is missing"
@@ -96,7 +126,7 @@ if ! grep -q "GODOT_THREADS_ENABLED = false" "$DEST/index.html"; then
   echo "finish_web_export: export is not single-threaded"
   exit 1
 fi
-for f in index.html index.wasm index.pck index.manifest.json sw.js manifest.webmanifest brotli_host.conf; do
+for f in index.html index.wasm index.pck index.manifest.json sw.js manifest.webmanifest brotli_host.conf audio_unlock.js; do
   if [ ! -f "$DEST/$f" ]; then
     echo "finish_web_export: missing $f"
     exit 1

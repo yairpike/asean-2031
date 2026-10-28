@@ -1,10 +1,34 @@
 extends Node
 ## Starts faction music after the match has chosen a side, then a sting at the end.
+## On the web, playback waits for the first click so the audio context can resume.
 
 const Clips = preload("res://game/match_audio.gd")
 
 var _started: bool = false
 var _stung: bool = false
+var _open: bool = false
+
+func _ready() -> void:
+	if OS.has_feature("web"):
+		_fetch_list()
+
+func _input(event: InputEvent) -> void:
+	if _open or not OS.has_feature("web") or not _gesture(event):
+		return
+	_open = true
+	Clips.unlock()
+
+func _gesture(event: InputEvent) -> bool:
+	var mouse: InputEventMouseButton = event as InputEventMouseButton
+	if mouse != null:
+		return mouse.pressed
+	var touch: InputEventScreenTouch = event as InputEventScreenTouch
+	if touch != null:
+		return touch.pressed
+	var key: InputEventKey = event as InputEventKey
+	if key != null:
+		return key.pressed and not key.echo
+	return false
 
 func _process(_delta: float) -> void:
 	var host: Node = get_parent()
@@ -37,3 +61,27 @@ func _process(_delta: float) -> void:
 		return
 	_stung = true
 	Clips.play_sting(host, won)
+
+func _fetch_list() -> void:
+	var http: HTTPRequest = HTTPRequest.new()
+	http.timeout = 30.0
+	http.accept_gzip = false
+	http.name = "ClipList"
+	add_child(http)
+	http.request_completed.connect(_got_list.bind(http))
+	var err: Error = http.request(Clips.page_base() + "audio/clips.txt")
+	if err != OK:
+		http.queue_free()
+
+func _got_list(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest) -> void:
+	if is_instance_valid(http):
+		http.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		return
+	var lines: PackedStringArray = body.get_string_from_utf8().split("\n")
+	for line: String in lines:
+		var rel: String = line.strip_edges()
+		if rel == "":
+			continue
+		Clips.remember(rel)
+		Clips.prefetch(self, rel)

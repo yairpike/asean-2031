@@ -2841,6 +2841,67 @@ func test_sm_bark() -> void:
 	check(SMBark.line(&"hub_drone", "hurt").contains("Copter"), "the cryo-copter calls under fire")
 	check(SMBark.line(&"unknown", "select") == "Ready.", "an unnamed unit still answers")
 	check(SMTone.peak(SMTone.cue("bark")) > 1000, "the bark cue is audible")
+	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
+	var tracks: PackedStringArray = PackedStringArray([
+		"music/menu.ogg", "music/gtfc.ogg", "music/nmrf.ogg", "music/mvd.ogg",
+		"music/black_market.ogg", "music/victory_sting.ogg", "music/defeat_sting.ogg",
+	])
+	var tracks_ok: bool = true
+	for track: String in tracks:
+		if clips.call("_stream", track) == null:
+			tracks_ok = false
+	check(tracks_ok, "menu, faction, and sting tracks decode")
+	var voiced: PackedStringArray = PackedStringArray([
+		"militia", "ruby_lancer", "amber_tank", "monsoon_tube", "channel_skiff",
+		"crimson_sapper", "amber_scout", "yard_crane", "ruby_mortar",
+	])
+	var events: PackedStringArray = PackedStringArray(["select", "move", "attack"])
+	var barks_ok: bool = true
+	for unit_id: String in voiced:
+		for event_name: String in events:
+			var first: String = "barks/%s_%s_1.ogg" % [unit_id, event_name]
+			var second: String = "barks/%s_%s_2.ogg" % [unit_id, event_name]
+			if clips.call("_stream", first) == null:
+				barks_ok = false
+			if second != "barks/crimson_sapper_select_2.ogg" and clips.call("_stream", second) == null:
+				barks_ok = false
+	check(barks_ok, "the nine shipped units decode both bark takes")
+	check(clips.call("clip_for", "militia", "select") != null, "a shipped bark is chosen for playback")
+	check(clips.call("clip_for", "not_a_unit", "select") == null, "a missing bark stays empty for the tone")
+	var held_path: String = "/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/audio/barks/crimson_sapper_select_2.ogg"
+	check(FileAccess.file_exists(held_path) and clips.call("_stream", "barks/crimson_sapper_select_2.ogg") == null, "the held sapper line stays out")
+	check(clips.call("clip_for", "crimson_sapper", "select") != null, "the sapper still has a select line")
+	clips.call("color_voice", null)
+	var music_bus: int = AudioServer.get_bus_index("Music")
+	Settings.set_master(0.4)
+	Settings.set_sfx(0.5)
+	Settings.apply_scene(null)
+	check(music_bus > 0 and AudioServer.get_bus_send(music_bus) == "Master" and is_equal_approx(AudioServer.get_bus_volume_db(0), linear_to_db(0.4)), "master volume scales the music bus")
+	check(is_equal_approx(Settings.cue_db(-6.0), -6.0 + linear_to_db(0.5)), "sfx volume scales barks")
+	Settings.set_master(1.0)
+	Settings.set_sfx(1.0)
+	Settings.apply_scene(null)
+	var speaker: Node = Node.new()
+	speaker.name = "AudioProbe"
+	root.add_child(speaker)
+	clips.call("play_menu", speaker)
+	var menu_player: AudioStreamPlayer = speaker.get_node_or_null("MenuMusic") as AudioStreamPlayer
+	check(menu_player != null and menu_player.playing and menu_player.stream != null, "menu music starts")
+	clips.call("play_faction", speaker, "nmrf")
+	var faction_player: AudioStreamPlayer = speaker.get_node_or_null("FactionMusic") as AudioStreamPlayer
+	check(faction_player != null and faction_player.playing and faction_player.stream != null, "faction music starts")
+	clips.call("play_sting", speaker, true)
+	var victory_player: AudioStreamPlayer = speaker.get_node_or_null("StingMusic") as AudioStreamPlayer
+	var victory_ogg: AudioStreamOggVorbis = null
+	if victory_player != null:
+		victory_ogg = victory_player.stream as AudioStreamOggVorbis
+	check(victory_player != null and victory_player.playing and victory_ogg != null and not victory_ogg.loop and not faction_player.playing, "the victory sting plays once and the faction loop stops")
+	if victory_player != null:
+		victory_player.stop()
+	clips.call("play_sting", speaker, false)
+	var defeat_player: AudioStreamPlayer = speaker.get_node_or_null("StingMusic") as AudioStreamPlayer
+	check(defeat_player != null and defeat_player.playing and defeat_player.stream != victory_ogg, "the defeat sting plays")
+	speaker.free()
 	SMFront.faction_id = "gtfc"
 	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
 	root.add_child(scene)
