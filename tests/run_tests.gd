@@ -4727,7 +4727,7 @@ func test_sm_settings() -> void:
 	var voice_row: Button = boot.find_child("VoiceValue", true, false) as Button
 	var covered_title: Label = boot.find_child("GameTitle", true, false) as Label
 	var dimmer: ColorRect = boot.find_child("SettingsDimmer", true, false) as ColorRect
-	var opened: bool = menu_panel != null and menu_panel.visible and covered_title != null and not covered_title.visible and dimmer != null and dimmer.color.a > 0.9
+	var opened: bool = menu_panel != null and menu_panel.visible and covered_title != null and not covered_title.visible and dimmer != null and dimmer.color.a > 0.25 and dimmer.color.a < 0.6
 	gear.pressed.emit()
 	check(opened and menu_panel != null and not menu_panel.visible and covered_title.visible and gear.visible, "the menu settings button opens the panel")
 	gear.pressed.emit()
