@@ -37,7 +37,6 @@ static func _from_file(id: String, limit: int) -> Texture2D:
 			return tex
 	var roots: PackedStringArray = PackedStringArray()
 	roots.append(OS.get_executable_path().get_base_dir().path_join("ui/logos"))
-	roots.append("/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/media/logos")
 	var alias: String = _alias(id)
 	for root: String in roots:
 		for stem: String in [id, alias]:
