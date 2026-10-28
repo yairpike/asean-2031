@@ -4663,7 +4663,13 @@ func test_sm_settings() -> void:
 	var dimmer: ColorRect = boot.find_child("SettingsDimmer", true, false) as ColorRect
 	var opened: bool = menu_panel != null and menu_panel.visible and covered_title != null and not covered_title.visible and dimmer != null and dimmer.color.a > 0.9
 	gear.pressed.emit()
-	check(opened and menu_panel != null and not menu_panel.visible and covered_title.visible, "the menu settings button opens the panel")
+	check(opened and menu_panel != null and not menu_panel.visible and covered_title.visible and gear.visible, "the menu settings button opens the panel")
+	gear.pressed.emit()
+	var esc: InputEventKey = InputEventKey.new()
+	esc.pressed = true
+	esc.keycode = KEY_ESCAPE
+	menu_panel._unhandled_input(esc)
+	check(not menu_panel.visible and covered_title.visible, "escape closes settings and brings the menu back")
 	check(voice_row != null and voice_row.text == "English", "settings lists the voice language")
 	boot.free()
 	await process_frame

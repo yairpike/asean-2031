@@ -798,10 +798,16 @@ func _toggle_settings() -> void:
 	if panel.visible:
 		move_child(panel, get_child_count() - 1)
 		_hide_menu_chrome()
+		_sync_art()
+		_layout_menu(_view_size())
 	else:
-		_show_tab(_menu_tab)
-	_sync_art()
-	_layout_menu(_view_size())
+		settings_closed()
+
+func settings_closed() -> void:
+	var panel: Control = find_child("SettingsPanel", true, false) as Control
+	if panel != null:
+		panel.visible = false
+	_show_tab(_menu_tab)
 
 func _show_menu_chrome() -> void:
 	var names: PackedStringArray = PackedStringArray([
@@ -813,6 +819,7 @@ func _show_menu_chrome() -> void:
 			node.visible = true
 	for tab: Button in tab_buttons:
 		tab.visible = true
+		tab.z_index = 0
 
 func _hide_menu_chrome() -> void:
 	var names: PackedStringArray = _chrome_names()
@@ -821,7 +828,12 @@ func _hide_menu_chrome() -> void:
 		if node != null:
 			node.visible = false
 	for tab: Button in tab_buttons:
+		if tab.name == "SettingsButton":
+			tab.visible = true
+			tab.z_index = 40
+			continue
 		tab.visible = false
+		tab.z_index = 0
 
 func _chrome_names() -> PackedStringArray:
 	return PackedStringArray([

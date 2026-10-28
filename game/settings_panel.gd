@@ -429,6 +429,9 @@ func _on_edge(on: bool) -> void:
 func _close() -> void:
 	visible = false
 	var host: Node = get_parent()
+	if host != null and host.has_method("settings_closed"):
+		host.call("settings_closed")
+		return
 	if host != null and host.has_method("_sync_art"):
 		host.call("_sync_art")
 

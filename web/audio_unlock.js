@@ -3,6 +3,25 @@
     return;
   }
   window.__aseanAudio = window.__aseanAudio || [];
+  var NativeCtx = window.AudioContext || window.webkitAudioContext;
+  if (NativeCtx && !window.__aseanAudioWrapped) {
+    window.__aseanAudioWrapped = true;
+    var WrappedCtx = function (opts) {
+      var ctx = new NativeCtx(opts);
+      if (window.__aseanAudio.indexOf(ctx) < 0) {
+        window.__aseanAudio.push(ctx);
+      }
+      if (window.__aseanGestured && ctx.resume && ctx.state !== "running") {
+        ctx.resume();
+      }
+      return ctx;
+    };
+    WrappedCtx.prototype = NativeCtx.prototype;
+    window.AudioContext = WrappedCtx;
+    if (window.webkitAudioContext) {
+      window.webkitAudioContext = WrappedCtx;
+    }
+  }
   function adopt() {
     var list = window.__aseanAudio;
     var ctx = window.GodotAudio && window.GodotAudio.ctx;
@@ -38,7 +57,9 @@
     }
     return jobs;
   }
+  window.__aseanGestured = false;
   window.__aseanUnlockAudio = function () {
+    window.__aseanGestured = true;
     var jobs = resumeAll();
     var state = logState();
     if (jobs.length) {
@@ -57,4 +78,9 @@
   window.addEventListener("pointerdown", onGesture, true);
   window.addEventListener("touchstart", onGesture, true);
   window.addEventListener("keydown", onGesture, true);
+  window.setInterval(function () {
+    if (window.__aseanGestured) {
+      window.__aseanUnlockAudio();
+    }
+  }, 250);
 })();
