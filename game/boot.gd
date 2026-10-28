@@ -671,6 +671,7 @@ func _faction_card(id: String, node_name: String, pos: Vector2) -> void:
 	b.name = node_name
 	b.text = ""
 	b.position = pos
+	b.clip_contents = true
 	b.custom_minimum_size = Vector2(300, 58)
 	b.size = Vector2(300, 58)
 	b.set_meta("faction", id)
@@ -1221,7 +1222,7 @@ func _layout_menu(size: Vector2) -> void:
 		faction_submenu.position = Vector2.ZERO
 		faction_submenu.size = size
 	var left: float = 24.0 if narrow else 96.0
-	var title_px: int = 40 if narrow else 72
+	var title_px: int = 36 if narrow else 48
 	var title: Control = find_child("GameTitle", true, false) as Control
 	if title != null:
 		title.position = Vector2(left, 36.0 if narrow else 96.0)
@@ -1239,6 +1240,11 @@ func _layout_menu(size: Vector2) -> void:
 	if rail != null:
 		rail.position = Vector2.ZERO
 		rail.size = Vector2(rail_w, size.y)
+	if title != null:
+		title.size = Vector2(maxf(160.0, rail_w - left - 16.0), 64.0)
+		var title_label: Label = title as Label
+		if title_label != null:
+			title_label.clip_text = true
 	var settings_open: bool = false
 	var settings_panel: Control = find_child("SettingsPanel", true, false) as Control
 	if settings_panel != null:
@@ -1261,11 +1267,13 @@ func _layout_menu(size: Vector2) -> void:
 		chip.position = Vector2(size.x - 360.0, 22.0)
 		chip.size = Vector2(340.0, 40.0)
 	var plate_w: float = rail_w - (48.0 if narrow else 120.0)
-	var y: float = 120.0 if narrow else 220.0
+	var y: float = 120.0 if narrow else 180.0
 	var row_h: float = 48.0
 	y = _seat(find_child("TabCampaign", true, false) as Control, left, y, plate_w, row_h)
+	var faction_end: float = y
 	if faction_submenu != null and faction_submenu.visible:
-		y = _seat_factions(left, y, plate_w, narrow)
+		faction_end = _seat_factions(left, y, plate_w, narrow or plate_w < 520.0)
+		y = faction_end
 	y = _seat(find_child("TabSkirmish", true, false) as Control, left, y, plate_w, row_h)
 	var multi_h: float = 72.0 if OS.has_feature("web") else row_h
 	y = _seat(find_child("TabMultiplayer", true, false) as Control, left, y, plate_w, multi_h)
@@ -1311,7 +1319,10 @@ func _layout_menu(size: Vector2) -> void:
 		card.position = Vector2(card_x, 110.0)
 		card.size = Vector2(maxf(280.0, size.x - card_x - 28.0), maxf(220.0, size.y - 230.0))
 	_place_skirmish(content_w, content_h)
-	_place_campaign(content_w, content_h)
+	var camp_top: float = 168.0 if narrow else 176.0
+	if campaign_panel != null and campaign_panel.visible and faction_submenu != null and faction_submenu.visible:
+		camp_top = faction_end + 8.0
+	_place_campaign(content_w, content_h, camp_top)
 	_place_factions(content_w)
 
 func _seat_factions(x: float, y: float, width: float, narrow: bool) -> float:
@@ -1737,7 +1748,7 @@ func _place_skirmish(panel_w: float, panel_h: float) -> void:
 		if hidden != null:
 			hidden.visible = false
 
-func _place_campaign(panel_w: float, panel_h: float) -> void:
+func _place_campaign(panel_w: float, panel_h: float, start_y: float) -> void:
 	var acts: PackedStringArray = PackedStringArray(["ActI", "ActII", "ActIII"])
 	var lists: PackedStringArray = PackedStringArray(["ActIMissions", "ActIIMissions", "ActIIIMissions"])
 	var gap: float = 8.0
@@ -1746,7 +1757,7 @@ func _place_campaign(panel_w: float, panel_h: float) -> void:
 	var left: float = 16.0 if narrow else 28.0
 	var list_w: float = maxf(180.0, rail_w - left - 16.0)
 	var tab_w: float = (list_w - gap * 2.0) / 3.0
-	var act_y: float = 112.0 if narrow else 176.0
+	var act_y: float = start_y
 	for i: int in acts.size():
 		var act: Control = find_child(acts[i], true, false) as Control
 		if act == null:
@@ -1755,7 +1766,7 @@ func _place_campaign(panel_w: float, panel_h: float) -> void:
 		act.size = Vector2(tab_w, 40)
 		act.custom_minimum_size = Vector2(tab_w, 40)
 	var list_top: float = act_y + 48.0
-	var list_h: float = maxf(80.0, panel_h - list_top - 88.0)
+	var list_h: float = maxf(80.0, panel_h - list_top - 168.0)
 	for list_name: String in lists:
 		var scroll: Control = find_child(list_name, true, false) as Control
 		if scroll == null:
@@ -1778,7 +1789,7 @@ func _place_campaign(panel_w: float, panel_h: float) -> void:
 		var choice: Control = find_child(camp_names[slot], true, false) as Control
 		if choice == null:
 			continue
-		choice.position = Vector2(left + float(slot) * (camp_w + gap), panel_h - 56.0)
+		choice.position = Vector2(left + float(slot) * (camp_w + gap), panel_h - 148.0)
 		choice.size = Vector2(camp_w, 40)
 		choice.custom_minimum_size = Vector2(camp_w, 40)
 	var camp_label: Control = find_child("CampaignDiffLabel", true, false) as Control
