@@ -133,7 +133,7 @@ static func title_of(id: String) -> String:
 
 static func briefing_of(id: String) -> String:
 	if id == "kokang":
-		return "Kokang and Mogok. Text briefing. Raise the yard, clear the Orlan recon over the pits, run the ruby night shift, and bring one rare-earth stock home. If the company dies, the raid fails."
+		return "Kokang and Mogok. Text briefing. Raise the yard, clear the Orlan recon over the pits, run the ruby night shift, and bring one rare-earth stock home. If the company dies, the raid fails. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
 	if id == "tachileik":
 		return "Tachileik caravan. Text briefing. Break the ambush and the road relief, walk the jade caravan onto the bazaar, then snap the ruby pit and run the night shift until the purse fills."
 	if id == "shwe_kokko":
@@ -143,7 +143,7 @@ static func briefing_of(id: String) -> String:
 	if id == "andaman":
 		return "Andaman breakout. Text briefing. Sink the channel boats and the second wave, then land an amphibious unit on the far shore."
 	if id == "ghosts_of_patani":
-		return "Ghosts of Patani. Text briefing. Destroy every ghost in the jammer, including the shipment guards. GPS guidance drops there. A fiber link does not. Losing the company fails the mission."
+		return "Ghosts of Patani. Text briefing. Destroy every ghost in the jammer, including the shipment guards. GPS guidance drops there. A fiber link does not. Losing the company fails the mission. An ambush, a blown bridge, a turned guide, and a closing sky can arrive while you fight. The side cache is optional."
 	if id == "kilometer_watch":
 		return "The 74-Kilometer Watch. Text briefing. Destroy the radar garrison and its relief squad, then hold the hydro radar so water shows."
 	if id == "black_haze":
@@ -153,7 +153,7 @@ static func briefing_of(id: String) -> String:
 	if id == "wrath_of_the_garuda":
 		return "Wrath of the Garuda. Text briefing. Destroy the joint enemy fleet and its pickets. A napalm run can help. Calling it does not end the mission."
 	if id == "fog_over_pakbeng":
-		return "Fog Over Pakbeng. Text briefing. Hold a hydro radar through the longer haze while a second raider wave attacks."
+		return "Fog Over Pakbeng. Text briefing. Hold a hydro radar through the longer haze while a second raider wave attacks. An ambush, a blown bridge, and a turned guide can arrive in the murk. The haze stays shut. The side cache is optional."
 	if id == "keng_tung":
 		return "Keng Tung. Text briefing. Freeze the GTFC tank column, then destroy it. Infantry screens the tanks. Toxic Defoliation can freeze them. Casting it does not end the mission."
 	if id == "plain_of_jars":

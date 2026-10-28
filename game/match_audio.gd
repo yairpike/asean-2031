@@ -257,6 +257,7 @@ static func voices_of(kind: String) -> int:
 	return n
 
 static func play_kind(host: Node, kind: String, at: Vector3 = Vector3.INF) -> void:
+	_buses()
 	var resolved: String = _alias(kind)
 	if host == null or resolved == "":
 		return
@@ -470,7 +471,7 @@ static func _take_player(host: Node) -> AudioStreamPlayer:
 		return null
 	var made: AudioStreamPlayer = AudioStreamPlayer.new()
 	made.name = "SfxPool%d" % _pool.size()
-	made.bus = "Master"
+	made.bus = "SFX"
 	host.add_child(made)
 	_pool.append(made)
 	return made
@@ -580,6 +581,7 @@ static func _loops(host: Node, field: SMPointer) -> void:
 		_loop_unit[i] = 0
 
 static func _hold_loop(host: Node, unit: RTSUnit, kind: String) -> void:
+	_buses()
 	var id: int = unit.get_instance_id()
 	var slot: int = _loop_unit.find(id)
 	if slot < 0:
@@ -587,7 +589,7 @@ static func _hold_loop(host: Node, unit: RTSUnit, kind: String) -> void:
 	if slot < 0 and _loop_players.size() < 4:
 		var made: AudioStreamPlayer = AudioStreamPlayer.new()
 		made.name = "SfxLoop%d" % _loop_players.size()
-		made.bus = "Master"
+		made.bus = "SFX"
 		host.add_child(made)
 		_loop_players.append(made)
 		_loop_unit.append(0)
@@ -1018,6 +1020,13 @@ static func _read_local(rel: String) -> PackedByteArray:
 	return PackedByteArray()
 
 static func _buses() -> void:
+	Settings.apply_audio()
+	for player: AudioStreamPlayer in _pool:
+		if is_instance_valid(player):
+			player.bus = "SFX"
+	for player: AudioStreamPlayer in _loop_players:
+		if is_instance_valid(player):
+			player.bus = "SFX"
 	if _buses_ready:
 		return
 	_buses_ready = true

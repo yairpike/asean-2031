@@ -2,7 +2,7 @@ class_name SMMission
 extends RefCounted
 ## Solo GTFC night raid. Text briefing stands in for a film.
 
-var briefing: String = "Kokang and Mogok night raid. Raise the scaffold yard, run the ruby pits on night shift, and bring one rare-earth stock home before dawn. If the company dies, the raid fails."
+var briefing: String = "Kokang and Mogok night raid. Raise the scaffold yard, run the ruby pits on night shift, and bring one rare-earth stock home before dawn. If the company dies, the raid fails. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
 var economy: RTSEconomy = RTSEconomy.new()
 var yard: SMBuildYard = SMBuildYard.new()
 var goods: SMCommodityNet = SMCommodityNet.new()

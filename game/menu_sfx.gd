@@ -28,8 +28,4 @@ static func _bus() -> void:
 		idx = AudioServer.bus_count - 1
 		AudioServer.set_bus_name(idx, "SFX")
 		AudioServer.set_bus_send(idx, "Master")
-	Settings.ensure()
-	var db: float = -80.0
-	if Settings.sfx > 0.001:
-		db = linear_to_db(Settings.sfx)
-	AudioServer.set_bus_volume_db(idx, db)
+	AudioServer.set_bus_volume_db(idx, Settings.sfx_bus_db())

@@ -62,6 +62,11 @@ static func follow(host: Node) -> void:
 		outcome.chrome_wanted.connect(_on_chrome)
 		outcome.base_struck.connect(_announce.bind(host, "base_under_attack"))
 	Clips.arm(host, "match")
+	if preload("res://game/lan_link.gd").active_host() and host.get_node_or_null("LanRelay") == null:
+		var relay: Node = Node.new()
+		relay.name = "LanRelay"
+		relay.set_script(preload("res://game/lan_relay.gd"))
+		host.add_child(relay)
 	if host.get_node_or_null("CameraFit") == null:
 		var fitter: Node = Node.new()
 		fitter.name = "CameraFit"

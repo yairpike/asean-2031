@@ -6,6 +6,7 @@ const Harness = preload("res://tests/harness.gd")
 const Forms = preload("res://game/unit_meshes.gd")
 const Settings = preload("res://game/match_settings.gd")
 const ModelBook = preload("res://game/model_registry.gd")
+const Lan = preload("res://game/lan_link.gd")
 var H: Harness
 var duel_note: String = ""
 
@@ -74,6 +75,7 @@ func _run() -> void:
 	await H.section("test_sm_sides", test_sm_sides)
 	await H.section("test_sm_fx", test_sm_fx)
 	await H.section("test_sm_story", test_sm_story)
+	await H.section("test_set_piece", test_set_piece)
 	await H.section("test_sm_play", test_sm_play)
 	await H.section("test_sm_web", test_sm_web)
 	await H.section("test_sm_boot", test_sm_boot)
@@ -87,6 +89,7 @@ func _run() -> void:
 	await H.section("test_sm_settings", test_sm_settings)
 	await H.section("test_sm_difficulty", test_sm_difficulty)
 	await H.section("test_sm_guns", test_sm_guns)
+	await H.section("test_lan", test_lan)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -2305,6 +2308,91 @@ func test_sm_fx() -> void:
 	SMCampaign.selected = "tachileik"
 	await process_frame
 
+func test_set_piece() -> void:
+	for id: String in ["kokang", "ghosts_of_patani", "fog_over_pakbeng"]:
+		SMCampaign.selected = id
+		var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
+		var scene: Node = (load(path) as PackedScene).instantiate()
+		root.add_child(scene)
+		await process_frame
+		var piece: Node = scene.get_node_or_null("SetPiece")
+		var subtitle: Label = scene.find_child("SetSubtitle", true, false) as Label
+		var portrait: TextureRect = scene.find_child("SetPortrait", true, false) as TextureRect
+		var speaker: Label = scene.find_child("SetSpeaker", true, false) as Label
+		var bonus: Label = scene.find_child("SetBonus", true, false) as Label
+		check(piece != null and subtitle != null and portrait != null and speaker != null and bonus != null and bonus.text.begins_with("Bonus:") and str(piece.get("line_text")) != "" and subtitle.text == str(piece.get("line_text")), "%s opens with a portrait and a line" % id)
+		var cam: RTSCamera = scene.get_node("Camera") as RTSCamera
+		piece.call("drive", 1.0)
+		var wide: float = float(piece.get("wide_distance"))
+		var home: float = float(piece.get("home_distance"))
+		check(cam.distance < wide - 2.0 and cam.distance > home and wide > home + 10.0, "%s pans the camera in" % id)
+		piece.call("drive", 24.0)
+		var sky_ok: bool = false
+		if id == "fog_over_pakbeng":
+			var sight: SMSight = (scene.get("story") as SMStory).sight
+			sky_ok = sight != null and sight.weather_name == "Strait Haze" and not sight.monsoon
+		else:
+			var weather: Label = scene.find_child("HudWeather", true, false) as Label
+			sky_ok = weather != null and weather.text == "Monsoon"
+		check(int(piece.get("stage")) >= 5 and bool(piece.get("ambush_spawned")) and bool(piece.get("bridge_down")) and bool(piece.get("betrayed")) and bool(piece.get("reinforced")) and bool(piece.get("weather_turned")) and bool(piece.get("intro_done")) and sky_ok, "%s plays ambush, bridge, betrayal, relief, and weather" % id)
+		var story: SMStory = scene.get("story") as SMStory
+		var field: SMPointer = scene.get("field") as SMPointer
+		check(not bool(piece.get("bonus_done")) and not story.done, "%s leaves the bonus optional" % id)
+		var walker: RTSUnit = field.units_of(0)[0]
+		walker.global_position = piece.get("bonus_at") as Vector3
+		piece.call("drive", 0.2)
+		var before: float = cam.distance
+		story.done = true
+		piece.call("drive", 3.2)
+		check(bool(piece.get("bonus_done")) and bool(piece.get("outro_started")) and bool(piece.get("outro_done")) and cam.distance > before + 8.0, "%s can finish the bonus and pulls the camera out" % id)
+		scene.free()
+		await process_frame
+	SMCampaign.selected = "tachileik"
+	var plain: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(plain)
+	await process_frame
+	check(plain.get_node_or_null("SetPiece") == null, "later missions keep the short briefing")
+	plain.free()
+	await process_frame
+	SMCampaign.selected = "tachileik"
+
+func test_lan() -> void:
+	Lan.close()
+	Lan.port = 47931
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	var tab: Button = boot.find_child("TabMultiplayer", true, false) as Button
+	tab.pressed.emit()
+	var host: Button = boot.find_child("HostLan", true, false) as Button
+	var join: Button = boot.find_child("JoinLan", true, false) as Button
+	var addr: LineEdit = boot.find_child("LanAddress", true, false) as LineEdit
+	var note: Label = boot.find_child("MultiplayerNote", true, false) as Label
+	check(host != null and host.is_visible_in_tree() and join != null and join.is_visible_in_tree() and addr != null and addr.is_visible_in_tree() and note != null and note.is_visible_in_tree() and not note.text.contains("not in this build"), "the multiplayer tab hosts and joins a LAN game")
+	host.pressed.emit()
+	var status: Label = boot.find_child("LanStatus", true, false) as Label
+	check(status != null and status.text.contains("Waiting") and status.text.contains("47931"), "hosting opens a LAN port")
+	Lan.close()
+	Lan.port = 7777
+	boot.free()
+	await process_frame
+	check(Lan.probe(47921), "a LAN host and guest exchange a hello")
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	var field: SMPointer = scene.get("field") as SMPointer
+	var mover: RTSUnit = field.units_of(0)[0]
+	var dest: Vector3 = mover.global_position + Vector3(8.0, 0.0, 0.0)
+	var moved: int = Lan.apply_line(scene, JSON.stringify({"k": "go", "x": dest.x, "z": dest.z}))
+	check(moved > 0 and not mover.path.is_empty(), "a guest move order reaches the host company")
+	var snap: Dictionary = Lan.state_of(scene)
+	var xs: Array = snap.get("x", []) as Array
+	check(str(snap.get("k", "")) == "state" and xs.size() > 0, "the host snapshot lists the company")
+	scene.free()
+	await process_frame
+	Lan.close()
+	Lan.port = 7777
+
 func test_sm_story() -> void:
 	for id: String in SMCampaign.ids():
 		SMCampaign.selected = id
@@ -3087,6 +3175,16 @@ func test_sm_bark() -> void:
 	Settings.apply_scene(null)
 	check(music_bus > 0 and AudioServer.get_bus_send(music_bus) == "Master" and is_equal_approx(AudioServer.get_bus_volume_db(0), linear_to_db(0.4)), "master volume scales the music bus")
 	check(is_equal_approx(Settings.cue_db(-6.0), -6.0 + linear_to_db(0.5)), "sfx volume scales barks")
+	var capped: bool = false
+	var ceiling: float = 0.0
+	for effect_i: int in AudioServer.get_bus_effect_count(0):
+		var effect: AudioEffect = AudioServer.get_bus_effect(0, effect_i)
+		if effect is AudioEffectLimiter:
+			capped = true
+			ceiling = (effect as AudioEffectLimiter).ceiling_db
+	var sfx_bus: int = AudioServer.get_bus_index("SFX")
+	check(capped and is_equal_approx(ceiling, -1.0), "the master bus limiter ceilings at -1 dB")
+	check(sfx_bus > 0 and is_equal_approx(AudioServer.get_bus_volume_db(sfx_bus), Settings.sfx_bus_db()) and Settings.sfx_bus_db() < linear_to_db(Settings.sfx), "the sfx bus sits under the slider")
 	Settings.set_master(1.0)
 	Settings.set_sfx(1.0)
 	Settings.apply_scene(null)

@@ -30,6 +30,7 @@ func _ready() -> void:
 	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of("kokang"), rally, Callable(self, "fire_secondary"), grid, cam)
 	hud.set_tutorial(SMGuide.tutorial_for("kokang"))
 	preload("res://game/match_settings.gd").apply_scene(self)
+	preload("res://game/set_piece.gd").attach(self, "kokang")
 
 func scripted_playthrough() -> bool:
 	var ok: bool = mission.playthrough()
@@ -176,6 +177,9 @@ func _process(delta: float) -> void:
 	cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
 	story.tick(delta)
+	var piece: Node = get_node_or_null("SetPiece")
+	if piece != null:
+		piece.call("drive", delta)
 	Fx.drive(self, field, null, field.ew)
 	field.place_beacon(story.beacon())
 	if story.lost:

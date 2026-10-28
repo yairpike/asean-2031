@@ -3,6 +3,7 @@ extends Control
 
 const Plate = preload("res://game/menu_plate.gd")
 const Backdrop = preload("res://game/menu_backdrop.gd")
+const Lan = preload("res://game/lan_link.gd")
 const VERSION: String = "v0.9.0"
 
 var selected_map: String = ""
@@ -14,6 +15,7 @@ var faction_panel: Control
 var faction_submenu: Control
 var backdrop: Control
 var multi_note: Label
+var lan_panel: Control
 var map_cards: Array[Button] = []
 var faction_cards: Array[Button] = []
 var tab_buttons: Array[Button] = []
@@ -104,11 +106,12 @@ func _ready() -> void:
 	multi_note = Label.new()
 	multi_note.name = "MultiplayerNote"
 	multi_note.visible = false
-	multi_note.text = "Multiplayer is not in this build."
+	multi_note.text = "Host a skirmish on this LAN, or join one. The guest commands the host's company."
 	multi_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	multi_note.add_theme_font_size_override("font_size", 18)
 	multi_note.add_theme_color_override("font_color", Color(1, 1, 1))
 	add_child(multi_note)
+	_lan_panel()
 	set_process_unhandled_input(true)
 	SMSave.pull_web()
 	preload("res://game/settings_panel.gd").attach(self)
@@ -117,6 +120,96 @@ func _ready() -> void:
 	preload("res://game/match_audio.gd").arm(self, "menu")
 	_loading_plate()
 	_layout_menu(_view_size())
+
+func _lan_panel() -> void:
+	lan_panel = Control.new()
+	lan_panel.name = "LanPanel"
+	lan_panel.visible = false
+	lan_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(lan_panel)
+	var host: Button = Button.new()
+	host.name = "HostLan"
+	host.text = "Host LAN"
+	host.position = Vector2(0.0, 0.0)
+	host.custom_minimum_size = Vector2(160.0, 36.0)
+	host.pressed.connect(_host_lan)
+	lan_panel.add_child(host)
+	var join: Button = Button.new()
+	join.name = "JoinLan"
+	join.text = "Join LAN"
+	join.position = Vector2(176.0, 0.0)
+	join.custom_minimum_size = Vector2(160.0, 36.0)
+	join.pressed.connect(_join_lan)
+	lan_panel.add_child(join)
+	var addr: LineEdit = LineEdit.new()
+	addr.name = "LanAddress"
+	addr.text = "127.0.0.1"
+	addr.placeholder_text = "127.0.0.1"
+	addr.position = Vector2(0.0, 48.0)
+	addr.size = Vector2(336.0, 36.0)
+	lan_panel.add_child(addr)
+	var status: Label = Label.new()
+	status.name = "LanStatus"
+	status.text = "Pick host or join."
+	status.position = Vector2(0.0, 96.0)
+	status.size = Vector2(420.0, 48.0)
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lan_panel.add_child(status)
+
+func _host_lan() -> void:
+	var err: Error = Lan.open_host()
+	var status: Label = find_child("LanStatus", true, false) as Label
+	if status == null:
+		return
+	if err == OK:
+		status.text = "Waiting on port %d." % Lan.port
+	else:
+		status.text = "The port is busy."
+
+func _join_lan() -> void:
+	var addr: LineEdit = find_child("LanAddress", true, false) as LineEdit
+	var dest: String = "127.0.0.1"
+	if addr != null and addr.text.strip_edges() != "":
+		dest = addr.text.strip_edges()
+	Lan.faction = SMFront.current()
+	var err: Error = Lan.open_client(dest)
+	var status: Label = find_child("LanStatus", true, false) as Label
+	if status == null:
+		return
+	if err == OK:
+		status.text = "Connecting to %s." % dest
+	else:
+		status.text = "Could not join."
+
+func _lan_map() -> String:
+	if selected_map != "":
+		return selected_map
+	return "res://game/phillips_channel.tscn"
+
+func _lan_poll() -> void:
+	if Lan.role == "":
+		return
+	Lan.pump()
+	var raw: String = Lan.take()
+	while raw != "":
+		_lan_packet(raw)
+		raw = Lan.take()
+
+func _lan_packet(raw: String) -> void:
+	var parsed: Variant = JSON.parse_string(raw)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var row: Dictionary = parsed
+	var kind: String = str(row.get("k", ""))
+	if kind == "hello" and Lan.role == "host" and not Lan.started:
+		var guest: String = str(row.get("faction", "nmrf"))
+		Lan.send_start(_lan_map(), SMFront.current(), guest)
+		Lan.started = true
+		_open(_lan_map())
+	elif kind == "start" and Lan.role == "client" and not Lan.started:
+		Lan.started = true
+		Lan.map_path = str(row.get("map", "res://game/phillips_channel.tscn"))
+		_open("res://game/lan_mirror.tscn")
 
 func _skirmish() -> void:
 	_card(skirmish_panel, "CardPhillips", "Phillips Channel", "Water", "res://game/phillips_channel.tscn", Vector2(48, 16))
@@ -278,6 +371,7 @@ func _mission_row(box: VBoxContainer, mission_id: String) -> void:
 	_ensure_done(b, mission_id)
 
 func _process(delta: float) -> void:
+	_lan_poll()
 	if not _save_polled and SMSave.poll_web():
 		_save_polled = true
 		for id: String in SMCampaign.ids():
@@ -420,6 +514,8 @@ func _show_tab(which: String) -> void:
 	faction_panel.visible = which == "faction"
 	if multi_note != null:
 		multi_note.visible = which == "multi"
+	if lan_panel != null:
+		lan_panel.visible = which == "multi"
 	if which == "skirmish" or which == "multi":
 		_set_submenu(false)
 	elif which == "campaign" or which == "faction":
@@ -733,6 +829,9 @@ func _layout_menu(size: Vector2) -> void:
 	if multi_note != null:
 		multi_note.position = Vector2(left + 8.0 if narrow else 460.0, y if narrow else 180.0)
 		multi_note.size = Vector2(plate_w if narrow else 420.0, 72)
+	if lan_panel != null:
+		lan_panel.position = multi_note.position + Vector2(0.0, 80.0)
+		lan_panel.size = Vector2(plate_w if narrow else 440.0, 160.0)
 	var content_y: float = y + 8.0 if narrow else 168.0
 	var content_x: float = 8.0 if narrow else 460.0
 	var content_w: float = size.x - 16.0 if narrow else size.x - content_x - 24.0

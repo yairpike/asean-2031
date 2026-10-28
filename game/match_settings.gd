@@ -158,18 +158,51 @@ static func apply_story(story: SMStory) -> void:
 	var row: Dictionary = pace()
 	story.prepare_foe(float(row["hp"]), float(row["damage"]))
 
+const SFX_TRIM_DB: float = 4.0
+
 static func cue_db(base: float) -> float:
 	ensure()
 	if sfx <= 0.001:
 		return -80.0
 	return base + linear_to_db(sfx)
 
-static func apply_scene(host: Node) -> void:
+static func sfx_bus_db() -> float:
+	ensure()
+	if sfx <= 0.001:
+		return -80.0
+	return linear_to_db(sfx) - SFX_TRIM_DB
+
+static func apply_audio() -> void:
 	ensure()
 	var db: float = -80.0
 	if master > 0.001:
 		db = linear_to_db(master)
 	AudioServer.set_bus_volume_db(0, db)
+	_limit_master()
+	var sfx_i: int = AudioServer.get_bus_index("SFX")
+	if sfx_i < 0:
+		AudioServer.add_bus()
+		sfx_i = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(sfx_i, "SFX")
+		AudioServer.set_bus_send(sfx_i, "Master")
+	AudioServer.set_bus_volume_db(sfx_i, sfx_bus_db())
+
+static func _limit_master() -> void:
+	var found: int = AudioServer.get_bus_effect_count(0)
+	for i: int in found:
+		var fx: AudioEffect = AudioServer.get_bus_effect(0, i)
+		if fx is AudioEffectLimiter:
+			var have: AudioEffectLimiter = fx as AudioEffectLimiter
+			have.ceiling_db = -1.0
+			have.threshold_db = -1.0
+			return
+	var cap: AudioEffectLimiter = AudioEffectLimiter.new()
+	cap.ceiling_db = -1.0
+	cap.threshold_db = -1.0
+	AudioServer.add_bus_effect(0, cap)
+
+static func apply_scene(host: Node) -> void:
+	apply_audio()
 	if host == null:
 		return
 	var allow_shadow: bool = not low()
