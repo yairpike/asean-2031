@@ -1,9 +1,9 @@
 extends RefCounted
-## Sidebar portraits from cameos/ beside the page, outside the pack.
-## A new portrait is cameos/{id}.webp or cameos/{faction}_{id}.webp.
+## Sidebar portraits from the served cameos/ folder, outside the pack.
+## Desktop runs also read res://cameos/. A new portrait is
+## cameos/{id}.webp or cameos/{faction}_{id}.webp.
 ## Drop the file in and re-export. A missing file leaves the text button.
 
-const STORE_CAMEOS: String = "/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/cameos"
 const Clips = preload("res://game/match_audio.gd")
 
 static var _cache: Dictionary = {}
@@ -46,10 +46,14 @@ static func _decode(bytes: PackedByteArray) -> Texture2D:
 	return ImageTexture.create_from_image(image)
 
 static func _read_local(file_name: String) -> PackedByteArray:
+	if file_name.contains("..") or file_name.contains("/") or file_name.contains("\\"):
+		return PackedByteArray()
+	var packed: String = "res://cameos/%s" % file_name
+	if FileAccess.file_exists(packed):
+		return FileAccess.get_file_as_bytes(packed)
 	var roots: PackedStringArray = PackedStringArray()
-	roots.append(OS.get_executable_path().get_base_dir().path_join("cameos"))
 	roots.append(ProjectSettings.globalize_path("res://").path_join("build/web/cameos"))
-	roots.append(STORE_CAMEOS)
+	roots.append(OS.get_executable_path().get_base_dir().path_join("cameos"))
 	for root: String in roots:
 		var path: String = root.path_join(file_name)
 		if FileAccess.file_exists(path):

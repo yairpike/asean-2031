@@ -5,7 +5,7 @@ const Fx = preload("res://game/fx_view.gd")
 const Forms = preload("res://game/unit_meshes.gd")
 const Ground = preload("res://game/ground_view.gd")
 ## Phillips Channel. Two land masses, a deep channel, shallow crossings.
-## RA3-style sidebar with cameo placeholders. The far shore builds, expands, and attacks.
+## The far shore builds, expands, and attacks.
 
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
