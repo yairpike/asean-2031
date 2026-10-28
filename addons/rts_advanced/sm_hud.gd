@@ -479,7 +479,10 @@ func _show_tab_children(parent: Node) -> void:
 			continue
 		var item: CanvasItem = child as CanvasItem
 		if item != null:
-			item.visible = tab_name == build_tab
+			var shown: bool = tab_name == build_tab
+			if build_tab == "vehicles" and (tab_name == "aircraft" or tab_name == "naval"):
+				shown = true
+			item.visible = shown
 
 func _hide_empty_tabs() -> void:
 	if layer_node == null or not use_tiles:
@@ -494,7 +497,13 @@ func _hide_empty_tabs() -> void:
 	for tab_name: String in tabs:
 		var button: Button = layer_node.find_child("Tab%s" % tab_name.capitalize(), true, false) as Button
 		if button != null:
-			button.visible = int(counts.get(tab_name, 0)) > 0
+			if tab_name == "aircraft" or tab_name == "naval":
+				button.visible = false
+			else:
+				var count: int = int(counts.get(tab_name, 0))
+				if tab_name == "vehicles":
+					count += int(counts.get("aircraft", 0)) + int(counts.get("naval", 0))
+				button.visible = count > 0
 
 func _super() -> void:
 	if side == null or field == null:
@@ -1086,7 +1095,8 @@ func _paint_button(b: Button) -> void:
 		b.add_theme_constant_override("h_separation", 4)
 		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.text = ""
-		b.custom_minimum_size = Vector2(0, 72 if phone else 80)
+		b.custom_minimum_size = Vector2(72, 72)
+		_cameo_corners(b, caption)
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
 		_tint_roster_button(b)
 		return
@@ -1119,6 +1129,46 @@ func _paint_button(b: Button) -> void:
 	b.add_theme_font_size_override("font_size", 12 if phone else 14)
 	_tint_roster_button(b)
 
+func _cameo_corners(b: Button, caption: String) -> void:
+	var name_line: Label = _corner_label(b, "CameoName", Vector2(2, 56), Vector2(68, 14), 12)
+	name_line.text = caption
+	name_line.clip_text = true
+	var cost: int = int(b.get_meta("cost", -1))
+	var cost_line: Label = _corner_label(b, "CameoCost", Vector2(34, 1), Vector2(36, 14), 11)
+	cost_line.text = str(cost) if cost >= 0 else ""
+	cost_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var key_line: Label = _corner_label(b, "CameoKey", Vector2(2, 1), Vector2(16, 14), 11)
+	key_line.text = _grid_key(b)
+
+func _corner_label(b: Button, node_name: String, at: Vector2, box: Vector2, px: int) -> Label:
+	var label: Label = b.get_node_or_null(node_name) as Label
+	if label == null:
+		label = Label.new()
+		label.name = node_name
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.add_theme_font_size_override("font_size", px)
+		label.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
+		b.add_child(label)
+	label.position = at
+	label.size = box
+	return label
+
+func _grid_key(b: Button) -> String:
+	var keys: String = "QWERASDFZXCV"
+	var parent: Node = b.get_parent()
+	if parent == null:
+		return ""
+	var seen: int = 0
+	for child: Node in parent.get_children():
+		if child == b:
+			break
+		var item: CanvasItem = child as CanvasItem
+		if item != null and item.visible:
+			seen += 1
+	if seen < 0 or seen >= keys.length():
+		return ""
+	return keys.substr(seen, 1)
+
 func _tint_roster_button(b: Button) -> void:
 	var cost: int = int(b.get_meta("cost", -1))
 	var purse: int = 0
@@ -1128,7 +1178,11 @@ func _tint_roster_button(b: Button) -> void:
 	if str(b.get_meta("prod_kind", "")) == "unit":
 		locked = _train_block(StringName(str(b.get_meta("prod_id", "")))) != ""
 	var poor: bool = cost >= 0 and purse < cost
-	b.modulate = Color(0.45, 0.47, 0.5) if locked or poor else Color(1, 1, 1)
+	var pair: Vector2i = Power.tally(side.yard if side != null else null)
+	var prod: String = str(b.get_meta("prod_id", ""))
+	var feeds: bool = prod.contains("hydro") or prod.contains("plant") or prod.contains("reactor") or prod.contains("generator") or prod.contains("power")
+	var unpowered: bool = pair.x < pair.y and str(b.get_meta("prod_kind", "")) == "building" and not feeds
+	b.modulate = Color(0.45, 0.47, 0.5) if locked or poor or unpowered else Color(1, 1, 1)
 	b.modulate.a = 1.0
 
 func _cameo_id(node_name: String) -> String:

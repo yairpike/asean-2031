@@ -40,8 +40,8 @@ func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	minimap.name = "Minimap"
 	minimap.setup(grid, hud.field, camera)
 	minimap.position = Vector2.ZERO
-	minimap.custom_minimum_size = Vector2(156, 100)
-	minimap.size = Vector2(156, 100)
+	minimap.custom_minimum_size = Vector2(216, 216)
+	minimap.size = Vector2(216, 216)
 	host.add_child(minimap)
 	hud.minimap = minimap
 	hud.monitor_cameo = wrap.get_node("MonitorFrame/MonitorStack/MonitorCameo") as TextureRect
@@ -110,6 +110,8 @@ func _paint_protocols(hud: SMHud) -> void:
 		_sweep(button, ratio, 0)
 
 func _process(delta: float) -> void:
+	_seat_tip()
+	_pulse_power_tile()
 	var hud: SMHud = get_meta("hud", null) as SMHud
 	if hud == null or hud.side == null:
 		return
@@ -123,6 +125,32 @@ func _process(delta: float) -> void:
 	_paint_protocols(hud)
 	_paint_selection(hud)
 
+func _seat_tip() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var tip: Control = layer.find_child("TipPanel", true, false) as Control
+	if tip == null:
+		return
+	_anchor(tip, 1.0, 0.0, 1.0, 0.0, -260.0, 268.0, -8.0, 356.0)
+	tip.custom_minimum_size = Vector2(240, 88)
+
+func _pulse_power_tile() -> void:
+	var hud: SMHud = get_meta("hud", null) as SMHud
+	if hud == null or hud.icon_grid == null or hud.side == null or hud.side.yard == null:
+		return
+	var pair: Vector2i = hud._power_pair()
+	var pulse: bool = pair.x <= 0
+	var wave: float = 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.008)
+	for child: Node in hud.icon_grid.get_children():
+		var button: Button = child as Button
+		if button == null:
+			continue
+		var prod: String = str(button.get_meta("prod_id", ""))
+		var feeds: bool = prod.contains("hydro") or prod.contains("plant") or prod.contains("reactor") or prod.contains("generator")
+		if pulse and feeds and button.visible:
+			button.modulate = Color(wave, wave, wave)
+
 func _paint_power(hud: SMHud) -> void:
 	if hud.power_fill == null or hud.side == null:
 		return
@@ -131,7 +159,8 @@ func _paint_power(hud: SMHud) -> void:
 	var gen: float = float(pair.x) / span
 	var draw: float = float(pair.y) / span
 	var low: bool = pair.x < pair.y
-	hud.power_fill.color = Color(0.78, 0.24, 0.2) if low else Color(0.32, 0.78, 0.36)
+	var tight: bool = not low and pair.y > 0 and float(pair.x) < float(pair.y) * 1.2
+	hud.power_fill.color = Color(0.78, 0.24, 0.2) if low else (Color(0.92, 0.78, 0.22) if tight else Color(0.32, 0.78, 0.36))
 	hud.power_fill.anchor_top = 1.0 - gen
 	hud.power_fill.offset_top = 0.0
 	hud.power_fill.offset_bottom = 0.0
@@ -261,7 +290,7 @@ func _top_bar() -> HBoxContainer:
 	var top: Control = Control.new()
 	top.name = "TopBar"
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_anchor(top, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 32.0)
+	_anchor(top, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 28.0)
 	add_child(top)
 	var shade: ColorRect = ColorRect.new()
 	shade.color = Color(0.05, 0.06, 0.07, 0.92)
@@ -331,7 +360,7 @@ func _column() -> ScrollContainer:
 	shade.name = "ColumnShade"
 	shade.color = Color(0.05, 0.055, 0.06, 0.94)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_anchor(shade, 1.0, 0.0, 1.0, 1.0, -260.0, 40.0, -8.0, -8.0)
+	_anchor(shade, 1.0, 0.0, 1.0, 1.0, -260.0, 28.0, -8.0, -8.0)
 	add_child(shade)
 	var plate: TextureRect = TextureRect.new()
 	plate.name = "SidebarArt"
@@ -342,13 +371,13 @@ func _column() -> ScrollContainer:
 	if side_tex != null:
 		plate.texture = side_tex
 		shade.visible = false
-	_anchor(plate, 1.0, 0.0, 1.0, 1.0, -260.0, 40.0, -8.0, -8.0)
+	_anchor(plate, 1.0, 0.0, 1.0, 1.0, -260.0, 28.0, -8.0, -8.0)
 	add_child(plate)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "CommandColumn"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = true
-	_anchor(scroll, 1.0, 0.0, 1.0, 1.0, -260.0, 40.0, -8.0, -8.0)
+	_anchor(scroll, 1.0, 0.0, 1.0, 1.0, -260.0, 28.0, -8.0, -8.0)
 	add_child(scroll)
 	var wrap: VBoxContainer = VBoxContainer.new()
 	wrap.name = "RosterWrap"
@@ -357,11 +386,11 @@ func _column() -> ScrollContainer:
 	scroll.add_child(wrap)
 	var monitor: PanelContainer = PanelContainer.new()
 	monitor.name = "MonitorFrame"
-	monitor.custom_minimum_size = Vector2(0, 112)
+	monitor.custom_minimum_size = Vector2(0, 232)
 	wrap.add_child(monitor)
 	var stack: Control = Control.new()
 	stack.name = "MonitorStack"
-	stack.custom_minimum_size = Vector2(156, 100)
+	stack.custom_minimum_size = Vector2(216, 216)
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	monitor.add_child(stack)
 	var host: Control = Control.new()
@@ -386,7 +415,7 @@ func _column() -> ScrollContainer:
 	var track: ColorRect = ColorRect.new()
 	track.name = "PowerTrack"
 	track.color = Color(0.08, 0.09, 0.1)
-	track.custom_minimum_size = Vector2(16, 64)
+	track.custom_minimum_size = Vector2(12, 168)
 	power_row.add_child(track)
 	var fill: ColorRect = ColorRect.new()
 	fill.name = "PowerFill"
@@ -416,7 +445,7 @@ func _column() -> ScrollContainer:
 	_mode_button(modes, "SellButton", "Sell", "ui/icons/sell.webp")
 	var tabs: GridContainer = GridContainer.new()
 	tabs.name = "BuildTabs"
-	tabs.columns = 3
+	tabs.columns = 4
 	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tabs.add_theme_constant_override("h_separation", 4)
 	tabs.add_theme_constant_override("v_separation", 4)
@@ -527,7 +556,7 @@ func _tab_button(grid: GridContainer, node_name: String, text: String, icon_path
 	button.text = ""
 	button.clip_text = false
 	button.tooltip_text = text
-	button.custom_minimum_size = Vector2(0, 36)
+	button.custom_minimum_size = Vector2(56, 40)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 11)
 	_set_icon(button, icon_path)

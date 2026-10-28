@@ -264,8 +264,18 @@ func _layout(view: Vector2) -> void:
 			blurb.position = Vector2(left, minf(y + 8.0, foot - 72.0))
 			blurb.size = Vector2(list_w, 64)
 		else:
-			blurb.position = Vector2(600.0, 200.0)
-			blurb.size = Vector2(minf(560.0, view.x - 628.0), 180.0)
+			blurb.position = Vector2(624.0, 220.0)
+			blurb.size = Vector2(minf(520.0, view.x - 660.0), 120.0)
+			var card: ColorRect = get_node_or_null("SettingsCard") as ColorRect
+			if card == null:
+				card = ColorRect.new()
+				card.name = "SettingsCard"
+				card.color = Color(0, 0, 0, 0.72)
+				card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				add_child(card)
+			card.position = Vector2(600.0, 200.0)
+			card.size = Vector2(blurb.size.x + 48.0, 160.0)
+			move_child(card, blurb.get_index())
 
 func _place_section(node_name: String, x: float, y: float, width: float) -> float:
 	var label: Control = get_node_or_null(node_name)

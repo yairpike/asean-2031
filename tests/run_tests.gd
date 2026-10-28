@@ -3434,7 +3434,7 @@ func test_sm_guide() -> void:
 	var board: SMHud = scene.get("hud") as SMHud
 	check(income != null and income.text == "" and not income.visible, "an empty income readout leaves room for the map name")
 	check(map_label != null and map_label.size_flags_stretch_ratio >= 2.0, "the map name gets more of the top bar")
-	check(mm != null and mm.size.x <= 168.0 and mm.size.y <= 120.0, "the minimap stays clear of the briefing")
+	check(mm != null and mm.size.x >= 200.0 and mm.size.x <= 248.0 and mm.size.y >= 200.0 and mm.size.y <= 248.0, "the minimap fills the sidebar")
 	check(board != null and not board.guide_blocks(), "the how-to does not freeze a desktop sim")
 	check(board != null and not board.column_hovered(), "the build column leaves the camera wheel alone until the pointer is over it")
 	var buildings: Label = scene.find_child("GroupBuildings", true, false) as Label

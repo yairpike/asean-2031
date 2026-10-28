@@ -514,6 +514,7 @@ func _card(panel: Control, node_name: String, map_name: String, terrain: String,
 	var line: Label = Label.new()
 	line.name = "Terrain"
 	line.text = terrain
+	line.visible = false
 	line.position = Vector2(16, 50)
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	line.add_theme_font_size_override("font_size", 15)
@@ -1390,8 +1391,8 @@ func _place_skirmish(panel_w: float, panel_h: float) -> void:
 		play.custom_minimum_size = Vector2(240, 64)
 	var grey: Control = find_child("GreyboxButton", true, false) as Control
 	if grey != null:
-		grey.position = Vector2(list_x, panel_h - 96.0)
-		grey.size = Vector2(180.0, 44.0)
+		grey.position = Vector2(340.0, panel_h - 88.0)
+		grey.size = Vector2(160.0, 40.0)
 	for hidden_name: String in ["SkirmishDiffEasy", "SkirmishDiffNormal", "SkirmishDiffHard", "SkirmishDiffLabel"]:
 		var hidden: CanvasItem = find_child(hidden_name, true, false) as CanvasItem
 		if hidden != null:
