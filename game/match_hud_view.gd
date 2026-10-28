@@ -99,6 +99,7 @@ func _process(delta: float) -> void:
 	if hud == null or hud.side == null:
 		return
 	hud.side.tick_modes(delta)
+	SMGuns.tick(hud.side, hud.field, delta)
 	_paint_power(hud)
 	_paint_monitor(hud)
 	_paint_modes(hud)

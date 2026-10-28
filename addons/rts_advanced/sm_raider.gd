@@ -475,7 +475,10 @@ func _rebuild() -> void:
 		brain.restore_node(goods, node_id, SMPointer.ENEMY)
 
 func _attack() -> void:
-	var friends: Array[RTSUnit] = field.units_of(SMPointer.PLAYER)
+	var friends: Array[RTSUnit] = []
+	for friend: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if not bool(friend.get_meta("garrisoned", false)):
+			friends.append(friend)
 	var foes: Array[RTSUnit] = []
 	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
 		if not committed.has(u.get_instance_id()):

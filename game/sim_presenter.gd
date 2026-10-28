@@ -20,6 +20,8 @@ static func follow(host: Node) -> void:
 	if sim != null:
 		_follow_match(sim)
 	var side: SMSide = host.get("side") as SMSide
+	if field != null and side != null:
+		field.side_link = side
 	if side != null and not bool(side.get_meta("view_bound", false)):
 		side.set_meta("view_bound", true)
 		side.slab_made.connect(Callable(World, "slab"))

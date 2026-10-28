@@ -43,6 +43,7 @@ var last_pick: int = 0
 var last_pick_ms: int = 0
 var hover_at: Vector2 = Vector2.INF
 var visual_node: Node3D
+var side_link: SMSide
 const Cast = preload("res://addons/rts_advanced/sm_cast.gd")
 const F_COOLDOWN: float = 3.0
 signal dressed(host: Node3D)
@@ -300,7 +301,7 @@ func select_drag(rect: Rect2, project_fn: Callable, add: bool = false) -> int:
 func select_kind(kind: StringName) -> int:
 	var found: Array[RTSUnit] = []
 	for u: RTSUnit in units_of(PLAYER):
-		if u.unit_type == kind:
+		if u.unit_type == kind and not bool(u.get_meta("garrisoned", false)):
 			found.append(u)
 	select_only(found)
 	if not found.is_empty():
@@ -314,7 +315,11 @@ func select_same() -> int:
 	return select_kind(selection.units[0].unit_type)
 
 func select_company() -> int:
-	select_only(units_of(PLAYER))
+	var company: Array[RTSUnit] = []
+	for u: RTSUnit in units_of(PLAYER):
+		if not bool(u.get_meta("garrisoned", false)):
+			company.append(u)
+	select_only(company)
 	group_note = "Company"
 	group_note_t = 1.2
 	return selection.count()
@@ -357,6 +362,9 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable, queue: b
 			return _order_bridge(span_id)
 	if ground == Vector3.INF:
 		return &"none"
+	var housed: int = 0
+	if side_link != null:
+		housed = SMGuns.try_enter(side_link, self, ground)
 	var sent: int = _send(ground, false, queue)
 	if sent > 0:
 		if queue:
@@ -365,7 +373,9 @@ func command_at(ground: Vector3, screen: Vector2, project_fn: Callable, queue: b
 		_cue("move")
 		announce(_first_player(), "move")
 		_mark(ground, "move")
-	return &"move" if sent > 0 else &"none"
+	if sent > 0:
+		return &"move"
+	return &"garrison" if housed > 0 else &"none"
 
 ## Walks the selection to formation slots. Hunt keeps them shooting on the way.
 func _send(ground: Vector3, hunt: bool, queue: bool = false) -> int:
@@ -783,7 +793,7 @@ func nearest_enemy(from: Vector3, reach: float) -> RTSUnit:
 	var best: RTSUnit = null
 	var best_d: float = reach
 	for u: RTSUnit in units:
-		if is_instance_valid(u) and u.is_alive() and teams.are_enemies(PLAYER, u.team):
+		if is_instance_valid(u) and u.is_alive() and not bool(u.get_meta("garrisoned", false)) and teams.are_enemies(PLAYER, u.team):
 			var d: float = Vector2(from.x, from.z).distance_to(Vector2(u.global_position.x, u.global_position.z))
 			if d <= best_d:
 				best_d = d
@@ -1023,7 +1033,7 @@ func _paint_vitals(u: RTSUnit, delta: float) -> void:
 	_rise_pop(u, delta)
 
 func _return_fire(u: RTSUnit) -> void:
-	if u.team != PLAYER or u.attack_damage <= 0.0:
+	if u.team != PLAYER or u.attack_damage <= 0.0 or bool(u.get_meta("garrisoned", false)):
 		return
 	if str(u.get_meta("stance", "aggressive")) == "hold":
 		return
@@ -1036,7 +1046,7 @@ func _return_fire(u: RTSUnit) -> void:
 		u.attack_target = foe
 
 func _press_hunt(u: RTSUnit) -> void:
-	if not bool(u.get_meta("hunt", false)) or bool(u.get_meta("frozen", false)):
+	if not bool(u.get_meta("hunt", false)) or bool(u.get_meta("frozen", false)) or bool(u.get_meta("garrisoned", false)):
 		return
 	var stance: String = str(u.get_meta("stance", "aggressive"))
 	if stance == "hold" or stance == "guard":

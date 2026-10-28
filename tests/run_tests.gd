@@ -86,6 +86,7 @@ func _run() -> void:
 	await H.section("test_sm_monsoon", test_sm_monsoon)
 	await H.section("test_sm_settings", test_sm_settings)
 	await H.section("test_sm_difficulty", test_sm_difficulty)
+	await H.section("test_sm_guns", test_sm_guns)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -3767,6 +3768,103 @@ func test_sm_difficulty() -> void:
 	check(easy_life > hard_life + 15.0, "easy lasts longer than hard for a passive player")
 	Settings.set_difficulty("normal")
 	SMFront.faction_id = "gtfc"
+
+func test_sm_guns() -> void:
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var field: SMPointer = SMPointer.new()
+	field.host = host
+	field.faction_id = "gtfc"
+	var side: SMSide = SMSide.new()
+	side.yard.load_catalog(SMCatalog.faction("gtfc"))
+	_place_gun(side, &"slag_pillbox", Vector3.ZERO)
+	side.yard.finished.append(&"barracks")
+	field.side_link = side
+	var squad: Array[RTSUnit] = []
+	var i: int = 0
+	while i < 6:
+		squad.append(field.spawn(SMPointer.PLAYER, Vector3(-8.0, 0.0, float(i)), &"militia"))
+		i += 1
+	var tank: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(-8.0, 0.0, 8.0), &"amber_tank")
+	var five: Array[RTSUnit] = []
+	var n: int = 0
+	while n < 5:
+		five.append(squad[n])
+		n += 1
+	field.select_only(five)
+	var order: StringName = field.command_at(Vector3.ZERO, Vector2(-400.0, -400.0), Callable(self, "_proj"))
+	var inside: int = 0
+	for u: RTSUnit in five:
+		if bool(u.get_meta("garrisoned", false)) and not u.visible:
+			inside += 1
+	check(order == &"garrison" and inside == 5, "five infantry garrison the pillbox")
+	field.select_only([squad[5], tank])
+	var refused: int = SMGuns.try_enter(side, field, Vector3.ZERO)
+	check(refused == 0 and not bool(squad[5].get_meta("garrisoned", false)) and not bool(tank.get_meta("garrisoned", false)), "a full pillbox turns away another soldier and a tank")
+	var foe: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(6.0, 0.0, 0.0), &"raider")
+	foe.hp = 200.0
+	SMGuns.tick(side, field, 0.2)
+	check(is_equal_approx(foe.hp, 200.0), "the pillbox stays quiet on low power")
+	side.yard.finished.append(&"salween_hydro")
+	SMGuns.tick(side, field, 0.2)
+	check(is_equal_approx(foe.hp, 160.0), "a garrisoned pillbox fires the rifles when the plant is up")
+	foe.position = Vector3(0.0, 0.0, 80.0)
+	var released: int = SMGuns.unload(side, &"slag_pillbox")
+	check(released == 5 and not bool(five[0].get_meta("garrisoned", false)) and five[0].visible, "clicking the pillbox unloads the infantry")
+	_place_gun(side, &"multigunner", Vector3(40.0, 0.0, 40.0))
+	var crew_foe: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(46.0, 0.0, 40.0), &"raider")
+	crew_foe.hp = 100.0
+	SMGuns.tick(side, field, 0.2)
+	field.select_only([squad[5]])
+	var crewed: int = SMGuns.try_enter(side, field, Vector3(40.0, 0.0, 40.0))
+	side.gun_cool[&"multigunner"] = 0.0
+	SMGuns.tick(side, field, 0.05)
+	check(crewed == 1 and is_equal_approx(crew_foe.hp, 83.0), "a multigunner adapts to the garrisoned rifle")
+	_place_gun(side, &"flak_slag_mast", Vector3(80.0, 0.0, 0.0))
+	var soldier: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(86.0, 0.0, 0.0), &"raider")
+	soldier.hp = 40.0
+	var copter: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(86.0, 0.0, 3.0), &"hub_drone")
+	copter.set_meta("locomotion", "air")
+	copter.hp = 40.0
+	_place_gun(side, &"spectrum_prism", Vector3(0.0, 0.0, -40.0))
+	var chain: Array[RTSUnit] = []
+	var c: int = 0
+	while c < 3:
+		var link: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(4.0, 0.0, -40.0 + float(c) * 2.0), &"raider")
+		link.hp = 30.0
+		chain.append(link)
+		c += 1
+	var far: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(40.0, 0.0, -40.0), &"raider")
+	far.hp = 30.0
+	_place_gun(side, &"defender_vx", Vector3(-40.0, 0.0, 0.0))
+	var walker: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(-34.0, 0.0, 0.0), &"raider")
+	walker.hp = 50.0
+	var flyer: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(-34.0, 0.0, 3.0), &"hub_drone")
+	flyer.set_meta("locomotion", "air")
+	flyer.hp = 50.0
+	_place_gun(side, &"wave_force", Vector3(0.0, 0.0, 40.0))
+	var boat: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(6.0, 0.0, 40.0), &"raider")
+	boat.hp = 40.0
+	SMGuns.tick(side, field, 0.2)
+	check(is_equal_approx(soldier.hp, 40.0) and is_equal_approx(copter.hp, 26.0), "flak hits aircraft and leaves the soldier")
+	check(is_equal_approx(chain[0].hp, 21.0) and is_equal_approx(chain[1].hp, 21.0) and is_equal_approx(chain[2].hp, 21.0) and is_equal_approx(far.hp, 30.0), "the spectrum prism chains three targets")
+	check(is_equal_approx(walker.hp, 38.0) and is_equal_approx(flyer.hp, 50.0), "the defender starts on its ground gun")
+	check(is_equal_approx(boat.hp, 24.0), "the wave-force turret fires")
+	walker.position = Vector3(-80.0, 0.0, 40.0)
+	var mode: String = side.order_building(&"defender_vx")
+	side.gun_cool[&"defender_vx"] = 0.0
+	SMGuns.tick(side, field, 0.05)
+	check(mode == "defender air" and is_equal_approx(flyer.hp, 38.0) and is_equal_approx(walker.hp, 38.0), "a second click swaps the defender to its air gun")
+	field.select_only([five[0]])
+	var back: int = SMGuns.try_enter(side, field, Vector3.ZERO)
+	var refund: int = side.sell_structure(&"slag_pillbox")
+	check(back == 1 and refund == 60 and five[0].visible and not bool(five[0].get_meta("garrisoned", false)), "selling the pillbox releases the infantry")
+	check(SMGuide.howto_text().contains("Slag Pillbox") and SMGuide.howto_text().contains("silences defenses"), "the how-to names garrison and low power")
+	host.free()
+
+func _place_gun(side: SMSide, id: StringName, at: Vector3) -> void:
+	side.yard.finished.append(id)
+	side.yard.structure_pos[id] = at
 
 func _foe_stat(diff: String, which: String) -> float:
 	Settings.set_difficulty(diff)

@@ -17,6 +17,10 @@ var building_hp: Dictionary[StringName, float] = {}
 var building_names: Dictionary[StringName, String] = {}
 var repair_armed: bool = false
 var sell_armed: bool = false
+var defender_air: bool = false
+var occupants: Dictionary = {}
+var gun_units: Dictionary = {}
+var gun_cool: Dictionary = {}
 
 func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector3, purse: RTSEconomy, p_faction: String = "") -> void:
 	host = p_host
@@ -48,6 +52,11 @@ func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector
 		yard.style = SMBuildYard.Style.SCAFFOLD
 
 func order_building(id: StringName) -> String:
+	if id == &"defender_vx" and yard != null and yard.finished.has(id):
+		defender_air = not defender_air
+		var mode: String = "defender air" if defender_air else "defender ground"
+		_say(mode)
+		return mode
 	var role: String = str(yard.building_role.get(id, ""))
 	if not Power.allows(yard, role):
 		_say("low power")
@@ -261,6 +270,7 @@ func toggle_sell() -> void:
 func sell_structure(id: StringName) -> int:
 	if yard == null:
 		return 0
+	SMGuns.unload(self, id)
 	var refund: int = yard.sell(id)
 	if refund > 0 and host != null:
 		var built: Node = host.get_node_or_null("Built_%s" % str(id))

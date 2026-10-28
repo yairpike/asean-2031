@@ -24,7 +24,7 @@ func clear() -> void:
 	changed.emit(units)
 
 func is_selectable(u: RTSUnit) -> bool:
-	return is_instance_valid(u) and u.is_alive() and u.team == team
+	return is_instance_valid(u) and u.is_alive() and u.team == team and not bool(u.get_meta("garrisoned", false))
 
 ## Units whose projected position lies inside `rect` (normalised, any drag direction).
 func units_in_rect(rect: Rect2, candidates: Array, project: Callable) -> Array[RTSUnit]:

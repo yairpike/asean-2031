@@ -507,6 +507,12 @@ func _super() -> void:
 func _order(id: StringName) -> void:
 	if side == null:
 		return
+	if not side.repair_armed and not side.sell_armed and side.yard != null and side.yard.finished.has(id) and SMGuns.holds(id):
+		var out: int = SMGuns.unload(side, id)
+		if out > 0:
+			_note("unloaded %d" % out)
+			refresh()
+			return
 	if side.repair_armed and side.yard != null and side.yard.finished.has(id):
 		var started: bool = side.yard.begin_repair(id)
 		_note("repairing" if started else "nothing to repair")
