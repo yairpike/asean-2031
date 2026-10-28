@@ -332,17 +332,16 @@ func _top_bar() -> HBoxContainer:
 	return row
 
 func _selection_row() -> void:
-	var row := HBoxContainer.new()
+	var row := Control.new()
 	row.name = "SelectionSlots"
 	row.visible = false
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 6)
 	row.clip_contents = true
-	_anchor(row, 0.0, 1.0, 0.0, 1.0, 376.0, -116.0, 736.0, -68.0)
+	_anchor(row, 0.0, 1.0, 0.0, 1.0, 376.0, -118.0, 472.0, -22.0)
 	add_child(row)
 
 func _paint_selection(hud: SMHud) -> void:
-	var row: HBoxContainer = get_node_or_null("SelectionSlots") as HBoxContainer
+	var row: Control = get_node_or_null("SelectionSlots") as Control
 	if row == null or hud == null:
 		return
 	var units: Array[RTSUnit] = []
@@ -370,6 +369,8 @@ func _paint_selection(hud: SMHud) -> void:
 			rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row.add_child(rect)
+		rect.position = Vector2(float(i % 2) * 48.0, float(i / 2) * 48.0)
+		rect.size = Vector2(48, 48)
 		var unit: RTSUnit = units[i]
 		var tex: Texture2D = null
 		if unit != null and is_instance_valid(unit):
@@ -721,8 +722,8 @@ func _seat_context() -> void:
 	var slots: Control = get_node_or_null("SelectionSlots") as Control
 	if slots == null:
 		return
-	var slot_x: float = maxf(x + 12.0, 360.0)
-	_anchor(slots, 0.0, 1.0, 0.0, 1.0, slot_x, -116.0, slot_x + 360.0, -68.0)
+	var slot_x: float = maxf(x + 10.0, 360.0)
+	_anchor(slots, 0.0, 1.0, 0.0, 1.0, slot_x, -118.0, slot_x + 96.0, -22.0)
 
 func _seat_message() -> void:
 	var lane: Control = get_node_or_null("MessageLane") as Control
