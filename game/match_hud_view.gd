@@ -28,11 +28,11 @@ func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	_anchor(now_playing, 0.0, 0.0, 0.0, 0.0, 12.0, 36.0, 480.0, 54.0)
 	add_child(now_playing)
 	hud.faction_label = _label(top, "HudFaction", 16)
-	hud.faction_label.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_pin_bar_label(hud.faction_label)
 	hud.credits_label = _label(top, "HudCredits", 16)
-	hud.credits_label.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_pin_bar_label(hud.credits_label)
 	hud.income_label = _label(top, "HudIncome", 15)
-	hud.income_label.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_pin_bar_label(hud.income_label)
 	hud.income_label.add_theme_color_override("font_color", Color(0.55, 0.9, 0.48))
 	hud.income_label.visible = false
 	hud.map_label = _label(top, "HudMap", 16)
@@ -40,7 +40,7 @@ func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	hud.map_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.map_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	hud.weather_label = _label(top, "HudWeather", 15)
-	hud.weather_label.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_pin_bar_label(hud.weather_label)
 	var menu: Button = Button.new()
 	menu.name = "HudMenu"
 	menu.text = "☰"
@@ -350,9 +350,11 @@ func _paint_selection(hud: SMHud) -> void:
 		units = hud.field.selection.units
 	var shown: int = mini(7, units.size())
 	row.visible = shown > 1
+	row.z_index = 9
 	var cameo: CanvasItem = find_child("CardCameo", true, false) as CanvasItem
 	if cameo != null and shown > 1:
 		cameo.visible = false
+	_tidy_card()
 	while row.get_child_count() > shown:
 		var extra: Node = row.get_child(row.get_child_count() - 1)
 		row.remove_child(extra)
@@ -538,9 +540,12 @@ func _unit_card() -> void:
 	var text_block: Control = Control.new()
 	text_block.name = "CardText"
 	text_block.custom_minimum_size = Vector2(0, 36)
+	text_block.clip_contents = true
 	text_block.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lines.add_child(text_block)
 	var selected: Label = _card_label(text_block, "HudSelection", 16)
+	selected.autowrap_mode = TextServer.AUTOWRAP_OFF
+	selected.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	selected.position = Vector2(0, 0)
 	selected.size = Vector2(380, 18)
 	var track: ColorRect = ColorRect.new()
@@ -625,6 +630,16 @@ func _set_icon(button: Button, icon_path: String) -> void:
 		return
 	button.icon = tex
 	button.expand_icon = true
+
+func _pin_bar_label(label: Label) -> void:
+	label.clip_text = false
+	label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	label.custom_minimum_size = Vector2(48, 20)
+
+func _tidy_card() -> void:
+	var extra: CanvasItem = find_child("HudBreakdown", true, false) as CanvasItem
+	if extra != null:
+		extra.visible = false
 
 func _label(parent: Node, node_name: String, size: int) -> Label:
 	var label: Label = Label.new()
