@@ -2316,7 +2316,7 @@ func test_sm_fx() -> void:
 	await process_frame
 
 func test_set_piece() -> void:
-	for id: String in ["kokang", "tachileik", "shwe_kokko", "operation_1027", "andaman", "ghosts_of_patani", "kilometer_watch", "black_haze", "archipelago_rising", "wrath_of_the_garuda", "fog_over_pakbeng"]:
+	for id: String in ["kokang", "tachileik", "shwe_kokko", "operation_1027", "andaman", "ghosts_of_patani", "kilometer_watch", "black_haze", "archipelago_rising", "wrath_of_the_garuda", "fog_over_pakbeng", "keng_tung", "plain_of_jars", "tonle_sap", "shattered_monsoon"]:
 		SMCampaign.selected = id
 		var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
 		var scene: Node = (load(path) as PackedScene).instantiate()
@@ -2354,11 +2354,11 @@ func test_set_piece() -> void:
 		check(bool(piece.get("bonus_done")) and bool(piece.get("outro_started")) and bool(piece.get("outro_done")) and cam.distance > before + 8.0, "%s can finish the bonus and pulls the camera out" % id)
 		scene.free()
 		await process_frame
-	SMCampaign.selected = "keng_tung"
+	SMCampaign.selected = "mae_sai"
 	var plain: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
 	root.add_child(plain)
 	await process_frame
-	check(plain.get_node_or_null("SetPiece") == null, "later missions keep the short briefing")
+	check(plain.get_node_or_null("SetPiece") == null, "drill missions keep the short briefing")
 	var quiet: bool = not (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
 	var clip_root: String = ProjectSettings.globalize_path("res://").path_join("build/web/audio/dialogue/en/tachileik")
 	DirAccess.make_dir_recursive_absolute(clip_root)

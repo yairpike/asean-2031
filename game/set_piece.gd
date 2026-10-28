@@ -87,7 +87,7 @@ func drive(delta: float) -> void:
 	_recount()
 
 static func _covered(id: String) -> bool:
-	return id == "kokang" or id == "tachileik" or id == "shwe_kokko" or id == "operation_1027" or id == "andaman" or id == "ghosts_of_patani" or id == "kilometer_watch" or id == "black_haze" or id == "archipelago_rising" or id == "wrath_of_the_garuda" or id == "fog_over_pakbeng"
+	return id == "kokang" or id == "tachileik" or id == "shwe_kokko" or id == "operation_1027" or id == "andaman" or id == "ghosts_of_patani" or id == "kilometer_watch" or id == "black_haze" or id == "archipelago_rising" or id == "wrath_of_the_garuda" or id == "fog_over_pakbeng" or id == "keng_tung" or id == "plain_of_jars" or id == "tonle_sap" or id == "shattered_monsoon"
 
 func _cast() -> void:
 	faction = "gtfc"
@@ -140,6 +140,26 @@ func _cast() -> void:
 		cameo_id = "clearance_trooper"
 		speaker_name = "Clearance commander"
 		bonus_at = Vector3(-14.0, 0.0, 8.0)
+	elif mission_id == "keng_tung":
+		faction = "mvd"
+		cameo_id = "charcoal_mortar"
+		speaker_name = "Defoliation lead"
+		bonus_at = Vector3(-16.0, 0.0, 12.0)
+	elif mission_id == "plain_of_jars":
+		faction = "mvd"
+		cameo_id = "spectrum_prism"
+		speaker_name = "Beam officer"
+		bonus_at = Vector3(16.0, 0.0, -12.0)
+	elif mission_id == "tonle_sap":
+		faction = "mvd"
+		cameo_id = "cyan_skiff"
+		speaker_name = "Ferry warden"
+		bonus_at = Vector3(-18.0, 0.0, 6.0)
+	elif mission_id == "shattered_monsoon":
+		faction = "mvd"
+		cameo_id = "hub_drone"
+		speaker_name = "Citadel officer"
+		bonus_at = Vector3(18.0, 0.0, -8.0)
 
 func _line(beat: String) -> String:
 	if mission_id == "tachileik":
@@ -232,6 +252,46 @@ func _line(beat: String) -> String:
 		if beat == "weather":
 			return "The sky is closing."
 		return "The jammer is live. Fiber holds. GPS does not."
+	if mission_id == "keng_tung":
+		if beat == "ambush":
+			return "Infantry screen in the trees."
+		if beat == "bridge":
+			return "The span is cut. The guide is with the column."
+		if beat == "relief":
+			return "Two troopers from Keng Tung are in."
+		if beat == "weather":
+			return "Rain on the column. Keep the spray on the tanks."
+		return "The tank column is on the road. Freeze it, then break it."
+	if mission_id == "plain_of_jars":
+		if beat == "ambush":
+			return "A screen on the jars."
+		if beat == "bridge":
+			return "The span drops. The guide turns."
+		if beat == "relief":
+			return "Two rifles for the beam crew."
+		if beat == "weather":
+			return "Rain on the plain. Keep the beam on the phantom."
+		return "The phantom is on the plain. Hold the beam until it freezes."
+	if mission_id == "tonle_sap":
+		if beat == "ambush":
+			return "Trimarans in the channel."
+		if beat == "bridge":
+			return "The span is gone. The pilot turns on the ferry."
+		if beat == "relief":
+			return "Two rifles from the near bank are in."
+		if beat == "weather":
+			return "The squall is on. Keep the ferry afloat."
+		return "The ferry has to live. Hold it through the trimarans."
+	if mission_id == "shattered_monsoon":
+		if beat == "ambush":
+			return "Garrison off the citadel."
+		if beat == "bridge":
+			return "The span is cut. The guide is inside."
+		if beat == "relief":
+			return "Two troopers from the hub are in."
+		if beat == "weather":
+			return "The monsoon is on. Finish both weapons."
+		return "Both superweapons are live. Break the screen and drop them."
 	if mission_id == "fog_over_pakbeng":
 		if beat == "ambush":
 			return "Raiders in the murk."

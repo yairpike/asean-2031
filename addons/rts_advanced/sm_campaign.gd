@@ -155,13 +155,13 @@ static func briefing_of(id: String) -> String:
 	if id == "fog_over_pakbeng":
 		return "Fog Over Pakbeng. Text briefing. Hold a hydro radar through the longer haze while a second raider wave attacks. An ambush, a blown bridge, and a turned guide can arrive in the murk. The haze stays shut. The side cache is optional."
 	if id == "keng_tung":
-		return "Keng Tung. Text briefing. Freeze the GTFC tank column, then destroy it. Infantry screens the tanks. Toxic Defoliation can freeze them. Casting it does not end the mission."
+		return "Keng Tung. Text briefing. Freeze the GTFC tank column, then destroy it. Infantry screens the tanks. Toxic Defoliation can freeze them. Casting it does not end the mission. An ambush, a blown bridge, a turned guide, and rain can arrive while you spray. The side cache is optional."
 	if id == "plain_of_jars":
-		return "Plain of Jars. Text briefing. Hold the beam until the phantom freezes, then destroy the phantom, both batteries, and the screen."
+		return "Plain of Jars. Text briefing. Hold the beam until the phantom freezes, then destroy the phantom, both batteries, and the screen. An ambush, a blown bridge, a turned guide, and rain can arrive while you hold the beam. The side cache is optional."
 	if id == "tonle_sap":
-		return "Tonle Sap. Text briefing. Defend the ferry until the longer timer runs out. NMRF trimarans keep arriving. Cryogeddon can help. Casting it does not end the mission."
+		return "Tonle Sap. Text briefing. Defend the ferry until the longer timer runs out. NMRF trimarans keep arriving. Cryogeddon can help. Casting it does not end the mission. An ambush, a blown bridge, a turned guide, and a squall can arrive while you hold. The side cache is optional."
 	if id == "shattered_monsoon":
-		return "Operation Shattered Monsoon. Text briefing. Destroy both enemy superweapons. A garrison screens the citadel. Protocols can help. Casting them does not end the mission."
+		return "Operation Shattered Monsoon. Text briefing. Destroy both enemy superweapons. A garrison screens the citadel. Protocols can help. Casting them does not end the mission. An ambush, a blown bridge, a turned guide, and rain can arrive while you strike. The side cache is optional."
 	if id == "mae_sai":
 		return "Mae Sai. Text briefing. Raise the scaffold yard and keep the drain running until the frame is finished."
 	if id == "ruby_market":
