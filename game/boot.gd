@@ -678,7 +678,8 @@ func _faction_card(id: String, node_name: String, pos: Vector2) -> void:
 	var title: Label = Label.new()
 	title.name = "Title"
 	title.text = SMFront.display_name()
-	title.position = Vector2(46, 14)
+	title.position = Vector2(56, 14)
+	title.size = Vector2(240, 24)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.add_theme_font_size_override("font_size", 18)
 	title.add_theme_color_override("font_color", Color(1, 1, 1))
@@ -686,8 +687,9 @@ func _faction_card(id: String, node_name: String, pos: Vector2) -> void:
 	var logo := TextureRect.new()
 	logo.name = "Logo"
 	logo.texture = Marks.texture(id)
-	logo.position = Vector2(4, 6)
+	logo.position = Vector2(8, 6)
 	logo.size = Vector2(36, 36)
+	logo.custom_minimum_size = Vector2(36, 36)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -720,8 +722,8 @@ func _faction_card(id: String, node_name: String, pos: Vector2) -> void:
 	var accent: ColorRect = ColorRect.new()
 	accent.name = "Accent"
 	accent.color = SMFront.accent()
-	accent.position = Vector2(92, 12)
-	accent.size = Vector2(10, 10)
+	accent.position = Vector2(8, 44)
+	accent.size = Vector2(6, 6)
 	accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(accent)
 	b.pressed.connect(_choose_faction.bind(id))
@@ -1515,7 +1517,7 @@ func _make_cycle(node_name: String, kind: String) -> void:
 	button.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
 	button.pressed.connect(_spin_cycle.bind(kind))
 	var empty := StyleBoxEmpty.new()
-	empty.content_margin_left = 40 if kind == "faction" else 8
+	empty.content_margin_left = 48 if kind == "faction" else 8
 	empty.content_margin_top = 8
 	empty.content_margin_bottom = 8
 	for state_name: String in ["normal", "hover", "pressed", "focus", "disabled"]:
@@ -1523,8 +1525,9 @@ func _make_cycle(node_name: String, kind: String) -> void:
 	if kind == "faction":
 		var logo := TextureRect.new()
 		logo.name = "FactionLogo"
-		logo.position = Vector2(4, 6)
+		logo.position = Vector2(6, 6)
 		logo.size = Vector2(32, 32)
+		logo.custom_minimum_size = Vector2(32, 32)
 		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
