@@ -2368,7 +2368,9 @@ func test_lan() -> void:
 	var join: Button = boot.find_child("JoinLan", true, false) as Button
 	var addr: LineEdit = boot.find_child("LanAddress", true, false) as LineEdit
 	var note: Label = boot.find_child("MultiplayerNote", true, false) as Label
-	check(host != null and host.is_visible_in_tree() and join != null and join.is_visible_in_tree() and addr != null and addr.is_visible_in_tree() and note != null and note.is_visible_in_tree() and not note.text.contains("not in this build"), "the multiplayer tab hosts and joins a LAN game")
+	var found: ItemList = boot.find_child("LanFound", true, false) as ItemList
+	check(host != null and host.is_visible_in_tree() and join != null and join.is_visible_in_tree() and addr != null and addr.is_visible_in_tree() and found != null and found.is_visible_in_tree() and note != null and note.is_visible_in_tree() and not note.text.contains("not in this build"), "the multiplayer tab hosts and joins a LAN game")
+	check(Lan.show_controls() and Lan.lan_note(true) == "LAN play needs the desktop build.", "the web build hides LAN and says it needs desktop")
 	host.pressed.emit()
 	var status: Label = boot.find_child("LanStatus", true, false) as Label
 	check(status != null and status.text.contains("Waiting") and status.text.contains("47931"), "hosting opens a LAN port")
@@ -2377,6 +2379,17 @@ func test_lan() -> void:
 	boot.free()
 	await process_frame
 	check(Lan.probe(47921), "a LAN host and guest exchange a hello")
+	Lan.forget_hosts()
+	Lan.note_beacon("10.0.0.8", JSON.stringify({"k": "here", "port": 7777, "map": "res://game/burma_road.tscn"}).to_utf8_buffer())
+	var listed: PackedStringArray = Lan.hosts()
+	check(listed.size() == 1 and listed[0].begins_with("10.0.0.8:7777") and listed[0].contains("burma road") and Lan.host_address(0) == "10.0.0.8", "a LAN beacon lists the host without typing an address")
+	Lan.forget_hosts()
+	check(Lan.loopback_beacon(47941) and Lan.hosts().size() == 1 and Lan.host_address(0) == "127.0.0.1", "a discovery packet reaches a listener")
+	var seat: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+	var seated: Error = seat.create_server(47923)
+	check(seated == OK and Lan.attach_peer(seat, true) == OK and Lan.role == "host" and Lan.peer == seat, "a WebRTC peer can take the same session slot later")
+	Lan.close()
+	Lan.forget_hosts()
 	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
 	root.add_child(scene)
 	await process_frame

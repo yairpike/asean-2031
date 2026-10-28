@@ -106,7 +106,7 @@ func _ready() -> void:
 	multi_note = Label.new()
 	multi_note.name = "MultiplayerNote"
 	multi_note.visible = false
-	multi_note.text = "Host a skirmish on this LAN, or join one. The guest commands the host's company."
+	multi_note.text = Lan.lan_note(not Lan.show_controls())
 	multi_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	multi_note.add_theme_font_size_override("font_size", 18)
 	multi_note.add_theme_color_override("font_color", Color(1, 1, 1))
@@ -155,6 +155,12 @@ func _lan_panel() -> void:
 	status.size = Vector2(420.0, 48.0)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lan_panel.add_child(status)
+	var found: ItemList = ItemList.new()
+	found.name = "LanFound"
+	found.position = Vector2(0.0, 148.0)
+	found.size = Vector2(420.0, 96.0)
+	found.item_selected.connect(_pick_lan)
+	lan_panel.add_child(found)
 
 func _host_lan() -> void:
 	var err: Error = Lan.open_host()
@@ -186,7 +192,41 @@ func _lan_map() -> String:
 		return selected_map
 	return "res://game/phillips_channel.tscn"
 
+func _pick_lan(index: int) -> void:
+	var ip: String = Lan.host_address(index)
+	if ip == "":
+		return
+	var addr: LineEdit = find_child("LanAddress", true, false) as LineEdit
+	if addr != null:
+		addr.text = ip
+	var status: Label = find_child("LanStatus", true, false) as Label
+	if status != null:
+		status.text = "Found %s." % ip
+
+func _fill_lan() -> void:
+	var found: ItemList = find_child("LanFound", true, false) as ItemList
+	if found == null:
+		return
+	var rows: PackedStringArray = Lan.hosts()
+	var same: bool = found.item_count == rows.size()
+	if same:
+		for i: int in rows.size():
+			if found.get_item_text(i) != rows[i]:
+				same = false
+				break
+	if same:
+		return
+	found.clear()
+	for row: String in rows:
+		found.add_item(row)
+
 func _lan_poll() -> void:
+	if not Lan.show_controls():
+		return
+	if lan_panel != null and lan_panel.visible and Lan.role != "host":
+		Lan.listen()
+		Lan.gather()
+		_fill_lan()
 	if Lan.role == "":
 		return
 	Lan.pump()
@@ -515,7 +555,7 @@ func _show_tab(which: String) -> void:
 	if multi_note != null:
 		multi_note.visible = which == "multi"
 	if lan_panel != null:
-		lan_panel.visible = which == "multi"
+		lan_panel.visible = which == "multi" and Lan.show_controls()
 	if which == "skirmish" or which == "multi":
 		_set_submenu(false)
 	elif which == "campaign" or which == "faction":
@@ -831,7 +871,7 @@ func _layout_menu(size: Vector2) -> void:
 		multi_note.size = Vector2(plate_w if narrow else 420.0, 72)
 	if lan_panel != null:
 		lan_panel.position = multi_note.position + Vector2(0.0, 80.0)
-		lan_panel.size = Vector2(plate_w if narrow else 440.0, 160.0)
+		lan_panel.size = Vector2(plate_w if narrow else 440.0, 260.0)
 	var content_y: float = y + 8.0 if narrow else 168.0
 	var content_x: float = 8.0 if narrow else 460.0
 	var content_w: float = size.x - 16.0 if narrow else size.x - content_x - 24.0
