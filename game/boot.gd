@@ -139,6 +139,7 @@ func _ready() -> void:
 	_loading_plate()
 	_menu_fade()
 	_detail_card()
+	_offer_training()
 	_layout_menu(_view_size())
 	_paint_detail()
 
@@ -402,16 +403,23 @@ func _skirmish() -> void:
 	_make_cycle("SkirmishBotCycle", "bot")
 	var grey: Button = Plate.new() as Button
 	grey.name = "GreyboxButton"
-	grey.text = "Greybox"
+	grey.text = "Sandbox"
 	grey.custom_minimum_size = Vector2(180, 44)
-	grey.tooltip_text = "Systems demo. Camera only."
+	grey.tooltip_text = "Practice map."
 	grey.pressed.connect(_open.bind("res://game/greybox.tscn"))
 	skirmish_panel.add_child(grey)
 	var grey_note: Label = Label.new()
 	grey_note.name = "GreyboxNote"
 	grey_note.visible = false
-	grey_note.text = "Systems demo. Camera only."
+	grey_note.text = "Practice map."
 	skirmish_panel.add_child(grey_note)
+	var train: Button = Plate.new() as Button
+	train.name = "BasicTraining"
+	train.text = "Basic training"
+	train.custom_minimum_size = Vector2(200, 44)
+	train.add_theme_font_size_override("font_size", 16)
+	train.pressed.connect(_basic_training)
+	skirmish_panel.add_child(train)
 	play_button = Plate.new() as Button
 	play_button.name = "PlayButton"
 	play_button.text = "Play"
@@ -541,9 +549,16 @@ func _mission_row(box: VBoxContainer, mission_id: String) -> void:
 	brief.clip_text = true
 	brief.custom_minimum_size = Vector2(400, 44)
 	brief.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	brief.add_theme_font_size_override("font_size", 15)
-	brief.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
+	brief.add_theme_font_size_override("font_size", 16)
+	brief.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
 	box.add_child(brief)
+	var more: Button = Button.new()
+	more.name = "Details_%s" % mission_id
+	more.text = "Details"
+	more.custom_minimum_size = Vector2(120, 36)
+	more.add_theme_font_size_override("font_size", 16)
+	more.pressed.connect(_toggle_lines.bind(brief))
+	box.add_child(more)
 	_ensure_done(b, mission_id)
 
 func _process(delta: float) -> void:
@@ -919,6 +934,73 @@ func _play() -> void:
 		return
 	_open(selected_map)
 
+func _basic_training() -> void:
+	preload("res://game/match_coach.gd").armed = true
+	if selected_map == "":
+		selected_map = "res://game/phillips_channel.tscn"
+	_play()
+
+func _offer_training() -> void:
+	if FileAccess.file_exists("user://training_offer.cfg"):
+		return
+	var card: PanelContainer = PanelContainer.new()
+	card.name = "TrainingOffer"
+	card.z_index = 6
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.06, 0.07, 0.94)
+	style.border_color = Color(0.93, 0.78, 0.38)
+	style.set_border_width_all(2)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	card.add_theme_stylebox_override("panel", style)
+	var box: VBoxContainer = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	card.add_child(box)
+	var title: Label = Label.new()
+	title.text = "New to ASEAN 2031?"
+	title.theme_type_variation = "Header"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
+	box.add_child(title)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+	var raid: Button = Button.new()
+	raid.name = "TrainingRaid"
+	raid.text = "Play the training raid"
+	raid.custom_minimum_size = Vector2(220, 44)
+	raid.add_theme_font_size_override("font_size", 16)
+	raid.pressed.connect(_accept_training)
+	row.add_child(raid)
+	var skip: Button = Button.new()
+	skip.name = "TrainingSkip"
+	skip.text = "Skip"
+	skip.custom_minimum_size = Vector2(96, 44)
+	skip.add_theme_font_size_override("font_size", 16)
+	skip.pressed.connect(_skip_training)
+	row.add_child(skip)
+	add_child(card)
+
+func _accept_training() -> void:
+	_mark_training_seen()
+	_start_mission("kokang")
+
+func _skip_training() -> void:
+	_mark_training_seen()
+	var offer: CanvasItem = find_child("TrainingOffer", true, false) as CanvasItem
+	if offer != null:
+		offer.visible = false
+
+func _mark_training_seen() -> void:
+	var file: FileAccess = FileAccess.open("user://training_offer.cfg", FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_line("seen")
+	file.close()
+
 func _start_mission(mission_id: String) -> void:
 	if mission_id == "kokang":
 		_open("res://game/mission_kokang.tscn")
@@ -1116,6 +1198,12 @@ func _layout_menu(size: Vector2) -> void:
 		bar.size = Vector2(340.0, 24)
 		bar.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		bar.clip_text = true
+	var offer: Control = find_child("TrainingOffer", true, false) as Control
+	if offer != null:
+		var seen: bool = FileAccess.file_exists("user://training_offer.cfg")
+		offer.visible = _menu_tab == "main" and not seen and not narrow
+		offer.position = Vector2(minf(640.0, size.x * 0.46), 240.0)
+		offer.size = Vector2(minf(460.0, maxf(280.0, size.x - offer.position.x - 24.0)), 150.0)
 	var card: Control = find_child("MenuDetail", true, false) as Control
 	if card != null:
 		var show_card: bool = (skirmish_panel != null and skirmish_panel.visible) or (campaign_panel != null and campaign_panel.visible)
@@ -1277,6 +1365,22 @@ func _detail_card() -> void:
 	tags.add_theme_font_size_override("font_size", 16)
 	tags.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
 	box.add_child(tags)
+	var more: Button = Button.new()
+	more.name = "DetailMore"
+	more.text = "Details"
+	more.custom_minimum_size = Vector2(120, 36)
+	more.add_theme_font_size_override("font_size", 16)
+	more.pressed.connect(_toggle_detail)
+	box.add_child(more)
+
+func _toggle_detail() -> void:
+	var body: Label = find_child("DetailBody", true, false) as Label
+	_toggle_lines(body)
+
+func _toggle_lines(body: Label) -> void:
+	if body == null:
+		return
+	body.max_lines_visible = 0 if body.max_lines_visible == 2 else 2
 
 func _make_cycle(node_name: String, kind: String) -> void:
 	var button: Button = Button.new()
@@ -1393,6 +1497,15 @@ func _place_skirmish(panel_w: float, panel_h: float) -> void:
 	if grey != null:
 		grey.position = Vector2(340.0, panel_h - 88.0)
 		grey.size = Vector2(160.0, 40.0)
+	var train: Control = find_child("BasicTraining", true, false) as Control
+	if train != null:
+		var train_x: float = 520.0
+		var train_y: float = panel_h - 88.0
+		if panel_w < 1000.0:
+			train_x = maxf(16.0, panel_w - 220.0)
+			train_y = panel_h - 148.0
+		train.position = Vector2(train_x, train_y)
+		train.size = Vector2(200.0, 40.0)
 	for hidden_name: String in ["SkirmishDiffEasy", "SkirmishDiffNormal", "SkirmishDiffHard", "SkirmishDiffLabel"]:
 		var hidden: CanvasItem = find_child(hidden_name, true, false) as CanvasItem
 		if hidden != null:

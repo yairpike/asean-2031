@@ -100,6 +100,11 @@ static func follow(host: Node) -> void:
 		exit.name = "MatchExit"
 		exit.set_script(preload("res://game/match_exit.gd"))
 		host.add_child(exit)
+	if host.get_node_or_null("MatchCoach") == null:
+		var coach: Node = Node.new()
+		coach.name = "MatchCoach"
+		coach.set_script(preload("res://game/match_coach.gd"))
+		host.add_child(coach)
 
 static func follow_pointer(field: SMPointer) -> void:
 	if field == null or bool(field.get_meta("view_bound", false)):

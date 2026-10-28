@@ -151,6 +151,11 @@ func _seat_tip() -> void:
 		return
 	_anchor(tip, 1.0, 0.0, 1.0, 0.0, -260.0, 268.0, -8.0, 356.0)
 	tip.custom_minimum_size = Vector2(240, 88)
+	var hud: SMHud = get_meta("hud", null) as SMHud
+	if hud == null or hud.hover_tip == "":
+		tip.visible = false
+		return
+	tip.visible = Time.get_ticks_msec() - hud.tip_at >= 300
 
 func _pulse_power_tile() -> void:
 	var hud: SMHud = get_meta("hud", null) as SMHud
@@ -699,6 +704,9 @@ func _seat_chrome() -> void:
 	_seat_message()
 	_seat_objective()
 	_seat_now_playing()
+	_seat_flyout()
+	_seat_strip()
+	_seat_boot()
 	var layer: Node = get_parent()
 	if layer == null:
 		return
@@ -777,7 +785,57 @@ func _seat_objective() -> void:
 	status.max_lines_visible = 6 if _goals_open else 1
 	status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	status.custom_minimum_size = Vector2(0, 22)
+	status.add_theme_font_size_override("font_size", 16)
+	status.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
 	_anchor(status, 0.0, 0.0, 0.0, 0.0, 100.0, 36.0, 424.0, 34.0 + height)
+
+func _seat_flyout() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var fly: Control = layer.find_child("Protocols", true, false) as Control
+	if fly == null:
+		return
+	var card_top: float = size.y - 136.0
+	var bottom: float = minf(340.0, card_top - 8.0)
+	if bottom < 148.0:
+		bottom = 148.0
+	fly.offset_left = 72.0
+	fly.offset_top = 100.0
+	fly.offset_right = 432.0
+	fly.offset_bottom = bottom
+	fly.custom_minimum_size = Vector2(320, minf(120.0, bottom - 100.0))
+
+func _seat_strip() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var strip: Control = layer.find_child("MatchStrip", true, false) as Control
+	if strip == null or not strip.visible:
+		return
+	var sidebar: float = size.x - 268.0
+	var right: float = minf(760.0, sidebar - 8.0)
+	if right - 448.0 < 96.0:
+		return
+	_anchor(strip, 0.0, 0.0, 0.0, 0.0, 448.0, 36.0, right, 64.0)
+
+func _seat_boot() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var boot: Control = layer.find_child("MissionBoot", true, false) as Control
+	if boot == null:
+		return
+	var sidebar: float = size.x - 268.0
+	var x: float = 72.0
+	var y: float = 348.0
+	if y + 40.0 > size.y - 140.0:
+		y = 70.0
+		x = 72.0
+	if x + 160.0 > sidebar:
+		x = maxf(8.0, sidebar - 168.0)
+	boot.position = Vector2(x, y)
+	boot.size = Vector2(160, 36)
 
 func _seat_now_playing() -> void:
 	var line: Control = get_node_or_null("NowPlaying") as Control

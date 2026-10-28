@@ -1030,7 +1030,7 @@ func test_sm_mission() -> void:
 	var before: float = foe.hp
 	var struck: int = int(scene.call("fire_secondary"))
 	check(struck > 0 and foe.hp < before, "F strikes an enemy on the raid")
-	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudCredits") == "Credits 50000" and _hud_text(scene, "HudPower") == "Power 0/0" and _hud_text(scene, "HudMap") == SMCampaign.title_of("kokang") and _hud_text(scene, "HudSelection") == "Nothing selected", "the raid shows faction, credits, power, and the mission name")
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudCredits") == "Credits 50000" and _hud_text(scene, "HudPower") == "⚡ 0/0" and _hud_text(scene, "HudMap") == SMCampaign.title_of("kokang") and _hud_text(scene, "HudSelection") == "Nothing selected", "the raid shows faction, credits, power, and the mission name")
 	var raid_map: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
 	if raid_map != null:
 		raid_map.sample()
@@ -1340,7 +1340,7 @@ func test_sm_hud() -> void:
 	await process_frame
 	check(_hud_text(scene, "HudFaction") == "GTFC", "phillips names the faction")
 	check(_hud_text(scene, "HudCredits") == "Credits 50000", "phillips shows credits")
-	check(_hud_text(scene, "HudPower") == "Power 0/0", "phillips shows army power")
+	check(_hud_text(scene, "HudPower") == "⚡ 0/0", "phillips shows army power")
 	check(_hud_text(scene, "HudMap") == "Phillips Channel", "phillips names the map")
 	check(_hud_text(scene, "HudSelection") == "Nothing selected", "phillips says when nothing is selected")
 	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
@@ -1386,7 +1386,7 @@ func test_sm_hud() -> void:
 	check(yard.finished.has(&"scaffold_yard") and yard.style == SMBuildYard.Style.SCAFFOLD and purse.economy.credits(0) == 49980 and scene.get_node_or_null("Built_scaffold_yard") is MeshInstance3D, "a building click raises a scaffold yard")
 	var before: int = field.count_team(0)
 	trained.pressed.emit()
-	check(field.count_team(0) == before + 1 and purse.economy.credits(0) == 49900 and _hud_text(scene, "HudPower") == "Power 0/0", "a unit click trains it and spends credits")
+	check(field.count_team(0) == before + 1 and purse.economy.credits(0) == 49900 and _hud_text(scene, "HudPower") == "⚡ 0/0", "a unit click trains it and spends credits")
 	var cancel: Button = scene.find_child("CancelQueue", true, false) as Button
 	check(yard.begin_scaffold(&"salween_hydro", yard.center, 200.0), "a second scaffold can start")
 	yard.advance(1.0)
@@ -1398,10 +1398,10 @@ func test_sm_hud() -> void:
 	var blocked_n: int = field.count_team(0)
 	var blocked_c: int = purse.economy.credits(0)
 	trained.pressed.emit()
-	check(field.count_team(0) == blocked_n and purse.economy.credits(0) == blocked_c and _hud_text(scene, "HudPower") == "Power 0/30" and _hud_text(scene, "HudBuild") == "low power", "low power stops production")
+	check(field.count_team(0) == blocked_n and purse.economy.credits(0) == blocked_c and _hud_text(scene, "HudPower") == "⚡ 0/30" and _hud_text(scene, "HudBuild") == "low power", "low power stops production")
 	yard.finished.append(&"salween_hydro")
 	trained.pressed.emit()
-	check(field.count_team(0) == blocked_n + 1 and purse.economy.credits(0) == blocked_c - 80 and _hud_text(scene, "HudPower") == "Power 100/30", "a plant restores production")
+	check(field.count_team(0) == blocked_n + 1 and purse.economy.credits(0) == blocked_c - 80 and _hud_text(scene, "HudPower") == "⚡ 100/30", "a plant restores production")
 	scene.free()
 	await _hud_map("res://game/sop_ruak.tscn", "Sop Ruak")
 	await _hud_map("res://game/burma_road.tscn", "Burma Road")
@@ -1471,7 +1471,7 @@ func _campaign_hud(scene: Node, id: String) -> bool:
 		return false
 	if _hud_text(scene, "HudFaction") != "GTFC" or _hud_text(scene, "HudCredits") != "Credits 50000":
 		return false
-	if not _hud_text(scene, "HudPower").begins_with("Power ") or _hud_text(scene, "HudMap") != SMCampaign.title_of(id):
+	if not _hud_text(scene, "HudPower").begins_with("⚡ ") or _hud_text(scene, "HudMap") != SMCampaign.title_of(id):
 		return false
 	if _hud_text(scene, "HudSelection") != "Nothing selected":
 		return false
@@ -1499,7 +1499,7 @@ func _hud_map(path: String, map_name: String) -> void:
 	if mm != null:
 		mm.sample()
 	var terrain_ok: bool = mm != null and mm.saw_land and (map_name == "Burma Road" or mm.saw_water)
-	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudPower").begins_with("Power ") and _hud_text(scene, "HudSelection") == "Nothing selected" and scene.find_child("CompanyList", true, false) == null and terrain_ok and mm.covers_focus(), "%s shows faction, power, an empty selection, and the minimap" % map_name)
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudPower").begins_with("⚡ ") and _hud_text(scene, "HudSelection") == "Nothing selected" and scene.find_child("CompanyList", true, false) == null and terrain_ok and mm.covers_focus(), "%s shows faction, power, an empty selection, and the minimap" % map_name)
 	scene.free()
 	await process_frame
 
@@ -3541,6 +3541,35 @@ func test_sm_guide() -> void:
 	var card_box: Rect2 = card_fit.get_global_rect() if card_fit != null else Rect2()
 	var proto_box: Rect2 = protocols_fit.get_global_rect() if protocols_fit != null else Rect2()
 	check(root.size == Vector2i(1024, 576) and column_box.size.x > 40.0 and toggle_box.size.y > 20.0 and guide_box.size.x > 40.0 and card_box.size.x > 40.0 and proto_box.size.y > 40.0 and window_box.encloses(column_box) and window_box.encloses(toggle_box) and window_box.encloses(guide_box) and window_box.encloses(card_box) and window_box.encloses(proto_box), "the match HUD fits a 1024 by 576 window")
+	root.size = Vector2i(844, 390)
+	if protocols_fit != null:
+		protocols_fit.visible = false
+	if overlay != null:
+		overlay.visible = false
+	var card_show: Control = scene.find_child("UnitCard", true, false) as Control
+	var card_was: bool = card_show.visible if card_show != null else false
+	if card_show != null:
+		card_show.visible = true
+	await process_frame
+	await process_frame
+	var hud_names: PackedStringArray = PackedStringArray(["CommandColumn", "ProtocolsToggle", "UnitCard", "ObjectiveShade", "TopBar", "SuperDock", "MatchStrip", "ToastLane", "MissionBoot"])
+	var boxes: Array[Rect2] = []
+	var overlap: bool = false
+	for hud_name: String in hud_names:
+		var hud_node: Control = scene.find_child(hud_name, true, false) as Control
+		if hud_node == null or not hud_node.is_visible_in_tree():
+			continue
+		var hud_box: Rect2 = hud_node.get_global_rect()
+		if hud_box.size.x < 8.0 or hud_box.size.y < 8.0:
+			continue
+		for prior: Rect2 in boxes:
+			var hit: Rect2 = prior.intersection(hud_box)
+			if hit.size.x > 1.0 and hit.size.y > 1.0:
+				overlap = true
+		boxes.append(hud_box)
+	check(not overlap and boxes.size() >= 4, "phone landscape keeps the match panels apart")
+	if card_show != null:
+		card_show.visible = card_was
 	root.size = saved_size
 	await process_frame
 	scene.free()

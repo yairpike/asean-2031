@@ -73,6 +73,16 @@ func _command_key(event: InputEvent) -> bool:
 	var match_field: SMPointer = _field()
 	if match_field == null:
 		return false
+	if key.keycode == KEY_TAB or key.keycode == KEY_SPACE:
+		if _line_focused() or _pause_open():
+			return false
+		if key.keycode == KEY_TAB and _cycle_tab():
+			get_viewport().set_input_as_handled()
+			return true
+		if key.keycode == KEY_SPACE and _jump_alert(match_field):
+			get_viewport().set_input_as_handled()
+			return true
+		return false
 	if key.keycode == KEY_X:
 		match_field.halt_selected()
 		get_viewport().set_input_as_handled()
@@ -123,6 +133,58 @@ func _digit(code: Key) -> int:
 	if code >= KEY_KP_1 and code <= KEY_KP_9:
 		return int(code) - int(KEY_KP_1) + 1
 	return 0
+
+func _line_focused() -> bool:
+	var view: Viewport = get_viewport()
+	if view == null:
+		return false
+	var owner: Control = view.gui_get_focus_owner()
+	return owner is LineEdit or owner is TextEdit
+
+func _pause_open() -> bool:
+	var pause: CanvasItem = get_tree().root.find_child("PauseMenu", true, false) as CanvasItem
+	return pause != null and pause.visible
+
+func _cycle_tab() -> bool:
+	var board: SMHud = _hud()
+	if board == null:
+		return false
+	var order: PackedStringArray = _tab_order()
+	var start: int = order.find(board.build_tab)
+	if start < 0:
+		start = 0
+	var n: int = 0
+	while n < order.size():
+		var which: String = order[(start + 1 + n) % order.size()]
+		var button: BaseButton = get_tree().root.find_child("Tab%s" % which.capitalize(), true, false) as BaseButton
+		if button != null and button.visible:
+			board.show_build_tab(which)
+			return true
+		n += 1
+	return false
+
+func _tab_order() -> PackedStringArray:
+	var order: PackedStringArray = PackedStringArray()
+	order.append("buildings")
+	order.append("defenses")
+	order.append("infantry")
+	order.append("vehicles")
+	return order
+
+func _jump_alert(match_field: SMPointer) -> bool:
+	if match_field == null or not match_field.has_meta("alert_at"):
+		return false
+	var at: Variant = match_field.get_meta("alert_at")
+	if not (at is Vector3):
+		return false
+	var point: Vector3 = at as Vector3
+	if point == Vector3.INF:
+		return false
+	var cam: RTSCamera = _camera()
+	if cam == null:
+		return false
+	cam.focus_on(point)
+	return true
 
 func _hud() -> SMHud:
 	var scene: Node = get_tree().current_scene

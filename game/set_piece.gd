@@ -500,10 +500,27 @@ func _chrome() -> void:
 		return
 	var panel: Control = Control.new()
 	panel.name = "SetDialogue"
-	panel.position = Vector2(220.0, 500.0)
-	panel.size = Vector2(720.0, 128.0)
+	var view_h: float = 720.0
+	var view: Viewport = _host.get_viewport()
+	if view != null:
+		view_h = view.get_visible_rect().size.y
+	var lane_top: float = view_h - 196.0
+	var panel_y: float = lane_top - 136.0
+	if panel_y < 200.0:
+		panel_y = 200.0
+	var panel_h: float = minf(128.0, lane_top - panel_y - 8.0)
+	if panel_h < 64.0:
+		panel_h = 64.0
+	panel.position = Vector2(220.0, panel_y)
+	panel.size = Vector2(720.0, panel_h)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.clip_contents = true
 	layer.add_child(panel)
+	var shade: ColorRect = ColorRect.new()
+	shade.color = Color(0.05, 0.06, 0.07, 0.88)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(shade)
 	_plate = ColorRect.new()
 	_plate.name = "SetPortraitPlate"
 	_plate.position = Vector2(0.0, 8.0)
@@ -525,7 +542,7 @@ func _chrome() -> void:
 	_speaker.position = Vector2(96.0, 4.0)
 	_speaker.size = Vector2(600.0, 22.0)
 	_speaker.text = speaker_name
-	_speaker.add_theme_font_size_override("font_size", 15)
+	_speaker.add_theme_font_size_override("font_size", 16)
 	_speaker.add_theme_color_override("font_color", _tint())
 	_speaker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(_speaker)
@@ -537,7 +554,8 @@ func _chrome() -> void:
 	_subtitle.clip_text = true
 	_subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_subtitle.add_theme_font_size_override("font_size", 16)
-	_subtitle.add_theme_color_override("font_color", Color(0.96, 0.94, 0.88))
+	_subtitle.max_lines_visible = 2
+	_subtitle.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
 	panel.add_child(_subtitle)
 	_bonus = Label.new()
 	_bonus.name = "SetBonus"
@@ -546,8 +564,8 @@ func _chrome() -> void:
 	_bonus.text = "Bonus: reach the side cache" if has_bonus else ""
 	_bonus.visible = has_bonus
 	_bonus.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bonus.add_theme_font_size_override("font_size", 14)
-	_bonus.add_theme_color_override("font_color", Color(0.78, 0.84, 0.7))
+	_bonus.add_theme_font_size_override("font_size", 16)
+	_bonus.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
 	panel.add_child(_bonus)
 
 func _tint() -> Color:

@@ -33,7 +33,7 @@ func _ready() -> void:
 	cam.current = true
 	var label: Label = Label.new()
 	label.name = "Caption"
-	label.text = "Greybox: scaffold, internal queue, mobile core, five nodes, jammer"
+	label.text = "Sandbox: yards, queues, five nodes, jammer"
 	label.position = Vector2(16, 12)
 	var layer: CanvasLayer = CanvasLayer.new()
 	layer.add_child(label)

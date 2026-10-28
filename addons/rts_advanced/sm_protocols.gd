@@ -108,7 +108,7 @@ func _hint(id: StringName) -> String:
 	if id == &"grinder_treads":
 		return "Speeds the company up. One cast."
 	if id == &"mogok_night_shift":
-		return "Starts the ruby night shift. One cast."
+		return "Mines rubies. One cast."
 	if id == &"thai_border_mass_print":
 		return "Prints a batch of units. One cast."
 	if id == &"robotic_assembly":
@@ -207,7 +207,7 @@ func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: 
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = true
 	scroll.z_index = 8
-	scroll.custom_minimum_size = Vector2(320, 160)
+	scroll.custom_minimum_size = Vector2(320, 120)
 	_dock(scroll, 72.0, 100.0, 432.0, 340.0, 0.0, 0.0, 0.0, 0.0)
 	var grid: GridContainer = GridContainer.new()
 	grid.columns = 2
@@ -285,7 +285,7 @@ func _apply(id: StringName, economy: RTSEconomy, team: int, abilities: SMAbiliti
 		marks[id] = "speed 1.4"
 	elif id == &"mogok_night_shift":
 		night_shift = true
-		marks[id] = "night shift"
+		marks[id] = "mine rubies"
 	elif id == &"thai_border_mass_print":
 		printed = 8
 		marks[id] = "printed 8"
