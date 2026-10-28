@@ -145,13 +145,13 @@ static func briefing_of(id: String) -> String:
 	if id == "ghosts_of_patani":
 		return "Ghosts of Patani. Text briefing. Destroy every ghost in the jammer, including the shipment guards. GPS guidance drops there. A fiber link does not. Losing the company fails the mission. An ambush, a blown bridge, a turned guide, and a closing sky can arrive while you fight. The side cache is optional."
 	if id == "kilometer_watch":
-		return "The 74-Kilometer Watch. Text briefing. Destroy the radar garrison and its relief squad, then hold the hydro radar so water shows."
+		return "The 74-Kilometer Watch. Text briefing. Destroy the radar garrison and its relief squad, then hold the hydro radar so water shows. An ambush, a blown bridge, a turned guide, and rain can arrive while you hold. The side cache is optional."
 	if id == "black_haze":
-		return "Black Haze. Text briefing. Capture the hydro radar and hold it through the longer haze while a second raider wave attacks."
+		return "Black Haze. Text briefing. Capture the hydro radar and hold it through the longer haze while a second raider wave attacks. An ambush, a blown bridge, a turned guide, and rain can arrive in the haze. The side cache is optional."
 	if id == "archipelago_rising":
-		return "Archipelago Rising. Text briefing. Sink the boats and the second picket, sail the packer into shallow water, unpack the wharf, and upgrade it."
+		return "Archipelago Rising. Text briefing. Sink the boats and the second picket, sail the packer into shallow water, unpack the wharf, and upgrade it. An ambush, a blown bridge, a turned guide, and a squall can arrive while you sail. The side cache is optional."
 	if id == "wrath_of_the_garuda":
-		return "Wrath of the Garuda. Text briefing. Destroy the joint enemy fleet and its pickets. A napalm run can help. Calling it does not end the mission."
+		return "Wrath of the Garuda. Text briefing. Destroy the joint enemy fleet and its pickets. A napalm run can help. Calling it does not end the mission. An ambush, a blown bridge, a turned guide, and rain can arrive while you fight. The side cache is optional."
 	if id == "fog_over_pakbeng":
 		return "Fog Over Pakbeng. Text briefing. Hold a hydro radar through the longer haze while a second raider wave attacks. An ambush, a blown bridge, and a turned guide can arrive in the murk. The haze stays shut. The side cache is optional."
 	if id == "keng_tung":

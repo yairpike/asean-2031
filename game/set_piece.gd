@@ -87,7 +87,7 @@ func drive(delta: float) -> void:
 	_recount()
 
 static func _covered(id: String) -> bool:
-	return id == "kokang" or id == "tachileik" or id == "shwe_kokko" or id == "operation_1027" or id == "andaman" or id == "ghosts_of_patani" or id == "fog_over_pakbeng"
+	return id == "kokang" or id == "tachileik" or id == "shwe_kokko" or id == "operation_1027" or id == "andaman" or id == "ghosts_of_patani" or id == "kilometer_watch" or id == "black_haze" or id == "archipelago_rising" or id == "wrath_of_the_garuda" or id == "fog_over_pakbeng"
 
 func _cast() -> void:
 	faction = "gtfc"
@@ -115,6 +115,26 @@ func _cast() -> void:
 		cameo_id = "river_rifle"
 		speaker_name = "River commander"
 		bonus_at = Vector3(-14.0, 0.0, 8.0)
+	elif mission_id == "kilometer_watch":
+		faction = "nmrf"
+		cameo_id = "olive_ranger"
+		speaker_name = "Watch captain"
+		bonus_at = Vector3(-16.0, 0.0, 10.0)
+	elif mission_id == "black_haze":
+		faction = "nmrf"
+		cameo_id = "mangrove_skiff"
+		speaker_name = "Haze coxswain"
+		bonus_at = Vector3(16.0, 0.0, 10.0)
+	elif mission_id == "archipelago_rising":
+		faction = "nmrf"
+		cameo_id = "packer"
+		speaker_name = "Packer captain"
+		bonus_at = Vector3(-18.0, 0.0, -10.0)
+	elif mission_id == "wrath_of_the_garuda":
+		faction = "nmrf"
+		cameo_id = "emerald_gunboat"
+		speaker_name = "Fleet captain"
+		bonus_at = Vector3(18.0, 0.0, 8.0)
 	elif mission_id == "fog_over_pakbeng":
 		faction = "mvd"
 		cameo_id = "clearance_trooper"
@@ -162,6 +182,46 @@ func _line(beat: String) -> String:
 		if beat == "weather":
 			return "The squall is on. Cross while it lasts."
 		return "The channel is held. Land the far shore."
+	if mission_id == "kilometer_watch":
+		if beat == "ambush":
+			return "Contact on the kilometer road."
+		if beat == "bridge":
+			return "The span is cut. The guide has sold the watch."
+		if beat == "relief":
+			return "Two rifles from the watch are in."
+		if beat == "weather":
+			return "Rain on the road. Hold the radar."
+		return "The hydro radar is dark. Take the garrison and light the water."
+	if mission_id == "black_haze":
+		if beat == "ambush":
+			return "Raiders in the black haze."
+		if beat == "bridge":
+			return "The span drops. The pilot turns."
+		if beat == "relief":
+			return "Two boats from the mangrove are in."
+		if beat == "weather":
+			return "Rain cuts the haze. Keep the radar."
+		return "The haze is thick. Take the radar and stay on it."
+	if mission_id == "archipelago_rising":
+		if beat == "ambush":
+			return "Picket boats in the cut."
+		if beat == "bridge":
+			return "The span is gone. The guide turns with the tide."
+		if beat == "relief":
+			return "Two rifles from the near islet are in."
+		if beat == "weather":
+			return "The squall is on. Unpack while it lasts."
+		return "The atoll is held by boats. Sail the packer in and raise the wharf."
+	if mission_id == "wrath_of_the_garuda":
+		if beat == "ambush":
+			return "Pickets off the bow."
+		if beat == "bridge":
+			return "The span is down. The pilot is with them."
+		if beat == "relief":
+			return "Two gunboats from the river are in."
+		if beat == "weather":
+			return "Rain on the fleet. Finish the hulls."
+		return "The joint fleet is in the channel. Sink it."
 	if mission_id == "ghosts_of_patani":
 		if beat == "ambush":
 			return "Ambush in the mist."
