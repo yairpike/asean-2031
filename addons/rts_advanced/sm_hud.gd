@@ -296,8 +296,6 @@ func set_tutorial(text: String) -> void:
 		return
 	tutorial_label.text = text
 	tutorial_label.visible = text != ""
-	if text != "" and guide_panel != null:
-		guide_panel.visible = true
 
 static func present_tip(host: Node, text: String) -> void:
 	if host == null or not host.has_meta("hud"):
@@ -793,7 +791,7 @@ func _guide(layer: CanvasLayer) -> void:
 	panel.name = "HowToOverlay"
 	panel.clip_contents = true
 	panel.z_index = 30
-	panel.visible = true
+	panel.visible = false
 	_dock(panel, 168.0, 44.0, -268.0, -56.0, 0.0, 0.0, 1.0, 1.0)
 	layer.add_child(panel)
 	guide_panel = panel
@@ -927,7 +925,7 @@ func blocks_edge() -> bool:
 	var names: PackedStringArray = PackedStringArray([
 		"Protocols", "ProtocolsToggle", "Minimap", "MonitorFrame", "UnitCard",
 		"HelpButton", "MissionBoot", "SelectionSlots", "PhoneDrawer", "TipPanel",
-		"HowToOverlay", "SuperDock", "CommandColumn",
+		"HowToOverlay", "SuperDock", "CommandColumn", "PauseMenu", "TopBar",
 	])
 	var node: Node = hovered
 	while node != null and node != layer_node:

@@ -3395,11 +3395,16 @@ func test_sm_guide() -> void:
 	var overlay: Control = scene.find_child("HowToOverlay", true, false) as Control
 	var body: Label = scene.find_child("HowToBody", true, false) as Label
 	check(controls != null and controls.visible and controls.text == hint, "a match shows the controls hint")
-	check(overlay != null and overlay.visible and body != null and body.text == howto, "a match opens the how-to overlay")
+	check(overlay != null and not overlay.visible and body != null and body.text == howto, "a match keeps the how-to closed until asked")
+	if overlay != null:
+		overlay.visible = true
+	await process_frame
 	var close: Button = scene.find_child("HowToClose", true, false) as Button
 	var overlay_box: Rect2 = overlay.get_global_rect().grow(2.0) if overlay != null else Rect2()
 	var close_box: Rect2 = close.get_global_rect() if close != null else Rect2()
 	check(overlay != null and controls != null and overlay.is_ancestor_of(controls) and close != null and close_box.size.y > 0.0 and overlay_box.encloses(close_box), "the controls line sits inside the how-to panel")
+	if overlay != null:
+		overlay.visible = false
 	var short_line: Label = scene.find_child("MatchHint", true, false) as Label
 	check(short_line != null and overlay != null and short_line.visible and not overlay.is_ancestor_of(short_line) and short_line.text.length() <= 32 and not short_line.text.contains("Shift"), "one short line stays on screen")
 	var column: Control = scene.find_child("CommandColumn", true, false) as Control

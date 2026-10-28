@@ -103,7 +103,15 @@ func _ready() -> void:
 	quit.name = "QuitButton"
 	quit.text = "Quit"
 	quit.pressed.connect(_quit)
+	if OS.has_feature("web"):
+		quit.visible = false
 	add_child(quit)
+	var back: Button = Plate.new() as Button
+	back.name = "MenuBack"
+	back.text = "Back"
+	back.visible = false
+	back.pressed.connect(_show_tab.bind("main"))
+	add_child(back)
 	multi_note = Label.new()
 	multi_note.name = "MultiplayerNote"
 	multi_note.visible = false
@@ -686,8 +694,7 @@ func _show_tab(which: String) -> void:
 		_style_button(tab, Color(0.12, 0.13, 0.16), Color(0.32, 0.34, 0.38), on)
 	_refresh_playing()
 	_sync_art()
-	if settings_open:
-		_hide_menu_chrome()
+	_apply_screen(settings_open)
 	_layout_menu(_view_size())
 
 func _show_act(act: String) -> void:
@@ -815,11 +822,32 @@ func _show_menu_chrome() -> void:
 	])
 	for node_name: String in names:
 		var node: CanvasItem = find_child(node_name, true, false) as CanvasItem
-		if node != null:
+		if node == null:
+			continue
+		if node_name == "QuitButton" and OS.has_feature("web"):
+			node.visible = false
+		else:
 			node.visible = true
 	for tab: Button in tab_buttons:
 		tab.visible = true
 		tab.z_index = 0
+
+## A sub-screen replaces the option list. Back and Esc return to the main list.
+func _apply_screen(settings_open: bool) -> void:
+	var back: CanvasItem = find_child("MenuBack", true, false) as CanvasItem
+	var main: bool = _menu_tab == "main" and not settings_open
+	if back != null:
+		back.visible = not main and not settings_open
+	if settings_open:
+		_hide_menu_chrome()
+		return
+	if main:
+		return
+	for tab: Button in tab_buttons:
+		tab.visible = false
+	var quit: CanvasItem = find_child("QuitButton", true, false) as CanvasItem
+	if quit != null:
+		quit.visible = false
 
 func _hide_menu_chrome() -> void:
 	var names: PackedStringArray = _chrome_names()
@@ -835,7 +863,7 @@ func _chrome_names() -> PackedStringArray:
 	return PackedStringArray([
 		"GameTitle", "TitleRule", "VersionMark", "NowPlaying", "ControlBar",
 		"MultiplayerNote", "FactionSubmenu", "LanPanel", "PanelSkirmish",
-		"PanelCampaign", "PanelFaction", "QuitButton",
+		"PanelCampaign", "PanelFaction", "QuitButton", "MenuBack",
 	])
 
 func _play() -> void:
@@ -1014,6 +1042,7 @@ func _layout_menu(size: Vector2) -> void:
 	y = _seat(find_child("TabMultiplayer", true, false) as Control, left, y, plate_w, row_h)
 	y = _seat(find_child("SettingsButton", true, false) as Control, left, y, plate_w, row_h)
 	y = _seat(find_child("QuitButton", true, false) as Control, left, y, plate_w, row_h)
+	_seat(find_child("MenuBack", true, false) as Control, left, size.y - 72.0, 180.0, row_h)
 	var side: Control = find_child("TabFaction", true, false) as Control
 	if side != null:
 		side.position = Vector2(-400, -400)
@@ -1076,6 +1105,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var key: InputEventKey = event as InputEventKey
 	if key != null and key.pressed and not key.echo:
+		if key.keycode == KEY_ESCAPE:
+			if _menu_tab != "main":
+				_show_tab("main")
+			get_viewport().set_input_as_handled()
+			return
 		if key.keycode == KEY_DOWN or key.keycode == KEY_S:
 			_move_focus(1)
 			get_viewport().set_input_as_handled()
