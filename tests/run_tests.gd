@@ -78,6 +78,7 @@ func _run() -> void:
 	await H.section("test_sm_fx", test_sm_fx)
 	await H.section("test_sm_story", test_sm_story)
 	await H.section("test_set_piece", test_set_piece)
+	await H.section("test_signature_rules", test_signature_rules)
 	await H.section("test_sm_play", test_sm_play)
 	await H.section("test_sm_web", test_sm_web)
 	await H.section("test_sm_boot", test_sm_boot)
@@ -2376,7 +2377,7 @@ func _set_piece_prop(scene: Node, id: String) -> bool:
 		return _duty_units(field, "spectacle").size() >= 2
 	if id == "shattered_monsoon":
 		var count: Label = scene.find_child("CountTimer", true, false) as Label
-		return count != null and count.text == "Count: 0" and _duty_units(field, "spectacle").size() >= 2
+		return count != null and count.text.begins_with("Count:") and _duty_units(field, "spectacle").size() >= 2
 	return false
 
 func test_set_piece() -> void:
@@ -2445,6 +2446,129 @@ func test_set_piece() -> void:
 	plain.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"
+
+func test_signature_rules() -> void:
+	var tachileik_lost: Node = _signature_scene("tachileik")
+	var tachileik_story: SMStory = tachileik_lost.get("story") as SMStory
+	var wagon_lost: RTSUnit = tachileik_story.wagon()
+	wagon_lost.take_damage(wagon_lost.hp + 1.0)
+	tachileik_story.tick(0.2)
+	check(tachileik_story.lost and not tachileik_story.done and tachileik_story.loss == "the caravan is lost", "tachileik fails when the jade wagon dies")
+	tachileik_lost.free()
+	await process_frame
+	var tachileik_won: Node = _signature_scene("tachileik")
+	var tachileik_piece: Node = tachileik_won.get_node("SetPiece")
+	tachileik_piece.call("drive", 6.0)
+	var tachileik_field: SMPointer = tachileik_won.get("field") as SMPointer
+	var tachileik_win: SMStory = tachileik_won.get("story") as SMStory
+	var wagon_won: RTSUnit = tachileik_win.wagon()
+	var escorts: Array[RTSUnit] = _duty_units(tachileik_field, "escort")
+	_meet_story(tachileik_won, "tachileik")
+	await process_frame
+	check(escorts.size() == 1 and escorts[0] == wagon_won and wagon_won.is_alive() and tachileik_win.done and not tachileik_win.lost and tachileik_win.has_caravan(), "tachileik wins when the real wagon reaches the bazaar")
+	tachileik_won.free()
+	await process_frame
+	var shwe: Node = _signature_scene("shwe_kokko")
+	var shwe_story: SMStory = shwe.get("story") as SMStory
+	var shwe_field: SMPointer = shwe.get("field") as SMPointer
+	_kill_duty(shwe_field, "clear")
+	_park(shwe_field, "", shwe_story.pad)
+	shwe_story.tick(8.0)
+	var holder: RTSUnit = _marcher(shwe_field, "")
+	holder.global_position = Vector3(-14.0, 0.0, -8.0)
+	shwe_story.tick(0.5)
+	check(is_equal_approx(shwe_story.hack_left, 20.0) and not shwe_story.done and not shwe_story.lost, "shwe kokko resets the hack when the block is abandoned")
+	_park(shwe_field, "", shwe_story.pad)
+	shwe_story.tick(shwe_story.hack_left)
+	check(shwe_story.done and not shwe_story.lost and shwe_story.hack_left <= 0.0, "shwe kokko wins when the hack is held through")
+	shwe.free()
+	await process_frame
+	var mined: Node = _signature_scene("andaman")
+	var mined_story: SMStory = mined.get("story") as SMStory
+	var mined_field: SMPointer = mined.get("field") as SMPointer
+	var mined_boat: RTSUnit = _kind_unit(mined_field, "channel_skiff")
+	var mined_hp: float = mined_boat.hp
+	mined_boat.global_position = Vector3(0.4, 0.0, 0.0)
+	mined_story.tick(1.0)
+	check(mined_boat.hp < mined_hp - 20.0 and mined_boat.is_alive() and not mined_story.done, "andaman mines damage a ship that sits on the line")
+	mined.free()
+	await process_frame
+	var landed: Node = _signature_scene("andaman")
+	var landed_story: SMStory = landed.get("story") as SMStory
+	var landed_field: SMPointer = landed.get("field") as SMPointer
+	var landed_boat: RTSUnit = _kind_unit(landed_field, "channel_skiff")
+	_kill_duty(landed_field, "clear")
+	landed_boat.global_position = landed_story.far_shore
+	var shore_hp: float = landed_boat.hp
+	landed_story.tick(1.0)
+	check(is_equal_approx(landed_boat.hp, shore_hp) and landed_story.done and not landed_story.lost, "andaman wins when a ship reaches the far shore off the mines")
+	landed.free()
+	await process_frame
+	var sprayed: Node = _signature_scene("keng_tung")
+	var sprayed_piece: Node = sprayed.get_node("SetPiece")
+	sprayed_piece.call("drive", 13.0)
+	var sprayed_story: SMStory = sprayed.get("story") as SMStory
+	var sprayed_field: SMPointer = sprayed.get("field") as SMPointer
+	var sprayer: RTSUnit = _duty_units(sprayed_field, "spray")[0]
+	var blighted: RTSUnit = _marcher(sprayed_field, "")
+	sprayer.global_position = Vector3(6.0, 0.0, 2.0)
+	blighted.global_position = Vector3(6.0, 0.0, 1.0)
+	var blight_before: float = blighted.damage_mult
+	sprayed_story.tick(0.1)
+	check(sprayed_story.spray_landed and sprayed_story.bonus_failed and bool(blighted.get_meta("defoliated", false)) and blighted.damage_mult < blight_before and not sprayed_story.lost and not sprayed_story.done, "keng tung defoliates the area and fails the bonus when the sprayer lands")
+	sprayed.free()
+	await process_frame
+	var intercepted: Node = _signature_scene("keng_tung")
+	var intercepted_piece: Node = intercepted.get_node("SetPiece")
+	intercepted_piece.call("drive", 13.0)
+	var intercepted_story: SMStory = intercepted.get("story") as SMStory
+	var intercepted_field: SMPointer = intercepted.get("field") as SMPointer
+	_kill_duty(intercepted_field, "spray")
+	intercepted_story.tick(0.2)
+	_meet_story(intercepted, "keng_tung")
+	check(not intercepted_story.bonus_failed and not intercepted_story.spray_landed and intercepted_story.done and not intercepted_story.lost, "keng tung wins when the sprayer is intercepted and the column falls")
+	intercepted.free()
+	await process_frame
+	var sunk: Node = _signature_scene("tonle_sap")
+	var sunk_story: SMStory = sunk.get("story") as SMStory
+	var sunk_field: SMPointer = sunk.get("field") as SMPointer
+	sunk_story.tick(1.0)
+	var ferry_lost: RTSUnit = _duty_units(sunk_field, "ferry")[0]
+	ferry_lost.take_damage(ferry_lost.hp + 1.0)
+	sunk_story.tick(sunk_story.hold_left)
+	check(sunk_story.lost and not sunk_story.done and not sunk_story.ferry_across and sunk_story.loss == "the defended target is lost", "tonle sap fails when the ferry dies on the crossing")
+	sunk.free()
+	await process_frame
+	var crossed: Node = _signature_scene("tonle_sap")
+	var crossed_story: SMStory = crossed.get("story") as SMStory
+	var crossed_field: SMPointer = crossed.get("field") as SMPointer
+	crossed_story.tick(crossed_story.hold_left)
+	var ferry_won: RTSUnit = _duty_units(crossed_field, "ferry")[0]
+	check(crossed_story.done and not crossed_story.lost and crossed_story.ferry_across and ferry_won.is_alive(), "tonle sap wins when the ferry survives the crossing")
+	crossed.free()
+	await process_frame
+	var expired: Node = _signature_scene("shattered_monsoon")
+	var expired_story: SMStory = expired.get("story") as SMStory
+	expired_story.tick(expired_story.count_left)
+	check(expired_story.lost and not expired_story.done and expired_story.loss == "the count hit zero", "shattered monsoon fails when the count hits zero")
+	expired.free()
+	await process_frame
+	var dropped: Node = _signature_scene("shattered_monsoon")
+	var dropped_story: SMStory = dropped.get("story") as SMStory
+	var dropped_field: SMPointer = dropped.get("field") as SMPointer
+	var count_before: float = dropped_story.count_left
+	_kill_duty(dropped_field, "super")
+	dropped_story.tick(0.2)
+	check(dropped_story.done and not dropped_story.lost and dropped_story.count_left > 10.0 and dropped_story.count_left <= count_before, "shattered monsoon wins when both weapons fall before zero")
+	dropped.free()
+	await process_frame
+	SMCampaign.selected = "tachileik"
+
+func _signature_scene(id: String) -> Node:
+	SMCampaign.selected = id
+	var scene: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	return scene
 
 func test_lan() -> void:
 	Lan.close()
@@ -2726,7 +2850,11 @@ func _meet_story(scene: Node, id: String) -> void:
 		_park(field, "", Vector3(-6.0, 0.0, 4.0))
 		story.tick(4.0)
 		return
-	if id == "tachileik" or id == "shwe_kokko" or id == "kilometer_watch":
+	if id == "shwe_kokko":
+		_kill_duty(field, "clear")
+		_park(field, "", story.pad)
+		story.tick(story.hack_left)
+	elif id == "tachileik" or id == "kilometer_watch":
 		_kill_duty(field, "clear")
 		_park(field, "", story.pad)
 		story.tick(2.0 if id == "tachileik" else 1.0)

@@ -6,6 +6,11 @@ const REACH: float = 2.4
 signal pad_made(host: Node3D, node_name: String, at: Vector3, size: Vector3, color: Color)
 const HOLD_HAZE: float = 28.0
 const HOLD_TONLE: float = 28.0
+const HACK_NEED: float = 20.0
+const COUNT_NEED: float = 96.0
+const FERRY_PACE: float = 2.2
+const MINE_DPS: float = 36.0
+const MINE_RADIUS: float = 1.4
 
 var mission_id: String = ""
 var ending: String = ""
@@ -34,6 +39,11 @@ var hold_need: float = 0.0
 var hold_left: float = 0.0
 var reinforcements: int = 0
 var server_blocks: int = 1
+var hack_left: float = HACK_NEED
+var count_left: float = COUNT_NEED
+var bonus_failed: bool = false
+var ferry_across: bool = false
+var spray_landed: bool = false
 
 var _ruby: bool = false
 var _cyber: bool = false
@@ -65,9 +75,9 @@ static func ending_of(id: String) -> String:
 	if id == "kokang":
 		return "capture: yard, ruby night shift, and one rare-earth stock, after the recon drones fall"
 	if id == "tachileik":
-		return "destroy: the ambush dies, the caravan reaches the bazaar, then the ruby night shift fills the purse"
+		return "destroy: the ambush dies, the jade wagon reaches the bazaar, then the ruby night shift fills the purse"
 	if id == "shwe_kokko":
-		return "destroy: the garrison dies, then both server blocks are siphoned"
+		return "destroy: the garrison dies, the hack is held on the server blocks, then both blocks are siphoned"
 	if id == "operation_1027":
 		return "destroy: the EW towers fall, then the Su-30 and CH-4 hangars"
 	if id == "andaman":
@@ -89,9 +99,9 @@ static func ending_of(id: String) -> String:
 	if id == "plain_of_jars":
 		return "destroy: the beam freezes the phantom, then the phantom and the battery die"
 	if id == "tonle_sap":
-		return "survive: the ferry holds until the timer runs out"
+		return "survive: the ferry crosses and holds until the timer runs out"
 	if id == "shattered_monsoon":
-		return "destroy: both enemy superweapons are destroyed"
+		return "destroy: both enemy superweapons fall before the count hits zero"
 	return ""
 
 func prepare_foe(hp_scale: float, dmg_scale: float) -> void:
@@ -247,6 +257,7 @@ func bind_mission(p_host: Node3D, id: String, p_field: SMPointer, p_side: SMSide
 		_slab("TonleFerry", Vector3(1.0, 0.8, 5.0), Vector3(2.4, 1.4, 4.2), Color(0.62, 0.48, 0.22))
 	elif id == "shattered_monsoon":
 		_supers = true
+		count_left = COUNT_NEED
 		_mount_protocols(layer)
 		_tag_raider("super", "Ion-Cryo Collider", 360.0, 0.0, 9.0, true)
 		_move_raider(Vector3(12.0, 0.0, 3.0))
@@ -274,9 +285,10 @@ func progress() -> String:
 	if _fleet:
 		return "Sink the joint fleet (%d)." % _left("fleet")
 	if _column:
-		return "Freeze the column (%d/%d), then destroy it (%d left)." % [_column_frozen, _column_need, _left("column")]
+		var blight: String = " The spray defoliated your line." if spray_landed else ""
+		return "Freeze the column (%d/%d), then destroy it (%d left).%s" % [_column_frozen, _column_need, _left("column"), blight]
 	if _supers:
-		return "Destroy both superweapons (%d left)." % _left("super")
+		return "Destroy both superweapons (%d left) before the count (%ds)." % [_left("super"), int(ceil(maxf(count_left, 0.0)))]
 	if _beam:
 		var beam: String = "beam fired" if _beamed else "fire the beam"
 		var frozen: String = "phantom frozen" if _phantom_frozen else "freeze the phantom"
@@ -286,7 +298,7 @@ func progress() -> String:
 	if _cross:
 		if _crossed():
 			return "Clear the shore (%d). A boat is on the far shore." % _left("clear")
-		return "Clear the shore (%d). Land a boat on the far shore." % _left("clear")
+		return "Clear the shore (%d). Land a boat on the far shore. The mine line hurts ships." % _left("clear")
 	if _packer:
 		var level: int = 0
 		if sail != null:
@@ -303,15 +315,16 @@ func progress() -> String:
 			return "Garrison clear. Hydro radar is held."
 		return "Garrison clear. Hold the hydro radar."
 	if _cyber:
+		var hack_note: String = "hack held" if hack_left <= 0.0 else "hold the blocks %ds" % int(ceil(hack_left))
 		if _left("clear") > 0:
 			if _servers():
-				return "Clear the garrison (%d), then siphon both server blocks." % _left("clear")
+				return "Clear the garrison (%d), then %s." % [_left("clear"), hack_note]
 			return "Clear the garrison (%d), then siphon the compound." % _left("clear")
 		var siphon: int = 0
 		if tech != null:
 			siphon = tech.siphon_of(&"compound") + tech.siphon_of(&"compound_b")
 		if _servers():
-			return "Garrison clear. Siphon both server blocks (%d)." % siphon
+			return "Garrison clear. %s. Siphon both server blocks (%d)." % [hack_note, siphon]
 		return "Garrison clear. Siphon the compound (%d)." % siphon
 	if _ruby:
 		var paid: int = 0
@@ -322,6 +335,9 @@ func progress() -> String:
 		var home: String = "caravan in" if _caravan_home() else "walk the caravan"
 		return "Ambush clear. %s. Ruby night shift %d/30." % [home, paid]
 	if _hold:
+		if mission_id == "tonle_sap":
+			var ride: String = "across" if ferry_across else "crossing"
+			return "Keep the ferry alive (%s). %d seconds left." % [ride, _secs()]
 		return "Keep the ferry alive. %d seconds left." % _secs()
 	if ending != "":
 		return ending
@@ -441,6 +457,11 @@ func tick(delta: float) -> bool:
 	_watch()
 	_lock()
 	_hold_tick(delta)
+	_hack_tick(delta)
+	_mine_tick(delta)
+	_spray_tick()
+	_ferry_tick(delta)
+	_count_tick(delta)
 	if not _ready():
 		if not _company_alive():
 			lost = true
@@ -451,6 +472,9 @@ func tick(delta: float) -> bool:
 		elif _caravan != null and not _living(_caravan):
 			lost = true
 			loss = "the caravan is lost"
+		elif _supers and count_left <= 0.0 and not _cleared("super"):
+			lost = true
+			loss = "the count hit zero"
 		return false
 	done = true
 	return true
@@ -512,7 +536,7 @@ func _ready() -> bool:
 	if _ruby and goods != null and raid == null:
 		return goods.night_on(&"ruby") and goods.paid_of(&"ruby") >= 30 and _cleared("clear") and _caravan_home()
 	if _cyber and tech != null:
-		if not _cleared("clear"):
+		if not _cleared("clear") or hack_left > 0.0:
 			return false
 		if _servers():
 			return _servers_open()
@@ -540,9 +564,11 @@ func _ready() -> bool:
 	if _column:
 		return _cleared("column") and _column_need > 0 and _column_frozen >= _column_need
 	if _hold:
+		if mission_id == "tonle_sap":
+			return hold_left <= 0.0 and _living(defend) and ferry_across
 		return hold_left <= 0.0 and _living(defend)
 	if _supers:
-		return _cleared("super")
+		return _cleared("super") and count_left > 0.0
 	return false
 
 func _hold_tick(delta: float) -> void:
@@ -797,6 +823,9 @@ func _note(duty: String) -> void:
 func has_caravan() -> bool:
 	return _living(_caravan)
 
+func wagon() -> RTSUnit:
+	return _caravan
+
 func _servers() -> bool:
 	return server_blocks >= 2
 
@@ -809,6 +838,97 @@ func _caravan_home() -> bool:
 	if _caravan == null:
 		return true
 	return _living(_caravan) and _caravan.global_position.distance_to(pad) <= REACH
+
+func _hack_tick(delta: float) -> void:
+	if not _cyber or delta <= 0.0 or hack_left <= 0.0:
+		return
+	if _holding_block():
+		hack_left = maxf(0.0, hack_left - delta)
+	else:
+		hack_left = HACK_NEED
+
+func _holding_block() -> bool:
+	if field == null:
+		return false
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if not _living(u) or bool(u.get_meta("objective", false)):
+			continue
+		if _near_block(u.global_position):
+			return true
+	return false
+
+func _near_block(at: Vector3) -> bool:
+	if at.distance_to(pad) <= REACH:
+		return true
+	if _servers() and at.distance_to(pad + Vector3(1.2, 0.0, 0.6)) <= REACH:
+		return true
+	return false
+
+func _mine_tick(delta: float) -> void:
+	if mission_id != "andaman" or delta <= 0.0 or field == null:
+		return
+	var hit: float = MINE_DPS * delta
+	for u: RTSUnit in field.units:
+		if not _living(u) or not _ship(u) or not _on_mine(u.global_position):
+			continue
+		u.take_damage(hit)
+
+func _ship(u: RTSUnit) -> bool:
+	var loco: String = str(u.get_meta("locomotion", ""))
+	return loco == "amphibious" or loco == "naval" or loco == "water"
+
+func _on_mine(at: Vector3) -> bool:
+	var reach: float = MINE_RADIUS * MINE_RADIUS
+	for i: int in 5:
+		var mine: Vector3 = Vector3(0.4, 0.0, -8.0 + float(i) * 4.0)
+		var dx: float = at.x - mine.x
+		var dz: float = at.z - mine.z
+		if dx * dx + dz * dz <= reach:
+			return true
+	return false
+
+func _spray_tick() -> void:
+	if not _column or field == null:
+		return
+	var at: Vector3 = Vector3(6.0, 0.0, 2.0)
+	if not spray_landed:
+		var sprayer: RTSUnit = _first_duty("spray")
+		if sprayer != null and sprayer.global_position.distance_to(at) <= REACH:
+			spray_landed = true
+			bonus_failed = true
+	if not spray_landed:
+		return
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if not _living(u) or u.global_position.distance_to(at) > 12.0:
+			continue
+		u.set_meta("defoliated", true)
+		if u.damage_mult > 0.8:
+			u.damage_mult = 0.8
+		if u.speed_scale > 0.82:
+			u.speed_scale = 0.82
+
+func _ferry_tick(delta: float) -> void:
+	if mission_id != "tonle_sap" or delta <= 0.0 or ferry_across or not _living(defend):
+		return
+	var goal: Vector3 = Vector3(-4.0, 0.0, 5.0)
+	var step: Vector3 = goal - defend.global_position
+	step.y = 0.0
+	var dist: float = step.length()
+	if dist <= 0.35:
+		defend.global_position = Vector3(goal.x, defend.global_position.y, goal.z)
+		ferry_across = true
+		return
+	var hop: float = minf(dist, FERRY_PACE * delta)
+	defend.global_position += step / dist * hop
+	var left: Vector3 = goal - defend.global_position
+	left.y = 0.0
+	if left.length() <= 0.35:
+		ferry_across = true
+
+func _count_tick(delta: float) -> void:
+	if not _supers or delta <= 0.0 or count_left <= 0.0 or _cleared("super"):
+		return
+	count_left = maxf(0.0, count_left - delta)
 
 func _tow_caravan(delta: float) -> void:
 	if not _living(_caravan) or _caravan_home() or not _cleared("clear"):

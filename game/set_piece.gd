@@ -1,6 +1,7 @@
 extends Node
 ## Scripted opener for a story mission.
-## Beats are presentation. They do not change the win.
+## Most beats are presentation. The jade wagon, the hack hold, the mine line,
+## the spray run, the ferry crossing, and the superweapon count are rules.
 ## Each mission keeps its own order. At most two of the shared beats
 ## (ambush, bridge, relief, weather) are on a mission, plus the side cache.
 ## A hero line plays from dialogue/<language>/<mission>/<beat>.ogg
@@ -389,10 +390,13 @@ func _fire(beat: String) -> void:
 			_quiet(SMPointer.PLAYER, Vector3(-2.0, 0.0, 6.0), "night", &"slag_hauler")
 			_say(_line(beat), "", beat)
 		"escort":
-			var wagon: RTSUnit = _quiet(SMPointer.PLAYER, Vector3(0.0, 0.0, -1.0), "escort", &"slag_hauler")
+			var wagon: RTSUnit = _wagon()
 			if wagon != null:
-				wagon.speed = 3.5
-				wagon.set_path(PackedVector3Array([Vector3(4.0, 0.0, -2.0)]))
+				wagon.set_meta("duty", "escort")
+				wagon.set_meta("escorted", true)
+				wagon.speed = 4.5
+				if wagon.path.is_empty():
+					wagon.set_path(PackedVector3Array([Vector3(-2.0, 0.0, -6.0)]))
 			_say(_line(beat), "", beat)
 		"drones":
 			_quiet(SMPointer.ENEMY, Vector3(8.0, 0.0, 6.0), "spectacle", &"orlan10")
@@ -483,8 +487,6 @@ func _fire(beat: String) -> void:
 			_say(_line(beat), "", beat)
 		"finale":
 			finale_done = true
-			if _count != null:
-				_count.text = "Count: 0"
 			_say(_line(beat), "", beat)
 		_:
 			_say(_line(beat), "", beat)
@@ -659,8 +661,19 @@ func _haze() -> void:
 		hud.refresh()
 	_say(_line("haze"), "", "haze")
 
+func _wagon() -> RTSUnit:
+	var story: SMStory = _host.get("story") as SMStory
+	if story == null:
+		return null
+	return story.wagon()
+
 func _bonus_check() -> void:
 	if not has_bonus or bonus_done:
+		return
+	var story: SMStory = _host.get("story") as SMStory
+	if story != null and story.bonus_failed:
+		if _bonus != null:
+			_bonus.text = "Bonus failed: the spray landed"
 		return
 	var field: SMPointer = _host.get("field") as SMPointer
 	if field == null:
@@ -753,12 +766,17 @@ func _timer(node_name: String, text: String) -> Label:
 	return label
 
 func _clocks() -> void:
+	var story: SMStory = _host.get("story") as SMStory
 	if _hack != null and hack_end >= 0.0:
-		var hack_left: int = int(ceil(maxf(hack_end - _clock, 0.0)))
-		_hack.text = "Hack: %ds" % hack_left
-	if _count != null and count_end >= 0.0 and not finale_done:
-		var count_left: int = int(ceil(maxf(count_end - _clock, 0.0)))
-		_count.text = "Count: %ds" % count_left
+		var hack_show: float = maxf(hack_end - _clock, 0.0)
+		if story != null and story.mission_id == "shwe_kokko":
+			hack_show = maxf(story.hack_left, 0.0)
+		_hack.text = "Hack: %ds" % int(ceil(hack_show))
+	if _count != null and count_end >= 0.0:
+		var count_show: float = maxf(count_end - _clock, 0.0)
+		if story != null and story.mission_id == "shattered_monsoon":
+			count_show = maxf(story.count_left, 0.0)
+		_count.text = "Count: %ds" % int(ceil(count_show))
 
 func _mines() -> void:
 	var line: Node3D = Node3D.new()
