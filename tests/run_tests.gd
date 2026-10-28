@@ -1030,7 +1030,7 @@ func test_sm_mission() -> void:
 	var before: float = foe.hp
 	var struck: int = int(scene.call("fire_secondary"))
 	check(struck > 0 and foe.hp < before, "F strikes an enemy on the raid")
-	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudCredits") == "Credits 50000" and _hud_text(scene, "HudPower") == "Power 0/0" and _hud_text(scene, "HudMap") == SMCampaign.title_of("kokang") and _hud_text(scene, "HudSelection") == "Nothing selected", "the raid shows faction, credits, power, and the mission name")
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudCredits") == "Credits 50000" and _hud_text(scene, "HudPower") == "⚡ 0/0" and _hud_text(scene, "HudMap") == SMCampaign.title_of("kokang") and _hud_text(scene, "HudSelection") == "Nothing selected", "the raid shows faction, credits, power, and the mission name")
 	var raid_map: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
 	if raid_map != null:
 		raid_map.sample()
@@ -1340,13 +1340,14 @@ func test_sm_hud() -> void:
 	await process_frame
 	check(_hud_text(scene, "HudFaction") == "GTFC", "phillips names the faction")
 	check(_hud_text(scene, "HudCredits") == "Credits 50000", "phillips shows credits")
-	check(_hud_text(scene, "HudPower") == "Power 0/0", "phillips shows army power")
+	check(_hud_text(scene, "HudPower") == "⚡ 0/0", "phillips shows army power")
 	check(_hud_text(scene, "HudMap") == "Phillips Channel", "phillips names the map")
 	check(_hud_text(scene, "HudSelection") == "Nothing selected", "phillips says when nothing is selected")
 	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
 	var trained: Button = scene.find_child("Train_militia", true, false) as Button
 	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
-	check(built != null and trained != null and ability != null and ability.text == "Ability (F)", "phillips can build, train, and use F")
+	var boot_back: Button = scene.find_child("MissionBoot", true, false) as Button
+	check(built != null and trained != null and ability != null and ability.text == "Ability (F)" and boot_back != null and boot_back.text == "Boot menu" and boot_back.visible, "phillips can build, train, use F, and return to the menu")
 	var deck: SMHud = scene.get("hud") as SMHud
 	check(scene.find_child("PowerFill", true, false) != null and scene.find_child("RepairButton", true, false) != null and scene.find_child("SellButton", true, false) != null and scene.find_child("TabInfantry", true, false) != null, "the sidebar shows power, repair, sell, and build tabs")
 	if deck != null:
@@ -1361,6 +1362,9 @@ func test_sm_hud() -> void:
 	check(mm.terrain_kind(Vector2i(2, 8)) == "land" and mm.terrain_kind(Vector2i(18, 12)) == "water" and mm.saw_land and mm.saw_water, "the minimap draws land and water")
 	check(mm.player_dots == field.count_team(0) and mm.player_dots >= 6 and mm.enemy_dots == 0 and field.count_team(1) >= 1, "the minimap shows your units and hides enemies outside sight")
 	check(mm.camera_rect.size.x > 1.0 and mm.covers_focus(), "the minimap draws the camera rectangle")
+	var hint_line: Control = scene.find_child("Status", true, false) as Control
+	var slot_row: Control = scene.find_child("SelectionSlots", true, false) as Control
+	check(hint_line != null and hint_line.offset_top >= 28.0 and hint_line.offset_top <= 48.0 and hint_line.offset_left >= 70.0 and slot_row != null and slot_row.offset_left >= 360.0, "the objective sits under the top bar and the selection strip stays centred")
 	check(_click_east(scene), "clicking the minimap moves the camera")
 	var friends: Array[RTSUnit] = field.units_of(0)
 	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
@@ -1382,7 +1386,7 @@ func test_sm_hud() -> void:
 	check(yard.finished.has(&"scaffold_yard") and yard.style == SMBuildYard.Style.SCAFFOLD and purse.economy.credits(0) == 49980 and scene.get_node_or_null("Built_scaffold_yard") is MeshInstance3D, "a building click raises a scaffold yard")
 	var before: int = field.count_team(0)
 	trained.pressed.emit()
-	check(field.count_team(0) == before + 1 and purse.economy.credits(0) == 49900 and _hud_text(scene, "HudPower") == "Power 0/0", "a unit click trains it and spends credits")
+	check(field.count_team(0) == before + 1 and purse.economy.credits(0) == 49900 and _hud_text(scene, "HudPower") == "⚡ 0/0", "a unit click trains it and spends credits")
 	var cancel: Button = scene.find_child("CancelQueue", true, false) as Button
 	check(yard.begin_scaffold(&"salween_hydro", yard.center, 200.0), "a second scaffold can start")
 	yard.advance(1.0)
@@ -1394,10 +1398,10 @@ func test_sm_hud() -> void:
 	var blocked_n: int = field.count_team(0)
 	var blocked_c: int = purse.economy.credits(0)
 	trained.pressed.emit()
-	check(field.count_team(0) == blocked_n and purse.economy.credits(0) == blocked_c and _hud_text(scene, "HudPower") == "Power 0/30" and _hud_text(scene, "HudBuild") == "low power", "low power stops production")
+	check(field.count_team(0) == blocked_n and purse.economy.credits(0) == blocked_c and _hud_text(scene, "HudPower") == "⚡ 0/30" and _hud_text(scene, "HudBuild") == "low power", "low power stops production")
 	yard.finished.append(&"salween_hydro")
 	trained.pressed.emit()
-	check(field.count_team(0) == blocked_n + 1 and purse.economy.credits(0) == blocked_c - 80 and _hud_text(scene, "HudPower") == "Power 100/30", "a plant restores production")
+	check(field.count_team(0) == blocked_n + 1 and purse.economy.credits(0) == blocked_c - 80 and _hud_text(scene, "HudPower") == "⚡ 100/30", "a plant restores production")
 	scene.free()
 	await _hud_map("res://game/sop_ruak.tscn", "Sop Ruak")
 	await _hud_map("res://game/burma_road.tscn", "Burma Road")
@@ -1467,7 +1471,7 @@ func _campaign_hud(scene: Node, id: String) -> bool:
 		return false
 	if _hud_text(scene, "HudFaction") != "GTFC" or _hud_text(scene, "HudCredits") != "Credits 50000":
 		return false
-	if not _hud_text(scene, "HudPower").begins_with("Power ") or _hud_text(scene, "HudMap") != SMCampaign.title_of(id):
+	if not _hud_text(scene, "HudPower").begins_with("⚡ ") or _hud_text(scene, "HudMap") != SMCampaign.title_of(id):
 		return false
 	if _hud_text(scene, "HudSelection") != "Nothing selected":
 		return false
@@ -1495,7 +1499,7 @@ func _hud_map(path: String, map_name: String) -> void:
 	if mm != null:
 		mm.sample()
 	var terrain_ok: bool = mm != null and mm.saw_land and (map_name == "Burma Road" or mm.saw_water)
-	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudPower").begins_with("Power ") and _hud_text(scene, "HudSelection") == "Nothing selected" and scene.find_child("CompanyList", true, false) == null and terrain_ok and mm.covers_focus(), "%s shows faction, power, an empty selection, and the minimap" % map_name)
+	check(_hud_text(scene, "HudFaction") == "GTFC" and _hud_text(scene, "HudPower").begins_with("⚡ ") and _hud_text(scene, "HudSelection") == "Nothing selected" and scene.find_child("CompanyList", true, false) == null and terrain_ok and mm.covers_focus(), "%s shows faction, power, an empty selection, and the minimap" % map_name)
 	scene.free()
 	await process_frame
 
@@ -2175,8 +2179,8 @@ func test_sm_protocols() -> void:
 	var bar: Node = scene.find_child("Protocols", true, false)
 	check(bar != null, "phillips shows the protocol panel")
 	var toggle_protocols: Button = scene.find_child("ProtocolsToggle", true, false) as Button
-	check(bar != null and bar.visible, "the protocol grid starts open")
-	check(toggle_protocols != null and bar != null and toggle_protocols.text == "Protocols (P)" and not bar.is_ancestor_of(toggle_protocols), "Protocols is a button beside the grid")
+	check(bar != null and not bar.visible, "the protocol grid starts folded")
+	check(toggle_protocols != null and bar != null and toggle_protocols.text == "⚡" and not bar.is_ancestor_of(toggle_protocols), "Protocols is a button beside the grid")
 	var touch_node: Node = root.get_node_or_null("SMTouch")
 	var poke: InputEventKey = InputEventKey.new()
 	poke.pressed = true
@@ -2184,7 +2188,7 @@ func test_sm_protocols() -> void:
 	poke.physical_keycode = KEY_P
 	if touch_node != null:
 		touch_node._unhandled_input(poke)
-	check(bar != null and not bar.visible, "P folds the protocol grid")
+	check(bar != null and bar.visible, "P opens the protocol grid")
 	for id: StringName in ids:
 		var button: Button = scene.find_child("Proto_%s" % str(id), true, false) as Button
 		check(button != null and button.text == book.display_name(id), "phillips lists %s" % book.display_name(id))
@@ -2380,6 +2384,20 @@ func _set_piece_prop(scene: Node, id: String) -> bool:
 		return count != null and count.text.begins_with("Count:") and _duty_units(field, "spectacle").size() >= 2
 	return false
 
+func _remove_tree(path: String) -> void:
+	if path == "" or not DirAccess.dir_exists_absolute(path):
+		return
+	var dir: DirAccess = DirAccess.open(path)
+	if dir == null:
+		return
+	for name: String in dir.get_files():
+		DirAccess.remove_absolute(path.path_join(name))
+	for name: String in dir.get_directories():
+		_remove_tree(path.path_join(name))
+	var parent: DirAccess = DirAccess.open(path.get_base_dir())
+	if parent != null:
+		parent.remove(path.get_file())
+
 func test_set_piece() -> void:
 	var orders: PackedStringArray = PackedStringArray()
 	for id: String in ["kokang", "tachileik", "shwe_kokko", "operation_1027", "andaman", "ghosts_of_patani", "kilometer_watch", "black_haze", "archipelago_rising", "wrath_of_the_garuda", "fog_over_pakbeng", "keng_tung", "plain_of_jars", "tonle_sap", "shattered_monsoon"]:
@@ -2428,21 +2446,78 @@ func test_set_piece() -> void:
 	root.add_child(plain)
 	await process_frame
 	check(plain.get_node_or_null("SetPiece") == null, "drill missions keep the short briefing")
-	var quiet: bool = not (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
-	var clip_root: String = ProjectSettings.globalize_path("res://").path_join("build/web/audio/dialogue/en/tachileik")
-	DirAccess.make_dir_recursive_absolute(clip_root)
-	var clip_path: String = clip_root.path_join("open.ogg")
-	var sting: String = ProjectSettings.globalize_path("res://").path_join("build/web/audio/music/victory_sting.ogg")
-	var wrote: bool = false
-	if FileAccess.file_exists(sting):
-		wrote = DirAccess.copy_absolute(sting, clip_path) == OK
-	Settings.set_voice("malay")
-	var other_tongue: bool = not (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
+	var audio_root: String = ProjectSettings.globalize_path("res://").path_join("build/web/audio")
+	var dialogue_dir: String = audio_root.path_join("dialogue")
+	var stash: String = audio_root.path_join("_dialogue_hold")
+	if DirAccess.dir_exists_absolute(stash) and not DirAccess.dir_exists_absolute(dialogue_dir):
+		DirAccess.rename_absolute(stash, dialogue_dir)
+	if DirAccess.dir_exists_absolute(stash):
+		_remove_tree(stash)
+	var held: bool = false
+	if DirAccess.dir_exists_absolute(dialogue_dir):
+		held = DirAccess.rename_absolute(dialogue_dir, stash) == OK
 	Settings.set_voice("english")
-	var heard: bool = (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
-	if FileAccess.file_exists(clip_path):
-		DirAccess.remove_absolute(clip_path)
-	check(quiet and wrote and other_tongue and heard and plain.get_node_or_null("Dialogue") != null, "dialogue plays in the selected language and stays a subtitle otherwise")
+	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
+	var quiet: bool = not clips.call("dialogue", plain, "tachileik", "open")
+	var sting: String = audio_root.path_join("music/victory_sting.ogg")
+	var wrote: bool = false
+	if not DirAccess.dir_exists_absolute(dialogue_dir) and FileAccess.file_exists(sting):
+		DirAccess.make_dir_recursive_absolute(dialogue_dir.path_join("en/tachileik"))
+		DirAccess.make_dir_recursive_absolute(dialogue_dir.path_join("my/tachileik"))
+		DirAccess.make_dir_recursive_absolute(dialogue_dir.path_join("th/andaman"))
+		var copied: bool = DirAccess.copy_absolute(sting, dialogue_dir.path_join("en/tachileik/open.ogg")) == OK
+		copied = copied and DirAccess.copy_absolute(sting, dialogue_dir.path_join("en/tachileik/escort.ogg")) == OK
+		copied = copied and DirAccess.copy_absolute(sting, dialogue_dir.path_join("my/tachileik/open.ogg")) == OK
+		copied = copied and DirAccess.copy_absolute(sting, dialogue_dir.path_join("th/andaman/open.ogg")) == OK
+		var manifest: Dictionary = {
+			"clips": {
+				"en": {
+					"tachileik": {
+						"open": {"file": "dialogue/en/tachileik/open.ogg", "accent_fail": true},
+						"escort": {"file": "dialogue/en/tachileik/escort.ogg", "status": "removed"},
+					},
+					"andaman": {
+						"open": {"file": "dialogue/en/andaman/open.ogg", "accent_fail": true},
+					},
+				},
+				"my": {
+					"tachileik": {
+						"open": {"file": "dialogue/my/tachileik/open.ogg", "accent_fail": false},
+					},
+				},
+				"ms": {
+					"tachileik": {
+						"open": {"file": "dialogue/ms/tachileik/open.ogg", "accent_fail": true},
+					},
+				},
+				"th": {
+					"andaman": {
+						"open": {"file": "dialogue/th/andaman/open.ogg", "accent_fail": false},
+					},
+				},
+			},
+		}
+		var handle: FileAccess = FileAccess.open(dialogue_dir.path_join("manifest.json"), FileAccess.WRITE)
+		if handle != null:
+			handle.store_string(JSON.stringify(manifest))
+			handle.close()
+			wrote = copied
+	Settings.set_voice("malay")
+	var other_tongue: bool = not clips.call("dialogue", plain, "tachileik", "open")
+	Settings.set_voice("english")
+	var removed: bool = not clips.call("dialogue", plain, "tachileik", "escort")
+	var heard: bool = clips.call("dialogue", plain, "tachileik", "open")
+	var player: Node = plain.get_node_or_null("Dialogue")
+	var played_my: bool = player != null and str(player.get_meta("clip", "")) == "dialogue/my/tachileik/open.ogg"
+	var andaman: bool = clips.call("dialogue", plain, "andaman", "open")
+	var played_th: bool = player != null and str(player.get_meta("clip", "")) == "dialogue/th/andaman/open.ogg"
+	var silent: bool = not clips.call("dialogue", plain, "kokang", "open")
+	if wrote:
+		_remove_tree(dialogue_dir)
+	if held and DirAccess.dir_exists_absolute(stash) and not DirAccess.dir_exists_absolute(dialogue_dir):
+		DirAccess.rename_absolute(stash, dialogue_dir)
+	Settings.set_voice("english")
+	check(quiet and wrote and other_tongue and removed and heard and played_my and andaman and played_th and silent and player != null, "dialogue skips a failed take, falls back by region, and stays a subtitle otherwise")
 	plain.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"
@@ -3320,15 +3395,20 @@ func test_sm_guide() -> void:
 	var overlay: Control = scene.find_child("HowToOverlay", true, false) as Control
 	var body: Label = scene.find_child("HowToBody", true, false) as Label
 	check(controls != null and controls.visible and controls.text == hint, "a match shows the controls hint")
-	check(overlay != null and overlay.visible and body != null and body.text == howto, "a match opens the how-to overlay")
+	check(overlay != null and not overlay.visible and body != null and body.text == howto, "a match keeps the how-to closed until asked")
+	if overlay != null:
+		overlay.visible = true
+	await process_frame
 	var close: Button = scene.find_child("HowToClose", true, false) as Button
 	var overlay_box: Rect2 = overlay.get_global_rect().grow(2.0) if overlay != null else Rect2()
 	var close_box: Rect2 = close.get_global_rect() if close != null else Rect2()
 	check(overlay != null and controls != null and overlay.is_ancestor_of(controls) and close != null and close_box.size.y > 0.0 and overlay_box.encloses(close_box), "the controls line sits inside the how-to panel")
+	if overlay != null:
+		overlay.visible = false
 	var short_line: Label = scene.find_child("MatchHint", true, false) as Label
 	check(short_line != null and overlay != null and short_line.visible and not overlay.is_ancestor_of(short_line) and short_line.text.length() <= 32 and not short_line.text.contains("Shift"), "one short line stays on screen")
 	var column: Control = scene.find_child("CommandColumn", true, false) as Control
-	check(column != null and column.size.x <= 180.0 and column.size.x >= 120.0, "the build column stays narrow")
+	check(column != null and column.size.x <= 280.0 and column.size.x >= 220.0, "the build column fits the cameos")
 	var roster_scroll: ScrollContainer = column as ScrollContainer
 	var roster_row: Button = scene.find_child("Train_militia", true, false) as Button
 	var roster_at: int = roster_scroll.scroll_vertical if roster_scroll != null else 0
@@ -3354,7 +3434,7 @@ func test_sm_guide() -> void:
 	var board: SMHud = scene.get("hud") as SMHud
 	check(income != null and income.text == "" and not income.visible, "an empty income readout leaves room for the map name")
 	check(map_label != null and map_label.size_flags_stretch_ratio >= 2.0, "the map name gets more of the top bar")
-	check(mm != null and mm.size.x <= 168.0 and mm.size.y <= 120.0, "the minimap stays clear of the briefing")
+	check(mm != null and mm.size.x >= 200.0 and mm.size.x <= 248.0 and mm.size.y >= 200.0 and mm.size.y <= 248.0, "the minimap fills the sidebar")
 	check(board != null and not board.guide_blocks(), "the how-to does not freeze a desktop sim")
 	check(board != null and not board.column_hovered(), "the build column leaves the camera wheel alone until the pointer is over it")
 	var buildings: Label = scene.find_child("GroupBuildings", true, false) as Label
@@ -3394,12 +3474,12 @@ func test_sm_guide() -> void:
 	check(overlay != null and overlay.visible, "How to play shows the overlay again")
 	var train: Button = scene.find_child("Train_militia", true, false) as Button
 	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
-	check(train != null and train.tooltip_text.contains("Slag Molotov"), "the train button tooltip names the F ability")
+	check(train != null and str(train.get_meta("tip", "")).contains("Slag Molotov") and train.tooltip_text == "", "the train button tooltip names the F ability")
 	var tap_toggle: Button = scene.find_child("ProtocolsToggle", true, false) as Button
-	check(train != null and train.custom_minimum_size.y >= 40.0 and help != null and help.custom_minimum_size.y >= 44.0 and close != null and close.custom_minimum_size.y >= 44.0 and tap_toggle != null and tap_toggle.custom_minimum_size.y >= 44.0, "match buttons stay large enough to tap")
-	check(ability != null and ability.tooltip_text.contains("closest ready unit"), "the ability button tooltip explains F")
+	check(train != null and train.custom_minimum_size.y >= 72.0 and help != null and help.custom_minimum_size.y >= 44.0 and close != null and close.custom_minimum_size.y >= 44.0 and tap_toggle != null and tap_toggle.custom_minimum_size.y >= 44.0, "match buttons stay large enough to tap")
+	check(ability != null and str(ability.get_meta("tip", "")).contains("closest ready unit") and ability.tooltip_text == "", "the ability button tooltip explains F")
 	var proto: Button = scene.find_child("Proto_cash_bounty", true, false) as Button
-	check(proto != null and proto.tooltip_text.contains("Cash Bounty") and proto.tooltip_text.contains("250"), "a protocol button tooltip names the power and its effect")
+	check(proto != null and str(proto.get_meta("tip", "")).contains("Cash Bounty") and str(proto.get_meta("tip", "")).contains("250") and proto.tooltip_text == "", "a protocol button tooltip names the power and its effect")
 	var cue: AudioStreamPlayer = scene.find_child("CuePlayer", true, false) as AudioStreamPlayer
 	train.pressed.emit()
 	var card: PanelContainer = scene.find_child("UnitCard", true, false) as PanelContainer
@@ -3423,7 +3503,9 @@ func test_sm_guide() -> void:
 	check(tip_cameo != null and tip_cameo.visible and tip_cameo.texture != null, "the hover tip shows the unit cameo")
 	var cameo_field: SMPointer = scene.get("field") as SMPointer
 	if cameo_field != null:
-		cameo_field.select_kind(&"militia")
+		var solo_unit: RTSUnit = _unit_kind(cameo_field, 0, "militia")
+		if solo_unit != null:
+			cameo_field.select_only([solo_unit])
 	if board != null:
 		board.refresh()
 	var card_cameo: TextureRect = scene.find_child("CardCameo", true, false) as TextureRect
@@ -3459,6 +3541,35 @@ func test_sm_guide() -> void:
 	var card_box: Rect2 = card_fit.get_global_rect() if card_fit != null else Rect2()
 	var proto_box: Rect2 = protocols_fit.get_global_rect() if protocols_fit != null else Rect2()
 	check(root.size == Vector2i(1024, 576) and column_box.size.x > 40.0 and toggle_box.size.y > 20.0 and guide_box.size.x > 40.0 and card_box.size.x > 40.0 and proto_box.size.y > 40.0 and window_box.encloses(column_box) and window_box.encloses(toggle_box) and window_box.encloses(guide_box) and window_box.encloses(card_box) and window_box.encloses(proto_box), "the match HUD fits a 1024 by 576 window")
+	root.size = Vector2i(844, 390)
+	if protocols_fit != null:
+		protocols_fit.visible = false
+	if overlay != null:
+		overlay.visible = false
+	var card_show: Control = scene.find_child("UnitCard", true, false) as Control
+	var card_was: bool = card_show.visible if card_show != null else false
+	if card_show != null:
+		card_show.visible = true
+	await process_frame
+	await process_frame
+	var hud_names: PackedStringArray = PackedStringArray(["CommandColumn", "ProtocolsToggle", "UnitCard", "ObjectiveShade", "TopBar", "SuperDock", "MatchStrip", "ToastLane", "MissionBoot"])
+	var boxes: Array[Rect2] = []
+	var overlap: bool = false
+	for hud_name: String in hud_names:
+		var hud_node: Control = scene.find_child(hud_name, true, false) as Control
+		if hud_node == null or not hud_node.is_visible_in_tree():
+			continue
+		var hud_box: Rect2 = hud_node.get_global_rect()
+		if hud_box.size.x < 8.0 or hud_box.size.y < 8.0:
+			continue
+		for prior: Rect2 in boxes:
+			var hit: Rect2 = prior.intersection(hud_box)
+			if hit.size.x > 1.0 and hit.size.y > 1.0:
+				overlap = true
+		boxes.append(hud_box)
+	check(not overlap and boxes.size() >= 4, "phone landscape keeps the match panels apart")
+	if card_show != null:
+		card_show.visible = card_was
 	root.size = saved_size
 	await process_frame
 	scene.free()
@@ -4332,7 +4443,7 @@ func _bar_ok(boot: Node) -> bool:
 	if bar == null or not bar.is_visible_in_tree():
 		return false
 	var text: String = bar.text
-	return text.contains("Left click selects") and text.contains("Right click moves or attacks") and text.contains("F ability") and text.contains("Edge pan") and text.contains("Wheel zoom")
+	return text.contains("Esc") and text.contains("Back") and text.contains("Enter") and text.contains("Select") and not text.contains("Left click")
 
 func _play_map(path: String, mesh_a: String, mesh_b: String, from_cell: Vector2i, to_cell: Vector2i, move_cell: Vector2i) -> void:
 	var scene: Node = (load(path) as PackedScene).instantiate()
@@ -4584,7 +4695,17 @@ func test_sm_settings() -> void:
 	gear.pressed.emit()
 	var menu_panel: Control = boot.find_child("SettingsPanel", true, false) as Control
 	var voice_row: Button = boot.find_child("VoiceValue", true, false) as Button
-	check(menu_panel != null and menu_panel.visible, "the menu settings button opens the panel")
+	var covered_title: Label = boot.find_child("GameTitle", true, false) as Label
+	var dimmer: ColorRect = boot.find_child("SettingsDimmer", true, false) as ColorRect
+	var opened: bool = menu_panel != null and menu_panel.visible and covered_title != null and not covered_title.visible and dimmer != null and dimmer.color.a > 0.9
+	gear.pressed.emit()
+	check(opened and menu_panel != null and not menu_panel.visible and covered_title.visible and gear.visible, "the menu settings button opens the panel")
+	gear.pressed.emit()
+	var esc: InputEventKey = InputEventKey.new()
+	esc.pressed = true
+	esc.keycode = KEY_ESCAPE
+	menu_panel._unhandled_input(esc)
+	check(not menu_panel.visible and covered_title.visible, "escape closes settings and brings the menu back")
 	check(voice_row != null and voice_row.text == "English", "settings lists the voice language")
 	boot.free()
 	await process_frame

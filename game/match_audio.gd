@@ -33,6 +33,7 @@ static var _cash_at: int = 0
 static var _cash_seen: int = -1
 static var _hp_seen: Dictionary = {}
 static var _web_open: bool = false
+static var _heard: bool = false
 static var _held: Array[AudioStreamPlayer] = []
 static var _queue: PackedStringArray = PackedStringArray()
 static var _at: int = 0
@@ -44,6 +45,11 @@ static var _bark_index: Dictionary = {}
 static var _line_index: Dictionary = {}
 static var _dialogue_index: Dictionary = {}
 static var _dialogue_state: Dictionary = {}
+static var _dialogue_ok: Dictionary = {}
+static var _dialogue_known: bool = false
+static var _dialogue_loading: bool = false
+static var _dialogue_gave_up: bool = false
+static var _dialogue_stamp: String = ""
 static var _index_state: Dictionary = {}
 static var _blocked: Dictionary = {}
 static var _unit_faction: Dictionary = {}
@@ -127,31 +133,52 @@ static func alert_key(text: String) -> String:
 static func announce_line(host: Node, faction: String, text: String) -> void:
 	announce_key(host, faction, alert_key(text))
 
-## Hero dialogue for one mission beat. The selected language only.
-## dialogue/<lang>/<mission>/<beat>.ogg plays when that file is present.
-## A missing clip leaves the subtitle on screen and plays nothing.
+## Hero dialogue for one mission beat.
+## dialogue/<lang>/<mission>/<beat>.ogg plays when the take passes.
+## A clip with accent_fail, or status removed, is never played.
+## English tries en, then the mission region: Act I Burmese, Andaman Thai,
+## Act II Malay, Act III Mandarin. Another language tries itself, then English.
+## The page fetches only those languages. A missing take leaves the subtitle.
 static func dialogue(host: Node, mission_id: String, beat: String) -> bool:
 	if host == null or not _clip_name(mission_id) or not _clip_name(beat):
 		return false
-	var lang: String = _lang()
-	if lang != "en" and lang != "my" and lang != "zh" and lang != "th" and lang != "ms":
-		return false
-	var rel: String = "dialogue/%s/%s/%s.ogg" % [lang, mission_id, beat]
-	if bool(_blocked.get(rel, false)) or not _accepted(rel):
-		return false
-	var listed: bool = false
-	if OS.has_feature("web"):
+	_ensure_dialogue()
+	var order: PackedStringArray = _dialogue_order(mission_id)
+	for lang: String in order:
 		_pull_dialogue(lang)
-		var names: PackedStringArray = _dialogue_index.get(lang, PackedStringArray())
-		listed = names.has("%s/%s.ogg" % [mission_id, beat])
-	if not _ready(rel) and not listed:
+	if not _dialogue_known:
 		return false
-	_buses()
-	var player: AudioStreamPlayer = _ensure(host, "Dialogue")
-	player.bus = "Radio"
-	player.volume_db = -2.0
-	_assign(player, rel, false)
-	return player.stream != null or bool(player.get_meta("fetching", false))
+	for lang: String in order:
+		var rel: String = "dialogue/%s/%s/%s.ogg" % [lang, mission_id, beat]
+		if not _accepted(rel) or bool(_blocked.get(rel, false)) or not bool(_dialogue_ok.get(rel, false)):
+			continue
+		if OS.has_feature("web") and not _ready(rel):
+			var names: PackedStringArray = _dialogue_index.get(lang, PackedStringArray())
+			if not names.has("%s/%s.ogg" % [mission_id, beat]):
+				continue
+		elif not _ready(rel):
+			continue
+		_buses()
+		var player: AudioStreamPlayer = _ensure(host, "Dialogue")
+		player.bus = "Radio"
+		player.volume_db = -2.0
+		_assign(player, rel, false)
+		if player.stream != null or bool(player.get_meta("fetching", false)):
+			player.set_meta("clip", rel)
+			return true
+	return false
+
+## True once the manifest is in, or the page gave up, and the fetched
+## language indexes have arrived. Callers retry until this is true.
+static func dialogue_settled(mission_id: String) -> bool:
+	if not _dialogue_known:
+		return _dialogue_gave_up
+	if not OS.has_feature("web"):
+		return true
+	for lang: String in _dialogue_order(mission_id):
+		if str(_dialogue_state.get(lang, "")) != "ready":
+			return false
+	return true
 
 static func _clip_name(id: String) -> bool:
 	if id == "" or id.length() > 40:
@@ -164,13 +191,169 @@ static func _clip_name(id: String) -> bool:
 	return true
 
 static func _pull_dialogue(lang: String) -> void:
-	if _dialogue_state.has(lang):
+	if lang == "" or _dialogue_state.has(lang):
 		return
-	if not OS.has_feature("web") or _owner == null or not is_instance_valid(_owner):
+	if not OS.has_feature("web"):
 		_dialogue_state[lang] = "ready"
+		return
+	if _owner == null or not is_instance_valid(_owner):
 		return
 	_dialogue_state[lang] = "loading"
 	_fetch_index(lang, "dialogue/%s/index.txt" % lang, "dialogue")
+
+static func _region_of(mission_id: String) -> String:
+	if mission_id == "andaman":
+		return "th"
+	if mission_id == "kokang" or mission_id == "tachileik" or mission_id == "shwe_kokko" or mission_id == "operation_1027":
+		return "my"
+	if mission_id == "ghosts_of_patani" or mission_id == "kilometer_watch" or mission_id == "black_haze" or mission_id == "archipelago_rising" or mission_id == "wrath_of_the_garuda":
+		return "ms"
+	if mission_id == "fog_over_pakbeng" or mission_id == "keng_tung" or mission_id == "plain_of_jars" or mission_id == "tonle_sap" or mission_id == "shattered_monsoon":
+		return "zh"
+	return ""
+
+static func _dialogue_order(mission_id: String) -> PackedStringArray:
+	var lang: String = _lang()
+	var order: PackedStringArray = PackedStringArray()
+	if lang != "en" and lang != "my" and lang != "zh" and lang != "th" and lang != "ms":
+		lang = "en"
+	if lang != "en":
+		order.append(lang)
+		order.append("en")
+		return order
+	order.append("en")
+	var region: String = _region_of(mission_id)
+	if region != "":
+		order.append(region)
+	return order
+
+static func _ensure_dialogue() -> void:
+	var stamp: String = _dialogue_stamp_now()
+	if stamp != _dialogue_stamp:
+		_dialogue_stamp = stamp
+		_dialogue_known = false
+		_dialogue_gave_up = false
+		_dialogue_loading = false
+		_clear_dialogue_marks()
+		if stamp != "":
+			var text: String = _read_text("dialogue/manifest.json")
+			if text != "" and _ingest_dialogue_text(text):
+				_dialogue_known = true
+				return
+			if not OS.has_feature("web"):
+				_dialogue_gave_up = true
+				return
+	if _dialogue_known or _dialogue_loading or _dialogue_gave_up:
+		return
+	if not OS.has_feature("web") or _owner == null or not is_instance_valid(_owner):
+		if not OS.has_feature("web"):
+			_dialogue_gave_up = true
+		return
+	_dialogue_loading = true
+	_fetch_dialogue_manifest()
+
+static func _dialogue_stamp_now() -> String:
+	var packed: String = "res://audio/dialogue/manifest.json"
+	if FileAccess.file_exists(packed):
+		return _file_stamp(packed)
+	for root: String in _roots():
+		var path: String = root.path_join("dialogue/manifest.json")
+		if FileAccess.file_exists(path):
+			return _file_stamp(path)
+	return ""
+
+static func _file_stamp(path: String) -> String:
+	var handle: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if handle == null:
+		return ""
+	var size: int = handle.get_length()
+	handle.close()
+	return "%s:%d:%d" % [path, FileAccess.get_modified_time(path), size]
+
+static func _fetch_dialogue_manifest() -> void:
+	var http: HTTPRequest = HTTPRequest.new()
+	http.timeout = 30.0
+	http.accept_gzip = false
+	http.name = "DialogueManifest"
+	_owner.add_child(http)
+	http.request_completed.connect(_got_dialogue_manifest.bind(http))
+	var err: Error = http.request(_page_base() + "audio/dialogue/manifest.json")
+	if err != OK:
+		http.queue_free()
+		_dialogue_loading = false
+		_dialogue_gave_up = true
+
+static func _got_dialogue_manifest(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest) -> void:
+	if is_instance_valid(http):
+		http.queue_free()
+	_dialogue_loading = false
+	if result == HTTPRequest.RESULT_SUCCESS and code == 200:
+		_clear_dialogue_marks()
+		if _ingest_dialogue_text(body.get_string_from_utf8()):
+			_dialogue_known = true
+			_dialogue_gave_up = false
+			return
+	_dialogue_gave_up = true
+
+static func _ingest_dialogue_text(text: String) -> bool:
+	var parsed: Variant = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return false
+	var data: Dictionary = parsed as Dictionary
+	var clips: Variant = data.get("clips", {})
+	if typeof(clips) != TYPE_DICTIONARY:
+		return false
+	var clip_map: Dictionary = clips as Dictionary
+	for lang_key: Variant in clip_map.keys():
+		var missions: Variant = clip_map[lang_key]
+		if typeof(missions) != TYPE_DICTIONARY:
+			continue
+		var mission_map: Dictionary = missions as Dictionary
+		for mission_key: Variant in mission_map.keys():
+			var beats: Variant = mission_map[mission_key]
+			if typeof(beats) != TYPE_DICTIONARY:
+				continue
+			var beat_map: Dictionary = beats as Dictionary
+			for beat_key: Variant in beat_map.keys():
+				_consider_dialogue(beat_map[beat_key])
+	return true
+
+static func _consider_dialogue(take: Variant) -> void:
+	if typeof(take) != TYPE_DICTIONARY:
+		return
+	var body: Dictionary = take as Dictionary
+	var file: String = str(body.get("file", ""))
+	if file == "" or file == "<null>" or not file.begins_with("dialogue/"):
+		return
+	_mark_dialogue(file, body)
+
+static func _mark_dialogue(rel: String, take: Dictionary) -> void:
+	if not _accepted(rel):
+		_blocked[rel] = true
+		_dialogue_ok.erase(rel)
+		return
+	var failed: bool = take.get("accent_fail", false) == true
+	var status: String = str(take.get("status", ""))
+	if status == "<null>":
+		status = ""
+	if failed or status == "removed":
+		_blocked[rel] = true
+		_dialogue_ok.erase(rel)
+		return
+	_blocked.erase(rel)
+	_dialogue_ok[rel] = true
+
+static func _clear_dialogue_marks() -> void:
+	var drop: PackedStringArray = PackedStringArray()
+	for key: Variant in _dialogue_ok.keys():
+		drop.append(str(key))
+	for key: Variant in _blocked.keys():
+		var rel: String = str(key)
+		if rel.begins_with("dialogue/") and not drop.has(rel):
+			drop.append(rel)
+	for rel: String in drop:
+		_dialogue_ok.erase(rel)
+		_blocked.erase(rel)
 
 static func announce_key(host: Node, faction: String, key: String) -> void:
 	if host == null or key == "":
@@ -737,6 +920,23 @@ static func unlock() -> void:
 	if OS.has_feature("web"):
 		var state: String = str(JavaScriptBridge.eval("window.__aseanUnlockAudio ? window.__aseanUnlockAudio() : 'missing'", true))
 		print("audio context state: ", state)
+	_release_held()
+
+static func pump() -> void:
+	if not OS.has_feature("web") or not _web_open:
+		return
+	if not _heard:
+		var state: String = str(JavaScriptBridge.eval("window.__aseanAudioQuiet ? window.__aseanAudioQuiet() : 'none'", true))
+		if state != "running":
+			JavaScriptBridge.eval("window.__aseanUnlockAudio && window.__aseanUnlockAudio()", true)
+			return
+		_heard = true
+		Settings.apply_audio()
+	_release_held()
+
+static func _release_held() -> void:
+	if not _audible():
+		return
 	var pending: Array[AudioStreamPlayer] = []
 	for held: AudioStreamPlayer in _held:
 		pending.append(held)
@@ -899,7 +1099,9 @@ static func _arm_player(player: AudioStreamPlayer, stream: AudioStream, loop: bo
 		_held.append(player)
 
 static func _audible() -> bool:
-	return (not OS.has_feature("web")) or _web_open
+	if not OS.has_feature("web"):
+		return true
+	return _web_open and _heard
 
 static func _start(player: AudioStreamPlayer) -> void:
 	if player == null or player.stream == null or player.playing:

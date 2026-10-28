@@ -108,7 +108,7 @@ func _hint(id: StringName) -> String:
 	if id == &"grinder_treads":
 		return "Speeds the company up. One cast."
 	if id == &"mogok_night_shift":
-		return "Starts the ruby night shift. One cast."
+		return "Mines rubies. One cast."
 	if id == &"thai_border_mass_print":
 		return "Prints a batch of units. One cast."
 	if id == &"robotic_assembly":
@@ -203,11 +203,12 @@ func cool(delta: float) -> void:
 func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: SMAbilities, say: Callable) -> ScrollContainer:
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "Protocols"
-	scroll.visible = true
+	scroll.visible = false
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = true
 	scroll.z_index = 8
-	_dock(scroll, 8.0, -200.0, 360.0, -52.0, 0.0, 1.0, 0.0, 1.0)
+	scroll.custom_minimum_size = Vector2(320, 120)
+	_dock(scroll, 72.0, 100.0, 432.0, 340.0, 0.0, 0.0, 0.0, 0.0)
 	var grid: GridContainer = GridContainer.new()
 	grid.columns = 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -223,7 +224,8 @@ func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: 
 		b.custom_minimum_size = Vector2(148, 52)
 		b.add_theme_font_size_override("font_size", 12)
 		var line: String = blurb(id)
-		b.tooltip_text = line
+		b.tooltip_text = ""
+		b.set_meta("tip", line)
 		b.mouse_entered.connect(_show_tip.bind(layer, line))
 		b.mouse_exited.connect(_show_tip.bind(layer, ""))
 		b.pressed.connect(_press_power.bind(id, economy, team, abilities, say))
@@ -232,12 +234,17 @@ func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: 
 	scroll.set_meta("book", self)
 	var toggle: Button = Button.new()
 	toggle.name = "ProtocolsToggle"
-	toggle.text = "Protocols (P)"
+	toggle.text = "⚡"
 	toggle.clip_text = true
-	toggle.custom_minimum_size = Vector2(168, 44)
+	toggle.custom_minimum_size = Vector2(56, 56)
 	toggle.z_index = 9
-	toggle.add_theme_font_size_override("font_size", 15)
-	_dock(toggle, 8.0, -48.0, 180.0, -4.0, 0.0, 1.0, 0.0, 1.0)
+	toggle.tooltip_text = ""
+	toggle.set_meta("tip", "Protocols (P)")
+	toggle.add_theme_font_size_override("font_size", 22)
+	var bolt: Font = ThemeDB.fallback_font
+	if bolt != null:
+		toggle.add_theme_font_override("font", bolt)
+	_dock(toggle, 8.0, 36.0, 64.0, 92.0, 0.0, 0.0, 0.0, 0.0)
 	toggle.pressed.connect(_toggle_panel.bind(scroll))
 	layer.add_child(toggle)
 	return scroll
@@ -278,7 +285,7 @@ func _apply(id: StringName, economy: RTSEconomy, team: int, abilities: SMAbiliti
 		marks[id] = "speed 1.4"
 	elif id == &"mogok_night_shift":
 		night_shift = true
-		marks[id] = "night shift"
+		marks[id] = "mine rubies"
 	elif id == &"thai_border_mass_print":
 		printed = 8
 		marks[id] = "printed 8"

@@ -2,40 +2,48 @@
   if (window.__aseanUnlockAudio) {
     return;
   }
-  var Native = window.AudioContext || window.webkitAudioContext;
-  if (Native) {
-    var Wrapped = class extends Native {
-      constructor() {
-        super(...arguments);
-        if (!window.__aseanAudio) {
-          window.__aseanAudio = [];
-        }
-        window.__aseanAudio.push(this);
+  window.__aseanAudio = window.__aseanAudio || [];
+  var NativeCtx = window.AudioContext || window.webkitAudioContext;
+  if (NativeCtx && !window.__aseanAudioWrapped) {
+    window.__aseanAudioWrapped = true;
+    var WrappedCtx = function (opts) {
+      var ctx = new NativeCtx(opts);
+      if (window.__aseanAudio.indexOf(ctx) < 0) {
+        window.__aseanAudio.push(ctx);
       }
+      if (window.__aseanGestured && ctx.resume && ctx.state !== "running") {
+        ctx.resume();
+      }
+      return ctx;
     };
-    window.AudioContext = Wrapped;
+    WrappedCtx.prototype = NativeCtx.prototype;
+    window.AudioContext = WrappedCtx;
     if (window.webkitAudioContext) {
-      window.webkitAudioContext = Wrapped;
+      window.webkitAudioContext = WrappedCtx;
     }
   }
-  function drop() {
-    window.removeEventListener("pointerdown", onGesture, true);
-    window.removeEventListener("touchstart", onGesture, true);
-    window.removeEventListener("keydown", onGesture, true);
+  function adopt() {
+    var list = window.__aseanAudio;
+    var ctx = window.GodotAudio && window.GodotAudio.ctx;
+    if (ctx && list.indexOf(ctx) < 0) {
+      list.push(ctx);
+    }
+    return list;
   }
-  function logState() {
-    var list = window.__aseanAudio || [];
-    var ctx = list.length ? list[list.length - 1] : null;
-    var state = ctx ? ctx.state : "none";
-    window.__aseanAudioState = state;
-    console.log("audio context state: " + state);
-    if (state === "running") {
-      drop();
+  function remember(state) {
+    if (window.__aseanAudioState !== state) {
+      window.__aseanAudioState = state;
+      console.log("audio context state: " + state);
     }
     return state;
   }
-  window.__aseanUnlockAudio = function () {
-    var list = window.__aseanAudio || [];
+  function logState() {
+    var list = adopt();
+    var ctx = list.length ? list[list.length - 1] : null;
+    return remember(ctx ? ctx.state : "none");
+  }
+  function resumeAll() {
+    var list = adopt();
     var jobs = [];
     for (var i = 0; i < list.length; i++) {
       var ctx = list[i];
@@ -47,11 +55,22 @@
         }
       }
     }
+    return jobs;
+  }
+  window.__aseanGestured = false;
+  window.__aseanUnlockAudio = function () {
+    window.__aseanGestured = true;
+    var jobs = resumeAll();
     var state = logState();
     if (jobs.length) {
       Promise.all(jobs).then(logState, logState);
     }
     return state;
+  };
+  window.__aseanAudioQuiet = function () {
+    var list = adopt();
+    var ctx = list.length ? list[list.length - 1] : null;
+    return ctx ? ctx.state : "none";
   };
   function onGesture() {
     window.__aseanUnlockAudio();
@@ -59,4 +78,9 @@
   window.addEventListener("pointerdown", onGesture, true);
   window.addEventListener("touchstart", onGesture, true);
   window.addEventListener("keydown", onGesture, true);
+  window.setInterval(function () {
+    if (window.__aseanGestured) {
+      window.__aseanUnlockAudio();
+    }
+  }, 250);
 })();

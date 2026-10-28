@@ -33,10 +33,21 @@ func _hovered() -> void:
 	Sfx.play(self, "ui_hover")
 	queue_redraw()
 
+func _process(_delta: float) -> void:
+	if not bool(get_meta("nav", false)):
+		return
+	var base: Vector2 = get_meta("base_pos", position)
+	var hot: bool = (not disabled) and (is_hovered() or has_focus() or bool(get_meta("lit", false)))
+	var want: Vector2 = base + Vector2(8.0 if hot else 0.0, 0.0)
+	if position.distance_to(want) > 0.4:
+		position = want
+
 func _draw() -> void:
 	var hot: bool = (not disabled) and (is_hovered() or has_focus() or bool(get_meta("lit", false)))
 	_colors(hot)
-	if bool(get_meta("bar", false)) and hot:
+	if bool(get_meta("nav", false)) and hot:
+		draw_rect(Rect2(-8.0, 8.0, 4.0, maxf(8.0, size.y - 16.0)), Color(0.93, 0.78, 0.38, 1.0))
+	elif bool(get_meta("bar", false)) and hot:
 		draw_rect(Rect2(0.0, 1.0, size.x, maxf(8.0, size.y - 2.0)), Color(1, 1, 1, 0.14))
 	for child: Node in get_children():
 		var label: Label = child as Label
@@ -57,4 +68,6 @@ func _ink(hot: bool, off: bool) -> Color:
 		return Color(1, 1, 1, 0.28)
 	if hot:
 		return Color(1, 1, 1, 1)
+	if bool(get_meta("nav", false)):
+		return Color(1, 1, 1, 0.6)
 	return Color(1, 1, 1, 0.45)

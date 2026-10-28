@@ -333,7 +333,7 @@ func progress() -> String:
 		if _left("clear") > 0:
 			return "Clear the ambush (%d). Then walk the caravan to the night shift." % _left("clear")
 		var home: String = "caravan in" if _caravan_home() else "walk the caravan"
-		return "Ambush clear. %s. Ruby night shift %d/30." % [home, paid]
+		return "Ambush clear. %s. Mine rubies: %d/30." % [home, paid]
 	if _hold:
 		if mission_id == "tonle_sap":
 			var ride: String = "across" if ferry_across else "crossing"
@@ -717,7 +717,7 @@ func _raid_line() -> String:
 	var yard_bit: String = "yard up" if yard_up else "raise the yard"
 	var ruby_bit: String = "ruby paid"
 	if paid < 30:
-		ruby_bit = "ruby night shift %d/30" % paid
+		ruby_bit = "Mine rubies: %d/30" % paid
 	var rare_bit: String = "rare earth home" if stock >= 1 else "bring one rare-earth stock"
 	var recon_bit: String = "recon down" if not _living_duty("recon") else "clear the Orlan drones"
 	return "Kokang: %s. %s. %s. %s." % [yard_bit, ruby_bit, rare_bit, recon_bit]

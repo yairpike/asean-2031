@@ -33,12 +33,16 @@ func _ready() -> void:
 	cam.current = true
 	var label: Label = Label.new()
 	label.name = "Caption"
-	label.text = "Greybox: scaffold, internal queue, mobile core, five nodes, jammer"
+	label.text = "Sandbox: yards, queues, five nodes, jammer"
 	label.position = Vector2(16, 12)
 	var layer: CanvasLayer = CanvasLayer.new()
 	layer.add_child(label)
 	add_child(layer)
 	preload("res://game/settings_panel.gd").attach(layer)
+	var exit: Node = Node.new()
+	exit.name = "MatchExit"
+	exit.set_script(preload("res://game/match_exit.gd"))
+	add_child(exit)
 	preload("res://game/match_settings.gd").apply_scene(self)
 	var fitter: Node = Node.new()
 	fitter.name = "CameraFit"

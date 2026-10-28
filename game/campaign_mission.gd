@@ -84,13 +84,13 @@ func _ui() -> void:
 	title.text = SMCampaign.title_of(mission_id)
 	title.theme_type_variation = "Header"
 	title.add_theme_font_size_override("font_size", 18)
-	title.position = Vector2(220, 40)
+	title.position = Vector2(220, 108)
 	title.size = Vector2(840, 26)
 	title.clip_text = false
 	ui_layer.add_child(title)
 	var brief: Label = Label.new()
 	brief.name = "Briefing"
-	brief.position = Vector2(220, 66)
+	brief.position = Vector2(220, 136)
 	brief.size = Vector2(760, 72)
 	brief.custom_minimum_size = Vector2(760, 72)
 	brief.clip_text = true
@@ -101,14 +101,14 @@ func _ui() -> void:
 	var goal: Button = Button.new()
 	goal.name = "ObjectiveButton"
 	goal.text = "Complete objective"
-	goal.position = Vector2(400, 144)
+	goal.position = Vector2(400, 216)
 	goal.visible = false
 	goal.pressed.connect(finish_objective)
 	ui_layer.add_child(goal)
 	var back: Button = Button.new()
 	back.name = "MissionBoot"
 	back.text = "Boot menu"
-	back.position = Vector2(220, 144)
+	back.position = Vector2(220, 216)
 	back.custom_minimum_size = Vector2(160, 36)
 	back.pressed.connect(func() -> void:
 		get_tree().change_scene_to_file("res://game/boot.tscn")
@@ -161,7 +161,7 @@ func _process(delta: float) -> void:
 	if hud.guide_blocks():
 		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
-	if cam != null:
+	if cam != null and not hud.blocks_edge():
 		var vp: Viewport = get_viewport()
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)

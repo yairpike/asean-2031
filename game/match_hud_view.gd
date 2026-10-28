@@ -6,6 +6,8 @@ const SWEEP := preload("res://game/cameo_sweep.gd")
 const Art = preload("res://game/served_art.gd")
 const Clips = preload("res://game/match_audio.gd")
 
+var _goals_open: bool = false
+
 static func install(layer: CanvasLayer, hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	var root: Control = (load("res://game/match_hud.tscn") as PackedScene).instantiate() as Control
 	layer.add_child(root)
@@ -26,13 +28,27 @@ func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	_anchor(now_playing, 0.0, 0.0, 0.0, 0.0, 12.0, 36.0, 480.0, 54.0)
 	add_child(now_playing)
 	hud.faction_label = _label(top, "HudFaction", 16)
+	_pin_bar_label(hud.faction_label)
+	hud.credits_label = _label(top, "HudCredits", 16)
+	_pin_bar_label(hud.credits_label)
 	hud.income_label = _label(top, "HudIncome", 15)
+	_pin_bar_label(hud.income_label)
 	hud.income_label.add_theme_color_override("font_color", Color(0.55, 0.9, 0.48))
 	hud.income_label.visible = false
 	hud.map_label = _label(top, "HudMap", 16)
 	hud.map_label.size_flags_stretch_ratio = 2.2
+	hud.map_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.map_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	hud.weather_label = _label(top, "HudWeather", 15)
+	_pin_bar_label(hud.weather_label)
+	var menu: Button = Button.new()
+	menu.name = "HudMenu"
+	menu.text = "☰"
+	menu.custom_minimum_size = Vector2(28, 22)
+	menu.size_flags_horizontal = Control.SIZE_SHRINK_END
+	menu.add_theme_font_size_override("font_size", 16)
+	menu.pressed.connect(_open_menu)
+	top.add_child(menu)
 	var column: ScrollContainer = _column()
 	var wrap: VBoxContainer = column.get_child(0) as VBoxContainer
 	var host: Control = wrap.get_node("MonitorFrame/MonitorStack/MonitorHost") as Control
@@ -40,12 +56,11 @@ func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	minimap.name = "Minimap"
 	minimap.setup(grid, hud.field, camera)
 	minimap.position = Vector2.ZERO
-	minimap.custom_minimum_size = Vector2(156, 100)
-	minimap.size = Vector2(156, 100)
+	minimap.custom_minimum_size = Vector2(216, 216)
+	minimap.size = Vector2(216, 216)
 	host.add_child(minimap)
 	hud.minimap = minimap
 	hud.monitor_cameo = wrap.get_node("MonitorFrame/MonitorStack/MonitorCameo") as TextureRect
-	hud.credits_label = wrap.get_node("HudCredits") as Label
 	hud.power_fill = wrap.get_node("PowerRow/PowerTrack/PowerFill") as ColorRect
 	hud.power_mark = wrap.get_node("PowerRow/PowerTrack/PowerMark") as ColorRect
 	hud.power_label = wrap.get_node("PowerRow/HudPower") as Label
@@ -78,6 +93,7 @@ func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 		scroll.gui_input.connect(hud._drag_column)
 	hud.paint_extra = Callable(self, "paint")
 	set_meta("hud", hud)
+	set_process_unhandled_input(true)
 
 func paint(hud: SMHud) -> void:
 	_paint_power(hud)
@@ -110,6 +126,9 @@ func _paint_protocols(hud: SMHud) -> void:
 		_sweep(button, ratio, 0)
 
 func _process(delta: float) -> void:
+	_seat_chrome()
+	_seat_tip()
+	_pulse_power_tile()
 	var hud: SMHud = get_meta("hud", null) as SMHud
 	if hud == null or hud.side == null:
 		return
@@ -123,6 +142,37 @@ func _process(delta: float) -> void:
 	_paint_protocols(hud)
 	_paint_selection(hud)
 
+func _seat_tip() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var tip: Control = layer.find_child("TipPanel", true, false) as Control
+	if tip == null:
+		return
+	_anchor(tip, 1.0, 0.0, 1.0, 0.0, -260.0, 268.0, -8.0, 356.0)
+	tip.custom_minimum_size = Vector2(240, 88)
+	var hud: SMHud = get_meta("hud", null) as SMHud
+	if hud == null or hud.hover_tip == "":
+		tip.visible = false
+		return
+	tip.visible = Time.get_ticks_msec() - hud.tip_at >= 300
+
+func _pulse_power_tile() -> void:
+	var hud: SMHud = get_meta("hud", null) as SMHud
+	if hud == null or hud.icon_grid == null or hud.side == null or hud.side.yard == null:
+		return
+	var pair: Vector2i = hud._power_pair()
+	var pulse: bool = pair.x <= 0
+	var wave: float = 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.008)
+	for child: Node in hud.icon_grid.get_children():
+		var button: Button = child as Button
+		if button == null:
+			continue
+		var prod: String = str(button.get_meta("prod_id", ""))
+		var feeds: bool = prod.contains("hydro") or prod.contains("plant") or prod.contains("reactor") or prod.contains("generator")
+		if pulse and feeds and button.visible:
+			button.modulate = Color(wave, wave, wave)
+
 func _paint_power(hud: SMHud) -> void:
 	if hud.power_fill == null or hud.side == null:
 		return
@@ -131,7 +181,8 @@ func _paint_power(hud: SMHud) -> void:
 	var gen: float = float(pair.x) / span
 	var draw: float = float(pair.y) / span
 	var low: bool = pair.x < pair.y
-	hud.power_fill.color = Color(0.78, 0.24, 0.2) if low else Color(0.32, 0.78, 0.36)
+	var tight: bool = not low and pair.y > 0 and float(pair.x) < float(pair.y) * 1.2
+	hud.power_fill.color = Color(0.78, 0.24, 0.2) if low else (Color(0.92, 0.78, 0.22) if tight else Color(0.32, 0.78, 0.36))
 	hud.power_fill.anchor_top = 1.0 - gen
 	hud.power_fill.offset_top = 0.0
 	hud.power_fill.offset_bottom = 0.0
@@ -181,10 +232,20 @@ func _paint_super(hud: SMHud) -> void:
 			continue
 		var left: float = hud.side.yard.super_left
 		var ready: bool = left <= 0.0 and hud.side.yard.super_name != ""
-		button.modulate = Color(1.0, 0.9, 0.45) if ready else Color(0.55, 0.58, 0.62)
+		button.modulate = Color(1.15, 1.05, 0.7) if ready else Color(0.7, 0.72, 0.76)
+		button.custom_minimum_size = Vector2(56, 56)
+		var plate: StyleBoxFlat = StyleBoxFlat.new()
+		plate.bg_color = Color(0.08, 0.09, 0.11, 0.94)
+		plate.corner_radius_top_left = 28
+		plate.corner_radius_top_right = 28
+		plate.corner_radius_bottom_left = 28
+		plate.corner_radius_bottom_right = 28
+		plate.set_border_width_all(2)
+		plate.border_color = Color(0.95, 0.82, 0.35) if ready else Color(0.35, 0.38, 0.42)
+		button.add_theme_stylebox_override("normal", plate)
 		var clock: Label = button.get_node_or_null("SuperClock") as Label
 		if clock != null:
-			clock.text = "" if ready else str(int(ceil(left)))
+			clock.text = "RDY" if ready else str(int(ceil(left)))
 		_sweep(button, 0.0 if hud.side.yard.super_cooldown <= 0.0 else 1.0 - clampf(left / hud.side.yard.super_cooldown, 0.0, 1.0), 0)
 
 func _ratio(hud: SMHud, id: String, kind: String) -> float:
@@ -261,7 +322,7 @@ func _top_bar() -> HBoxContainer:
 	var top: Control = Control.new()
 	top.name = "TopBar"
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_anchor(top, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 32.0)
+	_anchor(top, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 28.0)
 	add_child(top)
 	var shade: ColorRect = ColorRect.new()
 	shade.color = Color(0.05, 0.06, 0.07, 0.92)
@@ -269,30 +330,35 @@ func _top_bar() -> HBoxContainer:
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	top.add_child(shade)
 	var row: HBoxContainer = HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_theme_constant_override("separation", 14)
 	_anchor(row, 0.0, 0.0, 1.0, 1.0, 12.0, 4.0, -12.0, -4.0)
 	top.add_child(row)
 	return row
 
 func _selection_row() -> void:
-	var row := HBoxContainer.new()
+	var row := Control.new()
 	row.name = "SelectionSlots"
 	row.visible = false
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 6)
-	_anchor(row, 0.0, 1.0, 0.0, 1.0, 16.0, -88.0, 520.0, -16.0)
+	row.clip_contents = true
+	_anchor(row, 0.0, 1.0, 0.0, 1.0, 376.0, -118.0, 472.0, -22.0)
 	add_child(row)
 
 func _paint_selection(hud: SMHud) -> void:
-	var row: HBoxContainer = get_node_or_null("SelectionSlots") as HBoxContainer
+	var row: Control = get_node_or_null("SelectionSlots") as Control
 	if row == null or hud == null:
 		return
 	var units: Array[RTSUnit] = []
 	if hud.field != null:
 		units = hud.field.selection.units
 	var shown: int = mini(7, units.size())
-	row.visible = shown > 0
+	row.visible = shown > 1
+	row.z_index = 9
+	var cameo: CanvasItem = find_child("CardCameo", true, false) as CanvasItem
+	if cameo != null and shown > 1:
+		cameo.visible = false
+	_tidy_card()
 	while row.get_child_count() > shown:
 		var extra: Node = row.get_child(row.get_child_count() - 1)
 		row.remove_child(extra)
@@ -303,11 +369,13 @@ func _paint_selection(hud: SMHud) -> void:
 			rect = row.get_child(i) as TextureRect
 		if rect == null:
 			rect = TextureRect.new()
-			rect.custom_minimum_size = Vector2(64, 64)
+			rect.custom_minimum_size = Vector2(48, 48)
 			rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row.add_child(rect)
+		rect.position = Vector2(float(i % 2) * 48.0, float(i / 2) * 48.0)
+		rect.size = Vector2(48, 48)
 		var unit: RTSUnit = units[i]
 		var tex: Texture2D = null
 		if unit != null and is_instance_valid(unit):
@@ -330,7 +398,7 @@ func _column() -> ScrollContainer:
 	shade.name = "ColumnShade"
 	shade.color = Color(0.05, 0.055, 0.06, 0.94)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_anchor(shade, 1.0, 0.0, 1.0, 1.0, -186.0, 40.0, -8.0, -8.0)
+	_anchor(shade, 1.0, 0.0, 1.0, 1.0, -260.0, 28.0, -8.0, -8.0)
 	add_child(shade)
 	var plate: TextureRect = TextureRect.new()
 	plate.name = "SidebarArt"
@@ -341,13 +409,13 @@ func _column() -> ScrollContainer:
 	if side_tex != null:
 		plate.texture = side_tex
 		shade.visible = false
-	_anchor(plate, 1.0, 0.0, 1.0, 1.0, -186.0, 40.0, -8.0, -8.0)
+	_anchor(plate, 1.0, 0.0, 1.0, 1.0, -260.0, 28.0, -8.0, -8.0)
 	add_child(plate)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "CommandColumn"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = true
-	_anchor(scroll, 1.0, 0.0, 1.0, 1.0, -186.0, 40.0, -8.0, -8.0)
+	_anchor(scroll, 1.0, 0.0, 1.0, 1.0, -260.0, 28.0, -8.0, -8.0)
 	add_child(scroll)
 	var wrap: VBoxContainer = VBoxContainer.new()
 	wrap.name = "RosterWrap"
@@ -356,11 +424,11 @@ func _column() -> ScrollContainer:
 	scroll.add_child(wrap)
 	var monitor: PanelContainer = PanelContainer.new()
 	monitor.name = "MonitorFrame"
-	monitor.custom_minimum_size = Vector2(0, 112)
+	monitor.custom_minimum_size = Vector2(0, 232)
 	wrap.add_child(monitor)
 	var stack: Control = Control.new()
 	stack.name = "MonitorStack"
-	stack.custom_minimum_size = Vector2(156, 100)
+	stack.custom_minimum_size = Vector2(216, 216)
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	monitor.add_child(stack)
 	var host: Control = Control.new()
@@ -376,8 +444,6 @@ func _column() -> ScrollContainer:
 	cameo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cameo.set_anchors_preset(Control.PRESET_FULL_RECT)
 	stack.add_child(cameo)
-	var credits: Label = _label(wrap, "HudCredits", 16)
-	credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var power_row: HBoxContainer = HBoxContainer.new()
 	power_row.name = "PowerRow"
 	power_row.add_theme_constant_override("separation", 8)
@@ -385,7 +451,7 @@ func _column() -> ScrollContainer:
 	var track: ColorRect = ColorRect.new()
 	track.name = "PowerTrack"
 	track.color = Color(0.08, 0.09, 0.1)
-	track.custom_minimum_size = Vector2(16, 64)
+	track.custom_minimum_size = Vector2(12, 168)
 	power_row.add_child(track)
 	var fill: ColorRect = ColorRect.new()
 	fill.name = "PowerFill"
@@ -415,7 +481,7 @@ func _column() -> ScrollContainer:
 	_mode_button(modes, "SellButton", "Sell", "ui/icons/sell.webp")
 	var tabs: GridContainer = GridContainer.new()
 	tabs.name = "BuildTabs"
-	tabs.columns = 3
+	tabs.columns = 4
 	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tabs.add_theme_constant_override("h_separation", 4)
 	tabs.add_theme_constant_override("v_separation", 4)
@@ -442,7 +508,7 @@ func _column() -> ScrollContainer:
 	var supers: VBoxContainer = VBoxContainer.new()
 	supers.name = "SuperDock"
 	supers.add_theme_constant_override("separation", 6)
-	_anchor(supers, 0.0, 0.0, 0.0, 1.0, 8.0, 96.0, 76.0, -220.0)
+	_anchor(supers, 0.0, 0.0, 0.0, 0.0, 8.0, 100.0, 64.0, 280.0)
 	add_child(supers)
 	_unit_card()
 	return scroll
@@ -453,44 +519,47 @@ func _unit_card() -> void:
 	card.visible = false
 	card.z_index = 8
 	card.clip_contents = true
-	_anchor(card, 1.0, 1.0, 1.0, 1.0, -520.0, -176.0, -194.0, -8.0)
+	_anchor(card, 0.0, 1.0, 0.0, 1.0, 380.0, -128.0, 900.0, -8.0)
 	add_child(card)
 	var margin: MarginContainer = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 6)
-	margin.add_theme_constant_override("margin_bottom", 6)
+	margin.add_theme_constant_override("margin_left", 6)
+	margin.add_theme_constant_override("margin_right", 6)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
 	card.add_child(margin)
-	var stack: VBoxContainer = VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 4)
-	margin.add_child(stack)
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "CardRow"
-	row.add_theme_constant_override("separation", 8)
-	stack.add_child(row)
+	var body: HBoxContainer = HBoxContainer.new()
+	body.name = "CardRow"
+	body.add_theme_constant_override("separation", 8)
+	margin.add_child(body)
 	var portrait: TextureRect = TextureRect.new()
 	portrait.name = "CardCameo"
-	portrait.custom_minimum_size = Vector2(56, 56)
+	portrait.custom_minimum_size = Vector2(96, 96)
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	portrait.visible = false
-	row.add_child(portrait)
+	body.add_child(portrait)
 	var lines: VBoxContainer = VBoxContainer.new()
 	lines.name = "CardStack"
 	lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lines.add_theme_constant_override("separation", 1)
-	row.add_child(lines)
-	_card_label(lines, "HudSelection", 15)
-	var built: Label = _card_label(lines, "HudBuild", 13)
-	built.visible = false
-	var radio: Label = _card_label(lines, "RadioLine", 14)
-	radio.visible = false
-	radio.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
+	lines.add_theme_constant_override("separation", 2)
+	body.add_child(lines)
+	var text_block: Control = Control.new()
+	text_block.name = "CardText"
+	text_block.custom_minimum_size = Vector2(0, 36)
+	text_block.clip_contents = true
+	text_block.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lines.add_child(text_block)
+	var selected: Label = _card_label(text_block, "HudSelection", 16)
+	selected.autowrap_mode = TextServer.AUTOWRAP_OFF
+	selected.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	selected.position = Vector2(0, 0)
+	selected.size = Vector2(380, 18)
 	var track: ColorRect = ColorRect.new()
 	track.name = "HealthTrack"
 	track.color = Color(0.15, 0.16, 0.18)
-	track.custom_minimum_size = Vector2(0, 8)
-	lines.add_child(track)
+	track.position = Vector2(0, 20)
+	track.size = Vector2(180, 8)
+	text_block.add_child(track)
 	var fill: ColorRect = ColorRect.new()
 	fill.name = "HealthFill"
 	fill.color = Color(0.36, 0.78, 0.4)
@@ -498,15 +567,44 @@ func _unit_card() -> void:
 	fill.anchor_bottom = 1.0
 	fill.offset_right = 120.0
 	track.add_child(fill)
-	var veteran: Label = _card_label(lines, "HudVeteran", 12)
+	var veteran: Label = _card_label(text_block, "HudVeteran", 14)
+	veteran.position = Vector2(188, 16)
+	veteran.size = Vector2(180, 16)
 	veteran.add_theme_color_override("font_color", Color(0.95, 0.82, 0.4))
-	var breakdown: Label = _card_label(lines, "HudBreakdown", 12)
+	var built: Label = _card_label(text_block, "HudBuild", 14)
+	built.visible = false
+	built.position = Vector2(0, 20)
+	built.size = Vector2(380, 16)
+	var breakdown: Label = _card_label(text_block, "HudBreakdown", 14)
 	breakdown.visible = false
-	breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	breakdown.position = Vector2(0, 20)
+	breakdown.size = Vector2(380, 16)
 	var commands: VBoxContainer = VBoxContainer.new()
 	commands.name = "CommandRow"
-	commands.add_theme_constant_override("separation", 4)
-	stack.add_child(commands)
+	commands.custom_minimum_size = Vector2(0, 56)
+	commands.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	commands.add_theme_constant_override("separation", 0)
+	lines.add_child(commands)
+	_message_lane()
+
+func _message_lane() -> void:
+	var lane: PanelContainer = PanelContainer.new()
+	lane.name = "MessageLane"
+	lane.visible = false
+	lane.z_index = 9
+	lane.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lane.add_theme_stylebox_override("panel", _frame())
+	_anchor(lane, 0.0, 1.0, 0.0, 1.0, 380.0, -188.0, 900.0, -136.0)
+	add_child(lane)
+	var radio: Label = Label.new()
+	radio.name = "RadioLine"
+	radio.visible = false
+	radio.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	radio.clip_text = true
+	radio.max_lines_visible = 2
+	radio.add_theme_font_size_override("font_size", 16)
+	radio.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	lane.add_child(radio)
 
 func _mode_button(row: HBoxContainer, node_name: String, text: String, icon_path: String) -> void:
 	var button: Button = Button.new()
@@ -526,7 +624,7 @@ func _tab_button(grid: GridContainer, node_name: String, text: String, icon_path
 	button.text = ""
 	button.clip_text = false
 	button.tooltip_text = text
-	button.custom_minimum_size = Vector2(0, 36)
+	button.custom_minimum_size = Vector2(56, 40)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 11)
 	_set_icon(button, icon_path)
@@ -538,6 +636,16 @@ func _set_icon(button: Button, icon_path: String) -> void:
 		return
 	button.icon = tex
 	button.expand_icon = true
+
+func _pin_bar_label(label: Label) -> void:
+	label.clip_text = false
+	label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	label.custom_minimum_size = Vector2(48, 20)
+
+func _tidy_card() -> void:
+	var extra: CanvasItem = find_child("HudBreakdown", true, false) as CanvasItem
+	if extra != null:
+		extra.visible = false
 
 func _label(parent: Node, node_name: String, size: int) -> Label:
 	var label: Label = Label.new()
@@ -560,11 +668,185 @@ func _frame() -> StyleBoxFlat:
 	style.bg_color = Color(0.05, 0.06, 0.07, 0.94)
 	style.border_color = Color(0.78, 0.62, 0.28)
 	style.set_border_width_all(1)
-	style.content_margin_left = 4
-	style.content_margin_right = 4
-	style.content_margin_top = 4
-	style.content_margin_bottom = 4
+	style.content_margin_left = 2
+	style.content_margin_right = 2
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
 	return style
+
+func _unhandled_input(event: InputEvent) -> void:
+	var key: InputEventKey = event as InputEventKey
+	if key == null or not key.pressed or key.echo or key.keycode != KEY_O:
+		return
+	var layer: Node = get_parent()
+	if layer != null:
+		var pause: CanvasItem = layer.find_child("PauseMenu", true, false) as CanvasItem
+		if pause != null and pause.visible:
+			return
+	_goals_open = not _goals_open
+	var view: Viewport = get_viewport()
+	if view != null:
+		view.set_input_as_handled()
+
+func _open_menu() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var pause: CanvasItem = layer.find_child("PauseMenu", true, false) as CanvasItem
+	if pause != null:
+		pause.visible = true
+
+func _seat_chrome() -> void:
+	var hud: SMHud = get_meta("hud", null) as SMHud
+	if hud != null and hud.phone:
+		return
+	_seat_context()
+	_seat_message()
+	_seat_objective()
+	_seat_now_playing()
+	_seat_flyout()
+	_seat_strip()
+	_seat_boot()
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var help: CanvasItem = layer.find_child("HelpButton", true, false) as CanvasItem
+	if help != null:
+		help.visible = false
+
+func _seat_context() -> void:
+	var card: Control = get_node_or_null("UnitCard") as Control
+	if card == null:
+		return
+	var width: float = 520.0
+	var sidebar: float = size.x - 268.0
+	var x: float = (size.x - width) * 0.5
+	if x + width > sidebar:
+		x = sidebar - width
+	if x < 80.0:
+		x = 80.0
+		width = maxf(280.0, sidebar - 80.0)
+	_anchor(card, 0.0, 1.0, 0.0, 1.0, x, -128.0, x + width, -8.0)
+	var slots: Control = get_node_or_null("SelectionSlots") as Control
+	if slots == null:
+		return
+	var slot_x: float = maxf(x + 10.0, 360.0)
+	_anchor(slots, 0.0, 1.0, 0.0, 1.0, slot_x, -118.0, slot_x + 96.0, -22.0)
+
+func _seat_message() -> void:
+	var lane: Control = get_node_or_null("MessageLane") as Control
+	var radio: Label = find_child("RadioLine", true, false) as Label
+	if lane == null or radio == null:
+		return
+	var card: Control = get_node_or_null("UnitCard") as Control
+	var x: float = card.offset_left if card != null else 380.0
+	var width: float = 520.0
+	if card != null:
+		width = card.offset_right - card.offset_left
+	_anchor(lane, 0.0, 1.0, 0.0, 1.0, x, -188.0, x + width, -136.0)
+	lane.visible = radio.visible and radio.text != ""
+	lane.modulate.a = radio.modulate.a
+
+func _seat_objective() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var status: Label = layer.find_child("Status", true, false) as Label
+	if status == null:
+		return
+	var shade: ColorRect = layer.get_node_or_null("ObjectiveShade") as ColorRect
+	if shade == null:
+		shade = ColorRect.new()
+		shade.name = "ObjectiveShade"
+		shade.color = Color(0.05, 0.06, 0.07, 0.88)
+		shade.mouse_filter = Control.MOUSE_FILTER_STOP
+		shade.z_index = 6
+		layer.add_child(shade)
+		layer.move_child(shade, 0)
+	var mark: Label = layer.get_node_or_null("ObjectiveMark") as Label
+	if mark == null:
+		mark = Label.new()
+		mark.name = "ObjectiveMark"
+		mark.text = "☐"
+		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mark.z_index = 7
+		mark.add_theme_font_size_override("font_size", 16)
+		mark.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+		var face: Font = ThemeDB.fallback_font
+		if face != null:
+			mark.add_theme_font_override("font", face)
+		layer.add_child(mark)
+	var height: float = 120.0 if _goals_open else 28.0
+	_anchor(shade, 0.0, 0.0, 0.0, 0.0, 72.0, 34.0, 432.0, 34.0 + height)
+	_anchor(mark, 0.0, 0.0, 0.0, 0.0, 78.0, 36.0, 98.0, 60.0)
+	status.z_index = 7
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if _goals_open else TextServer.AUTOWRAP_OFF
+	status.clip_text = true
+	status.max_lines_visible = 6 if _goals_open else 1
+	status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	status.custom_minimum_size = Vector2(0, 22)
+	status.add_theme_font_size_override("font_size", 16)
+	status.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_anchor(status, 0.0, 0.0, 0.0, 0.0, 100.0, 36.0, 424.0, 34.0 + height)
+
+func _seat_flyout() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var fly: Control = layer.find_child("Protocols", true, false) as Control
+	if fly == null:
+		return
+	var card_top: float = size.y - 136.0
+	var bottom: float = minf(340.0, card_top - 8.0)
+	if bottom < 148.0:
+		bottom = 148.0
+	fly.offset_left = 72.0
+	fly.offset_top = 100.0
+	fly.offset_right = 432.0
+	fly.offset_bottom = bottom
+	fly.custom_minimum_size = Vector2(320, minf(120.0, bottom - 100.0))
+
+func _seat_strip() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var strip: Control = layer.find_child("MatchStrip", true, false) as Control
+	if strip == null or not strip.visible:
+		return
+	var sidebar: float = size.x - 268.0
+	var right: float = minf(760.0, sidebar - 8.0)
+	if right - 448.0 < 96.0:
+		return
+	_anchor(strip, 0.0, 0.0, 0.0, 0.0, 448.0, 36.0, right, 64.0)
+
+func _seat_boot() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var boot: Control = layer.find_child("MissionBoot", true, false) as Control
+	if boot == null:
+		return
+	var sidebar: float = size.x - 268.0
+	var x: float = 72.0
+	var y: float = 348.0
+	if y + 40.0 > size.y - 140.0:
+		y = 70.0
+		x = 72.0
+	if x + 160.0 > sidebar:
+		x = maxf(8.0, sidebar - 168.0)
+	boot.position = Vector2(x, y)
+	boot.size = Vector2(160, 36)
+
+func _seat_now_playing() -> void:
+	var line: Control = get_node_or_null("NowPlaying") as Control
+	if line == null:
+		return
+	if size.x < 1200.0:
+		line.visible = false
+		return
+	line.visible = true
+	var right: float = size.x - 276.0
+	_anchor(line, 0.0, 0.0, 0.0, 0.0, right - 220.0, 36.0, right, 56.0)
 
 func _anchor(node: Control, left: float, top: float, right: float, bottom: float, ol: float, ot: float, orr: float, ob: float) -> void:
 	node.layout_mode = 1

@@ -62,7 +62,7 @@ func _world() -> void:
 	_capsule("Jammer", sim.ew.center + Vector3(0, 1.2, 0), Color(0.15, 0.75, 0.82))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
-	cam.bounds = Rect2(-90, -60, 180, 120)
+	cam.bounds = Rect2(-80.0, -48.0, 160.0, 96.0)
 	cam.distance = 26.0
 	cam.edge_pan_px = 20.0
 	cam.focus = Vector3(-58, 0, -12)
@@ -115,8 +115,9 @@ func _ui() -> void:
 	status.clip_text = true
 	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	status.add_theme_color_override("font_color", Color(0.95, 0.9, 0.55))
-	status.custom_minimum_size = Vector2(740, 40)
+	status.custom_minimum_size = Vector2(0, 36)
 	layer.add_child(status)
+	preload("res://game/sim_presenter.gd").seat_status(status)
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
@@ -225,7 +226,7 @@ func _process(delta: float) -> void:
 	if preload("res://game/lan_link.gd").holding():
 		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
-	if cam != null:
+	if cam != null and not hud.blocks_edge():
 		var vp: Viewport = get_viewport()
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	if explore_bus != null and combat_bus != null and sim.audio != null:

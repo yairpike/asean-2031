@@ -23,13 +23,13 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	var reach: float = minf(size.x * 0.5, 640.0)
+	var reach: float = size.x * 0.55
 	var steps: int = 28
 	for i: int in steps:
 		var t0: float = float(i) / float(steps)
 		var t1: float = float(i + 1) / float(steps)
-		var falloff: float = (1.0 - t0) * (1.0 - t0)
-		draw_rect(Rect2(reach * t0, 0.0, reach * (t1 - t0) + 1.0, size.y), Color(0.0, 0.0, 0.0, 0.62 * falloff))
+		var shade: float = 0.85 * (1.0 - t0)
+		draw_rect(Rect2(reach * t0, 0.0, reach * (t1 - t0) + 1.0, size.y), Color(0.0, 0.0, 0.0, shade))
 	for mote: Vector3 in _sparks:
 		var at := Vector2(mote.x * size.x, mote.y * size.y)
 		var ink := Color(1.0, 0.72, 0.38, 0.35 + mote.z * 0.4)

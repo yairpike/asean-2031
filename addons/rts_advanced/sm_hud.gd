@@ -34,6 +34,11 @@ var tip_label: Label
 var tip_cameo: TextureRect
 var hover_tip: String = ""
 var hover_cameo: String = ""
+var hover_key: String = ""
+var hover_facts: String = ""
+var tip_at: int = 0
+var tip_name: Label
+var tip_chip: Label
 var radio_label: Label
 var radio_until: int = 0
 var unit_card: PanelContainer
@@ -191,7 +196,7 @@ func refresh() -> void:
 	var pair: Vector2i = Power.tally(side.yard if side != null else null)
 	if pair != _shown_power:
 		_shown_power = pair
-		power_label.text = ("%d/%d" % [pair.x, pair.y]) if phone else ("Power %d/%d" % [pair.x, pair.y])
+		power_label.text = "⚡ %d/%d" % [pair.x, pair.y]
 	if map_name != _shown_map:
 		_shown_map = map_name
 		map_label.text = map_name
@@ -282,22 +287,25 @@ func show_line(text: String) -> void:
 		return
 	radio_label.text = text
 	radio_label.visible = text != ""
-	radio_until = Time.get_ticks_msec() + 2800
+	radio_label.modulate.a = 1.0
+	radio_until = Time.get_ticks_msec() + 5000
 	_sync_card()
 
 func _paint_radio() -> void:
 	if radio_label == null or not radio_label.visible:
 		return
-	if Time.get_ticks_msec() > radio_until:
+	var left: int = radio_until - Time.get_ticks_msec()
+	if left <= 0:
 		radio_label.visible = false
+		radio_label.modulate.a = 1.0
+		return
+	radio_label.modulate.a = 1.0 if left >= 800 else clampf(float(left) / 800.0, 0.0, 1.0)
 
 func set_tutorial(text: String) -> void:
 	if tutorial_label == null:
 		return
 	tutorial_label.text = text
 	tutorial_label.visible = text != ""
-	if text != "" and guide_panel != null:
-		guide_panel.visible = true
 
 static func present_tip(host: Node, text: String) -> void:
 	if host == null or not host.has_meta("hud"):
@@ -307,6 +315,9 @@ static func present_tip(host: Node, text: String) -> void:
 		return
 	hud.hover_tip = text
 	hud.hover_cameo = ""
+	hud.hover_key = ""
+	hud.hover_facts = ""
+	hud.tip_at = Time.get_ticks_msec()
 	hud._paint_tip()
 
 func _column(layer: CanvasLayer) -> void:
@@ -314,14 +325,14 @@ func _column(layer: CanvasLayer) -> void:
 	backdrop.name = "ColumnShade"
 	backdrop.color = Color(0.05, 0.06, 0.07, 0.9)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_dock(backdrop, -186.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
+	_dock(backdrop, -260.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
 	layer.add_child(backdrop)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "CommandColumn"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = true
 	scroll.gui_input.connect(_drag_column)
-	_dock(scroll, -186.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
+	_dock(scroll, -260.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
 	layer.add_child(scroll)
 	var wrap: VBoxContainer = VBoxContainer.new()
 	wrap.name = "RosterWrap"
@@ -406,21 +417,48 @@ func _unit_tab(unit: Dictionary) -> String:
 
 func _fill_commands(box: VBoxContainer) -> void:
 	var host: Container = command_row if use_tiles and command_row != null else box
-	if host.get_node_or_null("AbilityButton") != null:
+	if host.find_child("AbilityButton", true, false) != null:
 		return
-	_button(host, "AbilityButton", "Ability (F)", _ability, SMGuide.ability_tip(), "ability_cast")
-	if command_row == null or not use_tiles:
+	var cells: Container = host
+	if command_row != null and use_tiles:
+		var row: HBoxContainer = HBoxContainer.new()
+		row.name = "CommandCells"
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_theme_constant_override("separation", 4)
+		command_row.add_child(row)
+		cells = row
+	_command_cell(cells, "AttackMove", "A-Move", "Q", _attack_move, "Attack-move ahead of the lead unit.")
+	_command_cell(cells, "StopButton", "Stop", "X", _halt, "Stop.")
+	_command_cell(cells, "StanceGuard", "Guard", "", _set_stance.bind("guard"), "Guard. Fire at enemies in range.")
+	_command_cell(cells, "StanceHold", "Hold", "", _set_stance.bind("hold"), "Hold. Do not acquire targets.")
+	_command_cell(cells, "FormationButton", "Form", "Z", _formation, "Formation. Switch between a line and a box.")
+	_command_cell(cells, "AbilityButton", "Ability (F)", "F", _ability, SMGuide.ability_tip())
+
+func _command_cell(host: Container, node_name: String, caption: String, chip: String, fn: Callable, tip: String) -> void:
+	var cue: String = "ability_cast" if node_name == "AbilityButton" else "ui"
+	var button: Button = _button(host, node_name, caption, fn, tip, cue)
+	button.custom_minimum_size = Vector2(56, 56)
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.add_theme_font_size_override("font_size", 12)
+	if chip == "":
 		return
-	var stance_row: HBoxContainer = HBoxContainer.new()
-	stance_row.name = "StanceRow"
-	stance_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stance_row.add_theme_constant_override("separation", 4)
-	command_row.add_child(stance_row)
-	_button(stance_row, "StanceAggressive", "Agg", _set_stance.bind("aggressive"), "Aggressive. Chase and fire.", "ui")
-	_button(stance_row, "StanceGuard", "Guard", _set_stance.bind("guard"), "Guard. Fire at enemies in range.", "ui")
-	_button(stance_row, "StanceHold", "Hold", _set_stance.bind("hold"), "Hold. Do not acquire targets.", "ui")
-	_button(stance_row, "AttackMove", "A-Move", _attack_move, "Attack-move ahead of the lead unit.", "ui")
-	_button(stance_row, "StopButton", "Stop", _halt, "Stop.", "ui")
+	var mark: Label = Label.new()
+	mark.name = "KeyChip"
+	mark.text = chip
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.position = Vector2(2, 1)
+	mark.size = Vector2(18, 14)
+	mark.add_theme_font_size_override("font_size", 11)
+	mark.add_theme_color_override("font_color", Color(0.95, 0.82, 0.35))
+	button.add_child(mark)
+
+func _formation() -> void:
+	if field == null:
+		return
+	var lined: bool = field.toggle_line()
+	_note("line" if lined else "box")
+	refresh()
 
 func _set_stance(mode: String) -> void:
 	if field != null:
@@ -481,7 +519,10 @@ func _show_tab_children(parent: Node) -> void:
 			continue
 		var item: CanvasItem = child as CanvasItem
 		if item != null:
-			item.visible = tab_name == build_tab
+			var shown: bool = tab_name == build_tab
+			if build_tab == "vehicles" and (tab_name == "aircraft" or tab_name == "naval"):
+				shown = true
+			item.visible = shown
 
 func _hide_empty_tabs() -> void:
 	if layer_node == null or not use_tiles:
@@ -496,7 +537,13 @@ func _hide_empty_tabs() -> void:
 	for tab_name: String in tabs:
 		var button: Button = layer_node.find_child("Tab%s" % tab_name.capitalize(), true, false) as Button
 		if button != null:
-			button.visible = int(counts.get(tab_name, 0)) > 0
+			if tab_name == "aircraft" or tab_name == "naval":
+				button.visible = false
+			else:
+				var count: int = int(counts.get(tab_name, 0))
+				if tab_name == "vehicles":
+					count += int(counts.get("aircraft", 0)) + int(counts.get("naval", 0))
+				button.visible = count > 0
 
 func _super() -> void:
 	if side == null or field == null:
@@ -750,7 +797,7 @@ func _guide(layer: CanvasLayer) -> void:
 		card.z_index = 8
 		card.clip_contents = true
 		card.add_theme_stylebox_override("panel", _card_style())
-		_dock(card, 8.0, -82.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
+		_dock(card, 8.0, -82.0, -268.0, -6.0, 0.0, 1.0, 1.0, 1.0)
 		layer.add_child(card)
 		unit_card = card
 		var row: HBoxContainer = HBoxContainer.new()
@@ -781,20 +828,20 @@ func _guide(layer: CanvasLayer) -> void:
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_theme_stylebox_override("panel", _card_style())
 	if use_tiles:
-		_dock(strip, 196.0, 40.0, 560.0, 76.0, 0.0, 0.0, 0.0, 0.0)
+		_dock(strip, 448.0, 36.0, 760.0, 64.0, 0.0, 0.0, 0.0, 0.0)
 	else:
-		_dock(strip, 8.0, -46.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
+		_dock(strip, 8.0, -46.0, -268.0, -6.0, 0.0, 1.0, 1.0, 1.0)
 	layer.add_child(strip)
 	match_strip = strip
-	var short_line: Label = _card_line(strip, "MatchHint", 15)
+	var short_line: Label = _card_line(strip, "MatchHint", 16)
 	short_line.text = "H guide    P protocols"
 	short_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var panel: PanelContainer = PanelContainer.new()
 	panel.name = "HowToOverlay"
 	panel.clip_contents = true
 	panel.z_index = 30
-	panel.visible = true
-	_dock(panel, 168.0, 44.0, -194.0, -56.0, 0.0, 0.0, 1.0, 1.0)
+	panel.visible = false
+	_dock(panel, 168.0, 44.0, -268.0, -56.0, 0.0, 0.0, 1.0, 1.0)
 	layer.add_child(panel)
 	guide_panel = panel
 	var box: VBoxContainer = VBoxContainer.new()
@@ -811,6 +858,7 @@ func _guide(layer: CanvasLayer) -> void:
 	box.add_child(title)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "HowToScroll"
+	scroll.visible = false
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -840,9 +888,10 @@ func _guide(layer: CanvasLayer) -> void:
 	hint.text = SMGuide.controls_hint()
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.add_theme_font_size_override("font_size", 15)
-	hint.add_theme_color_override("font_color", Color(0.96, 0.94, 0.86))
+	hint.add_theme_font_size_override("font_size", 16)
+	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
 	inner.add_child(hint)
+	_controls_card(box)
 	var close: Button = Button.new()
 	close.name = "HowToClose"
 	close.text = "Got it"
@@ -860,7 +909,7 @@ func _tip(layer: CanvasLayer) -> void:
 	panel.clip_contents = true
 	panel.add_theme_stylebox_override("panel", _card_style())
 	panel.custom_minimum_size = Vector2(360, 96)
-	_dock(panel, -560.0, -300.0, -194.0, -184.0, 1.0, 1.0, 1.0, 1.0)
+	_dock(panel, -560.0, -300.0, -268.0, -184.0, 1.0, 1.0, 1.0, 1.0)
 	layer.add_child(panel)
 	tip_panel = panel
 	var tip_row: HBoxContainer = HBoxContainer.new()
@@ -875,14 +924,39 @@ func _tip(layer: CanvasLayer) -> void:
 	tip_portrait.visible = false
 	tip_row.add_child(tip_portrait)
 	tip_cameo = tip_portrait
+	var tip_stack: VBoxContainer = VBoxContainer.new()
+	tip_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tip_stack.add_theme_constant_override("separation", 2)
+	tip_row.add_child(tip_stack)
+	var name_row: HBoxContainer = HBoxContainer.new()
+	name_row.add_theme_constant_override("separation", 8)
+	tip_stack.add_child(name_row)
+	tip_name = Label.new()
+	tip_name.name = "TipName"
+	tip_name.theme_type_variation = "Header"
+	tip_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tip_name.clip_text = true
+	tip_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	tip_name.add_theme_font_size_override("font_size", 18)
+	tip_name.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
+	name_row.add_child(tip_name)
+	tip_chip = Label.new()
+	tip_chip.name = "TipChip"
+	tip_chip.custom_minimum_size = Vector2(28, 22)
+	tip_chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tip_chip.add_theme_font_size_override("font_size", 16)
+	tip_chip.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	name_row.add_child(tip_chip)
 	tip_label = Label.new()
 	tip_label.name = "UnitTip"
-	tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tip_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	tip_label.clip_text = true
+	tip_label.max_lines_visible = 1
+	tip_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	tip_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tip_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	tip_label.add_theme_font_size_override("font_size", 14)
-	tip_label.add_theme_color_override("font_color", Color(0.97, 0.96, 0.92))
-	tip_row.add_child(tip_label)
+	tip_label.add_theme_font_size_override("font_size", 16)
+	tip_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	tip_stack.add_child(tip_label)
 
 func _toggle_guide() -> void:
 	if guide_panel != null:
@@ -910,6 +984,31 @@ func column_hovered() -> bool:
 		return true
 	if phone_drawer != null and (hovered == phone_drawer or phone_drawer.is_ancestor_of(hovered)):
 		return true
+	return false
+
+## Edge pan uses the screen edge. The command column and the other panels sit there.
+func blocks_edge() -> bool:
+	if column_hovered():
+		return true
+	if layer_node == null:
+		return false
+	var view: Viewport = layer_node.get_viewport()
+	if view == null:
+		return false
+	var hovered: Control = view.gui_get_hovered_control()
+	if hovered == null:
+		return false
+	var names: PackedStringArray = PackedStringArray([
+		"Protocols", "ProtocolsToggle", "Minimap", "MonitorFrame", "UnitCard",
+		"HelpButton", "MissionBoot", "SelectionSlots", "PhoneDrawer", "TipPanel",
+		"HowToOverlay", "SuperDock", "CommandColumn", "PauseMenu", "TopBar",
+		"MessageLane", "ObjectiveShade", "HudMenu", "CoachCard", "ToastLane",
+	])
+	var node: Node = hovered
+	while node != null and node != layer_node:
+		if names.has(str(node.name)):
+			return true
+		node = node.get_parent()
 	return false
 
 func _drag_column(event: InputEvent) -> void:
@@ -958,26 +1057,118 @@ func _column_scroll() -> ScrollContainer:
 		return null
 	return parent.get_parent() as ScrollContainer
 
+func _enter_from(b: Button) -> void:
+	var chip: String = ""
+	var mark: Label = b.find_child("CameoKey", true, false) as Label
+	if mark == null:
+		mark = b.find_child("KeyChip", true, false) as Label
+	if mark != null:
+		chip = mark.text
+	hover_key = chip
+	hover_facts = _facts_for(b)
+	_enter_tip(str(b.get_meta("tip", "")), str(b.get_meta("cameo_id", "")))
+
+func _facts_for(b: Button) -> String:
+	var id: String = str(b.get_meta("prod_id", ""))
+	var kind: String = str(b.get_meta("prod_kind", ""))
+	var cost: int = int(b.get_meta("cost", -1))
+	var secs: int = -1
+	var power: String = ""
+	if id != "":
+		var data: Dictionary = SMCatalog.faction(_faction_id())
+		var raw: Variant = data.get("buildings" if kind == "building" else "units", [])
+		if raw is Array:
+			for item: Variant in raw:
+				if item is Dictionary and str(item.get("id", "")) == id:
+					secs = int(item.get("time", -1))
+					var role: String = str(item.get("role", ""))
+					if role == "power":
+						power = "⚡ +100"
+					elif role == "barracks" or role == "factory" or role == "naval":
+						power = "⚡ 30"
+					break
+	var bits: String = ""
+	if cost >= 0:
+		bits = "%d cr" % cost
+	if secs >= 0:
+		bits += "  %ds" % secs
+	if power != "":
+		bits += "  " + power
+	return bits.strip_edges()
+
 func _enter_tip(text: String, cameo_id: String = "") -> void:
 	hover_tip = text
 	hover_cameo = cameo_id
+	tip_at = Time.get_ticks_msec()
 	_paint_tip()
 
 func _exit_tip() -> void:
 	hover_tip = ""
 	hover_cameo = ""
+	hover_key = ""
+	hover_facts = ""
 	_paint_tip()
 
 func _paint_tip() -> void:
 	if tip_label == null or tip_panel == null:
 		return
-	tip_label.text = hover_tip
-	tip_panel.visible = hover_tip != ""
+	var head: String = hover_tip
+	var body: String = hover_tip
+	var cut: int = hover_tip.find(".")
+	if cut > 0:
+		head = hover_tip.substr(0, cut)
+		body = hover_tip.substr(cut + 1).strip_edges()
+	if body == "" or (hover_tip.contains("Slag Molotov") and not body.contains("Slag Molotov")):
+		body = hover_tip
+	if hover_facts != "":
+		body = "%s  %s" % [hover_facts, body]
+	tip_label.text = body
+	tip_label.max_lines_visible = 1
+	if tip_name != null:
+		tip_name.text = head
+	if tip_chip != null:
+		tip_chip.text = hover_key
+		tip_chip.visible = hover_key != ""
+	tip_panel.visible = false
 	if tip_cameo == null:
 		return
 	var portrait: Texture2D = _cameo_texture(_faction_id(), hover_cameo)
 	tip_cameo.texture = portrait
 	tip_cameo.visible = portrait != null
+
+func _controls_card(box: VBoxContainer) -> void:
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "ControlsCard"
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var grid: VBoxContainer = VBoxContainer.new()
+	grid.name = "ControlsGrid"
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("separation", 4)
+	scroll.add_child(grid)
+	var rows: PackedStringArray = PackedStringArray([
+		"Drag a box    Select",
+		"Right-click    Move",
+		"Right-click enemy    Attack",
+		"Q    Attack-move",
+		"X    Stop",
+		"Z    Formation",
+		"F    Ability",
+		"H    Controls",
+		"P    Protocols",
+		"Tab    Next tab",
+		"Space    Last alert",
+		"Esc    Pause",
+	])
+	for row_text: String in rows:
+		var line: Label = Label.new()
+		line.text = row_text
+		line.clip_text = true
+		line.add_theme_font_size_override("font_size", 16)
+		line.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+		grid.add_child(line)
 
 func _button(box: Container, node_name: String, text: String, fn: Callable, tip: String, cue: String, tab_name: String = "", cost: int = -1) -> Button:
 	var b: Button = Button.new()
@@ -989,7 +1180,8 @@ func _button(box: Container, node_name: String, text: String, fn: Callable, tip:
 	if tab_name != "" and hotkey <= 9:
 		shown += "\nHotkey %d" % hotkey
 	b.text = text
-	b.tooltip_text = shown
+	b.tooltip_text = ""
+	b.set_meta("tip", shown)
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -1008,7 +1200,7 @@ func _button(box: Container, node_name: String, text: String, fn: Callable, tip:
 	elif node_name.begins_with("Build_") or node_name == "MovePacker":
 		b.set_meta("prod_kind", "building")
 		b.set_meta("prod_id", "packer" if node_name == "MovePacker" else node_name.substr(node_name.find("_") + 1))
-	b.mouse_entered.connect(_enter_tip.bind(shown, _cameo_id(node_name)))
+	b.mouse_entered.connect(_enter_from.bind(b))
 	b.mouse_exited.connect(_exit_tip)
 	b.gui_input.connect(_drag_column)
 	b.pressed.connect(_press_cue.bind(fn, cue))
@@ -1051,6 +1243,17 @@ func _paint_roster_buttons(parent: Node) -> void:
 			_paint_button(button)
 
 func _paint_button(b: Button) -> void:
+	if str(b.name).begins_with("Super_"):
+		b.icon = null
+		b.text = ""
+		b.custom_minimum_size = Vector2(56, 56)
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var clock: Label = b.get_node_or_null("SuperClock") as Label
+		if clock != null:
+			clock.position = Vector2(0, 16)
+			clock.size = Vector2(56, 22)
+			clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		return
 	var caption: String = str(b.get_meta("caption", b.text))
 	var portrait: Texture2D = _cameo_texture(_faction_id(), str(b.get_meta("cameo_id", "")))
 	var in_grid: bool = (use_tiles and icon_grid != null and b.get_parent() == icon_grid) or (use_tiles and str(b.name).begins_with("Super_"))
@@ -1059,11 +1262,12 @@ func _paint_button(b: Button) -> void:
 	if portrait != null and in_grid:
 		b.icon = portrait
 		b.expand_icon = true
-		b.add_theme_constant_override("icon_max_width", 64 if phone else 46)
+		b.add_theme_constant_override("icon_max_width", 64 if phone else 72)
 		b.add_theme_constant_override("h_separation", 4)
 		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.text = ""
-		b.custom_minimum_size = Vector2(0, 72 if phone else 52)
+		b.custom_minimum_size = Vector2(72, 72)
+		_cameo_corners(b, caption)
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
 		_tint_roster_button(b)
 		return
@@ -1096,6 +1300,46 @@ func _paint_button(b: Button) -> void:
 	b.add_theme_font_size_override("font_size", 12 if phone else 14)
 	_tint_roster_button(b)
 
+func _cameo_corners(b: Button, caption: String) -> void:
+	var name_line: Label = _corner_label(b, "CameoName", Vector2(2, 56), Vector2(68, 14), 12)
+	name_line.text = caption
+	name_line.clip_text = true
+	var cost: int = int(b.get_meta("cost", -1))
+	var cost_line: Label = _corner_label(b, "CameoCost", Vector2(34, 1), Vector2(36, 14), 11)
+	cost_line.text = str(cost) if cost >= 0 else ""
+	cost_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var key_line: Label = _corner_label(b, "CameoKey", Vector2(2, 1), Vector2(16, 14), 11)
+	key_line.text = _grid_key(b)
+
+func _corner_label(b: Button, node_name: String, at: Vector2, box: Vector2, px: int) -> Label:
+	var label: Label = b.get_node_or_null(node_name) as Label
+	if label == null:
+		label = Label.new()
+		label.name = node_name
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.add_theme_font_size_override("font_size", px)
+		label.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
+		b.add_child(label)
+	label.position = at
+	label.size = box
+	return label
+
+func _grid_key(b: Button) -> String:
+	var keys: String = "QWERASDFZXCV"
+	var parent: Node = b.get_parent()
+	if parent == null:
+		return ""
+	var seen: int = 0
+	for child: Node in parent.get_children():
+		if child == b:
+			break
+		var item: CanvasItem = child as CanvasItem
+		if item != null and item.visible:
+			seen += 1
+	if seen < 0 or seen >= keys.length():
+		return ""
+	return keys.substr(seen, 1)
+
 func _tint_roster_button(b: Button) -> void:
 	var cost: int = int(b.get_meta("cost", -1))
 	var purse: int = 0
@@ -1105,7 +1349,11 @@ func _tint_roster_button(b: Button) -> void:
 	if str(b.get_meta("prod_kind", "")) == "unit":
 		locked = _train_block(StringName(str(b.get_meta("prod_id", "")))) != ""
 	var poor: bool = cost >= 0 and purse < cost
-	b.modulate = Color(0.45, 0.47, 0.5) if locked or poor else Color(1, 1, 1)
+	var pair: Vector2i = Power.tally(side.yard if side != null else null)
+	var prod: String = str(b.get_meta("prod_id", ""))
+	var feeds: bool = prod.contains("hydro") or prod.contains("plant") or prod.contains("reactor") or prod.contains("generator") or prod.contains("power")
+	var unpowered: bool = pair.x < pair.y and str(b.get_meta("prod_kind", "")) == "building" and not feeds
+	b.modulate = Color(0.45, 0.47, 0.5) if locked or poor or unpowered else Color(1, 1, 1)
 	b.modulate.a = 1.0
 
 func _cameo_id(node_name: String) -> String:
@@ -1273,8 +1521,6 @@ func _sync_card() -> void:
 		selection_label.visible = chosen
 		if chosen:
 			busy = true
-	if radio_label != null and radio_label.visible and radio_label.text != "":
-		busy = true
 	if build_label != null and build_label.visible and build_label.text != "":
 		busy = true
 	if unit_card != null:

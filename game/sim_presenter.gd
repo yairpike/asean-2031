@@ -10,6 +10,25 @@ const Clips = preload("res://game/match_audio.gd")
 const Cameos = preload("res://game/match_cameos.gd")
 const Faces = preload("res://game/font_faces.gd")
 
+## Pins the objective to one line under the top bar, clear of the left rail.
+static func seat_status(status: Control) -> void:
+	if status == null:
+		return
+	status.anchor_left = 0.0
+	status.anchor_top = 0.0
+	status.anchor_right = 0.0
+	status.anchor_bottom = 0.0
+	status.offset_left = 100.0
+	status.offset_top = 36.0
+	status.offset_right = 424.0
+	status.offset_bottom = 62.0
+	status.custom_minimum_size = Vector2(0, 22)
+	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.clip_text = true
+	status.max_lines_visible = 1
+	status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 static func follow(host: Node) -> void:
 	if host == null or bool(host.get_meta("view_bound", false)):
 		return
@@ -76,6 +95,16 @@ static func follow(host: Node) -> void:
 		fitter.name = "CameraFit"
 		fitter.set_script(preload("res://game/camera_fit.gd"))
 		host.add_child(fitter)
+	if host.get_node_or_null("MatchExit") == null:
+		var exit: Node = Node.new()
+		exit.name = "MatchExit"
+		exit.set_script(preload("res://game/match_exit.gd"))
+		host.add_child(exit)
+	if host.get_node_or_null("MatchCoach") == null:
+		var coach: Node = Node.new()
+		coach.name = "MatchCoach"
+		coach.set_script(preload("res://game/match_coach.gd"))
+		host.add_child(coach)
 
 static func follow_pointer(field: SMPointer) -> void:
 	if field == null or bool(field.get_meta("view_bound", false)):

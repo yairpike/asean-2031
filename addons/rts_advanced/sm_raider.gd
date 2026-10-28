@@ -63,14 +63,20 @@ var react_scale: float = 1.0
 var _income_frac: float = 0.0
 ## A human guest owns this seat. The bot does not build, train, or attack.
 var human: bool = false
+## The team this bot spends, builds, and trains for. The other side is the foe.
+var seat: int = SMPointer.ENEMY
+var foe: int = SMPointer.PLAYER
+var trained: Dictionary = {}
 
-func attach(p_field: SMPointer, center: Vector3) -> void:
+func attach(p_field: SMPointer, center: Vector3, p_seat: int = SMPointer.ENEMY) -> void:
 	field = p_field
+	seat = p_seat
+	foe = SMPointer.PLAYER if p_seat != SMPointer.PLAYER else SMPointer.ENEMY
 	economy = RTSEconomy.new()
-	economy.set_credits(SMPointer.ENEMY, 3000)
+	economy.set_credits(seat, 3000)
 	yard = SMBuildYard.new()
 	yard.style = SMBuildYard.Style.SCAFFOLD
-	yard.team = SMPointer.ENEMY
+	yard.team = seat
 	yard.economy = economy
 	yard.center = center
 	yard.radius = 24.0
@@ -87,7 +93,7 @@ func attach(p_field: SMPointer, center: Vector3) -> void:
 	armed = false
 	fielded = 0
 	if field != null:
-		fielded = field.units_of(SMPointer.ENEMY).size()
+		fielded = field.units_of(seat).size()
 	power_id = &""
 	barracks_id = &""
 	factory_id = &""
@@ -108,8 +114,17 @@ func attach(p_field: SMPointer, center: Vector3) -> void:
 	unit_rows.clear()
 	committed.clear()
 	wrecked.clear()
-	queue = RTSProductionQueue.new(SMPointer.ENEMY, {})
+	trained.clear()
+	queue = RTSProductionQueue.new(seat, {})
 	queue.produced.connect(_on_trained)
+
+func bind_faction(id: String) -> void:
+	_ensure_brain()
+	if id == "gtfc" or id == "nmrf" or id == "mvd" or id == "black_market":
+		brain.faction_id = id
+
+func set_seed(n: int) -> void:
+	mix = posmod(n, 10)
 
 func bind_plan(goods_net: SMCommodityNet, tech: SMTechNet, first: StringName, second: StringName, site: StringName, who: String) -> void:
 	plan_goods = goods_net
@@ -131,7 +146,7 @@ func apply_pace(income: float, wave_time: float, wave_size: float, react: float)
 		wave_at.append(BASE_WAVE_AT[i] * time_scale)
 		wave_n.append(maxi(1, int(round(float(BASE_WAVE_N[i]) * size_scale))))
 	if economy != null:
-		economy.set_credits(SMPointer.ENEMY, int(round(float(BASE_PURSE) * income_scale)))
+		economy.set_credits(seat, int(round(float(BASE_PURSE) * income_scale)))
 	if brain != null:
 		brain.react_scale = react_scale
 	_retune_units()
@@ -280,16 +295,16 @@ func _grant_income(delta: float) -> void:
 	if _income_frac >= 1.0:
 		var grant: int = int(_income_frac)
 		_income_frac -= float(grant)
-		economy.earn(SMPointer.ENEMY, grant)
+		economy.earn(seat, grant)
 	elif _income_frac <= -1.0:
 		var drain: int = int(-_income_frac)
 		_income_frac += float(drain)
-		economy.try_spend(SMPointer.ENEMY, drain)
+		economy.try_spend(seat, drain)
 
 func _retune_units() -> void:
 	if field == null:
 		return
-	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+	for u: RTSUnit in field.units_of(seat):
 		if is_instance_valid(u):
 			_pace_interval(u)
 
@@ -349,7 +364,7 @@ func _train() -> void:
 		return
 	if not yard.structure_alive(barracks_id) or not Power.online(yard):
 		return
-	if field.units_of(SMPointer.ENEMY).size() >= ALIVE_CAP:
+	if field.units_of(seat).size() >= ALIVE_CAP:
 		return
 	if not queue.items.is_empty():
 		return
@@ -375,7 +390,7 @@ func _pick_train() -> StringName:
 func _hero_room() -> bool:
 	if field == null:
 		return false
-	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+	for u: RTSUnit in field.units_of(seat):
 		if bool(u.get_meta("hero", false)):
 			return false
 	return true
@@ -385,9 +400,10 @@ func _on_trained(kind: StringName, _rally: Vector3) -> void:
 		return
 	var spin: float = float(fielded) * 0.7
 	var at: Vector3 = yard.center + Vector3(cos(spin) * 3.0, 0.0, sin(spin) * 3.0)
-	var u: RTSUnit = field.spawn(SMPointer.ENEMY, at, kind)
+	var u: RTSUnit = field.spawn(seat, at, kind)
 	_paint_unit(u, kind)
 	fielded += 1
+	trained[kind] = int(trained.get(kind, 0)) + 1
 
 func _paint_unit(u: RTSUnit, kind: StringName) -> void:
 	if not unit_rows.has(kind):
@@ -417,18 +433,18 @@ func _release() -> void:
 		_commit_some(count)
 
 func _player_at_base() -> bool:
-	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+	for u: RTSUnit in field.units_of(foe):
 		if u.global_position.distance_to(yard.center) <= THREAT_M:
 			return true
 	return false
 
 func _commit_all() -> void:
-	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+	for u: RTSUnit in field.units_of(seat):
 		committed[u.get_instance_id()] = true
 
 func _commit_some(count: int) -> void:
 	var given: int = 0
-	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+	for u: RTSUnit in field.units_of(seat):
 		if given >= count:
 			return
 		var id: int = u.get_instance_id()
@@ -441,14 +457,14 @@ func _expand() -> void:
 	if goods.has_collector(node_id):
 		expanded = true
 		return
-	expanded = goods.snap_refinery(node_id, SMPointer.ENEMY)
+	expanded = goods.snap_refinery(node_id, seat)
 
 func _open() -> void:
 	if plan_goods != null and plan_a != &"" and plan_b != &"":
 		if not plan_goods.has_collector(plan_a):
-			plan_goods.snap_refinery(plan_a, SMPointer.ENEMY)
+			plan_goods.snap_refinery(plan_a, seat)
 		if not plan_goods.has_collector(plan_b):
-			plan_goods.snap_refinery(plan_b, SMPointer.ENEMY)
+			plan_goods.snap_refinery(plan_b, seat)
 		opened_nodes = 0
 		if plan_goods.has_collector(plan_a):
 			opened_nodes += 1
@@ -456,12 +472,12 @@ func _open() -> void:
 			opened_nodes += 1
 	if plan_tech != null and plan_site != &"":
 		if plan_tech.owner_of(plan_site) < 0:
-			took_tech = plan_tech.capture(plan_site, SMPointer.ENEMY)
-		elif plan_tech.owner_of(plan_site) == SMPointer.ENEMY:
+			took_tech = plan_tech.capture(plan_site, seat)
+		elif plan_tech.owner_of(plan_site) == seat:
 			took_tech = true
 	if used_f or field == null:
 		return
-	var foes: Array[RTSUnit] = field.units_of(SMPointer.ENEMY)
+	var foes: Array[RTSUnit] = field.units_of(seat)
 	if foes.is_empty():
 		return
 	used_f = field.apply_named_f(foes[0])
@@ -474,15 +490,15 @@ func _rebuild() -> void:
 	if brain == null or brain.rebuilt > 0:
 		return
 	if goods.has_collector(node_id):
-		brain.restore_node(goods, node_id, SMPointer.ENEMY)
+		brain.restore_node(goods, node_id, seat)
 
 func _attack() -> void:
 	var friends: Array[RTSUnit] = []
-	for friend: RTSUnit in field.units_of(SMPointer.PLAYER):
+	for friend: RTSUnit in field.units_of(foe):
 		if not bool(friend.get_meta("garrisoned", false)):
 			friends.append(friend)
 	var foes: Array[RTSUnit] = []
-	for u: RTSUnit in field.units_of(SMPointer.ENEMY):
+	for u: RTSUnit in field.units_of(seat):
 		if not committed.has(u.get_instance_id()):
 			continue
 		if u.hp <= u.max_hp * 0.3:
@@ -508,7 +524,7 @@ func _nav_for(u: RTSUnit) -> RTSGridNav:
 func _cast_wave(foes: Array[RTSUnit]) -> void:
 	var book: SMProtocols = SMProtocols.new()
 	var powers: SMAbilities = SMAbilities.new()
-	if not brain.cast_arsenal(book, economy, SMPointer.ENEMY, powers):
+	if not brain.cast_arsenal(book, economy, seat, powers):
 		return
 	var scale: float = book.damage_mult
 	for u: RTSUnit in foes:

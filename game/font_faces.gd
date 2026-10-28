@@ -16,3 +16,7 @@ static func pin() -> void:
 	var faces: Array[Font] = []
 	faces.append(napalm)
 	warheed.fallbacks = faces
+	var system_faces: Array[Font] = []
+	if ThemeDB.fallback_font != null:
+		system_faces.append(ThemeDB.fallback_font)
+	napalm.fallbacks = system_faces

@@ -70,7 +70,7 @@ func _ui() -> void:
 	add_child(layer)
 	var brief: Label = Label.new()
 	brief.name = "Briefing"
-	brief.position = Vector2(220, 42)
+	brief.position = Vector2(220, 108)
 	brief.size = Vector2(760, 72)
 	brief.custom_minimum_size = Vector2(760, 72)
 	brief.clip_text = true
@@ -79,11 +79,11 @@ func _ui() -> void:
 	brief.text = briefing_text
 	layer.add_child(brief)
 	var row: HBoxContainer = HBoxContainer.new()
-	row.position = Vector2(176, 80)
+	row.position = Vector2(220, 230)
 	row.add_theme_constant_override("separation", 8)
 	layer.add_child(row)
 	_debug(row, "DebugScaffold", "Raise scaffold", _on_scaffold)
-	_debug(row, "DebugRuby", "Ruby night shift", _on_ruby)
+	_debug(row, "DebugRuby", "Mine rubies", _on_ruby)
 	_debug(row, "DebugRare", "Secure rare earth", _on_rare)
 	status = Label.new()
 	status.name = "Status"
@@ -100,7 +100,7 @@ func _ui() -> void:
 	var back: Button = Button.new()
 	back.name = "MissionBoot"
 	back.text = "Boot menu"
-	back.position = Vector2(220, 166)
+	back.position = Vector2(220, 188)
 	back.custom_minimum_size = Vector2(160, 36)
 	back.pressed.connect(func() -> void:
 		get_tree().change_scene_to_file("res://game/boot.tscn")
@@ -174,7 +174,8 @@ func _process(delta: float) -> void:
 	if cam == null:
 		return
 	var vp: Viewport = get_viewport()
-	cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
+	if not hud.blocks_edge():
+		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
 	story.tick(delta)
 	var piece: Node = get_node_or_null("SetPiece")

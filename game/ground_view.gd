@@ -125,7 +125,25 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	_multi(host, "Houses", _prop("house"), houses)
 	_multi(host, "Stilts", _prop("stilt"), stilts)
 	_markers(host, profile)
+	_ocean_skirt(host, grid)
 	_sky(host)
+
+static func _ocean_skirt(host: Node3D, grid: SMDomainGrid) -> void:
+	if host.get_node_or_null("OceanSkirt") != null:
+		return
+	var mesh: PlaneMesh = PlaneMesh.new()
+	var span: float = maxf(float(grid.cols), float(grid.rows)) * grid.cell_size
+	mesh.size = Vector2(span * 8.0, span * 8.0)
+	var mi: MeshInstance3D = MeshInstance3D.new()
+	mi.name = "OceanSkirt"
+	mi.mesh = mesh
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.04, 0.1, 0.14)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mi.material_override = mat
+	var mid: Vector3 = grid.cell_center(Vector2i(int(grid.cols / 2), int(grid.rows / 2)))
+	mi.position = Vector3(mid.x, -0.55, mid.z)
+	host.add_child(mi)
 
 static func dress_site(mi: MeshInstance3D, form: String, accent: Color) -> void:
 	mi.mesh = _site(form, accent)
