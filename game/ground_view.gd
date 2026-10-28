@@ -349,10 +349,10 @@ static func _sky(host: Node3D) -> void:
 	if env == null or env.environment == null:
 		return
 	var mat := ProceduralSkyMaterial.new()
-	mat.sky_top_color = Color(0.16, 0.28, 0.42)
-	mat.sky_horizon_color = Color(0.68, 0.58, 0.42)
-	mat.ground_bottom_color = Color(0.08, 0.1, 0.08)
-	mat.ground_horizon_color = Color(0.34, 0.3, 0.22)
+	mat.sky_top_color = Color(0.45, 0.62, 0.78)
+	mat.sky_horizon_color = Color(0.78, 0.7, 0.56)
+	mat.ground_bottom_color = Color(0.42, 0.58, 0.74)
+	mat.ground_horizon_color = Color(0.74, 0.66, 0.52)
 	mat.sun_angle_max = 28.0
 	var sky := Sky.new()
 	sky.sky_material = mat
