@@ -282,14 +282,19 @@ func show_line(text: String) -> void:
 		return
 	radio_label.text = text
 	radio_label.visible = text != ""
-	radio_until = Time.get_ticks_msec() + 2800
+	radio_label.modulate.a = 1.0
+	radio_until = Time.get_ticks_msec() + 5000
 	_sync_card()
 
 func _paint_radio() -> void:
 	if radio_label == null or not radio_label.visible:
 		return
-	if Time.get_ticks_msec() > radio_until:
+	var left: int = radio_until - Time.get_ticks_msec()
+	if left <= 0:
 		radio_label.visible = false
+		radio_label.modulate.a = 1.0
+		return
+	radio_label.modulate.a = 1.0 if left >= 800 else clampf(float(left) / 800.0, 0.0, 1.0)
 
 func set_tutorial(text: String) -> void:
 	if tutorial_label == null:
@@ -404,21 +409,48 @@ func _unit_tab(unit: Dictionary) -> String:
 
 func _fill_commands(box: VBoxContainer) -> void:
 	var host: Container = command_row if use_tiles and command_row != null else box
-	if host.get_node_or_null("AbilityButton") != null:
+	if host.find_child("AbilityButton", true, false) != null:
 		return
-	_button(host, "AbilityButton", "Ability (F)", _ability, SMGuide.ability_tip(), "ability_cast")
-	if command_row == null or not use_tiles:
+	var cells: Container = host
+	if command_row != null and use_tiles:
+		var row: HBoxContainer = HBoxContainer.new()
+		row.name = "CommandCells"
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_theme_constant_override("separation", 4)
+		command_row.add_child(row)
+		cells = row
+	_command_cell(cells, "AttackMove", "A-Move", "Q", _attack_move, "Attack-move ahead of the lead unit.")
+	_command_cell(cells, "StopButton", "Stop", "X", _halt, "Stop.")
+	_command_cell(cells, "StanceGuard", "Guard", "", _set_stance.bind("guard"), "Guard. Fire at enemies in range.")
+	_command_cell(cells, "StanceHold", "Hold", "", _set_stance.bind("hold"), "Hold. Do not acquire targets.")
+	_command_cell(cells, "FormationButton", "Form", "Z", _formation, "Formation. Switch between a line and a box.")
+	_command_cell(cells, "AbilityButton", "Ability (F)", "F", _ability, SMGuide.ability_tip())
+
+func _command_cell(host: Container, node_name: String, caption: String, chip: String, fn: Callable, tip: String) -> void:
+	var cue: String = "ability_cast" if node_name == "AbilityButton" else "ui"
+	var button: Button = _button(host, node_name, caption, fn, tip, cue)
+	button.custom_minimum_size = Vector2(56, 56)
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.add_theme_font_size_override("font_size", 12)
+	if chip == "":
 		return
-	var stance_row: HBoxContainer = HBoxContainer.new()
-	stance_row.name = "StanceRow"
-	stance_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stance_row.add_theme_constant_override("separation", 4)
-	command_row.add_child(stance_row)
-	_button(stance_row, "StanceAggressive", "Agg", _set_stance.bind("aggressive"), "Aggressive. Chase and fire.", "ui")
-	_button(stance_row, "StanceGuard", "Guard", _set_stance.bind("guard"), "Guard. Fire at enemies in range.", "ui")
-	_button(stance_row, "StanceHold", "Hold", _set_stance.bind("hold"), "Hold. Do not acquire targets.", "ui")
-	_button(stance_row, "AttackMove", "A-Move", _attack_move, "Attack-move ahead of the lead unit.", "ui")
-	_button(stance_row, "StopButton", "Stop", _halt, "Stop.", "ui")
+	var mark: Label = Label.new()
+	mark.name = "KeyChip"
+	mark.text = chip
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.position = Vector2(2, 1)
+	mark.size = Vector2(18, 14)
+	mark.add_theme_font_size_override("font_size", 11)
+	mark.add_theme_color_override("font_color", Color(0.95, 0.82, 0.35))
+	button.add_child(mark)
+
+func _formation() -> void:
+	if field == null:
+		return
+	var lined: bool = field.toggle_line()
+	_note("line" if lined else "box")
+	refresh()
 
 func _set_stance(mode: String) -> void:
 	if field != null:
@@ -788,7 +820,7 @@ func _guide(layer: CanvasLayer) -> void:
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_theme_stylebox_override("panel", _card_style())
 	if use_tiles:
-		_dock(strip, 196.0, 40.0, 560.0, 76.0, 0.0, 0.0, 0.0, 0.0)
+		_dock(strip, 448.0, 36.0, 760.0, 64.0, 0.0, 0.0, 0.0, 0.0)
 	else:
 		_dock(strip, 8.0, -46.0, -268.0, -6.0, 0.0, 1.0, 1.0, 1.0)
 	layer.add_child(strip)
@@ -935,6 +967,7 @@ func blocks_edge() -> bool:
 		"Protocols", "ProtocolsToggle", "Minimap", "MonitorFrame", "UnitCard",
 		"HelpButton", "MissionBoot", "SelectionSlots", "PhoneDrawer", "TipPanel",
 		"HowToOverlay", "SuperDock", "CommandColumn", "PauseMenu", "TopBar",
+		"MessageLane", "ObjectiveShade", "HudMenu",
 	])
 	var node: Node = hovered
 	while node != null and node != layer_node:
@@ -1083,6 +1116,17 @@ func _paint_roster_buttons(parent: Node) -> void:
 			_paint_button(button)
 
 func _paint_button(b: Button) -> void:
+	if str(b.name).begins_with("Super_"):
+		b.icon = null
+		b.text = ""
+		b.custom_minimum_size = Vector2(56, 56)
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var clock: Label = b.get_node_or_null("SuperClock") as Label
+		if clock != null:
+			clock.position = Vector2(0, 16)
+			clock.size = Vector2(56, 22)
+			clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		return
 	var caption: String = str(b.get_meta("caption", b.text))
 	var portrait: Texture2D = _cameo_texture(_faction_id(), str(b.get_meta("cameo_id", "")))
 	var in_grid: bool = (use_tiles and icon_grid != null and b.get_parent() == icon_grid) or (use_tiles and str(b.name).begins_with("Super_"))
@@ -1350,8 +1394,6 @@ func _sync_card() -> void:
 		selection_label.visible = chosen
 		if chosen:
 			busy = true
-	if radio_label != null and radio_label.visible and radio_label.text != "":
-		busy = true
 	if build_label != null and build_label.visible and build_label.text != "":
 		busy = true
 	if unit_card != null:

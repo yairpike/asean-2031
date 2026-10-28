@@ -1364,7 +1364,7 @@ func test_sm_hud() -> void:
 	check(mm.camera_rect.size.x > 1.0 and mm.covers_focus(), "the minimap draws the camera rectangle")
 	var hint_line: Control = scene.find_child("Status", true, false) as Control
 	var slot_row: Control = scene.find_child("SelectionSlots", true, false) as Control
-	check(hint_line != null and hint_line.offset_bottom <= -200.0 and slot_row != null and slot_row.offset_left >= 360.0, "the status line and selection strip sit clear of the protocols")
+	check(hint_line != null and hint_line.offset_top >= 28.0 and hint_line.offset_top <= 48.0 and hint_line.offset_left >= 70.0 and slot_row != null and slot_row.offset_left >= 360.0, "the objective sits under the top bar and the selection strip stays centred")
 	check(_click_east(scene), "clicking the minimap moves the camera")
 	var friends: Array[RTSUnit] = field.units_of(0)
 	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
@@ -2179,8 +2179,8 @@ func test_sm_protocols() -> void:
 	var bar: Node = scene.find_child("Protocols", true, false)
 	check(bar != null, "phillips shows the protocol panel")
 	var toggle_protocols: Button = scene.find_child("ProtocolsToggle", true, false) as Button
-	check(bar != null and bar.visible, "the protocol grid starts open")
-	check(toggle_protocols != null and bar != null and toggle_protocols.text == "Protocols (P)" and not bar.is_ancestor_of(toggle_protocols), "Protocols is a button beside the grid")
+	check(bar != null and not bar.visible, "the protocol grid starts folded")
+	check(toggle_protocols != null and bar != null and toggle_protocols.text == "⚡" and not bar.is_ancestor_of(toggle_protocols), "Protocols is a button beside the grid")
 	var touch_node: Node = root.get_node_or_null("SMTouch")
 	var poke: InputEventKey = InputEventKey.new()
 	poke.pressed = true
@@ -2188,7 +2188,7 @@ func test_sm_protocols() -> void:
 	poke.physical_keycode = KEY_P
 	if touch_node != null:
 		touch_node._unhandled_input(poke)
-	check(bar != null and not bar.visible, "P folds the protocol grid")
+	check(bar != null and bar.visible, "P opens the protocol grid")
 	for id: StringName in ids:
 		var button: Button = scene.find_child("Proto_%s" % str(id), true, false) as Button
 		check(button != null and button.text == book.display_name(id), "phillips lists %s" % book.display_name(id))
@@ -3503,7 +3503,9 @@ func test_sm_guide() -> void:
 	check(tip_cameo != null and tip_cameo.visible and tip_cameo.texture != null, "the hover tip shows the unit cameo")
 	var cameo_field: SMPointer = scene.get("field") as SMPointer
 	if cameo_field != null:
-		cameo_field.select_kind(&"militia")
+		var solo_unit: RTSUnit = _unit_kind(cameo_field, 0, "militia")
+		if solo_unit != null:
+			cameo_field.select_only([solo_unit])
 	if board != null:
 		board.refresh()
 	var card_cameo: TextureRect = scene.find_child("CardCameo", true, false) as TextureRect
