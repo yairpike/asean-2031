@@ -1,9 +1,8 @@
 extends RefCounted
-## Loads music and barks from files beside the page, outside the pack.
-## A new bark is barks/{unit}_{select|move|attack}_{n}.ogg; re-export picks it up.
+## Loads music and barks from the served audio/ folder, outside the pack.
+## Desktop runs also read res://audio/. A new bark is
+## barks/{unit}_{select|move|attack}_{n}.ogg; re-export picks it up.
 ## Missing files leave the procedural cues in place.
-
-const STORE_AUDIO: String = "/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/audio"
 
 static var _cache: Dictionary = {}
 static var _catalog: Dictionary = {}
@@ -172,17 +171,24 @@ static func _present(rel: String) -> bool:
 	return _local_exists(rel)
 
 static func _local_exists(rel: String) -> bool:
+	if not _accepted(rel):
+		return false
+	var packed: String = "res://audio/%s" % rel
+	if FileAccess.file_exists(packed):
+		return true
 	var roots: PackedStringArray = _roots()
 	for root: String in roots:
 		if FileAccess.file_exists(root.path_join(rel)):
 			return true
 	return false
 
+static func _accepted(rel: String) -> bool:
+	return rel.ends_with(".ogg") and not rel.contains("..") and not rel.begins_with("/") and not rel.contains("\\")
+
 static func _roots() -> PackedStringArray:
 	var roots: PackedStringArray = PackedStringArray()
-	roots.append(OS.get_executable_path().get_base_dir().path_join("audio"))
 	roots.append(ProjectSettings.globalize_path("res://").path_join("build/web/audio"))
-	roots.append(STORE_AUDIO)
+	roots.append(OS.get_executable_path().get_base_dir().path_join("audio"))
 	return roots
 
 static func _decode(bytes: PackedByteArray) -> AudioStream:
@@ -191,6 +197,11 @@ static func _decode(bytes: PackedByteArray) -> AudioStream:
 	return AudioStreamOggVorbis.load_from_buffer(bytes)
 
 static func _read_local(rel: String) -> PackedByteArray:
+	if not _accepted(rel):
+		return PackedByteArray()
+	var packed: String = "res://audio/%s" % rel
+	if FileAccess.file_exists(packed):
+		return FileAccess.get_file_as_bytes(packed)
 	var roots: PackedStringArray = _roots()
 	for root: String in roots:
 		var path: String = root.path_join(rel)

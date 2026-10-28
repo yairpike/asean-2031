@@ -276,6 +276,22 @@ func _tagged(unit: Dictionary, tag: String) -> bool:
 			return true
 	return false
 
+func _open_units() -> Array:
+	var out: Array = []
+	for u: RTSUnit in units:
+		if not bool(u.get_meta("garrisoned", false)):
+			out.append(u)
+	return out
+
+func _drop_garrisoned() -> void:
+	var housed: Array[RTSUnit] = []
+	for u: RTSUnit in selection.units:
+		if is_instance_valid(u) and bool(u.get_meta("garrisoned", false)):
+			housed.append(u)
+	for u: RTSUnit in housed:
+		u.selected = false
+		selection.units.erase(u)
+
 func units_of(team: int) -> Array[RTSUnit]:
 	var out: Array[RTSUnit] = []
 	for u: RTSUnit in units:
@@ -287,7 +303,7 @@ func count_team(team: int) -> int:
 	return units_of(team).size()
 
 func select_click(screen: Vector2, project_fn: Callable, add: bool = false, toggle: bool = false) -> RTSUnit:
-	var picked: RTSUnit = selection.select_at(screen, units, project_fn, add, toggle, PICK_PX)
+	var picked: RTSUnit = selection.select_at(screen, _open_units(), project_fn, add, toggle, PICK_PX)
 	if picked != null and not add and not toggle and _fresh_double(picked):
 		select_kind(picked.unit_type)
 	elif picked != null and picked.selected:
@@ -296,7 +312,7 @@ func select_click(screen: Vector2, project_fn: Callable, add: bool = false, togg
 	return picked
 
 func select_drag(rect: Rect2, project_fn: Callable, add: bool = false) -> int:
-	return selection.select_box(rect, units, project_fn, add)
+	return selection.select_box(rect, _open_units(), project_fn, add)
 
 func select_kind(kind: StringName) -> int:
 	var found: Array[RTSUnit] = []
@@ -480,7 +496,9 @@ func bind_group(index: int, store: bool) -> int:
 		group_note = "Group %d stored" % index
 		group_note_t = 1.8
 		return selection.count()
-	var n: int = selection.recall_group(index)
+	selection.recall_group(index)
+	_drop_garrisoned()
+	var n: int = selection.count()
 	group_note = ("Group %d" % index) if n > 0 else ("Group %d empty" % index)
 	group_note_t = 1.8
 	return n

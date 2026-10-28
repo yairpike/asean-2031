@@ -3,7 +3,40 @@
 # register it. Does not add cross-origin isolation headers.
 set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="${1:-$ROOT/build/web}"
+DEST="$ROOT/build/web"
+# Optional trees. Set AUDIO_SRC and CAMEO_SRC in the environment, or pass
+# --audio DIR and --cameos DIR. Without them, audio/ and cameos/ already
+# next to the export are left in place.
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+  DEST="$1"
+  shift
+fi
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --audio)
+      if [ $# -lt 2 ]; then
+        echo "finish_web_export: --audio needs a directory"
+        exit 1
+      fi
+      AUDIO_SRC="$2"
+      shift 2
+      ;;
+    --cameos)
+      if [ $# -lt 2 ]; then
+        echo "finish_web_export: --cameos needs a directory"
+        exit 1
+      fi
+      CAMEO_SRC="$2"
+      shift 2
+      ;;
+    *)
+      echo "finish_web_export: unknown argument $1"
+      exit 1
+      ;;
+  esac
+done
+AUDIO_SRC="${AUDIO_SRC:-}"
+CAMEO_SRC="${CAMEO_SRC:-}"
 # Keep the project worker. Godot's exported worker reloads every open client
 # when it receives "update", which boots a match back to the menu.
 cp "$ROOT/web/sw.js" "$DEST/sw.js"
@@ -86,8 +119,11 @@ open(path, "w", encoding="utf-8").write(html.replace(needle, tag, 1))
 PY
 fi
 cp "$ROOT/tools/brotli_host.conf" "$DEST/brotli_host.conf"
-AUDIO_SRC="/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/audio"
-if [ -d "$AUDIO_SRC/music" ] || [ -d "$AUDIO_SRC/barks" ]; then
+if [ -n "$AUDIO_SRC" ]; then
+  if [ ! -d "$AUDIO_SRC/music" ] && [ ! -d "$AUDIO_SRC/barks" ]; then
+    echo "finish_web_export: audio source has no music or barks"
+    exit 1
+  fi
   mkdir -p "$DEST/audio"
   if [ -d "$AUDIO_SRC/music" ]; then
     rm -rf "$DEST/audio/music"
@@ -113,8 +149,11 @@ if [ -d "$AUDIO_SRC/music" ] || [ -d "$AUDIO_SRC/barks" ]; then
   fi
   : > "$DEST/audio/.gdignore"
 fi
-CAMEO_SRC="/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/cameos"
-if [ -d "$CAMEO_SRC" ]; then
+if [ -n "$CAMEO_SRC" ]; then
+  if [ ! -d "$CAMEO_SRC" ]; then
+    echo "finish_web_export: cameo source is not a directory"
+    exit 1
+  fi
   rm -rf "$DEST/cameos"
   mkdir -p "$DEST/cameos"
   find "$CAMEO_SRC" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/cameos/" \;
