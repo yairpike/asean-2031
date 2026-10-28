@@ -1,0 +1,12 @@
+amber_scout_attack_1.ogg
+amber_scout_select_1.ogg
+clearance_trooper_attack_1.ogg
+clearance_trooper_select_1.ogg
+hub_drone_attack_1.ogg
+hub_drone_select_1.ogg
+mangrove_tube_attack_1.ogg
+mangrove_tube_select_1.ogg
+militia_attack_1.ogg
+militia_select_1.ogg
+river_rifle_attack_1.ogg
+river_rifle_select_1.ogg
