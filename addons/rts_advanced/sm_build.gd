@@ -5,6 +5,9 @@ extends RefCounted
 ## building in a line. INTERNAL builds inside the hub, then places the finished
 ## shell inside the radius. MOBILE is an amphibious packer that unpacks.
 
+signal super_ready
+signal super_fired
+
 enum Style { SCAFFOLD, INTERNAL, MOBILE }
 
 var style: int = Style.SCAFFOLD
@@ -93,10 +96,14 @@ func fire_super(at: Vector3, victims: Array[Dictionary]) -> int:
 			hit += 1
 	if hit > 0:
 		super_left = super_cooldown
+		super_fired.emit()
 	return hit
 
 func cool_super(delta: float) -> void:
+	var before: float = super_left
 	super_left = maxf(0.0, super_left - delta)
+	if before > 0.0 and super_left <= 0.0 and super_damage > 0.0:
+		super_ready.emit()
 
 func place_annex(id: StringName) -> bool:
 	if style != Style.MOBILE or not unpacked or finished.has(id) or not building_time.has(id):
@@ -105,6 +112,7 @@ func place_annex(id: StringName) -> bool:
 	structure_pos[id] = packer_pos
 	structure_hp[id] = _max_hp(id)
 	_note_water(id)
+	_mark_super(id)
 	return true
 
 func begin_repair(id: StringName) -> bool:
@@ -250,6 +258,7 @@ func place_finished(id: StringName, pos: Vector3) -> bool:
 	if not structure_hp.has(id):
 		structure_hp[id] = _max_hp(id)
 	_note_water(id)
+	_mark_super(id)
 	return true
 
 func move_packer(to: Vector3) -> bool:
@@ -270,6 +279,7 @@ func unpack(factory: StringName) -> bool:
 	if not structure_hp.has(factory):
 		structure_hp[factory] = _max_hp(factory)
 	_note_water(factory)
+	_mark_super(factory)
 	return true
 
 func upgrade_factory(factory: StringName) -> bool:
@@ -312,6 +322,7 @@ func _advance_scaffold(delta: float) -> void:
 		structure_hp[done] = maxf(scaffold_hp, 1.0)
 		structure_max[done] = maxf(scaffold_max_hp, structure_hp[done])
 		_note_water(done)
+		_mark_super(done)
 		scaffold_id = &""
 		scaffold_active = false
 		vulnerable = false
@@ -399,6 +410,12 @@ func _stored_hp(id: StringName) -> float:
 func _note_water(id: StringName) -> void:
 	if bool(water_marked.get(id, false)):
 		structure_water[id] = true
+
+func _mark_super(id: StringName) -> void:
+	if id == &"" or id != super_id or super_damage <= 0.0:
+		return
+	if super_left <= 0.0:
+		super_ready.emit()
 
 func _max_hp(id: StringName) -> float:
 	if structure_max.has(id):

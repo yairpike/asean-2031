@@ -53,6 +53,22 @@ while [ $# -gt 0 ]; do
       UI_SRC="$2"
       shift 2
       ;;
+    --video)
+      if [ $# -lt 2 ]; then
+        echo "finish_web_export: --video needs a directory"
+        exit 1
+      fi
+      VIDEO_SRC="$2"
+      shift 2
+      ;;
+    --models)
+      if [ $# -lt 2 ]; then
+        echo "finish_web_export: --models needs a directory"
+        exit 1
+      fi
+      MODEL_SRC="$2"
+      shift 2
+      ;;
     *)
       echo "finish_web_export: unknown argument $1"
       exit 1
@@ -64,6 +80,8 @@ CAMEO_SRC="${CAMEO_SRC:-}"
 MENU_SRC="${MENU_SRC:-}"
 TERRAIN_SRC="${TERRAIN_SRC:-}"
 UI_SRC="${UI_SRC:-}"
+VIDEO_SRC="${VIDEO_SRC:-}"
+MODEL_SRC="${MODEL_SRC:-}"
 # Keep the project worker. Godot's exported worker reloads every open client
 # when it receives "update", which boots a match back to the menu.
 cp "$ROOT/web/sw.js" "$DEST/sw.js"
@@ -167,10 +185,20 @@ if [ -n "$AUDIO_SRC" ]; then
     rm -rf "$DEST/audio/announcer"
     cp -R "$AUDIO_SRC/announcer" "$DEST/audio/announcer"
   fi
-  # music/user/ is fetched when a song starts, not with the startup clip list.
-  find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' ! -path '*/music/user/*' 2>/dev/null \
+  # music/user/ and voice-language folders are fetched when a clip plays.
+  find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' ! -path '*/music/user/*' ! -path '*/barks/*/*' 2>/dev/null \
     | sed "s#^$DEST/audio/##" \
     | sort > "$DEST/audio/clips.txt"
+  for lang in english burmese mandarin thai malay; do
+    if [ -d "$DEST/audio/barks/$lang" ]; then
+      find "$DEST/audio/barks/$lang" -maxdepth 1 -type f -name '*.ogg' -printf '%f\n' | sort > "$DEST/audio/barks/$lang/index.txt"
+    fi
+    if [ -d "$DEST/audio/announcer/$lang" ]; then
+      find "$DEST/audio/announcer/$lang" -type f -name '*.ogg' \
+        | sed "s#^$DEST/audio/announcer/$lang/##" \
+        | sort > "$DEST/audio/announcer/$lang/index.txt"
+    fi
+  done
   if ! grep -q "music/menu.ogg" "$DEST/audio/clips.txt"; then
     echo "finish_web_export: clips.txt missing menu"
     exit 1
@@ -211,6 +239,35 @@ if [ -n "$MENU_SRC" ]; then
   find "$DEST/ui/menu/cinematic" -maxdepth 1 -type f \( -name '*.webp' -o -name '*.png' -o -name '*.jpg' \) -printf 'cinematic/%f\n' | sort > "$DEST/ui/menu/index.txt"
   : > "$DEST/ui/menu/.gdignore"
   : > "$DEST/ui/menu/cinematic/.gdignore"
+fi
+if [ -n "$VIDEO_SRC" ]; then
+  if [ ! -d "$VIDEO_SRC" ]; then
+    echo "finish_web_export: video source is not a directory"
+    exit 1
+  fi
+  mkdir -p "$DEST/ui/menu/video/bed"
+  find "$VIDEO_SRC" -maxdepth 1 -type f -name '*.ogv' -exec cp {} "$DEST/ui/menu/video/" \;
+  if [ -d "$VIDEO_SRC/bed" ]; then
+    find "$VIDEO_SRC/bed" -maxdepth 1 -type f -name '*.ogg' -exec cp {} "$DEST/ui/menu/video/bed/" \;
+  fi
+  : > "$DEST/ui/menu/video/.gdignore"
+  if [ ! -f "$DEST/ui/menu/video/gtfc.ogv" ]; then
+    echo "finish_web_export: video folder is missing gtfc.ogv"
+    exit 1
+  fi
+fi
+if [ -n "$MODEL_SRC" ]; then
+  if [ ! -d "$MODEL_SRC" ]; then
+    echo "finish_web_export: model source is not a directory"
+    exit 1
+  fi
+  mkdir -p "$DEST/models"
+  find "$MODEL_SRC" -maxdepth 1 -type f \( -name '*.glb' -o -name '*.gltf' \) -exec cp {} "$DEST/models/" \;
+  find "$DEST/models" -maxdepth 1 -type f \( -name '*.glb' -o -name '*.gltf' \) -printf '%f\n' | sort > "$DEST/models/index.txt"
+  : > "$DEST/models/.gdignore"
+  if [ -f "$MODEL_SRC/CREDITS.md" ]; then
+    cp "$MODEL_SRC/CREDITS.md" "$DEST/models/CREDITS.md"
+  fi
 fi
 if [ -n "$TERRAIN_SRC" ]; then
   if [ ! -d "$TERRAIN_SRC" ]; then

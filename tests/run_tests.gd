@@ -2947,6 +2947,7 @@ func test_sm_bark() -> void:
 	check(clips.call("titles_for", "black_market") == PackedStringArray(["Black Market", "Night", "Love Drunk", "Poison", "Time"]), "the black market playlist names its songs")
 	check(clips.call("titles_for", "shared") == PackedStringArray(["Poison", "Time"]), "the shared playlist names its songs")
 	check(clips.call("is_lazy", "music/user/night.ogg") and not clips.call("is_lazy", "music/menu.ogg"), "user songs stay out of the startup download")
+	check(clips.call("is_lazy", "barks/burmese/militia_select_1.ogg") and clips.call("is_lazy", "announcer/thai/gtfc/unit_ready.ogg") and not clips.call("is_lazy", "barks/militia_select_1.ogg"), "only the selected voice language stays out of the startup download")
 	var user_tracks: PackedStringArray = PackedStringArray([
 		"music/user/changes.ogg", "music/user/humanfuture.ogg", "music/user/love-drunk.ogg",
 		"music/user/machinesfuture.ogg", "music/user/night.ogg", "music/user/not-needed-anymore.ogg",
@@ -2975,6 +2976,9 @@ func test_sm_bark() -> void:
 				barks_ok = false
 	check(barks_ok, "the nine shipped units decode both bark takes")
 	check(clips.call("clip_for", "militia", "select") != null, "a shipped bark is chosen for playback")
+	Settings.set_voice("thai")
+	check(clips.call("clip_for", "militia", "select") != null and clips.call("clip_for", "crimson_sapper", "select") != null, "a missing language falls back to the English bark")
+	Settings.set_voice("english")
 	check(clips.call("clip_for", "not_a_unit", "select") == null, "a missing bark stays empty for the tone")
 	check(clips.call("_stream", "barks/crimson_sapper_select_2.ogg") != null, "the sapper select line plays")
 	check(clips.call("clip_for", "crimson_sapper", "select") != null, "the sapper still has a select line")
@@ -3946,7 +3950,7 @@ func test_sm_settings() -> void:
 		if not file_name.begins_with("sm_") or not file_name.ends_with(".gd"):
 			continue
 		var text: String = FileAccess.get_file_as_string("res://addons/rts_advanced/%s" % file_name)
-		if game_ref == "" and (text.contains("preload(\"res://game/") or text.contains("preload('res://game/")):
+		if game_ref == "" and text.contains("res://game/"):
 			game_ref = file_name
 		for token: String in banned:
 			if text.contains(token):
@@ -3955,7 +3959,7 @@ func test_sm_settings() -> void:
 		if dirty != "":
 			break
 	check(dirty == "", "sim scripts stay free of meshes and shaders")
-	check(game_ref == "", "sim scripts do not preload game views")
+	check(game_ref == "", "sim scripts do not reference game views")
 	check(FileAccess.file_exists("res://game/shaders/channel_water.gdshader") and FileAccess.file_exists("res://game/shaders/monsoon_rain.gdshader") and not DirAccess.dir_exists_absolute("res://assets/shaders"), "shaders live under game")
 	check(Settings.quality_for_adapter("ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)") == "low", "swiftshader defaults to low graphics")
 	check(Settings.quality_for_adapter("llvmpipe") == "low" and Settings.quality_for_adapter("NVIDIA GeForce RTX") == "high", "software adapters default low and a gpu stays high")
@@ -3967,7 +3971,12 @@ func test_sm_settings() -> void:
 	Settings.set_edge(false)
 	Settings.set_difficulty("hard")
 	Settings.reread()
-	check(Settings.graphics == "low" and is_equal_approx(Settings.master, 0.4) and is_equal_approx(Settings.sfx, 0.25) and is_equal_approx(Settings.pan, 1.6) and not Settings.edge and Settings.difficulty == "hard", "settings round-trip through user://")
+	check(Settings.graphics == "low" and is_equal_approx(Settings.master, 0.4) and is_equal_approx(Settings.sfx, 0.25) and is_equal_approx(Settings.pan, 1.6) and not Settings.edge and Settings.difficulty == "hard" and Settings.voice == "english", "settings round-trip through user://")
+	Settings.set_voice("mandarin")
+	Settings.reread()
+	check(Settings.voice == "mandarin", "the voice language round-trips")
+	Settings.set_voice("latin")
+	check(Settings.voice == "english" and Settings.voice_name("burmese") == "Burmese", "an unknown voice language stays English")
 	check(Settings.idb_script().contains("indexedDB") and Settings.idb_script().contains("settings"), "settings mirror into IndexedDB on the web")
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
@@ -3976,7 +3985,9 @@ func test_sm_settings() -> void:
 	check(gear != null, "the menu has a settings button")
 	gear.pressed.emit()
 	var menu_panel: Control = boot.find_child("SettingsPanel", true, false) as Control
+	var voice_row: Button = boot.find_child("VoiceValue", true, false) as Button
 	check(menu_panel != null and menu_panel.visible, "the menu settings button opens the panel")
+	check(voice_row != null and voice_row.text == "English", "settings lists the voice language")
 	boot.free()
 	await process_frame
 	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
@@ -4002,6 +4013,7 @@ func test_sm_settings() -> void:
 	Settings.set_pan(1.0)
 	Settings.set_edge(true)
 	Settings.set_difficulty("normal")
+	Settings.set_voice("english")
 	Settings.hold("high")
 	var web_script: GDScript = load("res://addons/rts_advanced/sm_web.gd") as GDScript
 	check(int(web_script.call("pointer_mode", true)) == Input.MOUSE_MODE_CONFINED and int(web_script.call("pointer_mode", false)) == Input.MOUSE_MODE_VISIBLE, "a match keeps the pointer inside the window")

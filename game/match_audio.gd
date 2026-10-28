@@ -5,6 +5,10 @@ extends RefCounted
 ## Missing files leave the procedural cues in place.
 ## User songs live in music/user/ and are fetched one at a time. They are
 ## not part of the startup clip list.
+## Voice lines live in barks/<lang>/ and announcer/<lang>/<faction>/.
+## Languages are english, burmese, mandarin, thai, and malay.
+## A missing take uses the english folder, then the flat english file.
+## The web build fetches only the selected language.
 
 static var _cache: Dictionary = {}
 static var _catalog: Dictionary = {}
@@ -17,6 +21,12 @@ static var _at: int = 0
 static var _player_name: String = ""
 static var now_title: String = ""
 static var _said: Dictionary = {}
+static var _owner: Node
+static var _bark_index: Dictionary = {}
+static var _line_index: Dictionary = {}
+static var _index_state: Dictionary = {}
+
+const Settings = preload("res://game/match_settings.gd")
 
 static func arm(host: Node, mode: String) -> void:
 	if host == null or host.get_node_or_null("MatchAudio") != null:
@@ -26,6 +36,8 @@ static func arm(host: Node, mode: String) -> void:
 	node.name = "MatchAudio"
 	node.set_meta("mode", mode)
 	host.add_child(node)
+	_owner = host
+	note_voice(host)
 
 static func play_menu(host: Node) -> void:
 	_buses()
@@ -62,7 +74,10 @@ static func current_title() -> String:
 	return now_title
 
 static func is_lazy(rel: String) -> bool:
-	return rel.begins_with("music/user/") or rel.begins_with("announcer/")
+	if rel.begins_with("music/user/") or rel.begins_with("announcer/"):
+		return true
+	var parts: PackedStringArray = rel.split("/")
+	return parts.size() >= 3 and parts[0] == "barks"
 
 static func alert_key(text: String) -> String:
 	var line: String = text.to_lower().strip_edges()
@@ -91,14 +106,42 @@ static func announce_key(host: Node, faction: String, key: String) -> void:
 		id = "gtfc"
 	var now: int = Time.get_ticks_msec()
 	var stamp: int = int(_said.get(key, 0))
-	if now - stamp < 1600:
+	if now - stamp < _gap(key):
 		return
 	_said[key] = now
 	_buses()
 	var player: AudioStreamPlayer = _ensure(host, "Announcer")
 	player.bus = "Radio"
 	player.volume_db = -2.0
-	_assign(player, "announcer/%s/%s.ogg" % [id, key], false)
+	var rel: String = _best("announcer", "%s/%s.ogg" % [id, key])
+	if rel == "":
+		return
+	_assign(player, rel, false)
+
+static func note_voice(owner: Node) -> void:
+	if owner != null and is_instance_valid(owner):
+		_owner = owner
+	if _owner != null and not is_instance_valid(_owner):
+		_owner = null
+	var lang: String = _lang()
+	if _index_state.has(lang):
+		return
+	_pull_index(lang)
+
+static func _gap(key: String) -> int:
+	if key == "base_under_attack":
+		return 18000
+	if key == "unit_lost":
+		return 8000
+	if key == "building_captured":
+		return 6000
+	if key == "superweapon_ready":
+		return 20000
+	if key == "superweapon_launched":
+		return 4000
+	if key == "enemy_superweapon_detected":
+		return 25000
+	return 1600
 
 static func tick(host: Node) -> void:
 	if host == null or _queue.is_empty():
@@ -354,11 +397,106 @@ static func _variants(unit_id: String, event: String) -> PackedStringArray:
 	var found: PackedStringArray = PackedStringArray()
 	var n: int = 1
 	while n <= 8:
-		var rel: String = "barks/%s_%s_%d.ogg" % [unit_id, event, n]
-		if _present(rel):
+		var rel: String = _best("barks", "%s_%s_%d.ogg" % [unit_id, event, n])
+		if rel != "":
 			found.append(rel)
 		n += 1
 	return found
+
+static func _lang() -> String:
+	var id: String = Settings.voice
+	if id == "burmese" or id == "mandarin" or id == "thai" or id == "malay":
+		return id
+	return "english"
+
+static func _best(kind: String, tail: String) -> String:
+	var lang: String = _lang()
+	note_voice(null)
+	var preferred: String = "%s/%s/%s" % [kind, lang, tail]
+	_kick(preferred, lang)
+	if _ready(preferred):
+		return preferred
+	if lang != "english":
+		var english: String = "%s/english/%s" % [kind, tail]
+		if _ready(english):
+			return english
+		if not _listed(preferred) and _index_state.get(lang, "") == "ready":
+			_kick(english, "english")
+			if _ready(english):
+				return english
+	var flat: String = "%s/%s" % [kind, tail]
+	if _ready(flat):
+		return flat
+	return ""
+
+static func _ready(rel: String) -> bool:
+	if _cache.has(rel) and _cache[rel] != null:
+		return true
+	return _local_exists(rel)
+
+static func _kick(rel: String, lang: String) -> void:
+	if not OS.has_feature("web") or _owner == null or not is_instance_valid(_owner) or not _listed(rel):
+		return
+	if lang != _lang() and lang != "english":
+		return
+	if lang != _lang() and _ready(rel):
+		return
+	prefetch(_owner, rel)
+
+static func _listed(rel: String) -> bool:
+	var parts: PackedStringArray = rel.split("/")
+	if parts.size() < 3:
+		return false
+	var lang: String = parts[1]
+	if parts[0] == "barks":
+		var names: PackedStringArray = _bark_index.get(lang, PackedStringArray())
+		return names.has(parts[2])
+	if parts[0] == "announcer" and parts.size() >= 4:
+		var lines: PackedStringArray = _line_index.get(lang, PackedStringArray())
+		return lines.has("%s/%s" % [parts[2], parts[3]])
+	return false
+
+static func _pull_index(lang: String) -> void:
+	if not OS.has_feature("web") or _owner == null:
+		_index_state[lang] = "ready"
+		return
+	if lang != _lang():
+		return
+	_index_state[lang] = "loading"
+	_fetch_index(lang, "barks/%s/index.txt" % lang, "barks")
+	_fetch_index(lang, "announcer/%s/index.txt" % lang, "announcer")
+
+static func _fetch_index(lang: String, rel: String, kind: String) -> void:
+	var http: HTTPRequest = HTTPRequest.new()
+	http.timeout = 20.0
+	http.accept_gzip = false
+	_owner.add_child(http)
+	http.request_completed.connect(_got_index.bind(http, lang, kind))
+	var err: Error = http.request(_page_base() + "audio/" + rel)
+	if err != OK:
+		http.queue_free()
+		_finish_index(lang, kind, PackedStringArray())
+
+static func _got_index(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest, lang: String, kind: String) -> void:
+	if is_instance_valid(http):
+		http.queue_free()
+	var names := PackedStringArray()
+	if result == HTTPRequest.RESULT_SUCCESS and code == 200:
+		var text: String = body.get_string_from_utf8()
+		for line: String in text.split("\n"):
+			var name: String = line.strip_edges()
+			if name == "" or name.contains("..") or name.begins_with("/"):
+				continue
+			names.append(name)
+	_finish_index(lang, kind, names)
+
+static func _finish_index(lang: String, kind: String, names: PackedStringArray) -> void:
+	if kind == "barks":
+		_bark_index[lang] = names
+	else:
+		_line_index[lang] = names
+	if _bark_index.has(lang) and _line_index.has(lang):
+		_index_state[lang] = "ready"
 
 static func _present(rel: String) -> bool:
 	if _cache.has(rel) and _cache[rel] != null:

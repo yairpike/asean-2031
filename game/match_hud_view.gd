@@ -13,7 +13,7 @@ static func install(layer: CanvasLayer, hud: SMHud, grid: SMDomainGrid, camera: 
 func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	hud.use_tiles = true
 	_style_self()
-	_command_bar(hud)
+	_selection_row()
 	var top: HBoxContainer = _top_bar()
 	var now_playing: Label = Label.new()
 	now_playing.name = "NowPlaying"
@@ -83,6 +83,7 @@ func paint(hud: SMHud) -> void:
 	_paint_sweeps(hud)
 	_paint_super(hud)
 	_paint_protocols(hud)
+	_paint_selection(hud)
 
 func _paint_protocols(hud: SMHud) -> void:
 	if hud.layer_node == null:
@@ -117,6 +118,7 @@ func _process(delta: float) -> void:
 	_paint_sweeps(hud)
 	_paint_super(hud)
 	_paint_protocols(hud)
+	_paint_selection(hud)
 
 func _paint_power(hud: SMHud) -> void:
 	if hud.power_fill == null or hud.side == null:
@@ -259,19 +261,45 @@ func _top_bar() -> HBoxContainer:
 	top.add_child(row)
 	return row
 
-func _command_bar(hud: SMHud) -> void:
-	var tex: Texture2D = Art.texture("ui/frames/%s_command_bar.webp" % _faction(hud))
-	if tex == null:
+func _selection_row() -> void:
+	var row := HBoxContainer.new()
+	row.name = "SelectionSlots"
+	row.visible = false
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 6)
+	_anchor(row, 0.0, 1.0, 0.0, 1.0, 16.0, -88.0, 520.0, -16.0)
+	add_child(row)
+
+func _paint_selection(hud: SMHud) -> void:
+	var row: HBoxContainer = get_node_or_null("SelectionSlots") as HBoxContainer
+	if row == null or hud == null:
 		return
-	var bar: TextureRect = TextureRect.new()
-	bar.name = "CommandBarArt"
-	bar.texture = tex
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_anchor(bar, 0.0, 1.0, 1.0, 1.0, 0.0, -168.0, 0.0, 0.0)
-	add_child(bar)
-	move_child(bar, 0)
+	var units: Array[RTSUnit] = []
+	if hud.field != null:
+		units = hud.field.selection.units
+	var shown: int = mini(7, units.size())
+	row.visible = shown > 0
+	while row.get_child_count() > shown:
+		var extra: Node = row.get_child(row.get_child_count() - 1)
+		row.remove_child(extra)
+		extra.free()
+	for i: int in shown:
+		var rect: TextureRect = null
+		if i < row.get_child_count():
+			rect = row.get_child(i) as TextureRect
+		if rect == null:
+			rect = TextureRect.new()
+			rect.custom_minimum_size = Vector2(64, 64)
+			rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(rect)
+		var unit: RTSUnit = units[i]
+		var tex: Texture2D = null
+		if unit != null and is_instance_valid(unit):
+			tex = hud._cameo_texture(hud._faction_id(), str(unit.unit_type))
+		rect.texture = tex
+		rect.visible = tex != null
 
 func _faction(hud: SMHud) -> String:
 	if hud != null and hud.field != null:
@@ -364,6 +392,7 @@ func _column() -> ScrollContainer:
 	track.add_child(mark)
 	var power: Label = _label(power_row, "HudPower", 14)
 	power.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	power.tooltip_text = "Power generated / power drawn"
 	var modes: HBoxContainer = HBoxContainer.new()
 	modes.name = "ModeRow"
 	modes.add_theme_constant_override("separation", 4)
@@ -468,8 +497,9 @@ func _unit_card() -> void:
 func _mode_button(row: HBoxContainer, node_name: String, text: String, icon_path: String) -> void:
 	var button: Button = Button.new()
 	button.name = node_name
-	button.text = text
-	button.clip_text = true
+	button.text = ""
+	button.tooltip_text = text
+	button.clip_text = false
 	button.custom_minimum_size = Vector2(0, 40)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 14)
@@ -479,10 +509,10 @@ func _mode_button(row: HBoxContainer, node_name: String, text: String, icon_path
 func _tab_button(grid: GridContainer, node_name: String, text: String, icon_path: String) -> void:
 	var button: Button = Button.new()
 	button.name = node_name
-	button.text = text
-	button.clip_text = true
+	button.text = ""
+	button.clip_text = false
 	button.tooltip_text = text
-	button.custom_minimum_size = Vector2(0, 28)
+	button.custom_minimum_size = Vector2(0, 36)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 11)
 	_set_icon(button, icon_path)

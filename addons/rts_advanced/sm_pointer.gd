@@ -56,6 +56,7 @@ signal wreck_made(host: Node3D, at: Vector3)
 signal ping_made(host: Node3D, at: Vector3, order: String)
 signal path_moved(host: Node3D, show: bool, step: Vector3)
 signal damage_shown(u: RTSUnit, amount: float)
+signal ally_lost
 const BEAM_TIME: float = 1.5
 
 func bind(p_host: Node3D, p_cam: RTSCamera) -> void:
@@ -877,6 +878,8 @@ func tick(delta: float) -> void:
 				if hunter != u and is_instance_valid(hunter) and hunter.attack_target == u and hunter.team != u.team:
 					hunter.set_meta("kills", int(hunter.get_meta("kills", 0)) + 1)
 					hunter.attack_target = null
+			if u.team == PLAYER:
+				ally_lost.emit()
 			_drop_wreck(u.global_position)
 			u.queue_free()
 			continue

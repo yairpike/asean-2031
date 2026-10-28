@@ -11,6 +11,7 @@ var master_slider: HSlider
 var sfx_slider: HSlider
 var pan_slider: HSlider
 var edge_box: CheckButton
+var voice_value: Button
 var master_readout: Label
 var sfx_readout: Label
 var pan_readout: Label
@@ -94,6 +95,12 @@ func _ready() -> void:
 	add_child(master_slider)
 	add_child(sfx_slider)
 	add_child(pan_slider)
+	var voice_label: Label = _caption("VoiceLabel", "Voice language")
+	add_child(voice_label)
+	voice_value = _choice("VoiceValue", "English")
+	voice_value.set_meta("blurb", "English, Burmese, Mandarin, Thai, or Malay. A missing line plays the English take.")
+	voice_value.pressed.connect(_cycle_voice.bind(1))
+	add_child(voice_value)
 	edge_box = CheckButton.new()
 	edge_box.name = "EdgePan"
 	edge_box.text = "Edge pan"
@@ -126,7 +133,7 @@ func _ready() -> void:
 	close.pressed.connect(_close)
 	add_child(close)
 	var restore: Button = _choice("SettingsRestore", "Restore Defaults")
-	restore.set_meta("blurb", "High graphics, full volume, normal difficulty, edge pan on.")
+	restore.set_meta("blurb", "High graphics, full volume, English voices, normal difficulty, edge pan on.")
 	restore.pressed.connect(_restore)
 	add_child(restore)
 	blurb = Label.new()
@@ -140,6 +147,7 @@ func _ready() -> void:
 	_watch(high_button)
 	_watch(master_slider)
 	_watch(sfx_slider)
+	_watch(voice_value)
 	_watch(pan_slider)
 	_watch(edge_box)
 	_watch(easy)
@@ -169,6 +177,8 @@ func _layout(view: Vector2) -> void:
 	y = _place_section("SectionAudio", left, y, list_w)
 	y = _place_slider(master_readout, master_slider, master_value, left, y, list_w)
 	y = _place_slider(sfx_readout, sfx_slider, sfx_value, left, y, list_w)
+	y = _place_row(get_node_or_null("VoiceLabel"), left, y, list_w)
+	_place_value(voice_value, left + list_w - 168.0, y - 44.0, 160.0)
 	y = _place_section("SectionControls", left, y, list_w)
 	y = _place_row(edge_box, left, y, list_w)
 	y = _place_slider(pan_readout, pan_slider, pan_value, left, y, list_w)
@@ -238,6 +248,7 @@ func _section(node_name: String, text: String) -> void:
 	var label: Label = Label.new()
 	label.name = node_name
 	label.text = text
+	label.theme_type_variation = "Header"
 	label.add_theme_font_size_override("font_size", 14)
 	label.add_theme_color_override("font_color", Color(1, 1, 1))
 	add_child(label)
@@ -314,6 +325,9 @@ func _nudge(step: int) -> void:
 		var order: PackedStringArray = PackedStringArray(["easy", "normal", "hard"])
 		var at: int = order.find(Settings.difficulty)
 		_pick_difficulty(order[posmod(at + step, order.size())])
+		return
+	if owner == voice_value:
+		_cycle_voice(step)
 
 func pull() -> void:
 	_syncing = true
@@ -327,6 +341,7 @@ func pull() -> void:
 	pan_slider.value = Settings.pan
 	edge_box.button_pressed = Settings.edge
 	_mark_difficulty()
+	_paint_voice()
 	_paint_readouts()
 	_syncing = false
 	_layout(size if size.x > 32.0 else Vector2(1280, 720))
@@ -358,6 +373,23 @@ func _on_pan(v: float) -> void:
 	Settings.set_pan(v)
 	_paint_readouts()
 	_apply()
+
+func _cycle_voice(step: int) -> void:
+	if _syncing:
+		return
+	var order: PackedStringArray = Settings.voice_ids()
+	var at: int = order.find(Settings.voice)
+	if at < 0:
+		at = 0
+	Settings.set_voice(order[posmod(at + step, order.size())])
+	_paint_voice()
+	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
+	clips.call("note_voice", self)
+
+func _paint_voice() -> void:
+	if voice_value == null:
+		return
+	voice_value.text = Settings.voice_name(Settings.voice)
 
 func _pick_difficulty(id: String) -> void:
 	if _syncing:

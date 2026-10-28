@@ -5,6 +5,7 @@ const Power = preload("res://addons/rts_advanced/sm_power.gd")
 ## In-match readout. Primitive controls and a flat minimap. No map mesh.
 
 signal layer_mounted(who: SMHud, layer: CanvasLayer)
+signal line_voiced(text: String, key: String)
 
 var field: SMPointer
 var roster: SMRoster
@@ -615,8 +616,7 @@ func _train(id: StringName) -> void:
 	var at: Vector3 = rally + Vector3(6.0 + float(field.count_team(SMPointer.PLAYER) % 4) * 2.0, 0.0, 2.0)
 	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, done)
 	_note(field.name_of(u))
-	if field.host != null:
-		(load("res://game/match_audio.gd") as GDScript).call("announce_key", field.host, _faction_id(), "unit_ready")
+	line_voiced.emit("", "unit_ready")
 	refresh()
 
 func _train_block(id: StringName) -> String:
@@ -1264,8 +1264,7 @@ func _note(text: String) -> void:
 	build_label.text = text
 	build_label.visible = text != ""
 	_sync_card()
-	if field != null and field.host != null:
-		(load("res://game/match_audio.gd") as GDScript).call("announce_line", field.host, _faction_id(), text)
+	line_voiced.emit(text, "")
 
 func _sync_card() -> void:
 	var busy: bool = false

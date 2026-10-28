@@ -35,3 +35,13 @@ The web build is one download. Stay inside this per file:
 - UVs on every face, 0–1 per surface is enough. Vertex color is optional.
 
 The procedural meshes already store a UV on each face. Their material multiplies that vertex color by an albedo texture when one is assigned, so a painted texture can be dropped on later without rebuilding the mesh.
+
+## Faction colour
+
+Give the model a neutral base material and a second material or node named `Trim` (any capitalisation). The match tints `Trim` with the faction colour. A model with no `Trim` slot is tinted as a whole.
+
+## Web
+
+`.glb` and `.gltf` files in this folder are left out of the web pack. The export copies them to `models/` beside the page, and the match fetches a file when a unit needs it. The procedural mesh stays in place until that file is on disk.
+
+CC0 stand-in credits belong in `CREDITS.md` next to the models.

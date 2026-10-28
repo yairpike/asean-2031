@@ -218,9 +218,10 @@ func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: 
 		var b: Button = Button.new()
 		b.name = "Proto_%s" % str(id)
 		b.text = display_name(id)
-		b.clip_text = true
-		b.custom_minimum_size = Vector2(148, 40)
-		b.add_theme_font_size_override("font_size", 14)
+		b.clip_text = false
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.custom_minimum_size = Vector2(148, 52)
+		b.add_theme_font_size_override("font_size", 12)
 		var line: String = blurb(id)
 		b.tooltip_text = line
 		b.mouse_entered.connect(_show_tip.bind(layer, line))

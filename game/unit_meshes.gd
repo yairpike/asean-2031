@@ -18,6 +18,7 @@ static func dress_unit(kind: String, role: String, loco: String, accent: Color) 
 	body.mesh = unit_mesh(form, accent)
 	body.set_meta("form", form)
 	body.set_meta("paint", accent)
+	_shadow(body, form)
 	if form == "tank":
 		_part(body, "Turret", "tank_top", accent, Vector3(0.0, 0.98, -0.1))
 	elif form == "tube":
@@ -28,7 +29,7 @@ static func dress_unit(kind: String, role: String, loco: String, accent: Color) 
 		var wake: MeshInstance3D = _part(body, "Wake", "wake", accent, Vector3(0.0, 0.05, 1.85))
 		wake.visible = false
 		wake.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	Models.apply_unit(body, kind)
+	Models.apply_unit(body, kind, accent)
 	return body
 
 static func dress_structure(mi: MeshInstance3D, size: Vector3, accent: Color) -> bool:
@@ -39,7 +40,7 @@ static func dress_structure(mi: MeshInstance3D, size: Vector3, accent: Color) ->
 	mi.material_override = null
 	mi.set_meta("form", form)
 	mi.set_meta("paint", accent)
-	Models.apply_structure(mi, Models.model_id_for(str(mi.name)))
+	Models.apply_structure(mi, Models.model_id_for(str(mi.name)), accent)
 	return true
 
 static func animate(u: RTSUnit, delta: float) -> void:
@@ -329,18 +330,48 @@ static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Col
 	st.set_uv(Vector2(0.0, 1.0))
 	st.add_vertex(c)
 
+static func _shadow(body: MeshInstance3D, form: String) -> void:
+	var quad := MeshInstance3D.new()
+	quad.name = "ContactShadow"
+	var plane := PlaneMesh.new()
+	plane.size = _shadow_size(form)
+	quad.mesh = plane
+	quad.position = Vector3(0.0, 0.03, 0.0)
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.0, 0.0, 0.0, 0.45)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	quad.material_override = mat
+	body.add_child(quad)
+
+static func _shadow_size(form: String) -> Vector2:
+	if form == "figure" or form == "hero":
+		return Vector2(0.8, 0.8)
+	if form == "tank" or form == "tube":
+		return Vector2(2.3, 3.4)
+	if form == "boat" or form == "sub":
+		return Vector2(1.6, 3.8)
+	if form == "heli" or form == "jet" or form == "airship":
+		return Vector2(2.6, 3.4)
+	return Vector2(1.8, 3.6)
+
 static func _figure(st: SurfaceTool, accent: Color) -> void:
 	_box(st, Vector3(-0.16, 0.42, 0.0), Vector3(0.22, 0.84, 0.24), METAL)
 	_box(st, Vector3(0.16, 0.42, 0.0), Vector3(0.22, 0.84, 0.24), METAL)
-	_box(st, Vector3(0.0, 1.18, 0.0), Vector3(0.62, 0.72, 0.34), accent)
+	_box(st, Vector3(0.0, 1.18, 0.0), Vector3(0.62, 0.72, 0.34), METAL)
+	_box(st, Vector3(0.0, 1.22, -0.18), Vector3(0.64, 0.08, 0.06), accent)
 	_box(st, Vector3(0.0, 1.74, -0.02), Vector3(0.3, 0.3, 0.3), Color(0.55, 0.42, 0.34))
+	_box(st, Vector3(0.0, 1.76, -0.16), Vector3(0.22, 0.06, 0.06), accent)
 	_box(st, Vector3(-0.42, 1.2, -0.05), Vector3(0.16, 0.52, 0.16), METAL)
 	_box(st, Vector3(0.4, 1.16, -0.2), Vector3(0.16, 0.16, 0.55), METAL)
 	_box(st, Vector3(0.4, 1.16, -0.62), Vector3(0.08, 0.08, 0.55), RUBBER)
 
 static func _truck(st: SurfaceTool, accent: Color) -> void:
 	_box(st, Vector3(0.0, 0.46, 0.15), Vector3(1.55, 0.36, 3.3), METAL)
-	_box(st, Vector3(0.0, 1.05, -0.95), Vector3(1.45, 0.85, 1.15), accent)
+	_box(st, Vector3(0.0, 1.05, -0.95), Vector3(1.45, 0.85, 1.15), METAL)
+	_box(st, Vector3(0.0, 1.05, -1.5), Vector3(1.48, 0.08, 0.08), accent)
 	_box(st, Vector3(0.0, 1.22, -1.48), Vector3(1.15, 0.38, 0.08), GLASS)
 	_box(st, Vector3(0.0, 0.88, 0.85), Vector3(1.5, 0.5, 1.65), METAL)
 	_wheel(st, Vector3(-0.78, 0.32, -1.05), 0.32, 0.22)
@@ -350,12 +381,14 @@ static func _truck(st: SurfaceTool, accent: Color) -> void:
 
 static func _tank_hull(st: SurfaceTool, accent: Color) -> void:
 	_box(st, Vector3(0.0, 0.4, 0.05), Vector3(1.55, 0.42, 2.7), METAL)
-	_box(st, Vector3(0.0, 0.72, 0.05), Vector3(1.25, 0.28, 1.9), accent)
+	_box(st, Vector3(0.0, 0.72, 0.05), Vector3(1.25, 0.28, 1.9), METAL)
+	_box(st, Vector3(0.0, 0.86, 0.05), Vector3(1.28, 0.06, 1.92), accent)
 	_box(st, Vector3(-0.95, 0.36, 0.05), Vector3(0.32, 0.5, 3.05), RUBBER)
 	_box(st, Vector3(0.95, 0.36, 0.05), Vector3(0.32, 0.5, 3.05), RUBBER)
 
 static func _tank_top(st: SurfaceTool, accent: Color) -> void:
-	_box(st, Vector3(0.0, 0.22, 0.05), Vector3(0.95, 0.42, 1.15), accent)
+	_box(st, Vector3(0.0, 0.22, 0.05), Vector3(0.95, 0.42, 1.15), METAL)
+	_box(st, Vector3(0.0, 0.22, -0.48), Vector3(0.98, 0.1, 0.12), accent)
 	_box(st, Vector3(0.0, 0.24, -1.05), Vector3(0.16, 0.16, 1.55), METAL)
 
 static func _tube_hull(st: SurfaceTool, accent: Color) -> void:
@@ -372,9 +405,10 @@ static func _tube_top(st: SurfaceTool, accent: Color) -> void:
 	_box(st, Vector3(0.0, 0.34, -1.35), Vector3(0.18, 0.18, 2.5), METAL)
 
 static func _boat(st: SurfaceTool, accent: Color) -> void:
-	_box(st, Vector3(0.0, 0.28, 0.1), Vector3(1.2, 0.32, 3.5), accent)
+	_box(st, Vector3(0.0, 0.28, 0.1), Vector3(1.2, 0.32, 3.5), METAL)
+	_box(st, Vector3(0.0, 0.46, 0.1), Vector3(1.24, 0.06, 3.2), accent)
 	_box(st, Vector3(0.0, 0.5, 0.25), Vector3(0.95, 0.18, 2.5), METAL)
-	_box(st, Vector3(0.0, 0.32, -1.7), Vector3(0.62, 0.22, 0.7), accent)
+	_box(st, Vector3(0.0, 0.32, -1.7), Vector3(0.62, 0.22, 0.7), METAL)
 	_box(st, Vector3(0.0, 0.86, -0.25), Vector3(0.72, 0.48, 0.9), METAL)
 	_box(st, Vector3(0.0, 1.0, -0.68), Vector3(0.6, 0.22, 0.08), GLASS)
 
@@ -383,7 +417,8 @@ static func _wake(st: SurfaceTool) -> void:
 	_box(st, Vector3(0.0, 0.0, 1.15), Vector3(0.9, 0.04, 0.7), Color.WHITE)
 
 static func _heli(st: SurfaceTool, accent: Color) -> void:
-	_box(st, Vector3(0.0, 0.82, 0.05), Vector3(0.72, 0.48, 1.7), accent)
+	_box(st, Vector3(0.0, 0.82, 0.05), Vector3(0.72, 0.48, 1.7), METAL)
+	_box(st, Vector3(0.0, 1.02, 0.05), Vector3(0.76, 0.06, 1.4), accent)
 	_box(st, Vector3(0.0, 0.9, -0.85), Vector3(0.58, 0.38, 0.7), GLASS)
 	_box(st, Vector3(0.0, 0.88, 1.35), Vector3(0.18, 0.16, 1.35), METAL)
 	_box(st, Vector3(0.0, 1.15, 1.9), Vector3(0.08, 0.42, 0.32), accent)
@@ -398,27 +433,31 @@ static func _rotor(st: SurfaceTool) -> void:
 static func _hero(st: SurfaceTool, accent: Color) -> void:
 	_box(st, Vector3(-0.18, 0.46, 0.0), Vector3(0.24, 0.92, 0.26), METAL)
 	_box(st, Vector3(0.18, 0.46, 0.0), Vector3(0.24, 0.92, 0.26), METAL)
-	_box(st, Vector3(0.0, 1.28, 0.0), Vector3(0.78, 0.82, 0.4), accent)
+	_box(st, Vector3(0.0, 1.28, 0.0), Vector3(0.78, 0.82, 0.4), METAL)
+	_box(st, Vector3(0.0, 1.42, -0.2), Vector3(0.8, 0.08, 0.06), accent)
 	_box(st, Vector3(-0.48, 1.48, 0.0), Vector3(0.28, 0.22, 0.36), accent)
 	_box(st, Vector3(0.48, 1.48, 0.0), Vector3(0.28, 0.22, 0.36), accent)
 	_box(st, Vector3(0.0, 1.9, -0.02), Vector3(0.32, 0.32, 0.32), Color(0.55, 0.42, 0.34))
 	_box(st, Vector3(0.46, 1.22, -0.35), Vector3(0.12, 0.12, 0.7), METAL)
 
 static func _sub(st: SurfaceTool, accent: Color) -> void:
-	_box(st, Vector3(0.0, 0.42, 0.15), Vector3(0.72, 0.48, 3.4), accent)
+	_box(st, Vector3(0.0, 0.42, 0.15), Vector3(0.72, 0.48, 3.4), METAL)
+	_box(st, Vector3(0.0, 0.62, 0.15), Vector3(0.76, 0.06, 2.4), accent)
 	_box(st, Vector3(0.0, 0.72, -0.35), Vector3(0.42, 0.28, 0.9), METAL)
 	_box(st, Vector3(0.0, 0.95, -0.2), Vector3(0.08, 0.42, 0.08), METAL)
 	_box(st, Vector3(0.0, 0.38, -1.85), Vector3(0.28, 0.28, 0.55), RUBBER)
 	_box(st, Vector3(0.0, 0.55, 1.55), Vector3(0.9, 0.08, 0.55), METAL)
 
 static func _airship(st: SurfaceTool, accent: Color) -> void:
-	_box(st, Vector3(0.0, 1.35, 0.1), Vector3(0.85, 0.7, 3.6), accent)
+	_box(st, Vector3(0.0, 1.35, 0.1), Vector3(0.85, 0.7, 3.6), METAL)
+	_box(st, Vector3(0.0, 1.55, 0.1), Vector3(0.9, 0.08, 2.2), accent)
 	_box(st, Vector3(0.0, 1.35, -1.55), Vector3(0.45, 0.4, 0.7), METAL)
 	_box(st, Vector3(0.0, 0.72, 0.35), Vector3(0.55, 0.38, 0.9), METAL)
 	_box(st, Vector3(0.0, 1.02, 0.35), Vector3(0.06, 0.5, 0.06), RUBBER)
 
 static func _jet(st: SurfaceTool, accent: Color) -> void:
-	_box(st, Vector3(0.0, 0.72, 0.05), Vector3(0.42, 0.32, 3.1), accent)
+	_box(st, Vector3(0.0, 0.72, 0.05), Vector3(0.42, 0.32, 3.1), METAL)
+	_box(st, Vector3(0.0, 0.84, -0.2), Vector3(0.46, 0.06, 1.6), accent)
 	_box(st, Vector3(0.0, 0.72, -1.7), Vector3(0.26, 0.2, 0.55), METAL)
 	_box(st, Vector3(0.0, 0.78, -1.15), Vector3(0.28, 0.16, 0.35), GLASS)
 	_box(st, Vector3(0.0, 0.7, 0.05), Vector3(2.9, 0.07, 0.85), METAL)

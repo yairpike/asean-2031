@@ -10,6 +10,8 @@ const SALVAGE: StringName = &"salvage"
 const DERRICK: StringName = &"derrick"
 const BRIDGE: StringName = &"bridge"
 const GARRISON: StringName = &"garrison"
+signal site_captured(team: int)
+
 const VISION_RADIUS: float = 24.0
 const BRIDGE_HP: int = 80
 const BAZAAR_CUT: float = 0.05
@@ -61,6 +63,7 @@ func capture(id: StringName, team: int) -> bool:
 	var site: Dictionary = sites[i]
 	site["owner"] = team
 	sites[i] = site
+	site_captured.emit(team)
 	return true
 
 func owner_of(id: StringName) -> int:

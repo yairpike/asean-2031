@@ -5,6 +5,8 @@ const Power = preload("res://addons/rts_advanced/sm_power.gd")
 ## Build-style buttons for the faction chosen on the boot screen.
 
 signal slab_made(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color)
+signal line_voiced(text: String)
+signal super_launched
 
 var faction_id: String = "gtfc"
 var yard: SMBuildYard = SMBuildYard.new()
@@ -225,6 +227,7 @@ func fire_super(field: SMPointer) -> int:
 	var size: Vector3 = Vector3(2.2, 7.4, 2.2)
 	_slab("Super_%s" % str(yard.super_id), aim + Vector3(0.0, size.y * 0.5, 0.0), size, Color(0.92, 0.32, 0.12))
 	_say(yard.super_name)
+	super_launched.emit()
 	return n
 
 func _load_order(data: Dictionary) -> void:
@@ -252,11 +255,7 @@ func _load_buildings(data: Dictionary) -> void:
 func _say(text: String) -> void:
 	if status != null:
 		status.text = text
-	if host == null:
-		return
-	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
-	if clips != null:
-		clips.call("announce_line", host, faction_id, text)
+	line_voiced.emit(text)
 
 func toggle_repair() -> void:
 	repair_armed = not repair_armed

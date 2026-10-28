@@ -50,7 +50,7 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 			var domain: int = grid.domain_at_cell(cell)
 			if _wet(domain):
 				var deep: float = 1.0 if domain != SMDomainGrid.Domain.SHALLOW else 0.0
-				_flat(water, grid, cell, -0.2 if deep > 0.5 else -0.08, Color(deep, 0.0, 0.0), 0.5)
+				_flat(water, grid, cell, -0.2 if deep > 0.5 else -0.08, Color(deep, 0.0, 0.0), 0.54)
 				water_n += 1
 				continue
 			var high: float = 1.55 if domain == SMDomainGrid.Domain.CLIFF else 0.22
@@ -58,18 +58,22 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 			var track: bool = domain == SMDomainGrid.Domain.LAND and _track(profile, cell)
 			var cut: bool = profile == "burma" and _burma_cut(cell)
 			var tint: Color = _tint(profile, cell, domain, bank, track or cut)
-			if cut or track:
-				_sloped(road, grid, cell, high, tint)
+			var kind: String = _kind(profile, tint, track, cut)
+			var shade: float = _vary(cell)
+			var ink: Color = _ink(kind, tint, shade, 1.0)
+			if kind == "road":
+				_sloped(road, grid, cell, high, ink)
 				road_n += 1
-			elif profile != "atolls" and tint == SAND:
-				_sloped(sand, grid, cell, high, tint)
+			elif kind == "sand":
+				_sloped(sand, grid, cell, high, ink)
 				sand_n += 1
-			elif profile != "atolls" and (tint == MUD or tint == DIRT):
-				_sloped(mud, grid, cell, high, tint)
+			elif kind == "mud":
+				_sloped(mud, grid, cell, high, ink)
 				mud_n += 1
 			else:
-				_sloped(land, grid, cell, high, tint)
+				_sloped(land, grid, cell, high, ink)
 				land_n += 1
+			_blend(profile, grid, cell, kind, high, shade, land, mud, sand, road)
 			if domain != SMDomainGrid.Domain.LAND or _busy(profile, cell) or cut:
 				continue
 			var roll: int = _hash(x, y)
@@ -83,7 +87,8 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 				houses.append(_xf(grid, cell, high, roll))
 			var rice: bool = profile == "mekong" and roll % 3 == 0 or roll % 23 == 1
 			if rice and not track and not bank and paddy_n < 48 and not _bridge_cell(cell):
-				_flat(paddy, grid, cell, high + 0.05, PADDY)
+				var rice_shade: float = _vary(cell)
+				_flat(paddy, grid, cell, high + 0.05, Color(rice_shade, rice_shade, rice_shade, 1.0))
 				paddy_n += 1
 	_commit(host, _land_name(profile), land, land_n > 0)
 	_commit(host, "TerrainMud", mud, mud_n > 0)
@@ -100,6 +105,7 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	_multi(host, "Houses", _prop("house"), houses)
 	_multi(host, "Stilts", _prop("stilt"), stilts)
 	_markers(host, profile)
+	_sky(host)
 
 static func dress_site(mi: MeshInstance3D, form: String, accent: Color) -> void:
 	mi.mesh = _site(form, accent)
@@ -293,9 +299,69 @@ static func _flat(st: SurfaceTool, grid: SMDomainGrid, cell: Vector2i, y: float,
 	var h: float = grid.cell_size * cover
 	_quad(st, Vector3(c.x - h, y, c.z - h), Vector3(c.x + h, y, c.z - h), Vector3(c.x + h, y, c.z + h), Vector3(c.x - h, y, c.z + h), color)
 
+static func _kind(profile: String, tint: Color, track: bool, cut: bool) -> String:
+	if cut or track:
+		return "road"
+	if profile != "atolls" and tint == SAND:
+		return "sand"
+	if profile != "atolls" and (tint == MUD or tint == DIRT):
+		return "mud"
+	return "land"
+
+static func _kind_at(profile: String, grid: SMDomainGrid, cell: Vector2i) -> String:
+	var domain: int = grid.domain_at_cell(cell)
+	if _wet(domain):
+		return "water"
+	var bank: bool = _bank(grid, cell)
+	var track: bool = domain == SMDomainGrid.Domain.LAND and _track(profile, cell)
+	var cut: bool = profile == "burma" and _burma_cut(cell)
+	var tint: Color = _tint(profile, cell, domain, bank, track or cut)
+	return _kind(profile, tint, track, cut)
+
+static func _vary(cell: Vector2i) -> float:
+	return 0.88 + float(_hash(cell.x + 11, cell.y + 5) % 13) * 0.01
+
+static func _ink(kind: String, tint: Color, shade: float, alpha: float) -> Color:
+	if kind == "land" and tint != SAND:
+		return Color(tint.r * shade, tint.g * shade, tint.b * shade, alpha)
+	return Color(shade, shade, shade, alpha)
+
+static func _blend(profile: String, grid: SMDomainGrid, cell: Vector2i, kind: String, high: float, shade: float, land: SurfaceTool, mud: SurfaceTool, sand: SurfaceTool, road: SurfaceTool) -> void:
+	var dirs: Array[Vector2i] = [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]
+	for dir: Vector2i in dirs:
+		var next: Vector2i = cell + dir
+		if next.x < 0 or next.y < 0 or next.x >= grid.cols or next.y >= grid.rows:
+			continue
+		var neighbor: String = _kind_at(profile, grid, next)
+		if neighbor == kind or neighbor == "water":
+			continue
+		var tool: SurfaceTool = land
+		if neighbor == "road":
+			tool = road
+		elif neighbor == "sand":
+			tool = sand
+		elif neighbor == "mud":
+			tool = mud
+		_sloped(tool, grid, cell, high + 0.03, Color(shade, shade, shade, 0.28))
+
+static func _sky(host: Node3D) -> void:
+	var env: WorldEnvironment = host.find_child("WorldEnvironment", false, false) as WorldEnvironment
+	if env == null or env.environment == null:
+		return
+	var mat := ProceduralSkyMaterial.new()
+	mat.sky_top_color = Color(0.16, 0.28, 0.42)
+	mat.sky_horizon_color = Color(0.68, 0.58, 0.42)
+	mat.ground_bottom_color = Color(0.08, 0.1, 0.08)
+	mat.ground_horizon_color = Color(0.34, 0.3, 0.22)
+	mat.sun_angle_max = 28.0
+	var sky := Sky.new()
+	sky.sky_material = mat
+	env.environment.sky = sky
+	env.environment.background_mode = Environment.BG_SKY
+
 static func _sloped(st: SurfaceTool, grid: SMDomainGrid, cell: Vector2i, high: float, color: Color) -> void:
 	var c: Vector3 = grid.cell_center(cell)
-	var h: float = grid.cell_size * 0.5
+	var h: float = grid.cell_size * 0.54
 	var y00: float = _corner(grid, cell, -1, -1, high)
 	var y10: float = _corner(grid, cell, 1, -1, high)
 	var y11: float = _corner(grid, cell, 1, 1, high)
@@ -316,7 +382,7 @@ static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector
 	_vert(st, d, color)
 
 static func _vert(st: SurfaceTool, p: Vector3, color: Color) -> void:
-	st.set_uv(Vector2(p.x, p.z) / 4.0)
+	st.set_uv(Vector2(p.x, p.z) / 1.55)
 	st.set_color(color)
 	st.add_vertex(p)
 
@@ -352,12 +418,14 @@ static func _ground(stem: String, tint: bool) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.roughness = 0.92
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.vertex_color_use_as_albedo = true
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
 	var tex: Texture2D = Art.texture("terrain/%s.webp" % stem)
 	if tex != null:
 		mat.albedo_texture = tex
 		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		mat.vertex_color_use_as_albedo = tint
-	else:
+	if not tint and tex == null:
 		mat.vertex_color_use_as_albedo = true
 	_prop_cache[key] = mat
 	return mat

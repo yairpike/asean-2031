@@ -8,28 +8,40 @@ const SettingsPanel = preload("res://game/settings_panel.gd")
 const Settings = preload("res://game/match_settings.gd")
 const Clips = preload("res://game/match_audio.gd")
 const Cameos = preload("res://game/match_cameos.gd")
+const Faces = preload("res://game/font_faces.gd")
 
 static func follow(host: Node) -> void:
 	if host == null or bool(host.get_meta("view_bound", false)):
 		return
 	host.set_meta("view_bound", true)
+	Faces.pin()
+	preload("res://game/model_registry.gd").warm(host)
 	var field: SMPointer = host.get("field") as SMPointer
 	if field != null:
 		follow_pointer(field)
+		if not field.ally_lost.is_connected(_announce):
+			field.ally_lost.connect(_announce.bind(host, "unit_lost"))
 	var sim: SMMatch = host.get("sim") as SMMatch
 	if sim != null:
 		_follow_match(sim)
+		if sim.tech != null and not bool(sim.tech.get_meta("view_bound", false)):
+			sim.tech.set_meta("view_bound", true)
+			sim.tech.site_captured.connect(_on_capture.bind(host))
 	var side: SMSide = host.get("side") as SMSide
 	if field != null and side != null:
 		field.side_link = side
 	if side != null and not bool(side.get_meta("view_bound", false)):
 		side.set_meta("view_bound", true)
 		side.slab_made.connect(Callable(World, "slab"))
+		side.line_voiced.connect(_on_side_line.bind(host, side))
+		side.super_launched.connect(_announce.bind(host, "superweapon_launched"))
+		_bind_yard(host, side.yard, false)
 	var raider: SMRaider = host.get("raider") as SMRaider
 	if raider != null and not bool(raider.get_meta("view_bound", false)):
 		raider.set_meta("view_bound", true)
 		raider.marker_made.connect(Callable(World, "slab"))
 		raider.banner_made.connect(Callable(World, "billboard"))
+		_bind_yard(host, raider.yard, true)
 	var story: SMStory = host.get("story") as SMStory
 	if story != null and not bool(story.get_meta("view_bound", false)):
 		story.set_meta("view_bound", true)
@@ -43,6 +55,12 @@ static func follow(host: Node) -> void:
 		hud.set_meta("view_bound", true)
 		hud.chrome = Callable(preload("res://game/match_hud_view.gd"), "install")
 		hud.layer_mounted.connect(_on_layer)
+		hud.line_voiced.connect(_on_hud_line.bind(host, hud))
+	var outcome: SMOutcome = host.get("outcome") as SMOutcome
+	if outcome != null and not bool(outcome.get_meta("view_bound", false)):
+		outcome.set_meta("view_bound", true)
+		outcome.chrome_wanted.connect(_on_chrome)
+		outcome.base_struck.connect(_announce.bind(host, "base_under_attack"))
 	Clips.arm(host, "match")
 	if host.get_node_or_null("CameraFit") == null:
 		var fitter: Node = Node.new()
@@ -106,3 +124,73 @@ static func _on_layer(who: SMHud, layer: CanvasLayer) -> void:
 	who.sfx.clip_for = Callable(Clips, "clip_for")
 	Clips.color_voice(who.sfx)
 	who.sfx.apply_levels()
+
+static func _bind_yard(host: Node, yard: SMBuildYard, enemy: bool) -> void:
+	if yard == null or bool(yard.get_meta("view_bound", false)):
+		return
+	yard.set_meta("view_bound", true)
+	if enemy:
+		yard.super_ready.connect(_announce.bind(host, "enemy_superweapon_detected"))
+		yard.super_fired.connect(_announce.bind(host, "enemy_superweapon_detected"))
+	else:
+		yard.super_ready.connect(_announce.bind(host, "superweapon_ready"))
+
+static func _announce(host: Node, key: String) -> void:
+	Clips.announce_key(host, _faction_of(host), key)
+
+static func _on_capture(team: int, host: Node) -> void:
+	if team == SMPointer.PLAYER:
+		_announce(host, "building_captured")
+
+static func _on_hud_line(text: String, key: String, host: Node, hud: SMHud) -> void:
+	var faction: String = hud._faction_id() if hud != null else _faction_of(host)
+	if key != "":
+		Clips.announce_key(host, faction, key)
+	else:
+		Clips.announce_line(host, faction, text)
+
+static func _on_side_line(text: String, host: Node, side: SMSide) -> void:
+	var faction: String = side.faction_id if side != null else _faction_of(host)
+	Clips.announce_line(host, faction, text)
+
+static func _faction_of(host: Node) -> String:
+	if host == null:
+		return "gtfc"
+	var field: SMPointer = host.get("field") as SMPointer
+	if field != null and str(field.get("faction_id")) != "":
+		return str(field.get("faction_id"))
+	var side: SMSide = host.get("side") as SMSide
+	if side != null and side.faction_id != "":
+		return side.faction_id
+	return SMFront.current()
+
+static func _on_chrome(outcome: SMOutcome, panel: Control, faction: String) -> void:
+	if outcome == null or panel == null:
+		return
+	var art: Control = (load("res://game/menu_backdrop.gd") as GDScript).new() as Control
+	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.call("set_screen", "faction")
+	art.call("set_faction", faction)
+	panel.add_child(art)
+	panel.move_child(art, 0)
+	var back: Button = (load("res://game/menu_plate.gd") as GDScript).new() as Button
+	back.name = "BootMenuButton"
+	back.text = "Boot menu"
+	back.anchor_left = 0.0
+	back.anchor_top = 0.5
+	back.anchor_right = 0.0
+	back.anchor_bottom = 0.5
+	back.offset_left = 64.0
+	back.offset_top = 48.0
+	back.offset_right = 360.0
+	back.offset_bottom = 100.0
+	back.custom_minimum_size = Vector2(320, 52)
+	back.pressed.connect(_boot.bind(outcome))
+	panel.add_child(back)
+	outcome.back = back
+
+static func _boot(outcome: SMOutcome) -> void:
+	if outcome == null or outcome.host == null:
+		return
+	outcome.host.get_tree().change_scene_to_file("res://game/boot.tscn")

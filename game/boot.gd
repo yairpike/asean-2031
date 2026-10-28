@@ -23,6 +23,7 @@ var _save_polled: bool = false
 var _faction_i: int = 0
 
 func _ready() -> void:
+	preload("res://game/font_faces.gd").pin()
 	backdrop = Backdrop.new() as Control
 	backdrop.name = "MenuBackdrop"
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -84,12 +85,14 @@ func _ready() -> void:
 	var gear: Button = Plate.new() as Button
 	gear.name = "SettingsButton"
 	gear.text = "SETTINGS"
+	gear.theme_type_variation = "HeaderButton"
 	gear.pressed.connect(_toggle_settings)
 	add_child(gear)
 	tab_buttons.append(gear)
 	var multi: Button = Plate.new() as Button
 	multi.name = "TabMultiplayer"
 	multi.text = "MULTIPLAYER"
+	multi.theme_type_variation = "HeaderButton"
 	multi.pressed.connect(_show_tab.bind("multi"))
 	add_child(multi)
 	tab_buttons.append(multi)
@@ -219,6 +222,8 @@ func _tab(caption: String, node_name: String, which: String, _x: float) -> void:
 	var b: Button = Plate.new() as Button
 	b.name = node_name
 	b.text = caption
+	if node_name == "TabCampaign" or node_name == "TabSkirmish":
+		b.theme_type_variation = "HeaderButton"
 	if which == "campaign":
 		b.pressed.connect(_expand_campaign)
 	else:
@@ -236,7 +241,6 @@ func _card(panel: Control, node_name: String, map_name: String, terrain: String,
 	var title: Label = Label.new()
 	title.name = "Title"
 	title.text = map_name
-	title.theme_type_variation = "Header"
 	title.position = Vector2(16, 16)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.add_theme_font_size_override("font_size", 18)
@@ -341,7 +345,6 @@ func _faction_card(id: String, node_name: String, pos: Vector2) -> void:
 	var title: Label = Label.new()
 	title.name = "Title"
 	title.text = SMFront.display_name()
-	title.theme_type_variation = "Header"
 	title.position = Vector2(2, 2)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.add_theme_font_size_override("font_size", 16)
@@ -569,8 +572,60 @@ func _open(path: String) -> void:
 		if art != null and art.has_method("set_faction"):
 			art.call("set_screen", "faction")
 			art.call("set_faction", SMFront.current())
+		var title: Label = loading.find_child("LoadingTitle", true, false) as Label
+		if title != null:
+			title.text = _mission_title(path)
+		var progress: Label = loading.find_child("LoadingProgress", true, false) as Label
+		if progress != null:
+			progress.text = "0%"
 	await get_tree().process_frame
-	get_tree().change_scene_to_file(path)
+	var err: Error = ResourceLoader.load_threaded_request(path)
+	if err != OK:
+		get_tree().change_scene_to_file(path)
+		return
+	while is_inside_tree():
+		var progress_out: Array = []
+		var status: ResourceLoader.ThreadLoadStatus = ResourceLoader.load_threaded_get_status(path, progress_out)
+		var digits: Label = find_child("LoadingProgress", true, false) as Label
+		if digits != null and not progress_out.is_empty():
+			digits.text = "%d%%" % int(round(float(progress_out[0]) * 100.0))
+		if status == ResourceLoader.THREAD_LOAD_LOADED:
+			var packed: PackedScene = ResourceLoader.load_threaded_get(path) as PackedScene
+			if packed != null:
+				get_tree().change_scene_to_packed(packed)
+			else:
+				get_tree().change_scene_to_file(path)
+			return
+		if status == ResourceLoader.THREAD_LOAD_FAILED or status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			get_tree().change_scene_to_file(path)
+			return
+		await get_tree().process_frame
+
+func _mission_title(path: String) -> String:
+	var file: String = path.get_file()
+	if file == "mission_kokang.tscn":
+		return SMCampaign.title_of("kokang")
+	if file == "campaign_mission.tscn":
+		return SMCampaign.title_of(SMCampaign.selected)
+	if file == "phillips_channel.tscn":
+		return "Phillips Channel"
+	if file == "sop_ruak.tscn":
+		return "Sop Ruak"
+	if file == "burma_road.tscn":
+		return "Burma Road"
+	if file == "ten_degree_atolls.tscn":
+		return "Ten Degree Atolls"
+	if file == "mekong_delta.tscn":
+		return "Mekong Delta"
+	if file == "chiang_rai.tscn":
+		return "Siege of Chiang Rai"
+	if file == "greybox.tscn":
+		return "Greybox"
+	if file == "nmrf_yard.tscn":
+		return "NMRF yard"
+	if file == "mvd_yard.tscn":
+		return "MVD yard"
+	return "Loading"
 
 func _loading_plate() -> void:
 	var plate: Control = Control.new()
@@ -591,6 +646,13 @@ func _loading_plate() -> void:
 	label.add_theme_font_size_override("font_size", 48)
 	label.add_theme_color_override("font_color", Color(1, 1, 1))
 	plate.add_child(label)
+	var progress: Label = Label.new()
+	progress.name = "LoadingProgress"
+	progress.text = ""
+	progress.position = Vector2(64, 128)
+	progress.add_theme_font_size_override("font_size", 28)
+	progress.add_theme_color_override("font_color", Color(1, 1, 1))
+	plate.add_child(progress)
 	add_child(plate)
 
 func _act_button_name(act: String) -> String:

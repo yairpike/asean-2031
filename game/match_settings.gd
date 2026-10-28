@@ -12,7 +12,11 @@ static var sfx: float = 1.0
 static var pan: float = 1.0
 static var edge: bool = true
 static var difficulty: String = "normal"
+static var voice: String = "english"
 static var lock: String = ""
+
+static func voice_ids() -> PackedStringArray:
+	return PackedStringArray(["english", "burmese", "mandarin", "thai", "malay"])
 
 static func hold(q: String) -> void:
 	lock = q
@@ -96,6 +100,23 @@ static func restore() -> void:
 	pan = 1.0
 	edge = true
 	difficulty = "normal"
+	voice = "english"
+	_write()
+
+static func voice_name(id: String) -> String:
+	if id == "burmese":
+		return "Burmese"
+	if id == "mandarin":
+		return "Mandarin"
+	if id == "thai":
+		return "Thai"
+	if id == "malay":
+		return "Malay"
+	return "English"
+
+static func set_voice(id: String) -> void:
+	ensure()
+	voice = id if voice_ids().has(id) else "english"
 	_write()
 
 static func set_difficulty(id: String) -> void:
@@ -170,6 +191,8 @@ static func _read() -> void:
 		difficulty = stored_diff
 	else:
 		difficulty = "normal"
+	var stored_voice: String = str(cfg.get_value("game", "voice", "english"))
+	voice = stored_voice if voice_ids().has(stored_voice) else "english"
 
 static func _write() -> void:
 	var cfg: ConfigFile = ConfigFile.new()
@@ -179,6 +202,7 @@ static func _write() -> void:
 	cfg.set_value("game", "pan", pan)
 	cfg.set_value("game", "edge", edge)
 	cfg.set_value("game", "difficulty", difficulty)
+	cfg.set_value("game", "voice", voice)
 	cfg.save(PATH)
 	_mirror()
 
@@ -192,6 +216,7 @@ static func _mirror() -> void:
 		"pan": pan,
 		"edge": edge,
 		"difficulty": difficulty,
+		"voice": voice,
 	}
 	var body: String = JSON.stringify(payload)
 	JavaScriptBridge.eval(IDB_JS % JSON.stringify(body))

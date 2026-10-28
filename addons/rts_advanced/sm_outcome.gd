@@ -13,6 +13,9 @@ var banner: Label
 var back: Button
 var _cool: Dictionary[int, float] = {}
 
+signal chrome_wanted(outcome: SMOutcome, panel: Control, faction: String)
+signal base_struck
+
 func mount(p_host: Node, layer: CanvasLayer) -> void:
 	host = p_host
 	panel = Control.new()
@@ -23,16 +26,10 @@ func mount(p_host: Node, layer: CanvasLayer) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.z_index = 20
 	layer.add_child(panel)
-	var art: Control = (load("res://game/menu_backdrop.gd") as GDScript).new() as Control
-	art.set_anchors_preset(Control.PRESET_FULL_RECT)
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var faction: String = "gtfc"
 	var field: Variant = p_host.get("field")
 	if field != null:
 		faction = str(field.get("faction_id"))
-	art.call("set_screen", "faction")
-	art.call("set_faction", faction)
-	panel.add_child(art)
 	banner = Label.new()
 	banner.name = "MatchBanner"
 	banner.theme_type_variation = "Header"
@@ -49,20 +46,7 @@ func mount(p_host: Node, layer: CanvasLayer) -> void:
 	banner.add_theme_font_size_override("font_size", 48)
 	banner.add_theme_color_override("font_color", Color(1, 1, 1))
 	panel.add_child(banner)
-	back = (load("res://game/menu_plate.gd") as GDScript).new() as Button
-	back.name = "BootMenuButton"
-	back.text = "Boot menu"
-	back.anchor_left = 0.0
-	back.anchor_top = 0.5
-	back.anchor_right = 0.0
-	back.anchor_bottom = 0.5
-	back.offset_left = 64.0
-	back.offset_top = 48.0
-	back.offset_right = 360.0
-	back.offset_bottom = 100.0
-	back.custom_minimum_size = Vector2(320, 52)
-	back.pressed.connect(_boot)
-	panel.add_child(back)
+	chrome_wanted.emit(self, panel, faction)
 
 func consider(player_units: int, player_buildings: int, enemy_units: int, enemy_buildings: int) -> void:
 	if over:
@@ -97,8 +81,8 @@ func tick(field: SMPointer, player_yards: Array[SMBuildYard], enemy_yards: Array
 	elif enemy_units > 0 or enemy_buildings > 0:
 		saw_enemy = true
 	if saw_player and saw_enemy:
-		_press(field, friends, enemy_yards, delta)
-		_press(field, hostiles, player_yards, delta)
+		_press(field, friends, enemy_yards, delta, false)
+		_press(field, hostiles, player_yards, delta, true)
 		player_buildings = _living(player_yards)
 		enemy_buildings = _living(enemy_yards)
 	consider(player_units, player_buildings, enemy_units, enemy_buildings)
@@ -120,7 +104,7 @@ func _living(yards: Array[SMBuildYard]) -> int:
 			total += yard.living_count()
 	return total
 
-func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], delta: float) -> void:
+func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], delta: float, player_base: bool) -> void:
 	for u: RTSUnit in units:
 		if not is_instance_valid(u) or not u.is_alive():
 			continue
@@ -143,6 +127,8 @@ func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], 
 			continue
 		if _fire(u, delta):
 			best_yard.damage_structure(best_id, u.attack_damage)
+			if player_base:
+				base_struck.emit()
 			if not best_yard.structure_alive(best_id):
 				_hide(best_id)
 
@@ -190,8 +176,3 @@ func _finish(win: bool) -> void:
 		status = host.find_child("Status", true, false) as Label
 	if status != null:
 		status.text = "Objective complete" if win else "Objective failed"
-
-func _boot() -> void:
-	if host == null:
-		return
-	host.get_tree().change_scene_to_file("res://game/boot.tscn")
