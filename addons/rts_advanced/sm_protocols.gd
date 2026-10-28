@@ -223,7 +223,8 @@ func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: 
 		b.custom_minimum_size = Vector2(148, 52)
 		b.add_theme_font_size_override("font_size", 12)
 		var line: String = blurb(id)
-		b.tooltip_text = line
+		b.tooltip_text = ""
+		b.set_meta("tip", line)
 		b.mouse_entered.connect(_show_tip.bind(layer, line))
 		b.mouse_exited.connect(_show_tip.bind(layer, ""))
 		b.pressed.connect(_press_power.bind(id, economy, team, abilities, say))

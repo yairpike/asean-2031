@@ -43,6 +43,12 @@ func _ready() -> void:
 	art.call("set_screen", "settings")
 	art.call("set_faction", "")
 	add_child(art)
+	var dim: ColorRect = ColorRect.new()
+	dim.name = "SettingsDimmer"
+	dim.color = Color(0.04, 0.05, 0.07, 0.96)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(dim)
 	highlight = ColorRect.new()
 	highlight.name = "SettingsHighlight"
 	highlight.color = Color(1, 1, 1, 0.12)

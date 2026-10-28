@@ -161,7 +161,7 @@ func _process(delta: float) -> void:
 	if hud.guide_blocks():
 		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
-	if cam != null:
+	if cam != null and not hud.blocks_edge():
 		var vp: Viewport = get_viewport()
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)

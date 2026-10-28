@@ -1346,7 +1346,8 @@ func test_sm_hud() -> void:
 	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
 	var trained: Button = scene.find_child("Train_militia", true, false) as Button
 	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
-	check(built != null and trained != null and ability != null and ability.text == "Ability (F)", "phillips can build, train, and use F")
+	var boot_back: Button = scene.find_child("MissionBoot", true, false) as Button
+	check(built != null and trained != null and ability != null and ability.text == "Ability (F)" and boot_back != null and boot_back.text == "Boot menu" and boot_back.visible, "phillips can build, train, use F, and return to the menu")
 	var deck: SMHud = scene.get("hud") as SMHud
 	check(scene.find_child("PowerFill", true, false) != null and scene.find_child("RepairButton", true, false) != null and scene.find_child("SellButton", true, false) != null and scene.find_child("TabInfantry", true, false) != null, "the sidebar shows power, repair, sell, and build tabs")
 	if deck != null:
@@ -1361,6 +1362,9 @@ func test_sm_hud() -> void:
 	check(mm.terrain_kind(Vector2i(2, 8)) == "land" and mm.terrain_kind(Vector2i(18, 12)) == "water" and mm.saw_land and mm.saw_water, "the minimap draws land and water")
 	check(mm.player_dots == field.count_team(0) and mm.player_dots >= 6 and mm.enemy_dots == 0 and field.count_team(1) >= 1, "the minimap shows your units and hides enemies outside sight")
 	check(mm.camera_rect.size.x > 1.0 and mm.covers_focus(), "the minimap draws the camera rectangle")
+	var hint_line: Control = scene.find_child("Status", true, false) as Control
+	var slot_row: Control = scene.find_child("SelectionSlots", true, false) as Control
+	check(hint_line != null and hint_line.offset_bottom <= -200.0 and slot_row != null and slot_row.offset_left >= 360.0, "the status line and selection strip sit clear of the protocols")
 	check(_click_east(scene), "clicking the minimap moves the camera")
 	var friends: Array[RTSUnit] = field.units_of(0)
 	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
@@ -3399,7 +3403,7 @@ func test_sm_guide() -> void:
 	var short_line: Label = scene.find_child("MatchHint", true, false) as Label
 	check(short_line != null and overlay != null and short_line.visible and not overlay.is_ancestor_of(short_line) and short_line.text.length() <= 32 and not short_line.text.contains("Shift"), "one short line stays on screen")
 	var column: Control = scene.find_child("CommandColumn", true, false) as Control
-	check(column != null and column.size.x <= 180.0 and column.size.x >= 120.0, "the build column stays narrow")
+	check(column != null and column.size.x <= 280.0 and column.size.x >= 220.0, "the build column fits the cameos")
 	var roster_scroll: ScrollContainer = column as ScrollContainer
 	var roster_row: Button = scene.find_child("Train_militia", true, false) as Button
 	var roster_at: int = roster_scroll.scroll_vertical if roster_scroll != null else 0
@@ -3465,12 +3469,12 @@ func test_sm_guide() -> void:
 	check(overlay != null and overlay.visible, "How to play shows the overlay again")
 	var train: Button = scene.find_child("Train_militia", true, false) as Button
 	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
-	check(train != null and train.tooltip_text.contains("Slag Molotov"), "the train button tooltip names the F ability")
+	check(train != null and str(train.get_meta("tip", "")).contains("Slag Molotov") and train.tooltip_text == "", "the train button tooltip names the F ability")
 	var tap_toggle: Button = scene.find_child("ProtocolsToggle", true, false) as Button
-	check(train != null and train.custom_minimum_size.y >= 40.0 and help != null and help.custom_minimum_size.y >= 44.0 and close != null and close.custom_minimum_size.y >= 44.0 and tap_toggle != null and tap_toggle.custom_minimum_size.y >= 44.0, "match buttons stay large enough to tap")
-	check(ability != null and ability.tooltip_text.contains("closest ready unit"), "the ability button tooltip explains F")
+	check(train != null and train.custom_minimum_size.y >= 72.0 and help != null and help.custom_minimum_size.y >= 44.0 and close != null and close.custom_minimum_size.y >= 44.0 and tap_toggle != null and tap_toggle.custom_minimum_size.y >= 44.0, "match buttons stay large enough to tap")
+	check(ability != null and str(ability.get_meta("tip", "")).contains("closest ready unit") and ability.tooltip_text == "", "the ability button tooltip explains F")
 	var proto: Button = scene.find_child("Proto_cash_bounty", true, false) as Button
-	check(proto != null and proto.tooltip_text.contains("Cash Bounty") and proto.tooltip_text.contains("250"), "a protocol button tooltip names the power and its effect")
+	check(proto != null and str(proto.get_meta("tip", "")).contains("Cash Bounty") and str(proto.get_meta("tip", "")).contains("250") and proto.tooltip_text == "", "a protocol button tooltip names the power and its effect")
 	var cue: AudioStreamPlayer = scene.find_child("CuePlayer", true, false) as AudioStreamPlayer
 	train.pressed.emit()
 	var card: PanelContainer = scene.find_child("UnitCard", true, false) as PanelContainer
@@ -4655,7 +4659,11 @@ func test_sm_settings() -> void:
 	gear.pressed.emit()
 	var menu_panel: Control = boot.find_child("SettingsPanel", true, false) as Control
 	var voice_row: Button = boot.find_child("VoiceValue", true, false) as Button
-	check(menu_panel != null and menu_panel.visible, "the menu settings button opens the panel")
+	var covered_title: Label = boot.find_child("GameTitle", true, false) as Label
+	var dimmer: ColorRect = boot.find_child("SettingsDimmer", true, false) as ColorRect
+	var opened: bool = menu_panel != null and menu_panel.visible and covered_title != null and not covered_title.visible and dimmer != null and dimmer.color.a > 0.9
+	gear.pressed.emit()
+	check(opened and menu_panel != null and not menu_panel.visible and covered_title.visible, "the menu settings button opens the panel")
 	check(voice_row != null and voice_row.text == "English", "settings lists the voice language")
 	boot.free()
 	await process_frame

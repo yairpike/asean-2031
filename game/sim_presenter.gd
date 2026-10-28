@@ -10,6 +10,21 @@ const Clips = preload("res://game/match_audio.gd")
 const Cameos = preload("res://game/match_cameos.gd")
 const Faces = preload("res://game/font_faces.gd")
 
+## Keeps the match hint above the protocol grid so the two do not share pixels.
+static func seat_status(status: Control) -> void:
+	if status == null:
+		return
+	status.anchor_left = 0.0
+	status.anchor_top = 1.0
+	status.anchor_right = 1.0
+	status.anchor_bottom = 1.0
+	status.offset_left = 8.0
+	status.offset_top = -256.0
+	status.offset_right = -276.0
+	status.offset_bottom = -212.0
+	status.custom_minimum_size = Vector2(0, 36)
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 static func follow(host: Node) -> void:
 	if host == null or bool(host.get_meta("view_bound", false)):
 		return
@@ -76,6 +91,11 @@ static func follow(host: Node) -> void:
 		fitter.name = "CameraFit"
 		fitter.set_script(preload("res://game/camera_fit.gd"))
 		host.add_child(fitter)
+	if host.get_node_or_null("MatchExit") == null:
+		var exit: Node = Node.new()
+		exit.name = "MatchExit"
+		exit.set_script(preload("res://game/match_exit.gd"))
+		host.add_child(exit)
 
 static func follow_pointer(field: SMPointer) -> void:
 	if field == null or bool(field.get_meta("view_bound", false)):

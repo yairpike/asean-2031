@@ -281,7 +281,8 @@ func _selection_row() -> void:
 	row.visible = false
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 6)
-	_anchor(row, 0.0, 1.0, 0.0, 1.0, 16.0, -88.0, 520.0, -16.0)
+	row.clip_contents = true
+	_anchor(row, 0.0, 1.0, 1.0, 1.0, 376.0, -84.0, -536.0, -12.0)
 	add_child(row)
 
 func _paint_selection(hud: SMHud) -> void:
@@ -330,7 +331,7 @@ func _column() -> ScrollContainer:
 	shade.name = "ColumnShade"
 	shade.color = Color(0.05, 0.055, 0.06, 0.94)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_anchor(shade, 1.0, 0.0, 1.0, 1.0, -186.0, 40.0, -8.0, -8.0)
+	_anchor(shade, 1.0, 0.0, 1.0, 1.0, -260.0, 40.0, -8.0, -8.0)
 	add_child(shade)
 	var plate: TextureRect = TextureRect.new()
 	plate.name = "SidebarArt"
@@ -341,13 +342,13 @@ func _column() -> ScrollContainer:
 	if side_tex != null:
 		plate.texture = side_tex
 		shade.visible = false
-	_anchor(plate, 1.0, 0.0, 1.0, 1.0, -186.0, 40.0, -8.0, -8.0)
+	_anchor(plate, 1.0, 0.0, 1.0, 1.0, -260.0, 40.0, -8.0, -8.0)
 	add_child(plate)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "CommandColumn"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = true
-	_anchor(scroll, 1.0, 0.0, 1.0, 1.0, -186.0, 40.0, -8.0, -8.0)
+	_anchor(scroll, 1.0, 0.0, 1.0, 1.0, -260.0, 40.0, -8.0, -8.0)
 	add_child(scroll)
 	var wrap: VBoxContainer = VBoxContainer.new()
 	wrap.name = "RosterWrap"
@@ -453,7 +454,7 @@ func _unit_card() -> void:
 	card.visible = false
 	card.z_index = 8
 	card.clip_contents = true
-	_anchor(card, 1.0, 1.0, 1.0, 1.0, -520.0, -176.0, -194.0, -8.0)
+	_anchor(card, 1.0, 1.0, 1.0, 1.0, -520.0, -176.0, -268.0, -8.0)
 	add_child(card)
 	var margin: MarginContainer = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 8)

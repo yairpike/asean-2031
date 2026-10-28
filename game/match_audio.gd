@@ -33,6 +33,7 @@ static var _cash_at: int = 0
 static var _cash_seen: int = -1
 static var _hp_seen: Dictionary = {}
 static var _web_open: bool = false
+static var _heard: bool = false
 static var _held: Array[AudioStreamPlayer] = []
 static var _queue: PackedStringArray = PackedStringArray()
 static var _at: int = 0
@@ -919,6 +920,23 @@ static func unlock() -> void:
 	if OS.has_feature("web"):
 		var state: String = str(JavaScriptBridge.eval("window.__aseanUnlockAudio ? window.__aseanUnlockAudio() : 'missing'", true))
 		print("audio context state: ", state)
+	_release_held()
+
+static func pump() -> void:
+	if not OS.has_feature("web") or not _web_open:
+		return
+	if not _heard:
+		var state: String = str(JavaScriptBridge.eval("window.__aseanAudioQuiet ? window.__aseanAudioQuiet() : 'none'", true))
+		if state != "running":
+			JavaScriptBridge.eval("window.__aseanUnlockAudio && window.__aseanUnlockAudio()", true)
+			return
+		_heard = true
+		Settings.apply_audio()
+	_release_held()
+
+static func _release_held() -> void:
+	if not _audible():
+		return
 	var pending: Array[AudioStreamPlayer] = []
 	for held: AudioStreamPlayer in _held:
 		pending.append(held)
@@ -1081,7 +1099,9 @@ static func _arm_player(player: AudioStreamPlayer, stream: AudioStream, loop: bo
 		_held.append(player)
 
 static func _audible() -> bool:
-	return (not OS.has_feature("web")) or _web_open
+	if not OS.has_feature("web"):
+		return true
+	return _web_open and _heard
 
 static func _start(player: AudioStreamPlayer) -> void:
 	if player == null or player.stream == null or player.playing:

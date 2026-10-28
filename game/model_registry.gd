@@ -5,6 +5,22 @@ extends RefCounted
 static func apply_unit(body: MeshInstance3D, id: String, primary: Color = Color.WHITE, accent: Color = Color.WHITE) -> bool:
 	if body == null or id == "":
 		return false
+	if _mount_unit(body, id, primary, accent):
+		return true
+	_queue(body, id, primary, accent, "unit")
+	return false
+
+static func apply_structure(host: MeshInstance3D, id: String, primary: Color = Color.WHITE, accent: Color = Color.WHITE) -> bool:
+	if host == null or host.mesh == null or id == "":
+		return false
+	if _mount_structure(host, id, primary, accent):
+		return true
+	_queue(host, id, primary, accent, "structure")
+	return false
+
+static func _mount_unit(body: MeshInstance3D, id: String, primary: Color, accent: Color) -> bool:
+	if str(body.get_meta("model", "")) != "":
+		return true
 	var scene: Node3D = _scene(id)
 	if scene == null:
 		return false
@@ -13,8 +29,10 @@ static func apply_unit(body: MeshInstance3D, id: String, primary: Color = Color.
 	_paint(body, primary, accent)
 	return true
 
-static func apply_structure(host: MeshInstance3D, id: String, primary: Color = Color.WHITE, accent: Color = Color.WHITE) -> bool:
-	if host == null or host.mesh == null or id == "":
+static func _mount_structure(host: MeshInstance3D, id: String, primary: Color, accent: Color) -> bool:
+	if str(host.get_meta("model", "")) != "":
+		return true
+	if host.mesh == null:
 		return false
 	var scene: Node3D = _scene(id)
 	if scene == null:
@@ -65,10 +83,26 @@ static func _scene(id: String) -> Node3D:
 		if packed != null:
 			var instanced: Node = packed.instantiate()
 			return instanced as Node3D
+	if path.begins_with("user://") or path.begins_with("res://"):
+		var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+		if not bytes.is_empty():
+			var parsed: Node3D = _from_buffer(bytes)
+			if parsed != null:
+				return parsed
 	var file: String = path
 	if path.begins_with("res://") or path.begins_with("user://"):
 		file = ProjectSettings.globalize_path(path)
 	return _from_gltf(file)
+
+static func _from_buffer(bytes: PackedByteArray) -> Node3D:
+	if bytes.is_empty():
+		return null
+	var doc: GLTFDocument = GLTFDocument.new()
+	var state: GLTFState = GLTFState.new()
+	if doc.append_from_buffer(bytes, "", state) != OK:
+		return null
+	var generated: Node = doc.generate_scene(state)
+	return generated as Node3D
 
 static func _path(id: String) -> String:
 	if id == "" or id.contains("..") or id.contains("/") or id.contains("\\"):
@@ -94,6 +128,36 @@ static func _path(id: String) -> String:
 static var _index: PackedStringArray = PackedStringArray()
 static var _index_read: bool = false
 static var _inflight: Dictionary = {}
+static var _waiting: Array[MeshInstance3D] = []
+
+static func _queue(body: MeshInstance3D, id: String, primary: Color, accent: Color, kind: String) -> void:
+	if body == null or not OS.has_feature("web"):
+		return
+	body.set_meta("model_id", id)
+	body.set_meta("model_primary", primary)
+	body.set_meta("model_accent", accent)
+	body.set_meta("model_kind", kind)
+	if not _waiting.has(body):
+		_waiting.append(body)
+
+static func _redress(id: String) -> void:
+	var still: Array[MeshInstance3D] = []
+	for body: MeshInstance3D in _waiting:
+		if not is_instance_valid(body):
+			continue
+		if str(body.get_meta("model_id", "")) != id:
+			still.append(body)
+			continue
+		var primary: Color = body.get_meta("model_primary", Color.WHITE)
+		var accent: Color = body.get_meta("model_accent", Color.WHITE)
+		var ok: bool = false
+		if str(body.get_meta("model_kind", "unit")) == "structure":
+			ok = _mount_structure(body, id, primary, accent)
+		else:
+			ok = _mount_unit(body, id, primary, accent)
+		if not ok:
+			still.append(body)
+	_waiting = still
 
 static func _arm_index(owner: Node, text: String) -> void:
 	if _index_read:
@@ -154,6 +218,7 @@ static func _fetch(owner: Node, id: String) -> void:
 	if owner == null or _inflight.has(id) or id.contains(".."):
 		return
 	if FileAccess.file_exists("user://models/%s.glb" % id) or FileAccess.file_exists("user://models/%s.gltf" % id):
+		_redress(id)
 		return
 	_inflight[id] = true
 	var http := HTTPRequest.new()
@@ -178,6 +243,7 @@ static func _got_model(result: int, code: int, _headers: PackedStringArray, body
 		return
 	file.store_buffer(body)
 	file.close()
+	_redress(id)
 
 static func _from_gltf(path: String) -> Node3D:
 	var doc: GLTFDocument = GLTFDocument.new()
@@ -221,6 +287,8 @@ static func _paint_surfaces(mesh_node: MeshInstance3D, primary: Color, accent: C
 			mat.roughness = 0.84
 			mat.metallic = 0.0
 			mat.resource_name = "Body"
+			if src is BaseMaterial3D and mat.albedo_texture == null:
+				mat.albedo_texture = (src as BaseMaterial3D).albedo_texture
 		mesh_node.set_surface_override_material(surface, mat)
 
 static func _copy_mat(src: Material) -> StandardMaterial3D:

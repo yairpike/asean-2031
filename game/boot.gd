@@ -23,6 +23,7 @@ var act_lists: Dictionary[String, Control] = {}
 var _pad_cool: float = 0.0
 var _save_polled: bool = false
 var _faction_i: int = 0
+var _menu_tab: String = "main"
 
 func _ready() -> void:
 	preload("res://game/font_faces.gd").pin()
@@ -655,6 +656,8 @@ func _expand_campaign() -> void:
 	_show_tab("main")
 
 func _show_tab(which: String) -> void:
+	_menu_tab = which
+	_show_menu_chrome()
 	skirmish_panel.visible = which == "skirmish"
 	campaign_panel.visible = which == "campaign"
 	faction_panel.visible = which == "faction"
@@ -683,6 +686,8 @@ func _show_tab(which: String) -> void:
 		_style_button(tab, Color(0.12, 0.13, 0.16), Color(0.32, 0.34, 0.38), on)
 	_refresh_playing()
 	_sync_art()
+	if settings_open:
+		_hide_menu_chrome()
 	_layout_menu(_view_size())
 
 func _show_act(act: String) -> void:
@@ -790,8 +795,40 @@ func _toggle_settings() -> void:
 	panel.visible = not panel.visible
 	if panel.visible and panel.has_method("pull"):
 		panel.call("pull")
+	if panel.visible:
+		move_child(panel, get_child_count() - 1)
+		_hide_menu_chrome()
+	else:
+		_show_tab(_menu_tab)
 	_sync_art()
 	_layout_menu(_view_size())
+
+func _show_menu_chrome() -> void:
+	var names: PackedStringArray = PackedStringArray([
+		"GameTitle", "TitleRule", "VersionMark", "NowPlaying", "ControlBar", "QuitButton",
+	])
+	for node_name: String in names:
+		var node: CanvasItem = find_child(node_name, true, false) as CanvasItem
+		if node != null:
+			node.visible = true
+	for tab: Button in tab_buttons:
+		tab.visible = true
+
+func _hide_menu_chrome() -> void:
+	var names: PackedStringArray = _chrome_names()
+	for node_name: String in names:
+		var node: CanvasItem = find_child(node_name, true, false) as CanvasItem
+		if node != null:
+			node.visible = false
+	for tab: Button in tab_buttons:
+		tab.visible = false
+
+func _chrome_names() -> PackedStringArray:
+	return PackedStringArray([
+		"GameTitle", "TitleRule", "VersionMark", "NowPlaying", "ControlBar",
+		"MultiplayerNote", "FactionSubmenu", "LanPanel", "PanelSkirmish",
+		"PanelCampaign", "PanelFaction", "QuitButton",
+	])
 
 func _play() -> void:
 	if selected_map == "":

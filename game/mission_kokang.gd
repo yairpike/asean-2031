@@ -174,7 +174,8 @@ func _process(delta: float) -> void:
 	if cam == null:
 		return
 	var vp: Viewport = get_viewport()
-	cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
+	if not hud.blocks_edge():
+		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	field.tick(delta)
 	story.tick(delta)
 	var piece: Node = get_node_or_null("SetPiece")

@@ -31,6 +31,12 @@ func _gesture(event: InputEvent) -> bool:
 	return false
 
 func _process(_delta: float) -> void:
+	if OS.has_feature("web") and not _open:
+		var state: String = str(JavaScriptBridge.eval("window.__aseanAudioState || ''", true))
+		if state == "running":
+			_open = true
+			Clips.unlock()
+	Clips.pump()
 	var host: Node = get_parent()
 	if host == null:
 		return

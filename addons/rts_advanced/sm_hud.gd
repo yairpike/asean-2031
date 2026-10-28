@@ -314,14 +314,14 @@ func _column(layer: CanvasLayer) -> void:
 	backdrop.name = "ColumnShade"
 	backdrop.color = Color(0.05, 0.06, 0.07, 0.9)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_dock(backdrop, -186.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
+	_dock(backdrop, -260.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
 	layer.add_child(backdrop)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "CommandColumn"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = true
 	scroll.gui_input.connect(_drag_column)
-	_dock(scroll, -186.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
+	_dock(scroll, -260.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
 	layer.add_child(scroll)
 	var wrap: VBoxContainer = VBoxContainer.new()
 	wrap.name = "RosterWrap"
@@ -750,7 +750,7 @@ func _guide(layer: CanvasLayer) -> void:
 		card.z_index = 8
 		card.clip_contents = true
 		card.add_theme_stylebox_override("panel", _card_style())
-		_dock(card, 8.0, -82.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
+		_dock(card, 8.0, -82.0, -268.0, -6.0, 0.0, 1.0, 1.0, 1.0)
 		layer.add_child(card)
 		unit_card = card
 		var row: HBoxContainer = HBoxContainer.new()
@@ -783,7 +783,7 @@ func _guide(layer: CanvasLayer) -> void:
 	if use_tiles:
 		_dock(strip, 196.0, 40.0, 560.0, 76.0, 0.0, 0.0, 0.0, 0.0)
 	else:
-		_dock(strip, 8.0, -46.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
+		_dock(strip, 8.0, -46.0, -268.0, -6.0, 0.0, 1.0, 1.0, 1.0)
 	layer.add_child(strip)
 	match_strip = strip
 	var short_line: Label = _card_line(strip, "MatchHint", 15)
@@ -794,7 +794,7 @@ func _guide(layer: CanvasLayer) -> void:
 	panel.clip_contents = true
 	panel.z_index = 30
 	panel.visible = true
-	_dock(panel, 168.0, 44.0, -194.0, -56.0, 0.0, 0.0, 1.0, 1.0)
+	_dock(panel, 168.0, 44.0, -268.0, -56.0, 0.0, 0.0, 1.0, 1.0)
 	layer.add_child(panel)
 	guide_panel = panel
 	var box: VBoxContainer = VBoxContainer.new()
@@ -860,7 +860,7 @@ func _tip(layer: CanvasLayer) -> void:
 	panel.clip_contents = true
 	panel.add_theme_stylebox_override("panel", _card_style())
 	panel.custom_minimum_size = Vector2(360, 96)
-	_dock(panel, -560.0, -300.0, -194.0, -184.0, 1.0, 1.0, 1.0, 1.0)
+	_dock(panel, -560.0, -300.0, -268.0, -184.0, 1.0, 1.0, 1.0, 1.0)
 	layer.add_child(panel)
 	tip_panel = panel
 	var tip_row: HBoxContainer = HBoxContainer.new()
@@ -910,6 +910,30 @@ func column_hovered() -> bool:
 		return true
 	if phone_drawer != null and (hovered == phone_drawer or phone_drawer.is_ancestor_of(hovered)):
 		return true
+	return false
+
+## Edge pan uses the screen edge. The command column and the other panels sit there.
+func blocks_edge() -> bool:
+	if column_hovered():
+		return true
+	if layer_node == null:
+		return false
+	var view: Viewport = layer_node.get_viewport()
+	if view == null:
+		return false
+	var hovered: Control = view.gui_get_hovered_control()
+	if hovered == null:
+		return false
+	var names: PackedStringArray = PackedStringArray([
+		"Protocols", "ProtocolsToggle", "Minimap", "MonitorFrame", "UnitCard",
+		"HelpButton", "MissionBoot", "SelectionSlots", "PhoneDrawer", "TipPanel",
+		"HowToOverlay", "SuperDock", "CommandColumn",
+	])
+	var node: Node = hovered
+	while node != null and node != layer_node:
+		if names.has(str(node.name)):
+			return true
+		node = node.get_parent()
 	return false
 
 func _drag_column(event: InputEvent) -> void:
@@ -989,7 +1013,8 @@ func _button(box: Container, node_name: String, text: String, fn: Callable, tip:
 	if tab_name != "" and hotkey <= 9:
 		shown += "\nHotkey %d" % hotkey
 	b.text = text
-	b.tooltip_text = shown
+	b.tooltip_text = ""
+	b.set_meta("tip", shown)
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -1059,11 +1084,11 @@ func _paint_button(b: Button) -> void:
 	if portrait != null and in_grid:
 		b.icon = portrait
 		b.expand_icon = true
-		b.add_theme_constant_override("icon_max_width", 64 if phone else 46)
+		b.add_theme_constant_override("icon_max_width", 64 if phone else 72)
 		b.add_theme_constant_override("h_separation", 4)
 		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.text = ""
-		b.custom_minimum_size = Vector2(0, 72 if phone else 52)
+		b.custom_minimum_size = Vector2(0, 72 if phone else 80)
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
 		_tint_roster_button(b)
 		return

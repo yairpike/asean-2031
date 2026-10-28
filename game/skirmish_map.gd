@@ -231,8 +231,9 @@ func _ui() -> void:
 	status.clip_text = true
 	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	status.add_theme_color_override("font_color", Color(0.95, 0.9, 0.55))
-	status.custom_minimum_size = Vector2(760, 40)
+	status.custom_minimum_size = Vector2(0, 36)
 	ui_layer.add_child(status)
+	preload("res://game/sim_presenter.gd").seat_status(status)
 	sim.protocols.mount_panel(ui_layer, roster.economy, SMPointer.PLAYER, sim.abilities, Callable(self, "_say"))
 
 func _map_name() -> String:
@@ -307,7 +308,7 @@ func _process(delta: float) -> void:
 	if preload("res://game/lan_link.gd").holding():
 		return
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
-	if cam != null:
+	if cam != null and not hud.blocks_edge():
 		var vp: Viewport = get_viewport()
 		cam.edge_scroll(vp.get_mouse_position(), vp.get_visible_rect().size, delta)
 	raider.tick(delta)

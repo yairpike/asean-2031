@@ -39,6 +39,10 @@ func _ready() -> void:
 	layer.add_child(label)
 	add_child(layer)
 	preload("res://game/settings_panel.gd").attach(layer)
+	var exit: Node = Node.new()
+	exit.name = "MatchExit"
+	exit.set_script(preload("res://game/match_exit.gd"))
+	add_child(exit)
 	preload("res://game/match_settings.gd").apply_scene(self)
 	var fitter: Node = Node.new()
 	fitter.name = "CameraFit"
