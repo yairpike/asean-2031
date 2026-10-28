@@ -69,6 +69,7 @@ func _match(map_id: String, home_id: String, away_id: String, who: String, seed:
 	var outcome: SMOutcome = SMOutcome.new()
 	var clock: float = 0.0
 	var winner: String = "draw"
+	var side: String = "draw"
 	while clock < LIMIT and not outcome.over:
 		home.tick(STEP)
 		away.tick(STEP)
@@ -83,15 +84,18 @@ func _match(map_id: String, home_id: String, away_id: String, who: String, seed:
 		clock += STEP
 		if int(clock / STEP) % 160 == 0:
 			await process_frame
+	var home_score: int = field.count_team(SMPointer.PLAYER) * 2 + home.yard.living_count() * 3
+	var away_score: int = field.count_team(SMPointer.ENEMY) * 2 + away.yard.living_count() * 3
 	if outcome.over:
-		winner = home_id if outcome.victory else away_id
-	else:
-		var home_score: int = field.count_team(SMPointer.PLAYER) * 2 + home.yard.living_count() * 3
-		var away_score: int = field.count_team(SMPointer.ENEMY) * 2 + away.yard.living_count() * 3
-		if home_score > away_score:
-			winner = home_id
-		elif away_score > home_score:
-			winner = away_id
+		side = "home" if outcome.victory else "away"
+	elif home_score > away_score:
+		side = "home"
+	elif away_score > home_score:
+		side = "away"
+	if side == "home":
+		winner = home_id
+	elif side == "away":
+		winner = away_id
 	var row: Dictionary = {
 		"map": map_id,
 		"home": home_id,
@@ -99,6 +103,7 @@ func _match(map_id: String, home_id: String, away_id: String, who: String, seed:
 		"commander": who,
 		"seed": seed,
 		"winner": winner,
+		"side": side,
 		"seconds": snapped(clock, 0.1),
 		"capped": not outcome.over,
 		"home_built": home.trained.duplicate(),
