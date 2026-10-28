@@ -678,7 +678,7 @@ func _faction_card(id: String, node_name: String, pos: Vector2) -> void:
 	var title: Label = Label.new()
 	title.name = "Title"
 	title.text = SMFront.display_name()
-	title.position = Vector2(56, 14)
+	title.position = Vector2(84, 14)
 	title.size = Vector2(240, 24)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.add_theme_font_size_override("font_size", 18)
@@ -1333,16 +1333,31 @@ func _seat_factions(x: float, y: float, width: float, narrow: bool) -> float:
 	if narrow:
 		var cursor: float = y
 		for card: Button in faction_cards:
-			cursor = _seat(card, x, cursor, width, 48.0)
+			cursor = _seat(card, x, cursor, width, 52.0)
+			_fit_mark(card)
 		return cursor
 	var gap: float = 18.0
 	var slot: float = maxf(72.0, (width - gap * float(faction_cards.size() - 1)) / float(faction_cards.size()))
 	for i: int in faction_cards.size():
 		var card: Button = faction_cards[i]
 		card.position = Vector2(x + float(i) * (slot + gap), y)
-		card.size = Vector2(slot, 48.0)
-		card.custom_minimum_size = Vector2(slot, 48.0)
-	return y + 56.0
+		card.size = Vector2(slot, 52.0)
+		card.custom_minimum_size = Vector2(slot, 52.0)
+		_fit_mark(card)
+	return y + 60.0
+
+func _fit_mark(card: Button) -> void:
+	var logo: TextureRect = card.find_child("Logo", true, false) as TextureRect
+	if logo != null:
+		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		logo.custom_minimum_size = Vector2(40, 40)
+		logo.position = Vector2(6, 6)
+		logo.size = Vector2(40, 40)
+	var title: Label = card.find_child("Title", true, false) as Label
+	if title != null:
+		title.position = Vector2(84, 14)
+		title.size = Vector2(maxf(80.0, card.size.x - 96.0), 24.0)
 
 func _quit() -> void:
 	get_tree().quit()
@@ -1517,7 +1532,7 @@ func _make_cycle(node_name: String, kind: String) -> void:
 	button.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
 	button.pressed.connect(_spin_cycle.bind(kind))
 	var empty := StyleBoxEmpty.new()
-	empty.content_margin_left = 48 if kind == "faction" else 8
+	empty.content_margin_left = 80 if kind == "faction" else 8
 	empty.content_margin_top = 8
 	empty.content_margin_bottom = 8
 	for state_name: String in ["normal", "hover", "pressed", "focus", "disabled"]:
