@@ -1,0 +1,13 @@
+gtfc/low_power.ogg
+mvd/base_under_attack.ogg
+mvd/cannot_deploy_here.ogg
+mvd/enemy_superweapon_detected.ogg
+mvd/insufficient_funds.ogg
+mvd/low_power.ogg
+mvd/superweapon_launched.ogg
+mvd/superweapon_ready.ogg
+mvd/unit_lost.ogg
+mvd/unit_ready.ogg
+nmrf/cannot_deploy_here.ogg
+nmrf/low_power.ogg
+nmrf/unit_lost.ogg
