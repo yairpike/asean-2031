@@ -5,6 +5,7 @@ extends RefCounted
 const METAL: Color = Color(0.22, 0.23, 0.26)
 const RUBBER: Color = Color(0.12, 0.12, 0.13)
 const GLASS: Color = Color(0.55, 0.75, 0.85)
+const Models = preload("res://game/model_registry.gd")
 
 static var _ink: StandardMaterial3D
 static var _foam: StandardMaterial3D
@@ -27,6 +28,7 @@ static func dress_unit(kind: String, role: String, loco: String, accent: Color) 
 		var wake: MeshInstance3D = _part(body, "Wake", "wake", accent, Vector3(0.0, 0.05, 1.85))
 		wake.visible = false
 		wake.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	Models.apply_unit(body, kind)
 	return body
 
 static func dress_structure(mi: MeshInstance3D, size: Vector3, accent: Color) -> bool:
@@ -37,6 +39,7 @@ static func dress_structure(mi: MeshInstance3D, size: Vector3, accent: Color) ->
 	mi.material_override = null
 	mi.set_meta("form", form)
 	mi.set_meta("paint", accent)
+	Models.apply_structure(mi, Models.model_id_for(str(mi.name)))
 	return true
 
 static func animate(u: RTSUnit, delta: float) -> void:
@@ -236,6 +239,7 @@ static func _part(body: MeshInstance3D, node_name: String, form: String, accent:
 	body.add_child(part)
 	return part
 
+## Vertex color multiplies an albedo texture when one is assigned later.
 static func _opaque() -> StandardMaterial3D:
 	if _ink == null:
 		_ink = StandardMaterial3D.new()
@@ -262,6 +266,7 @@ static func _begin(mat: Material) -> SurfaceTool:
 
 static func _commit(st: SurfaceTool) -> ArrayMesh:
 	st.generate_normals()
+	st.generate_tangents()
 	return st.commit()
 
 static func _box(st: SurfaceTool, c: Vector3, s: Vector3, color: Color) -> void:
@@ -283,11 +288,18 @@ static func _box(st: SurfaceTool, c: Vector3, s: Vector3, color: Color) -> void:
 
 static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color) -> void:
 	st.set_color(color)
+	st.set_uv(Vector2(0.0, 1.0))
 	st.add_vertex(a)
+	st.set_uv(Vector2(1.0, 1.0))
 	st.add_vertex(b)
+	st.set_uv(Vector2(1.0, 0.0))
 	st.add_vertex(c)
+	st.set_color(color)
+	st.set_uv(Vector2(0.0, 1.0))
 	st.add_vertex(a)
+	st.set_uv(Vector2(1.0, 0.0))
 	st.add_vertex(c)
+	st.set_uv(Vector2(0.0, 0.0))
 	st.add_vertex(d)
 
 static func _wheel(st: SurfaceTool, c: Vector3, radius: float, length: float) -> void:
@@ -310,8 +322,11 @@ static func _wheel(st: SurfaceTool, c: Vector3, radius: float, length: float) ->
 
 static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
 	st.set_color(color)
+	st.set_uv(Vector2(0.0, 0.0))
 	st.add_vertex(a)
+	st.set_uv(Vector2(1.0, 0.0))
 	st.add_vertex(b)
+	st.set_uv(Vector2(0.0, 1.0))
 	st.add_vertex(c)
 
 static func _figure(st: SurfaceTool, accent: Color) -> void:

@@ -203,11 +203,11 @@ func cool(delta: float) -> void:
 func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: SMAbilities, say: Callable) -> ScrollContainer:
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "Protocols"
-	scroll.visible = false
+	scroll.visible = true
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = true
-	scroll.z_index = 6
-	_dock(scroll, 8.0, 158.0, 328.0, -192.0, 0.0, 0.0, 0.0, 1.0)
+	scroll.z_index = 8
+	_dock(scroll, 8.0, -200.0, 360.0, -52.0, 0.0, 1.0, 0.0, 1.0)
 	var grid: GridContainer = GridContainer.new()
 	grid.columns = 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -228,6 +228,7 @@ func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: 
 		b.pressed.connect(_press_power.bind(id, economy, team, abilities, say))
 		grid.add_child(b)
 	layer.add_child(scroll)
+	scroll.set_meta("book", self)
 	var toggle: Button = Button.new()
 	toggle.name = "ProtocolsToggle"
 	toggle.text = "Protocols (P)"
@@ -235,7 +236,7 @@ func mount_panel(layer: CanvasLayer, economy: RTSEconomy, team: int, abilities: 
 	toggle.custom_minimum_size = Vector2(168, 44)
 	toggle.z_index = 9
 	toggle.add_theme_font_size_override("font_size", 15)
-	_dock(toggle, 8.0, -136.0, 176.0, -92.0, 0.0, 1.0, 0.0, 1.0)
+	_dock(toggle, 8.0, -48.0, 180.0, -4.0, 0.0, 1.0, 0.0, 1.0)
 	toggle.pressed.connect(_toggle_panel.bind(scroll))
 	layer.add_child(toggle)
 	return scroll

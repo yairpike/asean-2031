@@ -96,7 +96,6 @@ if [ -d "$AUDIO_SRC/music" ] || [ -d "$AUDIO_SRC/barks" ]; then
   if [ -d "$AUDIO_SRC/barks" ]; then
     rm -rf "$DEST/audio/barks"
     cp -R "$AUDIO_SRC/barks" "$DEST/audio/barks"
-    rm -f "$DEST/audio/barks/crimson_sapper_select_2.ogg"
   fi
   if [ -f "$AUDIO_SRC/manifest.json" ]; then
     cp "$AUDIO_SRC/manifest.json" "$DEST/audio/manifest.json"
@@ -104,19 +103,27 @@ if [ -d "$AUDIO_SRC/music" ] || [ -d "$AUDIO_SRC/barks" ]; then
   find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' 2>/dev/null \
     | sed "s#^$DEST/audio/##" \
     | sort > "$DEST/audio/clips.txt"
-  if [ -f "$DEST/audio/barks/crimson_sapper_select_2.ogg" ]; then
-    echo "finish_web_export: held bark was copied"
-    exit 1
-  fi
   if ! grep -q "music/menu.ogg" "$DEST/audio/clips.txt"; then
     echo "finish_web_export: clips.txt missing menu"
     exit 1
   fi
-  if grep -q "crimson_sapper_select_2" "$DEST/audio/clips.txt"; then
-    echo "finish_web_export: clips.txt lists the held bark"
+  if ! grep -q "barks/crimson_sapper_select_2.ogg" "$DEST/audio/clips.txt"; then
+    echo "finish_web_export: clips.txt is missing the sapper select line"
     exit 1
   fi
   : > "$DEST/audio/.gdignore"
+fi
+CAMEO_SRC="/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/cameos"
+if [ -d "$CAMEO_SRC" ]; then
+  rm -rf "$DEST/cameos"
+  mkdir -p "$DEST/cameos"
+  find "$CAMEO_SRC" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/cameos/" \;
+  find "$DEST/cameos" -maxdepth 1 -type f -name '*.webp' -printf '%f\n' | sort > "$DEST/cameos/index.txt"
+  : > "$DEST/cameos/.gdignore"
+  if ! grep -q "militia.webp" "$DEST/cameos/index.txt"; then
+    echo "finish_web_export: cameo index is missing militia"
+    exit 1
+  fi
 fi
 if ! grep -q "brotli" "$DEST/brotli_host.conf" || ! grep -q "wasm" "$DEST/brotli_host.conf"; then
   echo "finish_web_export: brotli host config is missing"

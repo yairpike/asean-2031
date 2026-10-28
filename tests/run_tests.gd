@@ -5,6 +5,7 @@ extends SceneTree
 const Harness = preload("res://tests/harness.gd")
 const Forms = preload("res://game/unit_meshes.gd")
 const Settings = preload("res://game/match_settings.gd")
+const ModelBook = preload("res://game/model_registry.gd")
 var H: Harness
 var duel_note: String = ""
 
@@ -807,6 +808,9 @@ func test_sm_camera_rig() -> void:
 	check(absf(cam.yaw_degrees - yaw - 25.0) < 0.01, "orbit yaws around the focus")
 	cam.free()
 
+func _probe_gltf() -> String:
+	return "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0,1]}],\"nodes\":[{\"name\":\"Hull\",\"mesh\":0},{\"name\":\"Turret\",\"mesh\":0,\"translation\":[0,1,0]}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1,\"mode\":4}]}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\",\"max\":[1,0,1],\"min\":[0,0,0]},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":8,\"target\":34963}],\"buffers\":[{\"byteLength\":44,\"uri\":\"data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAABAAIAAAA=\"}]}"
+
 func test_sm_greybox() -> void:
 	var scene: Node = (load("res://game/greybox.tscn") as PackedScene).instantiate()
 	root.add_child(scene)
@@ -817,6 +821,46 @@ func test_sm_greybox() -> void:
 	var internal: MeshInstance3D = scene.get_node("BuildInternal") as MeshInstance3D
 	check(scaffold.mesh is CapsuleMesh and internal.mesh is BoxMesh, "scaffold is a capsule and the hub is a box")
 	scene.free()
+	await process_frame
+	var purse: RTSEconomy = RTSEconomy.new()
+	purse.set_credits(0, 400)
+	var yard: SMBuildYard = SMBuildYard.new()
+	yard.economy = purse
+	yard.load_catalog(SMCatalog.faction("gtfc"))
+	yard.finished.append(&"barracks")
+	yard.structure_hp[&"barracks"] = 40.0
+	check(yard.begin_repair(&"barracks"), "repair can start on a damaged building")
+	yard.tick_repair(1.0)
+	check(float(yard.structure_hp[&"barracks"]) > 40.0 and purse.credits(0) < 400, "repair spends credits to restore hit points")
+	var refund: int = yard.sell(&"barracks")
+	check(refund == 75 and not yard.finished.has(&"barracks"), "selling a building refunds half its cost")
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var body: MeshInstance3D = MeshInstance3D.new()
+	var box: BoxMesh = BoxMesh.new()
+	box.size = Vector3(2.0, 1.0, 3.0)
+	body.mesh = box
+	var old_turret: MeshInstance3D = MeshInstance3D.new()
+	old_turret.name = "Turret"
+	old_turret.mesh = BoxMesh.new()
+	body.add_child(old_turret)
+	host.add_child(body)
+	var probe: String = "res://game/models/registry_probe.gltf"
+	var gltf: FileAccess = FileAccess.open(probe, FileAccess.WRITE)
+	gltf.store_string(_probe_gltf())
+	gltf.close()
+	var swapped: bool = ModelBook.apply_unit(body, "registry_probe")
+	var fitted: Node3D = body.get_node_or_null("Model") as Node3D
+	var turret: Node = body.get_node_or_null("Turret")
+	check(swapped and body.mesh == null and fitted != null and turret != null and turret != old_turret and is_equal_approx(fitted.scale.x, 2.0), "a dropped gltf replaces the procedural mesh")
+	var plain: MeshInstance3D = MeshInstance3D.new()
+	var kept: BoxMesh = BoxMesh.new()
+	plain.mesh = kept
+	host.add_child(plain)
+	check(not ModelBook.apply_unit(plain, "no_such_model_2031") and plain.mesh == kept, "a missing model keeps the procedural mesh")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(probe))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(probe + ".import"))
+	host.free()
 	await process_frame
 
 func test_sm_phillips() -> void:
@@ -1228,6 +1272,13 @@ func test_sm_hud() -> void:
 	var trained: Button = scene.find_child("Train_militia", true, false) as Button
 	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
 	check(built != null and trained != null and ability != null and ability.text == "Ability (F)", "phillips can build, train, and use F")
+	var deck: SMHud = scene.get("hud") as SMHud
+	check(scene.find_child("PowerFill", true, false) != null and scene.find_child("RepairButton", true, false) != null and scene.find_child("SellButton", true, false) != null and scene.find_child("TabInfantry", true, false) != null, "the sidebar shows power, repair, sell, and build tabs")
+	if deck != null:
+		deck.show_build_tab("infantry")
+	check(trained != null and trained.visible and built != null and not built.visible, "a build tab shows one category")
+	if deck != null:
+		deck.show_build_tab("buildings")
 	var field: SMPointer = scene.get("field") as SMPointer
 	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
 	check(scene.find_child("CompanyList", true, false) == null and mm != null, "phillips uses a minimap instead of a name list")
@@ -1240,6 +1291,15 @@ func test_sm_hud() -> void:
 	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
 	(scene.get("hud") as SMHud).refresh()
 	check(picked == friends[0] and _hud_text(scene, "HudSelection") == "Shan Insurgent Militia    HP 80/80    F Slag Molotov", "the selection shows name, health, and its F ability")
+	var foe: RTSUnit = field.units_of(1)[0]
+	var foe_at: Vector3 = foe.global_position
+	foe.global_position = friends[0].global_position + Vector3(1.0, 0.0, 0.0)
+	friends[0].attack_target = null
+	field.set_stance("hold")
+	field._return_fire(friends[0])
+	check(friends[0].attack_target == null, "hold stance does not acquire a target")
+	field.set_stance("aggressive")
+	foe.global_position = foe_at
 	var purse: SMRoster = scene.get("roster") as SMRoster
 	built.pressed.emit()
 	check(_hud_text(scene, "HudBuild") == "Construction Yard built", "a finished yard says its name")
@@ -1868,7 +1928,7 @@ func test_sm_chain() -> void:
 	var weapon: Button = scene.find_child("Super_seismic_imploder", true, false) as Button
 	var built: int = (scene.get("side") as SMSide).yard.tech_order.size()
 	check(sim.goods.has_collector(&"slag_north") and collector != null and roster.economy.credits(0) > purse, "walking onto a Phillips pad claims it and the node pays")
-	check(built == 10 and hydro != null and hydro.text == "Salween Hydro-Generator" and weapon != null and weapon.text == "Seismic Slag Vacuum Imploder", "the yard lists the chain and the superweapon")
+	check(built == 10 and hydro != null and str(hydro.get_meta("caption", "")) == "Salween Hydro-Generator" and weapon != null and str(weapon.get_meta("caption", "")) == "Seismic Slag Vacuum Imploder", "the yard lists the chain and the superweapon")
 	scene.free()
 	await process_frame
 
@@ -1997,7 +2057,7 @@ func _train_caption(path: String, node_name: String) -> String:
 	var button: Button = scene.find_child(node_name, true, false) as Button
 	var text: String = ""
 	if button != null:
-		text = button.text
+		text = str(button.get_meta("caption", button.text))
 	scene.free()
 	await process_frame
 	return text
@@ -2040,7 +2100,7 @@ func test_sm_protocols() -> void:
 	var bar: Node = scene.find_child("Protocols", true, false)
 	check(bar != null, "phillips shows the protocol panel")
 	var toggle_protocols: Button = scene.find_child("ProtocolsToggle", true, false) as Button
-	check(bar != null and not bar.visible, "the protocol grid starts hidden")
+	check(bar != null and bar.visible, "the protocol grid starts open")
 	check(toggle_protocols != null and bar != null and toggle_protocols.text == "Protocols (P)" and not bar.is_ancestor_of(toggle_protocols), "Protocols is a button beside the grid")
 	var touch_node: Node = root.get_node_or_null("SMTouch")
 	var poke: InputEventKey = InputEventKey.new()
@@ -2049,7 +2109,7 @@ func test_sm_protocols() -> void:
 	poke.physical_keycode = KEY_P
 	if touch_node != null:
 		touch_node._unhandled_input(poke)
-	check(bar != null and bar.visible, "P opens the protocol grid")
+	check(bar != null and not bar.visible, "P folds the protocol grid")
 	for id: StringName in ids:
 		var button: Button = scene.find_child("Proto_%s" % str(id), true, false) as Button
 		check(button != null and button.text == book.display_name(id), "phillips lists %s" % book.display_name(id))
@@ -2797,6 +2857,34 @@ func test_sm_guide() -> void:
 	check(tip_label != null and tip_label.visible and tip_label.text.contains("Slag Molotov"), "hovering a unit shows a readable tip")
 	check(tip_panel != null and tip_panel.size.y >= 80.0, "the hover tip is tall enough for the unit name")
 	check(train != null and train.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS, "build buttons ellipsize instead of cutting a word")
+	var factory: Button = scene.find_child("Build_war_factory", true, false) as Button
+	var barracks: Button = scene.find_child("Build_barracks", true, false) as Button
+	check(train != null and train.icon != null and train.text == "" and str(train.get_meta("caption", "")) == "Shan Insurgent Militia", "the train button shows the militia cameo")
+	check(factory != null and factory.icon != null and barracks != null and barracks.icon != null, "the barracks and war factory buttons show cameos")
+	check(ability != null and ability.icon == null and ability.text == "Ability (F)", "the ability button stays a text button")
+	var tip_cameo: TextureRect = scene.find_child("TipCameo", true, false) as TextureRect
+	check(tip_cameo != null and tip_cameo.visible and tip_cameo.texture != null, "the hover tip shows the unit cameo")
+	var cameo_field: SMPointer = scene.get("field") as SMPointer
+	if cameo_field != null:
+		cameo_field.select_kind(&"militia")
+	if board != null:
+		board.refresh()
+	var card_cameo: TextureRect = scene.find_child("CardCameo", true, false) as TextureRect
+	check(card_cameo != null and card_cameo.visible and card_cameo.texture != null, "the unit card shows the selected cameo")
+	if board != null:
+		board.layout_for(Vector2(412, 915))
+	var units_tab: Button = scene.find_child("PhoneTabUnits", true, false) as Button
+	if units_tab != null:
+		units_tab.pressed.emit()
+	await process_frame
+	var cameo_grid: GridContainer = scene.find_child("PhoneIconGrid", true, false) as GridContainer
+	check(cameo_grid != null and cameo_grid.visible and cameo_grid.columns >= 3 and train != null and train.get_parent() == cameo_grid and train.text == "" and train.icon != null, "the phone drawer lays cameos out as an icon grid")
+	check(ability != null and cameo_grid != null and ability.get_parent() != cameo_grid and ability.icon == null and ability.text == "Ability (F)", "a control without a cameo stays a text button on the phone")
+	if board != null:
+		board.layout_for(Vector2(1280, 720))
+	await process_frame
+	var cameo_script: GDScript = load("res://game/match_cameos.gd") as GDScript
+	check(cameo_script.call("texture", "gtfc", "not_a_real_unit") == null, "a missing cameo leaves the text button")
 	var saved_size: Vector2i = Vector2i(root.size)
 	root.size = Vector2i(1024, 576)
 	await process_frame
@@ -2863,13 +2951,12 @@ func test_sm_bark() -> void:
 			var second: String = "barks/%s_%s_2.ogg" % [unit_id, event_name]
 			if clips.call("_stream", first) == null:
 				barks_ok = false
-			if second != "barks/crimson_sapper_select_2.ogg" and clips.call("_stream", second) == null:
+			if clips.call("_stream", second) == null:
 				barks_ok = false
 	check(barks_ok, "the nine shipped units decode both bark takes")
 	check(clips.call("clip_for", "militia", "select") != null, "a shipped bark is chosen for playback")
 	check(clips.call("clip_for", "not_a_unit", "select") == null, "a missing bark stays empty for the tone")
-	var held_path: String = "/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/audio/barks/crimson_sapper_select_2.ogg"
-	check(FileAccess.file_exists(held_path) and clips.call("_stream", "barks/crimson_sapper_select_2.ogg") == null, "the held sapper line stays out")
+	check(clips.call("_stream", "barks/crimson_sapper_select_2.ogg") != null, "the sapper select line plays")
 	check(clips.call("clip_for", "crimson_sapper", "select") != null, "the sapper still has a select line")
 	clips.call("color_voice", null)
 	var music_bus: int = AudioServer.get_bus_index("Music")
@@ -3331,7 +3418,7 @@ func test_sm_monsoon() -> void:
 	sop_sim.tech.capture(&"bazaar", 0)
 	(sop.get("hud") as SMHud).refresh()
 	var buy: Button = sop.find_child("Import_ch4", true, false) as Button
-	check(buy != null and buy.visible and buy.text == "CH-4", "a captured bazaar lists the CH-4")
+	check(buy != null and buy.visible and str(buy.get_meta("caption", buy.text)) == "CH-4" and (buy.text == "CH-4" or buy.icon != null), "a captured bazaar lists the CH-4")
 	var sop_field: SMPointer = sop.get("field") as SMPointer
 	var purse: SMRoster = sop.get("roster") as SMRoster
 	var before_n: int = sop_field.count_team(0)

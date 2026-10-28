@@ -7,6 +7,7 @@ const FX = preload("res://game/fx_view.gd")
 const SettingsPanel = preload("res://game/settings_panel.gd")
 const Settings = preload("res://game/match_settings.gd")
 const Clips = preload("res://game/match_audio.gd")
+const Cameos = preload("res://game/match_cameos.gd")
 
 static func follow(host: Node) -> void:
 	if host == null or bool(host.get_meta("view_bound", false)):
@@ -38,6 +39,7 @@ static func follow(host: Node) -> void:
 	var hud: SMHud = host.get("hud") as SMHud
 	if hud != null and not bool(hud.get_meta("view_bound", false)):
 		hud.set_meta("view_bound", true)
+		hud.chrome = Callable(preload("res://game/match_hud_view.gd"), "install")
 		hud.layer_mounted.connect(_on_layer)
 	Clips.arm(host, "match")
 	if host.get_node_or_null("CameraFit") == null:
@@ -91,7 +93,12 @@ static func _on_ping(host: Node3D, at: Vector3, order: String, field: SMPointer)
 
 static func _on_layer(who: SMHud, layer: CanvasLayer) -> void:
 	SettingsPanel.attach(layer)
-	if who == null or who.sfx == null:
+	if who == null:
+		return
+	who.cameo_for = Callable(Cameos, "texture")
+	who.apply_cameos()
+	Cameos.arm(layer, who)
+	if who.sfx == null:
 		return
 	who.sfx.cue_level = Callable(Settings, "cue_db")
 	who.sfx.clip_for = Callable(Clips, "clip_for")

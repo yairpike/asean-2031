@@ -17,6 +17,7 @@ var drain_per_sec: int = 5
 var tech_order: Array[StringName] = []
 var building_tier: Dictionary[StringName, int] = {}
 var building_time: Dictionary[StringName, float] = {}
+var building_cost: Dictionary[StringName, int] = {}
 var building_role: Dictionary[StringName, String] = {}
 var finished: Array[StringName] = []
 var scaffold_id: StringName = &""
@@ -39,6 +40,7 @@ var unpacked: bool = false
 var factory_tier: Dictionary[StringName, int] = {}
 var grid: SMDomainGrid
 var structure_hp: Dictionary[StringName, float] = {}
+var repairing: Dictionary[StringName, bool] = {}
 var structure_max: Dictionary[StringName, float] = {}
 var structure_pos: Dictionary[StringName, Vector3] = {}
 var structure_water: Dictionary[StringName, bool] = {}
@@ -65,6 +67,7 @@ func load_catalog(data: Dictionary) -> void:
 				var id: StringName = StringName(str(row.get("id", "")))
 				building_tier[id] = int(row.get("tier", 1))
 				building_time[id] = float(row.get("time", 4.0))
+				building_cost[id] = int(row.get("cost", 0))
 				building_role[id] = str(row.get("role", ""))
 				structure_max[id] = float(row.get("hp", 200.0))
 				if bool(row.get("water", false)):
@@ -103,6 +106,55 @@ func place_annex(id: StringName) -> bool:
 	structure_hp[id] = _max_hp(id)
 	_note_water(id)
 	return true
+
+func begin_repair(id: StringName) -> bool:
+	if not finished.has(id):
+		return false
+	var hp: float = float(structure_hp.get(id, 0.0))
+	if hp >= _max_hp(id) - 0.5:
+		return false
+	repairing[id] = true
+	return true
+
+func stop_repair() -> void:
+	repairing.clear()
+
+func tick_repair(delta: float) -> void:
+	if delta <= 0.0 or repairing.is_empty():
+		return
+	var done: Array[StringName] = []
+	for id: StringName in repairing.keys():
+		if not finished.has(id):
+			done.append(id)
+			continue
+		var hp: float = float(structure_hp.get(id, 0.0))
+		var cap: float = _max_hp(id)
+		if hp >= cap - 0.01:
+			done.append(id)
+			continue
+		var heal: float = minf(25.0 * delta, cap - hp)
+		var price: int = int(ceil(heal * 0.5))
+		if price < 1:
+			price = 1
+		if economy == null or not economy.try_spend(team, price):
+			continue
+		structure_hp[id] = hp + heal
+	for id: StringName in done:
+		repairing.erase(id)
+
+func sell(id: StringName) -> int:
+	if not finished.has(id):
+		return 0
+	if scaffold_active and scaffold_id == id:
+		return 0
+	var refund: int = int(round(float(building_cost.get(id, 0)) * 0.5))
+	finished.erase(id)
+	structure_hp.erase(id)
+	structure_pos.erase(id)
+	repairing.erase(id)
+	if economy != null and refund > 0:
+		economy.earn(team, refund)
+	return refund
 
 func inside(pos: Vector3) -> bool:
 	return Vector2(pos.x, pos.z).distance_to(Vector2(center.x, center.z)) <= radius

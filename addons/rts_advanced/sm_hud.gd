@@ -2,7 +2,7 @@ class_name SMHud
 extends RefCounted
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
-## In-match readout. Primitive controls and a flat minimap. No map mesh, no art.
+## In-match readout. Primitive controls and a flat minimap. No map mesh.
 
 signal layer_mounted(who: SMHud, layer: CanvasLayer)
 
@@ -25,14 +25,18 @@ var selection_label: Label
 var build_label: Label
 var minimap: SMMinimap
 var sfx: SMSfx
+var cameo_for: Callable
 var guide_panel: Control
 var tutorial_label: Label
 var tip_panel: Control
 var tip_label: Label
+var tip_cameo: TextureRect
 var hover_tip: String = ""
+var hover_cameo: String = ""
 var radio_label: Label
 var radio_until: int = 0
 var unit_card: PanelContainer
+var card_cameo: TextureRect
 var match_strip: PanelContainer
 var purse_mark: int = -1
 var purse_ms: int = 0
@@ -58,12 +62,27 @@ var mission_open: bool = false
 var _layout_key: Vector2i = Vector2i(-1, -1)
 var phone_drawer: Control
 var phone_body: Control
+var icon_grid: GridContainer
 var _column_drag: float = 0.0
 var _column_dragging: bool = false
 var _swallow_press: bool = false
 var mission_fold: Button
 var mission_panel: Control
 var rotate_banner: Control
+var chrome: Callable
+var use_tiles: bool = false
+var paint_extra: Callable
+var build_tab: String = "buildings"
+var command_row: VBoxContainer
+var super_dock: VBoxContainer
+var monitor_cameo: TextureRect
+var health_fill: ColorRect
+var veteran_label: Label
+var breakdown_label: Label
+var power_fill: ColorRect
+var power_mark: ColorRect
+var repair_button: Button
+var sell_button: Button
 
 func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: SMSide, p_map: String, p_rally: Vector3, ability: Callable, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	field = p_field
@@ -72,6 +91,17 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	map_name = p_map
 	rally = p_rally
 	on_ability = ability
+	if chrome.is_valid():
+		chrome.call(layer, self, grid, camera)
+	if faction_label != null:
+		var roster_scroll: ScrollContainer = layer.find_child("CommandColumn", true, false) as ScrollContainer
+		if roster_scroll != null and not roster_scroll.gui_input.is_connected(_drag_column):
+			roster_scroll.gui_input.connect(_drag_column)
+		_fill_roster()
+		_guide(layer)
+		_tip(layer)
+		_finish_mount(layer)
+		return
 	var top: Control = Control.new()
 	top.name = "TopBar"
 	top.anchor_right = 1.0
@@ -114,6 +144,9 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	_column(layer)
 	_guide(layer)
 	_tip(layer)
+	_finish_mount(layer)
+
+func _finish_mount(layer: CanvasLayer) -> void:
 	sfx = SMSfx.new()
 	sfx.mount(layer)
 	if field != null:
@@ -124,6 +157,8 @@ func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: S
 	layer.set_meta("hud", self)
 	if field != null:
 		field.place_rally(rally)
+	_hide_empty_tabs()
+	show_build_tab(build_tab)
 	layer_mounted.emit(self, layer)
 	refresh()
 
@@ -171,6 +206,7 @@ func refresh() -> void:
 		if line != _shown_selection:
 			_shown_selection = line
 			selection_label.text = line
+		_paint_card()
 	_sync_imports()
 	_paint_tip()
 	_paint_radio()
@@ -182,6 +218,11 @@ func refresh() -> void:
 			_map_ms = maxi(now, 1)
 			minimap.sample()
 			minimap.queue_redraw()
+	if paint_extra.is_valid():
+		paint_extra.call(self)
+
+func _power_pair() -> Vector2i:
+	return Power.tally(side.yard if side != null else null)
 
 func set_rally(at: Vector3) -> void:
 	if at == Vector3.INF:
@@ -264,6 +305,7 @@ static func present_tip(host: Node, text: String) -> void:
 	if hud == null:
 		return
 	hud.hover_tip = text
+	hud.hover_cameo = ""
 	hud._paint_tip()
 
 func _column(layer: CanvasLayer) -> void:
@@ -280,16 +322,38 @@ func _column(layer: CanvasLayer) -> void:
 	scroll.gui_input.connect(_drag_column)
 	_dock(scroll, -186.0, 40.0, -8.0, -8.0, 1.0, 0.0, 1.0, 1.0)
 	layer.add_child(scroll)
+	var wrap: VBoxContainer = VBoxContainer.new()
+	wrap.name = "RosterWrap"
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.add_theme_constant_override("separation", 6)
+	scroll.add_child(wrap)
+	var grid: GridContainer = GridContainer.new()
+	grid.name = "PhoneIconGrid"
+	grid.columns = 4
+	grid.visible = false
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	wrap.add_child(grid)
+	icon_grid = grid
 	var box: VBoxContainer = VBoxContainer.new()
 	box.name = "Sidebar"
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.custom_minimum_size = Vector2(0, 0)
 	box.add_theme_constant_override("separation", 4)
-	scroll.add_child(box)
+	wrap.add_child(box)
 	sidebar = box
-	_header(box, "HudTitle", "ASEAN 2031")
-	_header(box, "GroupBuildings", "Buildings")
+	_fill_roster()
+
+func _fill_roster() -> void:
+	var box: VBoxContainer = sidebar
+	if box == null:
+		return
+	if box.get_node_or_null("HudTitle") == null:
+		_header(box, "HudTitle", "ASEAN 2031")
+		_header(box, "GroupBuildings", "Buildings")
 	var data: Dictionary = SMCatalog.faction(_faction_id())
+	var tile_host: Container = icon_grid if use_tiles and icon_grid != null else box
 	var raw: Variant = data.get("buildings", [])
 	if raw is Array:
 		for item: Variant in raw:
@@ -298,22 +362,140 @@ func _column(layer: CanvasLayer) -> void:
 				if str(id) == "":
 					continue
 				var node_name: String = "MovePacker" if str(id) == "packer" else "Build_%s" % str(id)
-				var caption: String = side.building_label(id) if side != null else _pretty(str(id))
+				if tile_host.get_node_or_null(node_name) != null or box.get_node_or_null(node_name) != null:
+					continue
+				var building_caption: String = side.building_label(id) if side != null else _pretty(str(id))
 				var row: Dictionary = item
-				_button(box, node_name, caption, _order.bind(id), SMGuide.building_tip(row), "ui")
-	if side != null and side.yard.super_name != "":
+				var building_tab: String = "defenses" if str(row.get("role", "")) == "defense" else "buildings"
+				_button(tile_host, node_name, building_caption, _order.bind(id), SMGuide.building_tip(row), "ui", building_tab, int(row.get("cost", 0)))
+	var super_host: Container = super_dock if use_tiles and super_dock != null else box
+	if side != null and side.yard.super_name != "" and super_host.get_node_or_null("Super_%s" % str(side.yard.super_id)) == null:
 		var super_tip: String = "%s. Area hit, then it cools down." % side.yard.super_name
-		_button(box, "Super_%s" % str(side.yard.super_id), side.yard.super_name, _super, super_tip, "ability")
-	_button(box, "CancelQueue", "Cancel", _cancel, "Cancel the building in progress and refund what it has spent.", "ui")
-	_header(box, "GroupUnits", "Units")
+		var super_caption: String = side.yard.super_name
+		_button(super_host, "Super_%s" % str(side.yard.super_id), super_caption, _super, super_tip, "ability")
+	if box.get_node_or_null("CancelQueue") == null:
+		_button(box, "CancelQueue", "Cancel", _cancel, "Cancel the building in progress and refund what it has spent.", "ui", "buildings", -1)
+	if box.get_node_or_null("GroupUnits") == null:
+		_header(box, "GroupUnits", "Units")
 	for unit: Dictionary in SMCatalog.units_of(data):
 		var uid: StringName = StringName(str(unit.get("id", "")))
 		if str(uid) == "":
 			continue
-		var caption: String = str(unit.get("display_name", str(uid)))
-		_button(box, "Train_%s" % str(uid), caption, _train.bind(uid), SMGuide.unit_tip(unit), "ui")
-	_header(box, "GroupAbility", "Ability")
-	_button(box, "AbilityButton", "Ability (F)", _ability, SMGuide.ability_tip(), "ability")
+		var train_name: String = "Train_%s" % str(uid)
+		if tile_host.get_node_or_null(train_name) != null:
+			continue
+		var unit_caption: String = str(unit.get("display_name", str(uid)))
+		_button(tile_host, train_name, unit_caption, _train.bind(uid), SMGuide.unit_tip(unit), "ui", _unit_tab(unit), int(unit.get("cost", 0)))
+	if box.get_node_or_null("GroupAbility") == null:
+		_header(box, "GroupAbility", "Ability")
+	_fill_commands(box)
+	_hide_empty_tabs()
+	show_build_tab(build_tab)
+
+func _unit_tab(unit: Dictionary) -> String:
+	var role: String = str(unit.get("role", ""))
+	var loco: String = str(unit.get("locomotion", ""))
+	if role == "air" or loco == "air" or SMCatalog.has_tag(unit, "air"):
+		return "aircraft"
+	if role == "boat" or role == "naval" or loco == "water" or loco == "naval" or loco == "amphibious" or SMCatalog.has_tag(unit, "naval"):
+		return "naval"
+	if role == "infantry" or SMCatalog.has_tag(unit, "infantry"):
+		return "infantry"
+	return "vehicles"
+
+func _fill_commands(box: VBoxContainer) -> void:
+	var host: Container = command_row if use_tiles and command_row != null else box
+	if host.get_node_or_null("AbilityButton") != null:
+		return
+	_button(host, "AbilityButton", "Ability (F)", _ability, SMGuide.ability_tip(), "ability")
+	if command_row == null or not use_tiles:
+		return
+	var stance_row: HBoxContainer = HBoxContainer.new()
+	stance_row.name = "StanceRow"
+	stance_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stance_row.add_theme_constant_override("separation", 4)
+	command_row.add_child(stance_row)
+	_button(stance_row, "StanceAggressive", "Agg", _set_stance.bind("aggressive"), "Aggressive. Chase and fire.", "ui")
+	_button(stance_row, "StanceGuard", "Guard", _set_stance.bind("guard"), "Guard. Fire at enemies in range.", "ui")
+	_button(stance_row, "StanceHold", "Hold", _set_stance.bind("hold"), "Hold. Do not acquire targets.", "ui")
+	_button(stance_row, "AttackMove", "A-Move", _attack_move, "Attack-move ahead of the lead unit.", "ui")
+	_button(stance_row, "StopButton", "Stop", _halt, "Stop.", "ui")
+
+func _set_stance(mode: String) -> void:
+	if field != null:
+		field.set_stance(mode)
+	_note(mode)
+	refresh()
+
+func _attack_move() -> void:
+	if field == null or field.selection.count() == 0:
+		return
+	var lead: RTSUnit = field.selection.units[0]
+	if lead == null:
+		return
+	field.attack_move_at(lead.global_position + Vector3(8.0, 0.0, 0.0))
+	_note("attack move")
+	refresh()
+
+func _halt() -> void:
+	if field == null:
+		return
+	field.halt_selected()
+	_note("stopped")
+	refresh()
+
+func toggle_repair_mode() -> void:
+	if side == null:
+		return
+	side.toggle_repair()
+	_note("repair" if side.repair_armed else "repair off")
+	refresh()
+
+func toggle_sell_mode() -> void:
+	if side == null:
+		return
+	side.toggle_sell()
+	_note("sell" if side.sell_armed else "sell off")
+	refresh()
+
+func show_build_tab(which: String) -> void:
+	build_tab = which
+	_show_tab_children(icon_grid)
+	_show_tab_children(sidebar)
+	if layer_node == null:
+		return
+	var tabs: PackedStringArray = PackedStringArray(["buildings", "defenses", "infantry", "vehicles", "aircraft", "naval"])
+	for tab_name: String in tabs:
+		var button: Button = layer_node.find_child("Tab%s" % tab_name.capitalize(), true, false) as Button
+		if button == null:
+			continue
+		button.modulate = Color(1.0, 0.84, 0.4) if tab_name == which else Color(0.62, 0.66, 0.7)
+
+func _show_tab_children(parent: Node) -> void:
+	if parent == null or not use_tiles:
+		return
+	for child: Node in parent.get_children():
+		var tab_name: String = str(child.get_meta("tab", ""))
+		if tab_name == "":
+			continue
+		var item: CanvasItem = child as CanvasItem
+		if item != null:
+			item.visible = tab_name == build_tab
+
+func _hide_empty_tabs() -> void:
+	if layer_node == null or not use_tiles:
+		return
+	var counts: Dictionary = {}
+	if icon_grid != null:
+		for child: Node in icon_grid.get_children():
+			var tab_name: String = str(child.get_meta("tab", ""))
+			if tab_name != "":
+				counts[tab_name] = int(counts.get(tab_name, 0)) + 1
+	var tabs: PackedStringArray = PackedStringArray(["buildings", "defenses", "infantry", "vehicles", "aircraft", "naval"])
+	for tab_name: String in tabs:
+		var button: Button = layer_node.find_child("Tab%s" % tab_name.capitalize(), true, false) as Button
+		if button != null:
+			button.visible = int(counts.get(tab_name, 0)) > 0
 
 func _super() -> void:
 	if side == null or field == null:
@@ -324,6 +506,16 @@ func _super() -> void:
 
 func _order(id: StringName) -> void:
 	if side == null:
+		return
+	if side.repair_armed and side.yard != null and side.yard.finished.has(id):
+		var started: bool = side.yard.begin_repair(id)
+		_note("repairing" if started else "nothing to repair")
+		refresh()
+		return
+	if side.sell_armed and side.yard != null and side.yard.finished.has(id):
+		var refund: int = side.sell_structure(id)
+		_note("sold %d" % refund if refund > 0 else "cannot sell")
+		refresh()
 		return
 	var note: String = side.order_building(id)
 	if note == "built":
@@ -342,17 +534,23 @@ func _sync_imports() -> void:
 			if str(uid) == "":
 				continue
 			var caption: String = str(unit.get("display_name", str(uid)))
-			_button(sidebar, "Import_%s" % str(uid), caption, _import.bind(uid), SMGuide.unit_tip(unit), "ui")
+			var import_host: Container = icon_grid if use_tiles and icon_grid != null else sidebar
+			_button(import_host, "Import_%s" % str(uid), caption, _import.bind(uid), SMGuide.unit_tip(unit), "ui", "buildings", int(unit.get("cost", 0)))
 		imports_ready = true
-	var show_imports: bool = open and (not phone or phone_tab == "buildings")
+	var show_imports: bool = open and (not use_tiles or build_tab == "buildings") and (not phone or phone_tab == "buildings")
 	var header: Node = sidebar.get_node_or_null("GroupImports")
 	if header != null:
-		header.visible = show_imports
+		header.visible = show_imports and not phone
 	if not imports_ready:
 		return
 	for child: Node in sidebar.get_children():
 		if str(child.name).begins_with("Import_"):
 			(child as CanvasItem).visible = show_imports
+	if icon_grid == null:
+		return
+	for grid_child: Node in icon_grid.get_children():
+		if str(grid_child.name).begins_with("Import_"):
+			(grid_child as CanvasItem).visible = show_imports
 
 func _import(id: StringName) -> void:
 	if roster == null or field == null or tech == null or not tech.holds(SMTechNet.BAZAAR, SMPointer.PLAYER):
@@ -522,6 +720,8 @@ func _header(box: VBoxContainer, node_name: String, text: String) -> void:
 	label.add_theme_color_override("font_color", Color(0.9, 0.78, 0.45))
 	label.mouse_filter = Control.MOUSE_FILTER_STOP
 	label.gui_input.connect(_drag_column)
+	if use_tiles:
+		label.visible = false
 	box.add_child(label)
 
 func _guide(layer: CanvasLayer) -> void:
@@ -532,34 +732,50 @@ func _guide(layer: CanvasLayer) -> void:
 	help.custom_minimum_size = Vector2(168, 44)
 	help.z_index = 9
 	help.add_theme_font_size_override("font_size", 15)
-	_dock(help, 8.0, -186.0, 176.0, -142.0, 0.0, 1.0, 0.0, 1.0)
+	_dock(help, 8.0, 40.0, 188.0, 88.0, 0.0, 0.0, 0.0, 0.0)
 	help.pressed.connect(_toggle_guide)
 	layer.add_child(help)
-	var card: PanelContainer = PanelContainer.new()
-	card.name = "UnitCard"
-	card.visible = false
-	card.z_index = 8
-	card.clip_contents = true
-	card.add_theme_stylebox_override("panel", _card_style())
-	_dock(card, 8.0, -82.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
-	layer.add_child(card)
-	unit_card = card
-	var stack: VBoxContainer = VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 0)
-	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.add_child(stack)
-	selection_label = _card_line(stack, "HudSelection", 16)
-	build_label = _card_line(stack, "HudBuild", 14)
-	build_label.visible = false
-	radio_label = _card_line(stack, "RadioLine", 16)
-	radio_label.visible = false
-	radio_label.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
+	if unit_card == null:
+		var card: PanelContainer = PanelContainer.new()
+		card.name = "UnitCard"
+		card.visible = false
+		card.z_index = 8
+		card.clip_contents = true
+		card.add_theme_stylebox_override("panel", _card_style())
+		_dock(card, 8.0, -82.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
+		layer.add_child(card)
+		unit_card = card
+		var row: HBoxContainer = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.add_child(row)
+		var portrait: TextureRect = TextureRect.new()
+		portrait.name = "CardCameo"
+		portrait.custom_minimum_size = Vector2(48, 48)
+		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		portrait.visible = false
+		row.add_child(portrait)
+		card_cameo = portrait
+		var stack: VBoxContainer = VBoxContainer.new()
+		stack.add_theme_constant_override("separation", 0)
+		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(stack)
+		selection_label = _card_line(stack, "HudSelection", 16)
+		build_label = _card_line(stack, "HudBuild", 14)
+		build_label.visible = false
+		radio_label = _card_line(stack, "RadioLine", 16)
+		radio_label.visible = false
+		radio_label.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
 	var strip: PanelContainer = PanelContainer.new()
 	strip.name = "MatchStrip"
 	strip.z_index = 8
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_theme_stylebox_override("panel", _card_style())
-	_dock(strip, 8.0, -46.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
+	if use_tiles:
+		_dock(strip, 196.0, 40.0, 560.0, 76.0, 0.0, 0.0, 0.0, 0.0)
+	else:
+		_dock(strip, 8.0, -46.0, -194.0, -6.0, 0.0, 1.0, 1.0, 1.0)
 	layer.add_child(strip)
 	match_strip = strip
 	var short_line: Label = _card_line(strip, "MatchHint", 15)
@@ -636,16 +852,29 @@ func _tip(layer: CanvasLayer) -> void:
 	panel.clip_contents = true
 	panel.add_theme_stylebox_override("panel", _card_style())
 	panel.custom_minimum_size = Vector2(360, 96)
-	_dock(panel, -640.0, -210.0, -196.0, -96.0, 1.0, 1.0, 1.0, 1.0)
+	_dock(panel, -560.0, -300.0, -194.0, -184.0, 1.0, 1.0, 1.0, 1.0)
 	layer.add_child(panel)
 	tip_panel = panel
+	var tip_row: HBoxContainer = HBoxContainer.new()
+	tip_row.add_theme_constant_override("separation", 8)
+	tip_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(tip_row)
+	var tip_portrait: TextureRect = TextureRect.new()
+	tip_portrait.name = "TipCameo"
+	tip_portrait.custom_minimum_size = Vector2(56, 56)
+	tip_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tip_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	tip_portrait.visible = false
+	tip_row.add_child(tip_portrait)
+	tip_cameo = tip_portrait
 	tip_label = Label.new()
 	tip_label.name = "UnitTip"
 	tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tip_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tip_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	tip_label.add_theme_font_size_override("font_size", 14)
 	tip_label.add_theme_color_override("font_color", Color(0.97, 0.96, 0.92))
-	panel.add_child(tip_label)
+	tip_row.add_child(tip_label)
 
 func _toggle_guide() -> void:
 	if guide_panel != null:
@@ -714,14 +943,21 @@ func _drag_column(event: InputEvent) -> void:
 func _column_scroll() -> ScrollContainer:
 	if sidebar == null:
 		return null
-	return sidebar.get_parent() as ScrollContainer
+	var parent: Node = sidebar.get_parent()
+	if parent is ScrollContainer:
+		return parent as ScrollContainer
+	if parent == null:
+		return null
+	return parent.get_parent() as ScrollContainer
 
-func _enter_tip(text: String) -> void:
+func _enter_tip(text: String, cameo_id: String = "") -> void:
 	hover_tip = text
+	hover_cameo = cameo_id
 	_paint_tip()
 
 func _exit_tip() -> void:
 	hover_tip = ""
+	hover_cameo = ""
 	_paint_tip()
 
 func _paint_tip() -> void:
@@ -729,23 +965,239 @@ func _paint_tip() -> void:
 		return
 	tip_label.text = hover_tip
 	tip_panel.visible = hover_tip != ""
+	if tip_cameo == null:
+		return
+	var portrait: Texture2D = _cameo_texture(_faction_id(), hover_cameo)
+	tip_cameo.texture = portrait
+	tip_cameo.visible = portrait != null
 
-func _button(box: VBoxContainer, node_name: String, text: String, fn: Callable, tip: String, cue: String) -> void:
+func _button(box: Container, node_name: String, text: String, fn: Callable, tip: String, cue: String, tab_name: String = "", cost: int = -1) -> Button:
 	var b: Button = Button.new()
 	b.name = node_name
+	var shown: String = tip
+	if cost >= 0:
+		shown += "\nCost %d" % cost
+	var hotkey: int = box.get_child_count() + 1
+	if tab_name != "" and hotkey <= 9:
+		shown += "\nHotkey %d" % hotkey
 	b.text = text
-	b.tooltip_text = tip
+	b.tooltip_text = shown
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.custom_minimum_size = Vector2(0, 48 if phone else 40)
 	b.add_theme_font_size_override("font_size", 16 if phone else 14)
-	b.mouse_entered.connect(_enter_tip.bind(tip))
+	b.set_meta("caption", text)
+	b.set_meta("cameo_id", _cameo_id(node_name))
+	if tab_name != "":
+		b.set_meta("tab", tab_name)
+	if cost >= 0:
+		b.set_meta("cost", cost)
+	if node_name.begins_with("Train_") or node_name.begins_with("Import_"):
+		b.set_meta("prod_kind", "unit")
+		b.set_meta("prod_id", node_name.substr(node_name.find("_") + 1))
+	elif node_name.begins_with("Build_") or node_name == "MovePacker":
+		b.set_meta("prod_kind", "building")
+		b.set_meta("prod_id", "packer" if node_name == "MovePacker" else node_name.substr(node_name.find("_") + 1))
+	b.mouse_entered.connect(_enter_tip.bind(shown, _cameo_id(node_name)))
 	b.mouse_exited.connect(_exit_tip)
 	b.gui_input.connect(_drag_column)
 	b.pressed.connect(_press_cue.bind(fn, cue))
+	var badge: Label = Label.new()
+	badge.name = "QueueBadge"
+	badge.visible = false
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	badge.add_theme_font_size_override("font_size", 12)
+	badge.add_theme_color_override("font_color", Color(0.98, 0.9, 0.45))
+	b.add_child(badge)
+	if node_name.begins_with("Super_"):
+		var clock: Label = Label.new()
+		clock.name = "SuperClock"
+		clock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		clock.add_theme_font_size_override("font_size", 12)
+		b.add_child(clock)
 	box.add_child(b)
+	b.set_meta("slot", b.get_index())
+	_paint_button(b)
+	return b
+
+func apply_cameos() -> void:
+	if phone:
+		_apply_phone_tab()
+	_paint_roster_buttons(sidebar)
+	_paint_roster_buttons(icon_grid)
+	_paint_card()
+	_paint_tip()
+	if paint_extra.is_valid():
+		paint_extra.call(self)
+
+func _paint_roster_buttons(parent: Node) -> void:
+	if parent == null:
+		return
+	for child: Node in parent.get_children():
+		var button: Button = child as Button
+		if button != null:
+			_paint_button(button)
+
+func _paint_button(b: Button) -> void:
+	var caption: String = str(b.get_meta("caption", b.text))
+	var portrait: Texture2D = _cameo_texture(_faction_id(), str(b.get_meta("cameo_id", "")))
+	var in_grid: bool = (use_tiles and icon_grid != null and b.get_parent() == icon_grid) or (use_tiles and str(b.name).begins_with("Super_"))
+	if use_tiles and str(b.name).begins_with("Super_") and portrait == null:
+		caption = "SW"
+	if portrait != null and in_grid:
+		b.icon = portrait
+		b.expand_icon = true
+		b.add_theme_constant_override("icon_max_width", 64 if phone else 46)
+		b.add_theme_constant_override("h_separation", 4)
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.text = ""
+		b.custom_minimum_size = Vector2(0, 72 if phone else 52)
+		b.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_tint_roster_button(b)
+		return
+	if portrait != null:
+		b.icon = portrait
+		b.expand_icon = false
+		b.add_theme_constant_override("icon_max_width", 34)
+		b.add_theme_constant_override("h_separation", 8)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.text = caption
+		b.custom_minimum_size = Vector2(0, 44)
+		b.autowrap_mode = TextServer.AUTOWRAP_OFF
+		b.add_theme_font_size_override("font_size", 14)
+		_tint_roster_button(b)
+		return
+	b.icon = null
+	b.expand_icon = false
+	b.add_theme_constant_override("icon_max_width", 0)
+	b.text = caption
+	if in_grid:
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.custom_minimum_size = Vector2(0, 72 if phone else 52)
+		b.add_theme_font_size_override("font_size", 11)
+		_tint_roster_button(b)
+		return
+	b.alignment = HORIZONTAL_ALIGNMENT_CENTER if phone else HORIZONTAL_ALIGNMENT_LEFT
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if phone else TextServer.AUTOWRAP_OFF
+	b.custom_minimum_size = Vector2(0, 72) if phone else Vector2(0, 40)
+	b.add_theme_font_size_override("font_size", 12 if phone else 14)
+	_tint_roster_button(b)
+
+func _tint_roster_button(b: Button) -> void:
+	var cost: int = int(b.get_meta("cost", -1))
+	var purse: int = 0
+	if roster != null and roster.economy != null:
+		purse = roster.economy.credits(0)
+	var locked: bool = false
+	if str(b.get_meta("prod_kind", "")) == "unit":
+		locked = _train_block(StringName(str(b.get_meta("prod_id", "")))) != ""
+	var poor: bool = cost >= 0 and purse < cost
+	b.modulate = Color(0.45, 0.47, 0.5) if locked or poor else Color(1, 1, 1)
+	b.modulate.a = 1.0
+
+func _cameo_id(node_name: String) -> String:
+	if node_name == "MovePacker":
+		return "packer"
+	if node_name.begins_with("Train_") or node_name.begins_with("Build_") or node_name.begins_with("Import_") or node_name.begins_with("Super_"):
+		return node_name.substr(node_name.find("_") + 1)
+	return ""
+
+func _cameo_texture(faction: String, id: String) -> Texture2D:
+	if id == "" or not cameo_for.is_valid():
+		return null
+	var got: Variant = cameo_for.call(faction, id)
+	if got is Texture2D:
+		return got as Texture2D
+	return null
+
+func _paint_card() -> void:
+	if card_cameo == null:
+		return
+	var id: String = ""
+	if field != null and field.selection.count() > 0:
+		var first: RTSUnit = field.selection.units[0]
+		if first != null:
+			id = str(first.unit_type)
+	var portrait: Texture2D = _cameo_texture(_faction_id(), id)
+	card_cameo.texture = portrait
+	card_cameo.visible = portrait != null
+	_paint_card_stats()
+
+func _paint_card_stats() -> void:
+	var selected: int = 0
+	var first: RTSUnit = null
+	if field != null:
+		selected = field.selection.count()
+		if selected > 0:
+			first = field.selection.units[0]
+	if health_fill != null:
+		var ratio: float = 0.0
+		if first != null and first.max_hp > 0.0:
+			ratio = clampf(first.hp / first.max_hp, 0.0, 1.0)
+		health_fill.offset_right = 140.0 * ratio
+		health_fill.visible = first != null
+	if veteran_label != null:
+		var rank: String = ""
+		if selected == 1 and first != null:
+			var kills: int = int(first.get_meta("kills", 0))
+			rank = "Elite" if kills >= 5 else ("Veteran" if kills >= 2 else "Recruit")
+		veteran_label.text = rank
+		veteran_label.visible = rank != ""
+	if breakdown_label != null:
+		breakdown_label.text = _breakdown()
+		breakdown_label.visible = breakdown_label.text != ""
+
+func _breakdown() -> String:
+	if field == null or field.selection.count() <= 1:
+		return ""
+	var counts: Dictionary = {}
+	var order: PackedStringArray = PackedStringArray()
+	for unit: RTSUnit in field.selection.units:
+		if unit == null:
+			continue
+		var label: String = field.name_of(unit)
+		if not counts.has(label):
+			order.append(label)
+		counts[label] = int(counts.get(label, 0)) + 1
+	var parts: PackedStringArray = PackedStringArray()
+	for label: String in order:
+		parts.append("%s x%d" % [label, int(counts[label])])
+	return ", ".join(parts)
+
+func _use_icon_grid(on: bool) -> void:
+	if use_tiles or sidebar == null or icon_grid == null:
+		return
+	if on:
+		var taken: Array[Button] = []
+		for child: Node in sidebar.get_children():
+			var button: Button = child as Button
+			if button != null and _cameo_texture(_faction_id(), str(button.get_meta("cameo_id", ""))) != null:
+				taken.append(button)
+		for taken_button: Button in taken:
+			taken_button.reparent(icon_grid)
+			_paint_button(taken_button)
+		icon_grid.visible = icon_grid.get_child_count() > 0
+		return
+	var back: Array[Button] = []
+	for child: Node in icon_grid.get_children():
+		var grid_button: Button = child as Button
+		if grid_button != null:
+			back.append(grid_button)
+	for grid_button: Button in back:
+		grid_button.reparent(sidebar)
+		var slot: int = int(grid_button.get_meta("slot", sidebar.get_child_count() - 1))
+		if slot < 0:
+			slot = 0
+		if slot >= sidebar.get_child_count():
+			slot = sidebar.get_child_count() - 1
+		sidebar.move_child(grid_button, slot)
+		_paint_button(grid_button)
+	icon_grid.visible = false
 
 func _press_cue(fn: Callable, cue: String) -> void:
 	if _swallow_press:
@@ -858,6 +1310,13 @@ func _enter_phone(size: Vector2) -> void:
 	phone_sheet = clampf(size.y * 0.38, 240.0, 380.0)
 	drawer_open = false
 	mission_open = false
+	if icon_grid != null:
+		var cols: int = int((size.x - 24.0) / 64.0)
+		if cols < 3:
+			cols = 3
+		if cols > 6:
+			cols = 6
+		icon_grid.columns = cols
 	_compact_top()
 	_build_drawer(size)
 	_build_mission(size)
@@ -866,6 +1325,7 @@ func _enter_phone(size: Vector2) -> void:
 	_apply_phone_tab()
 
 func _leave_phone() -> void:
+	_use_icon_grid(false)
 	var names: PackedStringArray = PackedStringArray([
 		"CommandColumn", "ColumnShade", "Protocols", "ProtocolsToggle", "HelpButton",
 		"Minimap", "TopBar", "UnitCard", "MatchStrip", "HowToOverlay", "TipPanel",
@@ -907,6 +1367,14 @@ func _leave_phone() -> void:
 	mission_panel = null
 	rotate_banner = null
 	phone = false
+	if use_tiles and icon_grid != null:
+		icon_grid.columns = 3
+	var supers: CanvasItem = _phone_node("SuperDock")
+	if supers != null:
+		supers.visible = true
+	show_build_tab(build_tab)
+	_paint_roster_buttons(sidebar)
+	_paint_roster_buttons(icon_grid)
 
 func _compact_top() -> void:
 	var top: Control = _phone_node("TopBar")
@@ -1089,12 +1557,16 @@ func _build_hint(size: Vector2) -> void:
 	row.add_child(dismiss)
 
 func _place_phone_chrome(size: Vector2) -> void:
-	var map: Control = _phone_node("Minimap")
-	_snap(map)
-	if map != null:
-		map.position = Vector2(8, 166)
-		map.size = Vector2(108, 72)
-		map.custom_minimum_size = Vector2(108, 72)
+	if not use_tiles:
+		var map: Control = _phone_node("Minimap")
+		_snap(map)
+		if map != null:
+			map.position = Vector2(8, 166)
+			map.size = Vector2(108, 72)
+			map.custom_minimum_size = Vector2(108, 72)
+	var supers: CanvasItem = _phone_node("SuperDock")
+	if supers != null:
+		supers.visible = false
 	var card: Control = _phone_node("UnitCard")
 	_snap(card)
 	var strip: Control = _phone_node("MatchStrip")
@@ -1131,6 +1603,10 @@ func _show_phone_tab(which: String) -> void:
 	else:
 		phone_tab = which
 		drawer_open = true
+		if use_tiles and which == "units":
+			build_tab = "infantry"
+		elif use_tiles and which == "buildings" and (build_tab == "infantry" or build_tab == "vehicles" or build_tab == "aircraft" or build_tab == "naval"):
+			build_tab = "buildings"
 	_apply_phone_tab()
 	if layer_node != null:
 		_seat_cards(layer_node.get_viewport().get_visible_rect().size)
@@ -1148,6 +1624,12 @@ func _apply_phone_tab() -> void:
 		protocols.visible = drawer_open and show_proto
 	if column != null:
 		column.visible = drawer_open and not show_proto
+	if use_tiles:
+		show_build_tab(build_tab)
+		_sync_imports()
+		_paint_roster_buttons(sidebar)
+		_paint_roster_buttons(icon_grid)
+		return
 	if sidebar == null:
 		return
 	for child: Node in sidebar.get_children():
@@ -1155,19 +1637,25 @@ func _apply_phone_tab() -> void:
 		if item == null:
 			continue
 		item.visible = _phone_shows(str(child.name))
+	if icon_grid != null:
+		for grid_child: Node in icon_grid.get_children():
+			var grid_item: CanvasItem = grid_child as CanvasItem
+			if grid_item == null:
+				continue
+			grid_item.visible = _phone_shows(str(grid_child.name))
 	_sync_imports()
+	_use_icon_grid(true)
+	_paint_roster_buttons(sidebar)
 
 func _phone_shows(node_name: String) -> bool:
-	if node_name == "HudTitle" or node_name == "GroupAbility":
+	if node_name == "HudTitle" or node_name.begins_with("Group"):
 		return false
 	if phone_tab == "units":
-		return node_name == "GroupUnits" or node_name.begins_with("Train_") or node_name == "AbilityButton"
+		return node_name.begins_with("Train_") or node_name == "AbilityButton"
 	if phone_tab == "buildings":
-		if node_name == "GroupBuildings" or node_name == "CancelQueue" or node_name == "MovePacker":
+		if node_name == "CancelQueue" or node_name == "MovePacker":
 			return true
-		if node_name.begins_with("Build_") or node_name.begins_with("Super_"):
-			return true
-		if node_name == "GroupImports" or node_name.begins_with("Import_"):
+		if node_name.begins_with("Build_") or node_name.begins_with("Super_") or node_name.begins_with("Import_"):
 			return true
 	return false
 
@@ -1304,8 +1792,10 @@ func _restore(node: Control) -> void:
 	node.offset_top = float(snap.get("ot", 0.0))
 	node.offset_right = float(snap.get("right", 0.0))
 	node.offset_bottom = float(snap.get("ob", 0.0))
-	node.position = snap.get("pos", Vector2.ZERO) as Vector2
-	node.size = snap.get("size", node.size) as Vector2
+	var anchored: bool = absf(node.anchor_right - node.anchor_left) > 0.001 or absf(node.anchor_bottom - node.anchor_top) > 0.001
+	if not anchored:
+		node.position = snap.get("pos", Vector2.ZERO) as Vector2
+		node.size = snap.get("size", node.size) as Vector2
 	node.custom_minimum_size = snap.get("min", Vector2.ZERO) as Vector2
 	node.visible = bool(snap.get("vis", true))
 	var font: int = int(snap.get("font", -1))

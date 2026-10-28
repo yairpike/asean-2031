@@ -15,6 +15,8 @@ var host: Node3D
 var status: Label
 var building_hp: Dictionary[StringName, float] = {}
 var building_names: Dictionary[StringName, String] = {}
+var repair_armed: bool = false
+var sell_armed: bool = false
 
 func prepare(p_host: Node3D, p_status: Label, grid: SMDomainGrid, center: Vector3, purse: RTSEconomy, p_faction: String = "") -> void:
 	host = p_host
@@ -241,6 +243,34 @@ func _load_buildings(data: Dictionary) -> void:
 func _say(text: String) -> void:
 	if status != null:
 		status.text = text
+
+func toggle_repair() -> void:
+	repair_armed = not repair_armed
+	if repair_armed:
+		sell_armed = false
+	elif yard != null:
+		yard.stop_repair()
+
+func toggle_sell() -> void:
+	sell_armed = not sell_armed
+	if sell_armed:
+		repair_armed = false
+		if yard != null:
+			yard.stop_repair()
+
+func sell_structure(id: StringName) -> int:
+	if yard == null:
+		return 0
+	var refund: int = yard.sell(id)
+	if refund > 0 and host != null:
+		var built: Node = host.get_node_or_null("Built_%s" % str(id))
+		if built != null:
+			built.queue_free()
+	return refund
+
+func tick_modes(delta: float) -> void:
+	if repair_armed and yard != null:
+		yard.tick_repair(delta)
 
 func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	if host == null:

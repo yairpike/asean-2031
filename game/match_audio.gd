@@ -4,7 +4,6 @@ extends RefCounted
 ## Missing files leave the procedural cues in place.
 
 const STORE_AUDIO: String = "/cursor/stores/bc-03b4e731-23cd-492a-9d17-7e9a1ed71677/internal/assets/audio"
-const HELD_BARK: String = "barks/crimson_sapper_select_2.ogg"
 
 static var _cache: Dictionary = {}
 static var _catalog: Dictionary = {}
@@ -59,12 +58,12 @@ static func page_base() -> String:
 	return _page_base()
 
 static func remember(rel: String) -> void:
-	if _skipped(rel) or not rel.ends_with(".ogg") or rel.contains("..") or rel.begins_with("/"):
+	if not rel.ends_with(".ogg") or rel.contains("..") or rel.begins_with("/"):
 		return
 	_catalog[rel] = true
 
 static func prefetch(owner: Node, rel: String) -> void:
-	if owner == null or not OS.has_feature("web") or _skipped(rel) or _cache.has(rel) or _inflight.has(rel):
+	if owner == null or not OS.has_feature("web") or _cache.has(rel) or _inflight.has(rel):
 		return
 	if not rel.ends_with(".ogg") or rel.contains("..") or rel.begins_with("/"):
 		return
@@ -145,8 +144,6 @@ static func _start(player: AudioStreamPlayer) -> void:
 	JavaScriptBridge.eval("console.log('%s music playing')" % label, true)
 
 static func _stream(rel: String) -> AudioStream:
-	if _skipped(rel):
-		return null
 	if _cache.has(rel):
 		var cached: AudioStream = _cache[rel] as AudioStream
 		if cached != null:
@@ -156,9 +153,6 @@ static func _stream(rel: String) -> AudioStream:
 	if stream != null:
 		_cache[rel] = stream
 	return stream
-
-static func _skipped(rel: String) -> bool:
-	return rel == HELD_BARK
 
 static func _variants(unit_id: String, event: String) -> PackedStringArray:
 	var found: PackedStringArray = PackedStringArray()
@@ -171,8 +165,6 @@ static func _variants(unit_id: String, event: String) -> PackedStringArray:
 	return found
 
 static func _present(rel: String) -> bool:
-	if _skipped(rel):
-		return false
 	if _cache.has(rel) and _cache[rel] != null:
 		return true
 	if _catalog.has(rel):
@@ -264,7 +256,7 @@ static func _prefetched(result: int, code: int, _headers: PackedStringArray, bod
 	_inflight.erase(rel)
 	if is_instance_valid(http):
 		http.queue_free()
-	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or _skipped(rel):
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 		return
 	var stream: AudioStream = _decode(body)
 	if stream == null:

@@ -499,6 +499,16 @@ func halt_selected() -> void:
 	group_note = "Halt"
 	group_note_t = 1.4
 
+func set_stance(mode: String) -> void:
+	for u: RTSUnit in selection.units:
+		if not is_instance_valid(u):
+			continue
+		u.set_meta("stance", mode)
+		if mode == "hold" or mode == "guard":
+			u.set_meta("hunt", false)
+	group_note = mode.capitalize()
+	group_note_t = 1.4
+
 ## Move toward `at` and shoot anything that enters range along the way.
 func attack_move_at(at: Vector3) -> int:
 	if at == Vector3.INF:
@@ -835,6 +845,10 @@ func tick(delta: float) -> void:
 		if not is_instance_valid(u):
 			continue
 		if not u.is_alive():
+			for hunter: RTSUnit in units:
+				if hunter != u and is_instance_valid(hunter) and hunter.attack_target == u and hunter.team != u.team:
+					hunter.set_meta("kills", int(hunter.get_meta("kills", 0)) + 1)
+					hunter.attack_target = null
 			_drop_wreck(u.global_position)
 			u.queue_free()
 			continue
@@ -1011,6 +1025,8 @@ func _paint_vitals(u: RTSUnit, delta: float) -> void:
 func _return_fire(u: RTSUnit) -> void:
 	if u.team != PLAYER or u.attack_damage <= 0.0:
 		return
+	if str(u.get_meta("stance", "aggressive")) == "hold":
+		return
 	if bool(u.get_meta("hunt", false)) or not u.path.is_empty():
 		return
 	if u.attack_target != null and is_instance_valid(u.attack_target) and u.attack_target.is_alive():
@@ -1021,6 +1037,9 @@ func _return_fire(u: RTSUnit) -> void:
 
 func _press_hunt(u: RTSUnit) -> void:
 	if not bool(u.get_meta("hunt", false)) or bool(u.get_meta("frozen", false)):
+		return
+	var stance: String = str(u.get_meta("stance", "aggressive"))
+	if stance == "hold" or stance == "guard":
 		return
 	if u.attack_target != null and is_instance_valid(u.attack_target) and u.attack_target.is_alive():
 		return
