@@ -53,6 +53,7 @@ func train_unit() -> String:
 	return label
 
 func fire_ability() -> bool:
+	preload("res://game/sim_presenter.gd").play_selected_ability(self)
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	var cast: String = field.cast_f(field.aim_from_camera(cam, get_viewport().get_mouse_position()))
 	var ok: bool = cast != "" or sim.use_f()

@@ -2322,6 +2322,20 @@ func test_sm_story() -> void:
 			check(goal != null and not goal.visible, "%s keeps the objective button hidden" % id)
 		var story_now: SMStory = scene.get("story") as SMStory
 		var field_now: SMPointer = scene.get("field") as SMPointer
+		check(story_now.reinforcements >= 2, "%s fields a second beat" % id)
+		if id == "kokang":
+			check(_duty_units(field_now, "recon").size() >= 2, "kokang posts Orlan recon over the pits")
+		if id == "tachileik":
+			check(story_now.has_caravan(), "tachileik fields the jade caravan")
+		if id == "shwe_kokko":
+			check(story_now.server_blocks == 2, "shwe kokko has two server blocks")
+		if id == "ghosts_of_patani":
+			var lone: RTSUnit = field_now.units_of(1)[0]
+			lone.take_damage(lone.hp + 1.0)
+			story_now.tick(0.1)
+			check(not story_now.done and not story_now.lost, "patani stays open while a ghost remains")
+		if id == "black_haze" or id == "fog_over_pakbeng" or id == "tonle_sap":
+			check(story_now.hold_need >= 24.0, "%s holds longer than a skirmish" % id)
 		if id == "keng_tung":
 			var tanks: Array[RTSUnit] = _duty_units(field_now, "column")
 			var tank_hp: float = tanks[0].hp if not tanks.is_empty() else -1.0
@@ -2371,6 +2385,7 @@ func _meet_story(scene: Node, id: String) -> void:
 	var story: SMStory = scene.get("story") as SMStory
 	var field: SMPointer = scene.get("field") as SMPointer
 	if id == "kokang":
+		_kill_duty(field, "recon")
 		var build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
 		build.pressed.emit()
 		_park(field, "", Vector3(6.0, 0.0, 2.0))
@@ -2394,8 +2409,7 @@ func _meet_story(scene: Node, id: String) -> void:
 		_park(field, "channel_skiff", story.shallow_pad)
 		story.tick(0.1)
 	elif id == "ghosts_of_patani":
-		var foe: RTSUnit = field.units_of(1)[0]
-		foe.take_damage(foe.hp + 1.0)
+		_wipe(field.units_of(1))
 		story.tick(0.1)
 	elif id == "plain_of_jars":
 		var tube: RTSUnit = _kind_unit(field, "monsoon_tube")
@@ -2816,6 +2830,22 @@ func test_sm_guide() -> void:
 	var ui: AudioStreamWAV = SMTone.cue("ui")
 	var shot: AudioStreamWAV = SMTone.cue("attack")
 	check(SMTone.peak(ui) > 1000 and SMTone.peak(shot) > 1000 and shot.data.size() > ui.data.size(), "procedural cues are audible and the attack cue is longer")
+	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
+	check(clips.call("cue_clip", "") == null and clips.call("cue_clip", "../shot") == null and clips.call("cue_clip", "a/b") == null, "a cue id cannot leave the sfx folder")
+	check(clips.call("weapon_kind", "rifle") == "weapon_rifle" and clips.call("weapon_kind", "cannon") == "weapon_cannon" and clips.call("weapon_kind", "tube") == "weapon_artillery" and clips.call("weapon_kind", "lance") == "weapon_rocket", "weapon types map onto rifle, cannon, artillery, and rocket cues")
+	check(clips.call("impact_kind", 4.0) == "impact_small" and clips.call("impact_kind", 12.0) == "impact_medium" and clips.call("impact_kind", 24.0) == "impact_large", "hits pick a small, medium, or large impact")
+	check(clips.call("move_kind", "armor", "ground", "amber_tank") == "move_tank_treads" and clips.call("move_kind", "drone", "amphibious", "river_drone") == "move_hover" and clips.call("move_kind", "air", "air", "gunship") == "move_helicopter" and clips.call("move_kind", "air", "air", "su30") == "", "treads, hover, and rotors loop, and jets do not")
+	check(clips.call("ability_kind", "Ballistic Riot Shield") == "ability_shield" and clips.call("ability_kind", "Blackout EMP") == "ability_emp" and clips.call("ability_kind", "Black-Hole Armor") == "ability_black_hole" and clips.call("ability_kind", "S.H.R.I.N.K. Ray") == "weapon_shrink_ray" and clips.call("ability_kind", "Slag Molotov") == "ability_generic", "abilities pick shield, EMP, black hole, shrink, or a generic cue")
+	check(clips.call("cue_clip", "weapon_rifle") != null, "a rifle cue loads a recorded variant")
+	var sfx_host: Node = Node.new()
+	sfx_host.name = "SfxCap"
+	root.add_child(sfx_host)
+	for _i: int in 6:
+		clips.call("play_kind", sfx_host, "weapon_rifle")
+	var rifle_voices: int = int(clips.call("voices_of", "weapon_rifle"))
+	var rifle_cap: int = int(clips.call("cap_for", "weapon_rifle"))
+	check(rifle_voices > 0 and rifle_voices <= rifle_cap and rifle_cap == 3, "rifle shots stay inside the per-kind voice cap")
+	sfx_host.free()
 	check(bool(ProjectSettings.get_setting("rendering/shading/overrides/force_lambert_over_burley", false)) and int(ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d", 1)) == 0, "web shading is lambert and MSAA is off")
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.shadow_enabled = true
@@ -2913,8 +2943,10 @@ func test_sm_guide() -> void:
 	train.pressed.emit()
 	var card: PanelContainer = scene.find_child("UnitCard", true, false) as PanelContainer
 	check(card != null and card.visible and short_line != null and not short_line.is_visible_in_tree(), "a trained unit folds into one card")
-	var played: AudioStreamWAV = cue.stream as AudioStreamWAV if cue != null else null
-	check(cue != null and played != null and SMTone.peak(played) > 1000, "training plays a procedural cue")
+	var played: AudioStream = cue.stream if cue != null else null
+	var played_wav: AudioStreamWAV = played as AudioStreamWAV
+	var played_ogg: AudioStreamOggVorbis = played as AudioStreamOggVorbis
+	check(cue != null and played != null and (played_ogg != null or (played_wav != null and SMTone.peak(played_wav) > 1000)), "training plays a cue")
 	var tip_label: Label = scene.find_child("UnitTip", true, false) as Label
 	train.mouse_entered.emit()
 	var tip_panel: Control = scene.find_child("TipPanel", true, false) as Control

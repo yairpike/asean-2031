@@ -82,6 +82,7 @@ static func follow_pointer(field: SMPointer) -> void:
 	field.ping_made.connect(_on_ping.bind(field))
 	field.path_moved.connect(Callable(World, "path_mark"))
 	field.damage_shown.connect(Callable(World, "damage_pop"))
+	field.damage_shown.connect(_on_damage.bind(field))
 
 static func _follow_match(sim: SMMatch) -> void:
 	if bool(sim.get_meta("view_bound", false)):
@@ -101,6 +102,49 @@ static func _on_unit(u: RTSUnit, team: int, kind: String, role: String, loco: St
 	u.add_child(body)
 	World.dress_spawn(u, team, label)
 	field.visual_node = body
+	if not u.fired.is_connected(_on_fired):
+		u.fired.connect(_on_fired.bind(field))
+	if team == SMPointer.PLAYER:
+		Clips.on_spawn(field.host, u)
+
+static func _on_fired(unit: RTSUnit, target: RTSUnit, field: SMPointer) -> void:
+	if field == null or field.host == null:
+		return
+	var kind: String = Clips.weapon_kind(str(unit.get_meta("weapon", "")))
+	if kind != "" and Clips.cue_clip(kind) != null:
+		Clips.on_shot(field.host, unit, target)
+	elif field.on_cue.is_valid():
+		field.on_cue.call("attack")
+
+static func _on_damage(unit: RTSUnit, amount: float, field: SMPointer) -> void:
+	if field == null or field.host == null:
+		return
+	Clips.on_hit(field.host, unit, amount)
+
+static func play_selected_ability(host: Node) -> void:
+	if host == null:
+		return
+	var field: SMPointer = host.get("field") as SMPointer
+	var label: String = ""
+	if field != null and field.selection.count() > 0:
+		var unit: RTSUnit = field.selection.units[0]
+		if is_instance_valid(unit):
+			label = str(unit.get_meta("ability", ""))
+	Clips.play_kind(host, Clips.ability_kind(label))
+
+static func _cue_stream(kind: String, hud: SMHud) -> AudioStream:
+	var resolved: String = kind
+	if kind == "ability_cast":
+		resolved = _ability_cue(hud)
+	return Clips.cue_clip(resolved)
+
+static func _ability_cue(hud: SMHud) -> String:
+	if hud == null or hud.field == null or hud.field.selection.count() <= 0:
+		return "ability_generic"
+	var unit: RTSUnit = hud.field.selection.units[0]
+	if not is_instance_valid(unit):
+		return "ability_generic"
+	return Clips.ability_kind(str(unit.get_meta("ability", "")))
 
 static func _on_status(body: MeshInstance3D, frozen: bool) -> void:
 	if body == null:
@@ -127,7 +171,7 @@ static func _on_layer(who: SMHud, layer: CanvasLayer) -> void:
 		return
 	who.sfx.cue_level = Callable(Settings, "cue_db")
 	who.sfx.clip_for = Callable(Clips, "clip_for")
-	who.sfx.cue_for = Callable(Clips, "cue_clip")
+	who.sfx.cue_for = _cue_stream.bind(who)
 	Clips.color_voice(who.sfx)
 	who.sfx.apply_levels()
 
@@ -142,6 +186,7 @@ static func _bind_yard(host: Node, yard: SMBuildYard, enemy: bool) -> void:
 		yard.super_ready.connect(_announce.bind(host, "superweapon_ready"))
 
 static func _announce(host: Node, key: String) -> void:
+	Clips.on_super(host, key)
 	Clips.announce_key(host, _faction_of(host), key)
 
 static func _on_capture(team: int, host: Node) -> void:
@@ -149,6 +194,7 @@ static func _on_capture(team: int, host: Node) -> void:
 		_announce(host, "building_captured")
 
 static func _on_hud_line(text: String, key: String, host: Node, hud: SMHud) -> void:
+	Clips.on_line(host, text)
 	var faction: String = hud._faction_id() if hud != null else _faction_of(host)
 	if key != "":
 		Clips.announce_key(host, faction, key)
@@ -156,6 +202,7 @@ static func _on_hud_line(text: String, key: String, host: Node, hud: SMHud) -> v
 		Clips.announce_line(host, faction, text)
 
 static func _on_side_line(text: String, host: Node, side: SMSide) -> void:
+	Clips.on_line(host, text)
 	var faction: String = side.faction_id if side != null else _faction_of(host)
 	Clips.announce_line(host, faction, text)
 

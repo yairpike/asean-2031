@@ -34,6 +34,7 @@ func play(kind: String) -> void:
 		if got is AudioStream:
 			clip = got
 	player.stream = clip if clip != null else SMTone.cue(kind)
+	player.pitch_scale = 0.97 + randf() * 0.06
 	player.play()
 
 func bark(pitch: float, unit_id: String = "", event: String = "") -> void:

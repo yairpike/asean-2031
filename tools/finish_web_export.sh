@@ -185,6 +185,12 @@ if [ -n "$AUDIO_SRC" ]; then
     rm -rf "$DEST/audio/announcer"
     cp -R "$AUDIO_SRC/announcer" "$DEST/audio/announcer"
   fi
+  if [ -d "$AUDIO_SRC/sfx" ]; then
+    rm -rf "$DEST/audio/sfx"
+    mkdir -p "$DEST/audio/sfx"
+    find "$AUDIO_SRC/sfx" -maxdepth 1 -type f -name '*.ogg' ! -name '*.conflict.ogg' -exec cp {} "$DEST/audio/sfx/" \;
+    find "$DEST/audio/sfx" -maxdepth 1 -type f -name '*.ogg' -printf '%f\n' | sort > "$DEST/audio/sfx/index.txt"
+  fi
   # music/user/ and voice-language folders are fetched when a clip plays.
   find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' ! -path '*/music/user/*' ! -path '*/barks/*/*' 2>/dev/null \
     | sed "s#^$DEST/audio/##" \

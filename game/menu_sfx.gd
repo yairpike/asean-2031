@@ -18,6 +18,7 @@ static func play(host: Node, kind: String) -> void:
 	_player.bus = "SFX"
 	var clip: AudioStream = Clips.cue_clip(kind)
 	_player.stream = clip if clip != null else SMTone.cue(kind)
+	_player.pitch_scale = 0.97 + randf() * 0.06
 	_player.play()
 
 static func _bus() -> void:

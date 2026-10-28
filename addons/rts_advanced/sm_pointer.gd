@@ -188,7 +188,6 @@ func _on_shot(unit: RTSUnit, _target: RTSUnit) -> void:
 	var muzzle: MeshInstance3D = unit.get_node_or_null("Muzzle") as MeshInstance3D
 	if muzzle != null:
 		muzzle.visible = true
-	_cue("attack")
 
 func unit_label(team: int, kind: StringName) -> String:
 	if team != PLAYER:

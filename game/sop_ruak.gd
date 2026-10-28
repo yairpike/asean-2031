@@ -177,6 +177,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
 	var key: InputEventKey = event as InputEventKey
 	if key != null and key.pressed and not key.echo and key.keycode == KEY_F:
+		preload("res://game/sim_presenter.gd").play_selected_ability(self)
 		fire_ability()
 		return
 	if cam == null:

@@ -4,8 +4,8 @@ extends RefCounted
 
 const REACH: float = 2.4
 signal pad_made(host: Node3D, node_name: String, at: Vector3, size: Vector3, color: Color)
-const HOLD_HAZE: float = 16.0
-const HOLD_TONLE: float = 20.0
+const HOLD_HAZE: float = 28.0
+const HOLD_TONLE: float = 28.0
 
 var mission_id: String = ""
 var ending: String = ""
@@ -32,6 +32,8 @@ var raid: SMMission
 var defend: RTSUnit
 var hold_need: float = 0.0
 var hold_left: float = 0.0
+var reinforcements: int = 0
+var server_blocks: int = 1
 
 var _ruby: bool = false
 var _cyber: bool = false
@@ -57,20 +59,21 @@ var _defoliation_used: bool = false
 var _cryo_used: bool = false
 var _trio_used: bool = false
 var _alive: Dictionary[String, int] = {}
+var _caravan: RTSUnit
 
 static func ending_of(id: String) -> String:
 	if id == "kokang":
-		return "capture: yard, ruby night shift, and one rare-earth stock"
+		return "capture: yard, ruby night shift, and one rare-earth stock, after the recon drones fall"
 	if id == "tachileik":
-		return "destroy: the ambush dies, then the ruby night shift fills the purse"
+		return "destroy: the ambush dies, the caravan reaches the bazaar, then the ruby night shift fills the purse"
 	if id == "shwe_kokko":
-		return "destroy: the garrison dies, then the compound is siphoned"
+		return "destroy: the garrison dies, then both server blocks are siphoned"
 	if id == "operation_1027":
 		return "destroy: the EW towers fall, then the Su-30 and CH-4 hangars"
 	if id == "andaman":
 		return "destroy: the channel boats die and an amphibious unit reaches the far shore"
 	if id == "ghosts_of_patani":
-		return "destroy: the enemy inside the jammer dies, GPS cut and fiber full"
+		return "destroy: every ghost inside the jammer dies, GPS cut and fiber full"
 	if id == "kilometer_watch":
 		return "destroy: the radar garrison dies and the hydro radar is held"
 	if id == "black_haze":
@@ -250,6 +253,7 @@ func bind_mission(p_host: Node3D, id: String, p_field: SMPointer, p_side: SMSide
 		_spawn_duty(SMPointer.ENEMY, Vector3(12.0, 0.0, -3.0), &"raider", "super", "Seismic Slag Vacuum", 360.0, 0.0, 9.0, true)
 		_slab("IonCollider", Vector3(12.0, 2.2, 3.0), Vector3(1.6, 4.4, 1.6), Color(0.25, 0.55, 0.72))
 		_slab("SlagVacuum", Vector3(12.0, 2.2, -3.0), Vector3(1.6, 4.4, 1.6), Color(0.55, 0.28, 0.22))
+	_thicken()
 
 func bind_raid(p_host: Node3D, p_raid: SMMission, p_field: SMPointer, p_side: SMSide) -> void:
 	host = p_host
@@ -260,6 +264,7 @@ func bind_raid(p_host: Node3D, p_raid: SMMission, p_field: SMPointer, p_side: SM
 	side = p_side
 	goods = p_raid.goods
 	_ruby = true
+	_thicken()
 
 func progress() -> String:
 	if raid != null:
@@ -277,8 +282,7 @@ func progress() -> String:
 		var frozen: String = "phantom frozen" if _phantom_frozen else "freeze the phantom"
 		return "Plain of Jars: %s, %s. Phantom %d, battery %d." % [beam, frozen, _left("phantom"), _left("battery")]
 	if _kill:
-		var ghost: String = "ghost down" if not _living(_first_enemy()) else "ghost standing"
-		return "Patani: %s. GPS shots must miss. Fiber stays true." % ghost
+		return "Patani: %d ghosts in the jammer. GPS shots must miss. Fiber stays true." % _foe_count()
 	if _cross:
 		if _crossed():
 			return "Clear the shore (%d). A boat is on the far shore." % _left("clear")
@@ -300,18 +304,23 @@ func progress() -> String:
 		return "Garrison clear. Hold the hydro radar."
 	if _cyber:
 		if _left("clear") > 0:
+			if _servers():
+				return "Clear the garrison (%d), then siphon both server blocks." % _left("clear")
 			return "Clear the garrison (%d), then siphon the compound." % _left("clear")
 		var siphon: int = 0
 		if tech != null:
-			siphon = tech.siphon_of(&"compound")
+			siphon = tech.siphon_of(&"compound") + tech.siphon_of(&"compound_b")
+		if _servers():
+			return "Garrison clear. Siphon both server blocks (%d)." % siphon
 		return "Garrison clear. Siphon the compound (%d)." % siphon
 	if _ruby:
 		var paid: int = 0
 		if goods != null:
 			paid = goods.paid_of(&"ruby")
 		if _left("clear") > 0:
-			return "Clear the ambush (%d). Then run the ruby night shift." % _left("clear")
-		return "Ambush clear. Ruby night shift %d/30." % paid
+			return "Clear the ambush (%d). Then walk the caravan to the night shift." % _left("clear")
+		var home: String = "caravan in" if _caravan_home() else "walk the caravan"
+		return "Ambush clear. %s. Ruby night shift %d/30." % [home, paid]
 	if _hold:
 		return "Keep the ferry alive. %d seconds left." % _secs()
 	if ending != "":
@@ -439,6 +448,9 @@ func tick(delta: float) -> bool:
 		elif defend != null and not _living(defend):
 			lost = true
 			loss = "the defended target is lost"
+		elif _caravan != null and not _living(_caravan):
+			lost = true
+			loss = "the caravan is lost"
 		return false
 	done = true
 	return true
@@ -460,6 +472,8 @@ func _tick_raid(delta: float) -> bool:
 		lost = true
 		loss = "the company is wiped"
 		return false
+	if _living_duty("recon"):
+		return false
 	if not raid.try_win():
 		return false
 	done = true
@@ -472,7 +486,12 @@ func _occupy(delta: float) -> void:
 		if goods != null:
 			goods.claim_at(u.global_position, SMPointer.PLAYER, REACH)
 		if tech != null:
-			tech.capture_at(u.global_position, SMPointer.PLAYER, REACH)
+			var spins: int = 0
+			while spins < 6:
+				var taken: StringName = tech.capture_at(u.global_position, SMPointer.PLAYER, REACH)
+				if taken == &"":
+					break
+				spins += 1
 	if _ruby and goods != null and goods.has_collector(&"ruby") and not goods.night_on(&"ruby"):
 		goods.set_night_shift(&"ruby", true)
 	if _ruby and goods != null and roster != null and raid == null:
@@ -485,14 +504,19 @@ func _occupy(delta: float) -> void:
 			_slab("Wharf", dest + Vector3(0.0, 1.2, 0.0), Vector3(2.2, 2.4, 2.2), Color(0.12, 0.62, 0.4))
 	if _cyber and tech != null and roster != null:
 		tech.advance(delta, roster.economy, SMPointer.ENEMY)
+	_tow_caravan(delta)
 
 func _ready() -> bool:
 	if not _company_alive():
 		return false
 	if _ruby and goods != null and raid == null:
-		return goods.night_on(&"ruby") and goods.paid_of(&"ruby") >= 30 and _cleared("clear")
+		return goods.night_on(&"ruby") and goods.paid_of(&"ruby") >= 30 and _cleared("clear") and _caravan_home()
 	if _cyber and tech != null:
-		return tech.owner_of(&"compound") == SMPointer.PLAYER and tech.siphon_of(&"compound") > 0 and _cleared("clear")
+		if not _cleared("clear"):
+			return false
+		if _servers():
+			return _servers_open()
+		return tech.owner_of(&"compound") == SMPointer.PLAYER and tech.siphon_of(&"compound") > 0
 	if _radar and tech != null:
 		if not tech.reveals_water(SMPointer.PLAYER) or not _cleared("clear"):
 			return false
@@ -506,9 +530,7 @@ func _ready() -> bool:
 	if _packer and sail != null:
 		return sail.factory_level(&"gun_wharf") == 2 and sail.grid.unit_domain(sail.packer_id) == SMDomainGrid.Domain.SHALLOW and _cleared("clear")
 	if _kill and ew != null:
-		var foe: RTSUnit = _first_enemy()
-		var dead: bool = foe == null or not foe.is_alive()
-		return dead and ew.accuracy(ew.center, SMEwField.GPS) < 1.0 and ew.accuracy(ew.center, SMEwField.FIBER) == 1.0
+		return _foes_down() and ew.accuracy(ew.center, SMEwField.GPS) < 1.0 and ew.accuracy(ew.center, SMEwField.FIBER) == 1.0
 	if _beam:
 		return _beamed and _phantom_frozen and _cleared("phantom") and _cleared("battery")
 	if _towers:
@@ -671,7 +693,8 @@ func _raid_line() -> String:
 	if paid < 30:
 		ruby_bit = "ruby night shift %d/30" % paid
 	var rare_bit: String = "rare earth home" if stock >= 1 else "bring one rare-earth stock"
-	return "Kokang: %s. %s. %s." % [yard_bit, ruby_bit, rare_bit]
+	var recon_bit: String = "recon down" if not _living_duty("recon") else "clear the Orlan drones"
+	return "Kokang: %s. %s. %s. %s." % [yard_bit, ruby_bit, rare_bit, recon_bit]
 
 func _left(duty: String) -> int:
 	if not _alive.has(duty):
@@ -770,6 +793,120 @@ func _note(duty: String) -> void:
 	_alive[duty] = have + 1
 	if duty == "column":
 		_column_need += 1
+
+func has_caravan() -> bool:
+	return _living(_caravan)
+
+func _servers() -> bool:
+	return server_blocks >= 2
+
+func _servers_open() -> bool:
+	if tech == null:
+		return false
+	return tech.owner_of(&"compound") == SMPointer.PLAYER and tech.owner_of(&"compound_b") == SMPointer.PLAYER and tech.siphon_of(&"compound") > 0 and tech.siphon_of(&"compound_b") > 0
+
+func _caravan_home() -> bool:
+	if _caravan == null:
+		return true
+	return _living(_caravan) and _caravan.global_position.distance_to(pad) <= REACH
+
+func _tow_caravan(delta: float) -> void:
+	if not _living(_caravan) or _caravan_home() or not _cleared("clear"):
+		return
+	var on_pad: bool = false
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if _living(u) and not bool(u.get_meta("objective", false)) and u.global_position.distance_to(pad) <= REACH:
+			on_pad = true
+			break
+	if on_pad:
+		_caravan.global_position = pad
+		return
+	var step: Vector3 = pad - _caravan.global_position
+	var dist: float = step.length()
+	if dist <= 0.05:
+		_caravan.global_position = pad
+		return
+	var hop: float = minf(dist, 4.5 * maxf(delta, 0.0))
+	_caravan.global_position += step / dist * hop
+
+func _foe_count() -> int:
+	return field.units_of(SMPointer.ENEMY).size()
+
+func _foes_down() -> bool:
+	return _foe_count() == 0
+
+func _living_duty(duty: String) -> bool:
+	for u: RTSUnit in field.units:
+		if _living(u) and str(u.get_meta("duty", "")) == duty:
+			return true
+	return false
+
+func _thicken() -> void:
+	if field == null or mission_id == "":
+		return
+	if mission_id == "kokang":
+		_spawn_duty(SMPointer.ENEMY, Vector3(6.5, 0.0, 5.0), &"raider", "recon", "Orlan recon", 48.0, 5.0, 4.0, true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(-7.0, 0.0, 6.0), &"raider", "recon", "Pit guard", 48.0, 5.0, 4.0, true)
+		reinforcements = 2
+	elif mission_id == "tachileik":
+		_caravan = _spawn_duty(SMPointer.PLAYER, Vector3(-4.0, 0.0, -6.0), &"slag_hauler", "caravan", "Jade caravan", 160.0, 4.5, 0.0, false)
+		if _caravan != null:
+			_caravan.set_meta("objective", true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(14.0, 0.0, 2.0), &"raider", "clear", "Road ambush", 64.0, 6.0, 4.0, true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(3.0, 0.0, 7.0), &"raider", "clear", "Road ambush", 64.0, 6.0, 4.0, true)
+		reinforcements = 3
+	elif mission_id == "shwe_kokko":
+		if tech != null:
+			tech.add_site(&"compound_b", SMTechNet.CYBER, pad + Vector3(1.2, 0.0, 0.6))
+			server_blocks = 2
+			_pad(pad + Vector3(1.2, 0.0, 0.6), Color(0.2, 0.55, 0.7), "CyberPadB")
+		_spawn_duty(SMPointer.ENEMY, Vector3(2.0, 0.0, 8.0), &"channel_skiff", "clear", "River gunboat", 72.0, 6.0, 4.0, true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(14.0, 0.0, 6.0), &"channel_skiff", "clear", "River gunboat", 72.0, 6.0, 4.0, true)
+		reinforcements = 3
+	elif mission_id == "operation_1027":
+		_spawn_duty(SMPointer.ENEMY, Vector3(2.0, 0.0, 8.0), &"raider", "escort", "Junta escort", 50.0, 6.0, 3.0, false)
+		_spawn_duty(SMPointer.ENEMY, Vector3(2.0, 0.0, -8.0), &"raider", "escort", "Junta escort", 50.0, 6.0, 3.0, false)
+		reinforcements = 2
+	elif mission_id == "andaman":
+		_spawn_duty(SMPointer.ENEMY, Vector3(-2.0, 0.0, 6.0), &"channel_skiff", "clear", "Channel boat", 80.0, 6.0, 4.0, true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(0.0, 0.0, -6.0), &"channel_skiff", "clear", "Channel boat", 80.0, 6.0, 4.0, true)
+		reinforcements = 2
+	elif mission_id == "ghosts_of_patani":
+		_spawn_duty(SMPointer.ENEMY, Vector3(8.0, 0.0, 1.0), &"raider", "ghost", "Jammer ghost", 64.0, 6.0, 5.0, false)
+		_spawn_duty(SMPointer.ENEMY, Vector3(5.0, 0.0, 6.0), &"raider", "ghost", "Shipment guard", 64.0, 6.0, 5.0, false)
+		reinforcements = 2
+	elif mission_id == "kilometer_watch":
+		_spawn_duty(SMPointer.ENEMY, Vector3(4.0, 0.0, 8.0), &"raider", "clear", "Radar relief", 64.0, 6.0, 4.0, true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(14.0, 0.0, 6.0), &"raider", "clear", "Radar relief", 64.0, 6.0, 4.0, true)
+		reinforcements = 2
+	elif mission_id == "black_haze" or mission_id == "fog_over_pakbeng":
+		_spawn_duty(SMPointer.ENEMY, Vector3(10.0, 0.0, 2.0), &"raider", "pressure", "Haze raider", 50.0, 6.0, 3.0, false)
+		_spawn_duty(SMPointer.ENEMY, Vector3(11.0, 0.0, -4.0), &"raider", "pressure", "Haze raider", 50.0, 6.0, 3.0, false)
+		reinforcements = 2
+	elif mission_id == "archipelago_rising":
+		_spawn_duty(SMPointer.ENEMY, Vector3(4.0, 0.0, -6.0), &"channel_skiff", "clear", "Shore boat", 72.0, 6.0, 4.0, true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(12.0, 0.0, 6.0), &"channel_skiff", "clear", "Shore boat", 72.0, 6.0, 4.0, true)
+		reinforcements = 2
+	elif mission_id == "wrath_of_the_garuda":
+		_spawn_duty(SMPointer.ENEMY, Vector3(6.0, 0.0, 8.0), &"channel_skiff", "picket", "Fleet picket", 24.0, 5.0, 0.0, false)
+		_spawn_duty(SMPointer.ENEMY, Vector3(6.0, 0.0, -8.0), &"channel_skiff", "picket", "Fleet picket", 24.0, 5.0, 0.0, false)
+		reinforcements = 2
+	elif mission_id == "keng_tung":
+		_spawn_duty(SMPointer.ENEMY, Vector3(6.0, 0.0, 6.0), &"militia", "screen", "Column screen", 40.0, 5.0, 1.0, false)
+		_spawn_duty(SMPointer.ENEMY, Vector3(6.0, 0.0, -4.0), &"militia", "screen", "Column screen", 40.0, 5.0, 1.0, false)
+		reinforcements = 2
+	elif mission_id == "plain_of_jars":
+		_spawn_duty(SMPointer.ENEMY, Vector3(12.0, 0.0, 1.0), &"raider", "battery", "Jar battery", 90.0, 0.0, 6.0, true)
+		_spawn_duty(SMPointer.ENEMY, Vector3(8.0, 0.0, -6.0), &"raider", "screen", "Jar screen", 40.0, 5.0, 2.0, false)
+		reinforcements = 2
+	elif mission_id == "tonle_sap":
+		_spawn_duty(SMPointer.ENEMY, Vector3(15.0, 0.0, 8.0), &"channel_skiff", "trimaran", "NMRF trimaran", 48.0, 6.0, 3.0, false)
+		_spawn_duty(SMPointer.ENEMY, Vector3(15.0, 0.0, -4.0), &"channel_skiff", "trimaran", "NMRF trimaran", 48.0, 6.0, 3.0, false)
+		reinforcements = 2
+	elif mission_id == "shattered_monsoon":
+		_spawn_duty(SMPointer.ENEMY, Vector3(6.0, 0.0, 6.0), &"raider", "escort", "Citadel garrison", 48.0, 5.0, 0.0, false)
+		_spawn_duty(SMPointer.ENEMY, Vector3(6.0, 0.0, -6.0), &"raider", "escort", "Citadel garrison", 48.0, 5.0, 0.0, false)
+		reinforcements = 2
 
 func _pad(at: Vector3, color: Color, node_name: String) -> void:
 	_slab(node_name, at + Vector3(0.0, 0.15, 0.0), Vector3(1.6, 0.3, 1.6), color)

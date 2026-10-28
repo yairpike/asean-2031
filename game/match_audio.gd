@@ -10,11 +10,25 @@ extends RefCounted
 ## Those map to the folders on disk: en, my, zh, th, and ms.
 ## A missing take uses the en folder, then the flat english file.
 ## The web build fetches only the selected language.
+## Recorded cues live in sfx/<kind>.ogg. sfx/manifest.json can map a
+## kind onto another filename in that folder. A missing file stays a tone.
 
 static var _cache: Dictionary = {}
 static var _catalog: Dictionary = {}
 static var _inflight: Dictionary = {}
 static var _buses_ready: bool = false
+static var _sfx_files: Dictionary = {}
+static var _sfx_read: bool = false
+static var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+static var _rng_ready: bool = false
+static var _pool: Array[AudioStreamPlayer] = []
+static var _loop_players: Array[AudioStreamPlayer] = []
+static var _loop_unit: Array[int] = []
+static var _line_at: int = 0
+static var _line_text: String = ""
+static var _cash_at: int = 0
+static var _cash_seen: int = -1
+static var _hp_seen: Dictionary = {}
 static var _web_open: bool = false
 static var _held: Array[AudioStreamPlayer] = []
 static var _queue: PackedStringArray = PackedStringArray()
@@ -39,6 +53,7 @@ static func arm(host: Node, mode: String) -> void:
 	host.add_child(node)
 	_owner = host
 	note_voice(host)
+	_pull_sfx(host)
 
 static func play_menu(host: Node) -> void:
 	_buses()
@@ -161,9 +176,463 @@ static func tick(host: Node) -> void:
 	_play_current(host)
 
 static func cue_clip(kind: String) -> AudioStream:
-	if kind == "" or kind.contains("/") or kind.contains(".") or kind.contains("\\"):
+	var resolved: String = _alias(kind)
+	if resolved == "":
 		return null
-	return _stream("sfx/%s.ogg" % kind)
+	var files: PackedStringArray = _files_of(resolved)
+	if files.is_empty():
+		return _stream("sfx/%s.ogg" % resolved)
+	_seed()
+	return _stream(files[_rng.randi() % files.size()])
+
+static func weapon_kind(weapon: String) -> String:
+	if weapon == "rifle" or weapon == "carbine" or weapon == "smg" or weapon == "stinger":
+		return "weapon_rifle"
+	if weapon == "mg" or weapon == "pintle" or weapon == "bow_gun" or weapon == "cab_gun" or weapon == "deck_gun" or weapon == "autocannon" or weapon == "saw":
+		return "weapon_mg"
+	if weapon == "cannon" or weapon == "hammer" or weapon == "blade":
+		return "weapon_cannon"
+	if weapon == "tube" or weapon == "mortar" or weapon == "torch" or weapon == "howl":
+		return "weapon_artillery"
+	if weapon == "lance":
+		return "weapon_rocket"
+	if weapon == "laser" or weapon == "welder" or weapon == "hook" or weapon == "camera":
+		return "weapon_laser"
+	if weapon == "dart":
+		return "weapon_freeze_ray"
+	if weapon == "mast":
+		return "weapon_flak"
+	if weapon == "":
+		return ""
+	return "weapon_rifle"
+
+static func impact_kind(amount: float) -> String:
+	if amount >= 24.0:
+		return "impact_large"
+	if amount >= 12.0:
+		return "impact_medium"
+	return "impact_small"
+
+static func move_kind(role: String, loco: String, unit_id: String) -> String:
+	if unit_id == "su30" or unit_id == "ch4":
+		return ""
+	if loco == "air" or role == "air":
+		return "move_helicopter"
+	if role == "drone" or (loco == "amphibious" and role != "infantry" and role != "boat"):
+		return "move_hover"
+	if role == "boat" or loco == "naval":
+		return "move_boat_engine"
+	if role == "armor" or role == "vehicle" or role == "artillery" or role == "hauler":
+		return "move_tank_treads"
+	if role == "infantry":
+		return "move_footsteps"
+	return ""
+
+static func ability_kind(label: String) -> String:
+	var text: String = label.to_lower().replace(".", "").replace("-", " ")
+	if text.contains("black hole") or text.contains("maelstrom"):
+		return "ability_black_hole"
+	if text.contains("emp") or text.contains("blackout"):
+		return "ability_emp"
+	if text.contains("shield") or text.contains("barrier") or text.contains("dome") or text.contains("aegis"):
+		return "ability_shield"
+	if text.contains("shrink"):
+		return "weapon_shrink_ray"
+	return "ability_generic"
+
+static func cap_for(kind: String) -> int:
+	if kind.begins_with("move_"):
+		return 2
+	if kind.begins_with("ui_"):
+		return 2
+	if kind.begins_with("superweapon_"):
+		return 1
+	return 3
+
+static func voices_of(kind: String) -> int:
+	var n: int = 0
+	for player: AudioStreamPlayer in _pool:
+		if is_instance_valid(player) and player.playing and str(player.get_meta("sfx_kind", "")) == kind:
+			n += 1
+	return n
+
+static func play_kind(host: Node, kind: String, at: Vector3 = Vector3.INF) -> void:
+	var resolved: String = _alias(kind)
+	if host == null or resolved == "":
+		return
+	if _too_far(host, at):
+		return
+	if voices_of(resolved) >= cap_for(resolved):
+		return
+	var stream: AudioStream = cue_clip(resolved)
+	if stream == null:
+		return
+	var player: AudioStreamPlayer = _take_player(host)
+	if player == null:
+		return
+	player.stream = stream
+	player.pitch_scale = _jitter()
+	player.volume_db = Settings.cue_db(_hear_db(host, at))
+	player.set_meta("sfx_kind", resolved)
+	player.play()
+
+static func _heard_at(unit: RTSUnit) -> Vector3:
+	if unit.is_inside_tree():
+		return unit.global_position
+	return unit.position
+
+static func on_shot(host: Node, unit: RTSUnit, _target: RTSUnit) -> void:
+	if unit == null:
+		return
+	var kind: String = weapon_kind(str(unit.get_meta("weapon", "")))
+	play_kind(host, kind, _heard_at(unit))
+
+static func on_hit(host: Node, unit: RTSUnit, amount: float) -> void:
+	if unit == null or amount <= 0.0:
+		return
+	play_kind(host, impact_kind(amount), _heard_at(unit))
+
+static func on_spawn(host: Node, unit: RTSUnit) -> void:
+	if unit == null or unit.team != SMPointer.PLAYER:
+		return
+	play_kind(host, "unit_spawn", _heard_at(unit))
+
+static func on_line(host: Node, text: String) -> void:
+	var line: String = text.to_lower()
+	var now: int = Time.get_ticks_msec()
+	if line == _line_text and now - _line_at < 120:
+		return
+	_line_text = line
+	_line_at = now
+	var kind: String = ""
+	if line.ends_with(" built") or line == "wharf unpacked":
+		kind = "build_complete"
+	elif line == "hub placed" or line.ends_with(" placed"):
+		kind = "build_place"
+	elif line.begins_with("wharf level") or line == "upgraded":
+		kind = "build_complete"
+	elif line == "repairing":
+		kind = "repair"
+	elif line.begins_with("sold"):
+		kind = "sell"
+	elif line == "low power":
+		kind = "power_down"
+	elif line == "cancelled":
+		kind = "ui_back"
+	elif line == "build blocked" or line == "cannot sell" or line == "nothing to repair" or line == "superweapon cooling" or line == "no target" or line == "scaffold stalled":
+		kind = "ui_error"
+	if kind != "":
+		play_kind(host, kind)
+
+static func on_super(host: Node, key: String) -> void:
+	if key == "superweapon_ready":
+		play_kind(host, "superweapon_charge")
+	elif key == "superweapon_launched":
+		play_kind(host, "superweapon_launch")
+
+static func drive(host: Node) -> void:
+	if host == null:
+		return
+	var field: SMPointer = host.get("field") as SMPointer
+	if field == null:
+		return
+	_cash(host, field)
+	_collapse(host)
+	_loops(host, field)
+
+static func _alias(kind: String) -> String:
+	if not _cue_id(kind):
+		return ""
+	if kind == "ui" or kind == "attack" or kind == "move" or kind == "select":
+		return "ui_click"
+	if kind == "ability" or kind == "ability_cast":
+		return "ability_generic"
+	return kind
+
+static func _cue_id(kind: String) -> bool:
+	return kind != "" and not kind.contains("/") and not kind.contains(".") and not kind.contains("\\")
+
+static func _files_of(kind: String) -> PackedStringArray:
+	_load_sfx_map()
+	var got: Variant = _sfx_files.get(kind, null)
+	if got is PackedStringArray:
+		return got as PackedStringArray
+	return PackedStringArray()
+
+static func _kind_from(file: String) -> String:
+	var stem: String = file.get_file().get_basename()
+	var cut: int = stem.rfind("_")
+	if cut <= 0:
+		return ""
+	var tail: String = stem.substr(cut + 1)
+	if not tail.is_valid_int():
+		return ""
+	var kind: String = stem.substr(0, cut)
+	if not _cue_id(kind):
+		return ""
+	return kind
+
+static func _remember_variant(file: String) -> void:
+	var kind: String = _kind_from(file)
+	if kind == "":
+		return
+	var rel: String = "sfx/%s" % file.get_file()
+	var got: Variant = _sfx_files.get(kind, null)
+	var list: PackedStringArray = PackedStringArray()
+	if got is PackedStringArray:
+		list = got
+	if list.has(rel):
+		return
+	list.append(rel)
+	_sfx_files[kind] = list
+
+static func _scan_sfx_dir(dir: String) -> void:
+	var access: DirAccess = DirAccess.open(dir)
+	if access == null:
+		return
+	for name: String in access.get_files():
+		if name.ends_with(".ogg") and not name.ends_with(".conflict.ogg"):
+			_remember_variant(name)
+
+static func _load_sfx_map() -> void:
+	if _sfx_read:
+		return
+	_sfx_read = true
+	_scan_sfx_dir("res://audio/sfx")
+	for root: String in _roots():
+		_scan_sfx_dir(root.path_join("sfx"))
+	var bytes: PackedByteArray = _read_loose("sfx/manifest.json")
+	if bytes.is_empty():
+		return
+	var parsed: Variant = JSON.parse_string(bytes.get_string_from_utf8())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var book: Dictionary = parsed as Dictionary
+	var kinds: Variant = book.get("kinds", {})
+	if typeof(kinds) != TYPE_DICTIONARY:
+		return
+	var table: Dictionary = kinds as Dictionary
+	for key: Variant in table.keys():
+		var kind: String = str(key)
+		if not _cue_id(kind):
+			continue
+		var row: Variant = table[key]
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var files: Variant = (row as Dictionary).get("files", [])
+		if typeof(files) != TYPE_ARRAY:
+			continue
+		var list: PackedStringArray = PackedStringArray()
+		for item: Variant in files as Array:
+			if typeof(item) != TYPE_DICTIONARY:
+				continue
+			var file: String = str((item as Dictionary).get("file", "")).get_file()
+			if file.ends_with(".ogg") and not file.contains("..") and not file.contains("/") and not file.contains("\\"):
+				list.append("sfx/%s" % file)
+		if not list.is_empty():
+			_sfx_files[kind] = list
+
+static func _read_loose(rel: String) -> PackedByteArray:
+	if rel.contains("..") or rel.begins_with("/") or rel.contains("\\"):
+		return PackedByteArray()
+	var packed: String = "res://audio/%s" % rel
+	if FileAccess.file_exists(packed):
+		return FileAccess.get_file_as_bytes(packed)
+	for root: String in _roots():
+		var path: String = root.path_join(rel)
+		if FileAccess.file_exists(path):
+			return FileAccess.get_file_as_bytes(path)
+	return PackedByteArray()
+
+static func _seed() -> void:
+	if _rng_ready:
+		return
+	_rng_ready = true
+	_rng.randomize()
+
+static func _jitter() -> float:
+	_seed()
+	return 0.97 + _rng.randf() * 0.06
+
+static func _take_player(host: Node) -> AudioStreamPlayer:
+	var live: Array[AudioStreamPlayer] = []
+	var idle: AudioStreamPlayer = null
+	for player: AudioStreamPlayer in _pool:
+		if not is_instance_valid(player):
+			continue
+		live.append(player)
+		if idle == null and not player.playing:
+			idle = player
+	_pool = live
+	if idle != null:
+		return idle
+	if _pool.size() >= 12:
+		return null
+	var made: AudioStreamPlayer = AudioStreamPlayer.new()
+	made.name = "SfxPool%d" % _pool.size()
+	made.bus = "Master"
+	host.add_child(made)
+	_pool.append(made)
+	return made
+
+static func _too_far(host: Node, at: Vector3) -> bool:
+	if at == Vector3.INF:
+		return false
+	return _hear_dist(host, at) > 42.0
+
+static func _hear_db(host: Node, at: Vector3) -> float:
+	if at == Vector3.INF:
+		return -8.0
+	var dist: float = _hear_dist(host, at)
+	var gain: float = clampf(1.0 - dist / 42.0, 0.18, 1.0)
+	return linear_to_db(gain) - 8.0
+
+static func _hear_dist(host: Node, at: Vector3) -> float:
+	var cam: RTSCamera = host.get_node_or_null("Camera") as RTSCamera
+	var ear: Vector3 = cam.focus if cam != null else Vector3.ZERO
+	return at.distance_to(ear)
+
+static func _cash(host: Node, field: SMPointer) -> void:
+	var side: SMSide = host.get("side") as SMSide
+	if side == null or side.yard == null or side.yard.economy == null:
+		return
+	var now_credits: int = side.yard.economy.credits(SMPointer.PLAYER)
+	if _cash_seen < 0:
+		_cash_seen = now_credits
+		return
+	if now_credits <= _cash_seen:
+		_cash_seen = now_credits
+		return
+	_cash_seen = now_credits
+	var now: int = Time.get_ticks_msec()
+	if now - _cash_at < 450:
+		return
+	_cash_at = now
+	play_kind(host, "ui_cash_tick")
+
+static func _collapse(host: Node) -> void:
+	var side: SMSide = host.get("side") as SMSide
+	if side == null or side.yard == null:
+		return
+	for id: StringName in side.yard.finished:
+		var hp: float = float(side.yard.structure_hp.get(id, -1.0))
+		var prev: float = float(_hp_seen.get(id, hp))
+		_hp_seen[id] = hp
+		if prev > 0.5 and hp <= 0.0:
+			play_kind(host, "building_collapse", side.yard.position_of(id))
+
+static func _compact_loops() -> void:
+	var players: Array[AudioStreamPlayer] = []
+	var units: Array[int] = []
+	for i: int in _loop_players.size():
+		if not is_instance_valid(_loop_players[i]):
+			continue
+		players.append(_loop_players[i])
+		units.append(_loop_unit[i] if i < _loop_unit.size() else 0)
+	_loop_players = players
+	_loop_unit = units
+
+static func _loops(host: Node, field: SMPointer) -> void:
+	_compact_loops()
+	var moving: Array[RTSUnit] = []
+	var dist_of: Dictionary = {}
+	for u: RTSUnit in field.units:
+		if not is_instance_valid(u) or not u.is_alive() or bool(u.get_meta("frozen", false)):
+			continue
+		var going: bool = not u.path.is_empty()
+		var unit_id: String = str(u.unit_type)
+		if (unit_id == "su30" or unit_id == "ch4") and going and not bool(u.get_meta("jet_spoke", false)):
+			u.set_meta("jet_spoke", true)
+			play_kind(host, "move_jet_flyby", u.global_position)
+		if not going:
+			u.set_meta("jet_spoke", false)
+			continue
+		var kind: String = move_kind(str(u.get_meta("role", "")), str(u.get_meta("locomotion", "")), unit_id)
+		if kind == "":
+			continue
+		var dist: float = _hear_dist(host, u.global_position)
+		if dist > 42.0:
+			continue
+		u.set_meta("move_kind", kind)
+		dist_of[u.get_instance_id()] = dist
+		moving.append(u)
+	moving.sort_custom(func(a: RTSUnit, b: RTSUnit) -> bool:
+		return float(dist_of.get(a.get_instance_id(), 999.0)) < float(dist_of.get(b.get_instance_id(), 999.0))
+	)
+	var keep: Array[int] = []
+	var per_kind: Dictionary = {}
+	for u: RTSUnit in moving:
+		if keep.size() >= 4:
+			break
+		var kind: String = str(u.get_meta("move_kind", ""))
+		var have: int = int(per_kind.get(kind, 0))
+		if have >= cap_for(kind):
+			continue
+		per_kind[kind] = have + 1
+		keep.append(u.get_instance_id())
+		_hold_loop(host, u, kind)
+	for i: int in _loop_unit.size():
+		if keep.has(_loop_unit[i]):
+			continue
+		var player: AudioStreamPlayer = _loop_players[i]
+		if is_instance_valid(player):
+			player.stop()
+		_loop_unit[i] = 0
+
+static func _hold_loop(host: Node, unit: RTSUnit, kind: String) -> void:
+	var id: int = unit.get_instance_id()
+	var slot: int = _loop_unit.find(id)
+	if slot < 0:
+		slot = _loop_unit.find(0)
+	if slot < 0 and _loop_players.size() < 4:
+		var made: AudioStreamPlayer = AudioStreamPlayer.new()
+		made.name = "SfxLoop%d" % _loop_players.size()
+		made.bus = "Master"
+		host.add_child(made)
+		_loop_players.append(made)
+		_loop_unit.append(0)
+		slot = _loop_players.size() - 1
+	if slot < 0:
+		return
+	var player: AudioStreamPlayer = _loop_players[slot]
+	if str(player.get_meta("sfx_kind", "")) != kind or not player.playing:
+		var stream: AudioStream = cue_clip(kind)
+		if stream == null:
+			return
+		var looping: AudioStream = stream.duplicate()
+		if looping is AudioStreamOggVorbis:
+			(looping as AudioStreamOggVorbis).loop = true
+		player.stream = looping
+		player.pitch_scale = _jitter()
+		player.set_meta("sfx_kind", kind)
+		player.play()
+	player.volume_db = Settings.cue_db(_hear_db(host, unit.global_position) - 6.0)
+	_loop_unit[slot] = id
+
+static func _pull_sfx(host: Node) -> void:
+	if not OS.has_feature("web") or host == null:
+		return
+	var http: HTTPRequest = HTTPRequest.new()
+	http.timeout = 20.0
+	http.accept_gzip = false
+	http.name = "SfxIndex"
+	host.add_child(http)
+	http.request_completed.connect(_got_sfx.bind(http, host))
+	var err: Error = http.request(_page_base() + "audio/sfx/index.txt")
+	if err != OK:
+		http.queue_free()
+
+static func _got_sfx(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest, host: Node) -> void:
+	if is_instance_valid(http):
+		http.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or not is_instance_valid(host):
+		return
+	for line: String in body.get_string_from_utf8().split("\n"):
+		var name: String = line.strip_edges()
+		if not name.ends_with(".ogg") or name.contains("..") or name.contains("/"):
+			continue
+		_remember_variant(name)
+		prefetch(host, "sfx/%s" % name)
 
 static func clip_for(unit_id: String, event: String) -> AudioStream:
 	if unit_id == "":

@@ -34,6 +34,7 @@ func _process(_delta: float) -> void:
 	var host: Node = get_parent()
 	if host == null:
 		return
+	Clips.drive(host)
 	if not _started:
 		_started = true
 		if str(get_meta("mode", "match")) == "menu":

@@ -368,7 +368,7 @@ func _fill_roster() -> void:
 				var building_caption: String = side.building_label(id) if side != null else _pretty(str(id))
 				var row: Dictionary = item
 				var building_tab: String = "defenses" if str(row.get("role", "")) == "defense" else "buildings"
-				_button(tile_host, node_name, building_caption, _order.bind(id), SMGuide.building_tip(row), "ui", building_tab, int(row.get("cost", 0)))
+				_button(tile_host, node_name, building_caption, _order.bind(id), SMGuide.building_tip(row), "build_start", building_tab, int(row.get("cost", 0)))
 	var super_host: Container = super_dock if use_tiles and super_dock != null else box
 	if side != null and side.yard.super_name != "" and super_host.get_node_or_null("Super_%s" % str(side.yard.super_id)) == null:
 		var super_tip: String = "%s. Area hit, then it cools down." % side.yard.super_name
@@ -408,7 +408,7 @@ func _fill_commands(box: VBoxContainer) -> void:
 	var host: Container = command_row if use_tiles and command_row != null else box
 	if host.get_node_or_null("AbilityButton") != null:
 		return
-	_button(host, "AbilityButton", "Ability (F)", _ability, SMGuide.ability_tip(), "ability")
+	_button(host, "AbilityButton", "Ability (F)", _ability, SMGuide.ability_tip(), "ability_cast")
 	if command_row == null or not use_tiles:
 		return
 	var stance_row: HBoxContainer = HBoxContainer.new()

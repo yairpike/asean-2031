@@ -4,6 +4,7 @@ extends Control
 
 const SWEEP := preload("res://game/cameo_sweep.gd")
 const Art = preload("res://game/served_art.gd")
+const Clips = preload("res://game/match_audio.gd")
 
 static func install(layer: CanvasLayer, hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	var root: Control = (load("res://game/match_hud.tscn") as PackedScene).instantiate() as Control
@@ -50,7 +51,9 @@ func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	hud.power_label = wrap.get_node("PowerRow/HudPower") as Label
 	hud.repair_button = wrap.get_node("ModeRow/RepairButton") as Button
 	hud.sell_button = wrap.get_node("ModeRow/SellButton") as Button
+	hud.repair_button.pressed.connect(_mode_sound)
 	hud.repair_button.pressed.connect(hud.toggle_repair_mode)
+	hud.sell_button.pressed.connect(_mode_sound)
 	hud.sell_button.pressed.connect(hud.toggle_sell_mode)
 	hud.icon_grid = wrap.get_node("PhoneIconGrid") as GridContainer
 	hud.sidebar = wrap.get_node("Sidebar") as VBoxContainer
@@ -234,7 +237,18 @@ func _wire_tab(hud: SMHud, node_name: String, tab_name: String) -> void:
 	var button: Button = find_child(node_name, true, false) as Button
 	if button == null:
 		return
+	button.mouse_entered.connect(_hover_sound)
+	button.pressed.connect(_tab_sound)
 	button.pressed.connect(hud.show_build_tab.bind(tab_name))
+
+func _tab_sound() -> void:
+	Clips.play_kind(self, "ui_tab")
+
+func _hover_sound() -> void:
+	Clips.play_kind(self, "ui_hover")
+
+func _mode_sound() -> void:
+	Clips.play_kind(self, "ui_click")
 
 func _style_self() -> void:
 	var frame: StyleBoxFlat = _frame()
