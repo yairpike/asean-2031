@@ -1,0 +1,2545 @@
+{
+  "game": "ASEAN 2031",
+  "generated_at": "2026-10-28T01:24:24+00:00",
+  "dry_run": false,
+  "models": {
+    "music": "models/lyria-realtime-exp",
+    "tts": "models/gemini-3.1-flash-tts-preview",
+    "tts_used": [
+      "models/gemini-2.5-flash-preview-tts",
+      "models/gemini-3.1-flash-tts-preview",
+      "models/gemini-3.8-flash-tts"
+    ]
+  },
+  "unit_id_source": "Unit ids and display names from data/factions/<faction>/faction.json on branch cursor/web-playtest (internal/web-playtest.bundle, commit 947b910). Lines are storefront-safe; no street-drug names.",
+  "encoding": {
+    "music": "Ogg Vorbis 96 kbps stereo 48000 Hz, loop tracks crossfaded tail-into-head (4 s equal-power); stings faded out",
+    "barks": "Ogg Vorbis 64 kbps mono 24000 Hz, peak -1 dBFS, dry (radio band-pass is applied in Godot per blueprint: 400-3400 Hz + light distortion)"
+  },
+  "totals": {
+    "music_files": 7,
+    "bark_files": 60,
+    "music_bytes": 5432249,
+    "bark_bytes": 1288678,
+    "total_bytes": 6720927,
+    "music_under_8mb": true
+  },
+  "music": {
+    "menu": {
+      "file": "music/menu.ogg",
+      "title": "Shattered Monsoon (Mekong March)",
+      "bpm": 132,
+      "model": "models/lyria-realtime-exp",
+      "prompt": "Epic RTS main menu theme, Red Alert 3 Soviet March energy. Heavy chugging industrial electric guitars, booming brass horns, wordless militant choir chanting in unison, Burmese Hsaing Waing tuned drum circle percussion and bronze gongs. Southeast Asian modern-military RTS soundtrack in the spirit of Command & Conquer Red Alert 3, instrumental only, no vocals with words, mixed for game background, steady groove, seamless loop. 132 BPM.",
+      "loop": true,
+      "seconds": 90,
+      "present": true
+    },
+    "gtfc": {
+      "file": "music/gtfc.ogg",
+      "title": "Burma Road Grind",
+      "bpm": 138,
+      "model": "models/lyria-realtime-exp",
+      "prompt": "Heavy industrial metal RTS combat track. Drop-D distorted rhythm guitars, double-kick drums, clanging mining machinery percussion, fierce Burmese Hne double-reed melodies, low brass stabs. Southeast Asian modern-military RTS soundtrack in the spirit of Command & Conquer Red Alert 3, instrumental only, no vocals with words, mixed for game background, steady groove, seamless loop. 138 BPM.",
+      "loop": true,
+      "seconds": 90,
+      "present": true
+    },
+    "nmrf": {
+      "file": "music/nmrf.ogg",
+      "title": "Malacca Overdrive",
+      "bpm": 145,
+      "model": "models/lyria-realtime-exp",
+      "prompt": "Cyber-tactical synthwave and electro-rock RTS combat track, Red Alert 3 Empire of the Rising Sun energy. Fast arpeggiated synthesizers, breakbeat drums, overdriven guitar riffs interwoven with metallic Indonesian and Malay gamelan interlocking rhythms. Southeast Asian modern-military RTS soundtrack in the spirit of Command & Conquer Red Alert 3, instrumental only, no vocals with words, mixed for game background, steady groove, seamless loop. 145 BPM.",
+      "loop": true,
+      "seconds": 90,
+      "present": true
+    },
+    "mvd": {
+      "file": "music/mvd.ogg",
+      "title": "Delta Protocol",
+      "bpm": 130,
+      "model": "models/lyria-realtime-exp",
+      "prompt": "High-tech orchestral electronic hybrid RTS track, Red Alert 3 Allied energy. Crisp military snare rolls, staccato string ostinatos, sonar pings, pulsing basslines, expressive Vietnamese Dan Bau electric monochord solo melody. Southeast Asian modern-military RTS soundtrack in the spirit of Command & Conquer Red Alert 3, instrumental only, no vocals with words, mixed for game background, steady groove, seamless loop. 130 BPM.",
+      "loop": true,
+      "seconds": 90,
+      "present": true
+    },
+    "black_market": {
+      "file": "music/black_market.ogg",
+      "title": "Strait Bazaar Contract",
+      "bpm": 120,
+      "model": "models/lyria-realtime-exp",
+      "prompt": "Shadowy mercenary bazaar RTS track. Dark trip-hop breakbeat, detuned analog bass, Thai khim hammered dulcimer and Cambodian roneat xylophone motifs, distant radio static, propeller drone hum, tense muted trumpet. Southeast Asian modern-military RTS soundtrack in the spirit of Command & Conquer Red Alert 3, instrumental only, no vocals with words, mixed for game background, steady groove, seamless loop. 120 BPM.",
+      "loop": true,
+      "seconds": 75,
+      "present": true
+    },
+    "victory_sting": {
+      "file": "music/victory_sting.ogg",
+      "title": "Victory Sting",
+      "bpm": 132,
+      "model": "models/lyria-realtime-exp",
+      "prompt": "Triumphant short victory fanfare. Bold brass, gongs, Hsaing Waing drums, soaring heroic major-key melody, big orchestral hit. Southeast Asian modern-military RTS soundtrack in the spirit of Command & Conquer Red Alert 3, instrumental only, no vocals with words, mixed for game background, steady groove, seamless loop. 132 BPM.",
+      "loop": false,
+      "seconds": 8,
+      "present": true
+    },
+    "defeat_sting": {
+      "file": "music/defeat_sting.ogg",
+      "title": "Defeat Sting",
+      "bpm": 70,
+      "model": "models/lyria-realtime-exp",
+      "prompt": "Somber short defeat sting. Low mournful Dan Bau bend, slow minor-key strings, distant single gong, fading rain ambience. Southeast Asian modern-military RTS soundtrack in the spirit of Command & Conquer Red Alert 3, instrumental only, no vocals with words, mixed for game background, steady groove, seamless loop. 70 BPM.",
+      "loop": false,
+      "seconds": 8,
+      "present": true
+    }
+  },
+  "barks": {
+    "militia": {
+      "name": "Shan Insurgent Militia",
+      "faction": "gtfc",
+      "voice": "Fenrir",
+      "style": "rough, eager young fighter",
+      "events": {
+        "select": [
+          {
+            "file": "barks/militia_select_1.ogg",
+            "text": "Shan Brigade, weapons loaded!",
+            "present": true
+          },
+          {
+            "file": "barks/militia_select_2.ogg",
+            "text": "Highland militia, ready.",
+            "present": true
+          },
+          {
+            "file": "barks/militia_select_1.ogg",
+            "text": "Shan Brigade, weapons loaded!",
+            "present": true
+          },
+          {
+            "file": "barks/militia_select_2.ogg",
+            "text": "Highland militia, ready.",
+            "present": true
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/militia_move_1.ogg",
+            "text": "Moving through the brush!",
+            "present": true
+          },
+          {
+            "file": "barks/militia_move_2.ogg",
+            "text": "Into the hills!",
+            "present": true
+          },
+          {
+            "file": "barks/militia_move_1.ogg",
+            "text": "Moving through the brush!",
+            "present": true
+          },
+          {
+            "file": "barks/militia_move_2.ogg",
+            "text": "Into the hills!",
+            "present": true
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/militia_attack_1.ogg",
+            "text": "Take their supplies!",
+            "present": true
+          },
+          {
+            "file": "barks/militia_attack_2.ogg",
+            "text": "Burn them out!",
+            "present": true
+          },
+          {
+            "file": "barks/militia_attack_1.ogg",
+            "text": "Take their supplies!",
+            "present": true
+          },
+          {
+            "file": "barks/militia_attack_2.ogg",
+            "text": "Burn them out!",
+            "present": true
+          }
+        ]
+      },
+      "method": "batched call, split on silence",
+      "prompt_batch": "Speak as Shan Insurgent Militia, a unit in a real-time strategy game. Voice: rough, eager young fighter; Burmese / Shan highland accent, gritty insurgent radio chatter. Deliver each line below as a short in-character battlefield radio bark, punchy and clear. Read only the quoted lines, in order, and leave a full two seconds of silence after each one.\n\n\"Shan Brigade, weapons loaded!\"\n\"Highland militia, ready.\"\n\"Moving through the brush!\"\n\"Into the hills!\"\n\"Take their supplies!\"\n\"Burn them out!\"",
+      "model": "models/gemini-3.8-flash-tts"
+    },
+    "ruby_mortar": {
+      "name": "General Bo Mya",
+      "faction": "gtfc",
+      "voice": "Rasalgethi",
+      "style": "commanding, proud warlord general",
+      "events": {
+        "select": [
+          {
+            "file": "barks/ruby_mortar_select_1.ogg",
+            "text": "Bo Mya commands.",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_mortar_select_2.ogg",
+            "text": "Speak, and the highlands answer.",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_mortar_select_1.ogg",
+            "text": "Bo Mya commands.",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_mortar_select_2.ogg",
+            "text": "Speak, and the highlands answer.",
+            "present": true
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/ruby_mortar_move_1.ogg",
+            "text": "My army follows me.",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_mortar_move_2.ogg",
+            "text": "Advance, brothers!",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_mortar_move_1.ogg",
+            "text": "My army follows me.",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_mortar_move_2.ogg",
+            "text": "Advance, brothers!",
+            "present": true
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/ruby_mortar_attack_1.ogg",
+            "text": "Everyone has a price.",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_mortar_attack_2.ogg",
+            "text": "Break their line!",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_mortar_attack_1.ogg",
+            "text": "Everyone has a price.",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_mortar_attack_2.ogg",
+            "text": "Break their line!",
+            "present": true
+          }
+        ]
+      },
+      "model": "models/gemini-2.5-flash-preview-tts",
+      "method": "one call per line",
+      "prompt_batch": "Speak as General Bo Mya, a unit in a real-time strategy game. Voice: commanding, proud warlord general; Burmese / Shan highland accent, gritty insurgent radio chatter. Deliver each line below as a short in-character battlefield radio bark, punchy and clear. Read only the quoted lines, in order, and leave a full two seconds of silence after each one.\n\n\"Bo Mya commands.\"\n\"Speak, and the highlands answer.\"\n\"My army follows me.\"\n\"Advance, brothers!\"\n\"Everyone has a price.\"\n\"Break their line!\"",
+      "prompt_single_template": "Say this as General Bo Mya, a unit in a real-time strategy game, as a short in-character battlefield radio bark. Voice: commanding, proud warlord general; Burmese / Shan highland accent, gritty insurgent radio chatter. Line: <line>"
+    },
+    "slag_hauler": {
+      "name": "Shar Htoo Waw Kloud Drone Truck",
+      "faction": "gtfc",
+      "voice": "Orus",
+      "style": "busy workshop mechanic",
+      "events": {
+        "select": [
+          {
+            "file": "barks/slag_hauler_select_1.ogg",
+            "text": "Printers warm, delta-wings on the rail!",
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Pinta Swarm Delta Winds on the rail.",
+            "score": 0.87,
+            "seconds": 3.68
+          },
+          {
+            "file": "barks/slag_hauler_select_2.ogg",
+            "text": "Kloud workshop, online.",
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Cloud workshop online.",
+            "score": 0.95,
+            "seconds": 2.7
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/slag_hauler_move_1.ogg",
+            "text": "Relocating workshop under the canopy!",
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "relocating workshop under the canopy",
+            "score": 1.0,
+            "seconds": 3.42
+          },
+          {
+            "file": "barks/slag_hauler_move_2.ogg",
+            "text": "Rolling the print shop.",
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Rolin' da principal.",
+            "score": 0.6,
+            "seconds": 2.12
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/slag_hauler_attack_1.ogg",
+            "text": "Kloud drone away, lock on target!",
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "cloud drone away, lock on target",
+            "score": 0.97,
+            "seconds": 2.92
+          },
+          {
+            "file": "barks/slag_hauler_attack_2.ogg",
+            "text": "Launch the swarm!",
+            "present": true,
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Launch the swarm.",
+            "score": 1.0,
+            "seconds": 2.2
+          }
+        ]
+      },
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a busy workshop mechanic, Burmese / Shan highland accent, gritty insurgent radio chatter, terse battlefield radio bark: <line>",
+      "model": "models/gemini-3.1-flash-tts-preview"
+    },
+    "ruby_lancer": {
+      "name": "Salween RPG Trooper",
+      "faction": "gtfc",
+      "voice": "Charon",
+      "style": "calm, heavy-voiced veteran",
+      "events": {
+        "select": [
+          {
+            "file": "barks/ruby_lancer_select_1.ogg",
+            "text": "Rocket tube loaded.",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_lancer_select_2.ogg",
+            "text": "Salween RPG, standing by.",
+            "present": true
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/ruby_lancer_move_1.ogg",
+            "text": "Shifting position.",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_lancer_move_2.ogg",
+            "text": "Down to the riverbank.",
+            "present": true
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/ruby_lancer_attack_1.ogg",
+            "text": "Rocket out!",
+            "present": true
+          },
+          {
+            "file": "barks/ruby_lancer_attack_2.ogg",
+            "text": "Crack that armor!",
+            "present": true
+          }
+        ]
+      },
+      "model": "models/gemini-3.1-flash-tts-preview",
+      "method": "batched call, split on silence"
+    },
+    "amber_tank": {
+      "name": "Shan Behemoth Tank",
+      "faction": "gtfc",
+      "voice": "Alnilam",
+      "style": "booming, slow, menacing",
+      "events": {
+        "select": [
+          {
+            "file": "barks/amber_tank_select_1.ogg",
+            "text": "Behemoth, awake.",
+            "present": true
+          },
+          {
+            "file": "barks/amber_tank_select_2.ogg",
+            "text": "Harpoons primed.",
+            "present": true
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/amber_tank_move_1.ogg",
+            "text": "The mountain moves.",
+            "present": true
+          },
+          {
+            "file": "barks/amber_tank_move_2.ogg",
+            "text": "Crushing a new road.",
+            "present": true
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/amber_tank_attack_1.ogg",
+            "text": "Reel them in!",
+            "present": true
+          },
+          {
+            "file": "barks/amber_tank_attack_2.ogg",
+            "text": "Grind them down!",
+            "present": true
+          }
+        ]
+      },
+      "model": "models/gemini-3.1-flash-tts-preview",
+      "method": "batched call, split on silence"
+    },
+    "monsoon_tube": {
+      "name": "Slag Jump Mortar",
+      "faction": "gtfc",
+      "voice": "Gacrux",
+      "style": "sharp, cocky artillery spotter",
+      "events": {
+        "select": [
+          {
+            "file": "barks/monsoon_tube_select_1.ogg",
+            "text": "Slag mortar, tube's hot.",
+            "present": true
+          },
+          {
+            "file": "barks/monsoon_tube_select_2.ogg",
+            "text": "Give me coordinates.",
+            "present": true
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/monsoon_tube_move_1.ogg",
+            "text": "Packing the tube!",
+            "present": true
+          },
+          {
+            "file": "barks/monsoon_tube_move_2.ogg",
+            "text": "Thrusters ready, moving.",
+            "present": true
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/monsoon_tube_attack_1.ogg",
+            "text": "Shells away!",
+            "present": true
+          },
+          {
+            "file": "barks/monsoon_tube_attack_2.ogg",
+            "text": "Rain it on them!",
+            "present": true
+          }
+        ]
+      },
+      "model": "models/gemini-3.1-flash-tts-preview",
+      "method": "batched call, split on silence"
+    },
+    "channel_skiff": {
+      "name": "Salween Smuggler Boat",
+      "faction": "gtfc",
+      "voice": "Puck",
+      "style": "sly, grinning river smuggler",
+      "events": {
+        "select": [
+          {
+            "file": "barks/channel_skiff_select_1.ogg",
+            "text": "Smuggler boat, no questions.",
+            "present": true
+          },
+          {
+            "file": "barks/channel_skiff_select_2.ogg",
+            "text": "Engine's purring.",
+            "present": true
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/channel_skiff_move_1.ogg",
+            "text": "Running the river!",
+            "present": true
+          },
+          {
+            "file": "barks/channel_skiff_move_2.ogg",
+            "text": "Legs out, going ashore!",
+            "present": true
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/channel_skiff_attack_1.ogg",
+            "text": "Hit and run!",
+            "present": true
+          },
+          {
+            "file": "barks/channel_skiff_attack_2.ogg",
+            "text": "Open the hold, fire!",
+            "present": true
+          }
+        ]
+      },
+      "model": "models/gemini-3.1-flash-tts-preview",
+      "method": "batched call, split on silence"
+    },
+    "crimson_sapper": {
+      "name": "Highland Saboteur",
+      "faction": "gtfc",
+      "voice": "Umbriel",
+      "style": "whispering, sneaky demolitionist",
+      "events": {
+        "select": [
+          {
+            "file": "barks/crimson_sapper_select_1.ogg",
+            "text": "Charges are set.",
+            "present": true
+          },
+          {
+            "file": "barks/crimson_sapper_select_2.ogg",
+            "text": "Saboteur, standing by.",
+            "model": "models/gemini-3.1-flash-tts-preview",
+            "heard": "Sabo, standing by.",
+            "score": 0.89,
+            "seconds": 2.68,
+            "present": true
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/crimson_sapper_move_1.ogg",
+            "text": "Slipping through.",
+            "present": true
+          },
+          {
+            "file": "barks/crimson_sapper_move_2.ogg",
+            "text": "Inflating the raft.",
+            "present": true
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/crimson_sapper_attack_1.ogg",
+            "text": "Plant the C4!",
+            "present": true
+          },
+          {
+            "file": "barks/crimson_sapper_attack_2.ogg",
+            "text": "Boom time.",
+            "present": true
+          }
+        ]
+      },
+      "model": "models/gemini-3.1-flash-tts-preview",
+      "method": "one call per line, transcribed with gemini-3.5-flash-lite, retried below score 0.6",
+      "prompt_single_template": "Say as a whispering, sneaky demolitionist, Burmese / Shan highland accent, gritty insurgent radio chatter, terse battlefield radio bark: <line>"
+    },
+    "amber_scout": {
+      "name": "Syndicate Alchemist",
+      "faction": "gtfc",
+      "voice": "Algenib",
+      "style": "eccentric, giggling chemist",
+      "events": {
+        "select": [
+          {
+            "file": "barks/amber_scout_select_1.ogg",
+            "text": "The mixture is ready.",
+            "present": true
+          },
+          {
+            "file": "barks/amber_scout_select_2.ogg",
+            "text": "Alchemist, at your service.",
+            "present": true
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/amber_scout_move_1.ogg",
+            "text": "Mind the beakers!",
+            "present": true
+          },
+          {
+            "file": "barks/amber_scout_move_2.ogg",
+            "text": "Carrying the formula.",
+            "present": true
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/amber_scout_attack_1.ogg",
+            "text": "A little cloud for you!",
+            "present": true
+          },
+          {
+            "file": "barks/amber_scout_attack_2.ogg",
+            "text": "Breathe deep, friends.",
+            "present": true
+          }
+        ]
+      },
+      "model": "models/gemini-3.1-flash-tts-preview",
+      "method": "batched call, split on silence"
+    },
+    "yard_crane": {
+      "name": "Tachileik Half-Track",
+      "faction": "gtfc",
+      "voice": "Iapetus",
+      "style": "gruff convoy driver",
+      "events": {
+        "select": [
+          {
+            "file": "barks/yard_crane_select_1.ogg",
+            "text": "Half-track, loaded up.",
+            "present": true
+          },
+          {
+            "file": "barks/yard_crane_select_2.ogg",
+            "text": "Tachileik convoy.",
+            "present": true
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/yard_crane_move_1.ogg",
+            "text": "Hauling out!",
+            "present": true
+          },
+          {
+            "file": "barks/yard_crane_move_2.ogg",
+            "text": "Taking the border road.",
+            "present": true
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/yard_crane_attack_1.ogg",
+            "text": "Gunner, open up!",
+            "present": true
+          },
+          {
+            "file": "barks/yard_crane_attack_2.ogg",
+            "text": "Mines behind us!",
+            "present": true
+          }
+        ]
+      },
+      "model": "models/gemini-3.1-flash-tts-preview",
+      "method": "batched call, split on silence"
+    },
+    "slag_dozer": {
+      "name": "Burma Road Bulldozer Tank",
+      "faction": "gtfc",
+      "voice": "Enceladus",
+      "style": "loud, gleeful heavy-machine operator",
+      "events": {
+        "select": [
+          {
+            "file": "barks/slag_dozer_select_1.ogg",
+            "text": "Dozer blade down, cannon ready.",
+            "present": false
+          },
+          {
+            "file": "barks/slag_dozer_select_2.ogg",
+            "text": "Bulldozer, rumbling.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/slag_dozer_move_1.ogg",
+            "text": "Rolling down the Burma Road!",
+            "present": false
+          },
+          {
+            "file": "barks/slag_dozer_move_2.ogg",
+            "text": "Clear the way!",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/slag_dozer_attack_1.ogg",
+            "text": "Crushing their steel!",
+            "present": false
+          },
+          {
+            "file": "barks/slag_dozer_attack_2.ogg",
+            "text": "Leech beam, strip them!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "amber_welder": {
+      "name": "Federal Wings Ag-Bomber Hexacopter",
+      "faction": "gtfc",
+      "voice": "Achird",
+      "style": "nervous, fast-talking drone pilot",
+      "events": {
+        "select": [
+          {
+            "file": "barks/amber_welder_select_1.ogg",
+            "text": "Hexacopter, rotors spinning.",
+            "present": false
+          },
+          {
+            "file": "barks/amber_welder_select_2.ogg",
+            "text": "Federal Wings, airborne.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/amber_welder_move_1.ogg",
+            "text": "Skimming the paddies!",
+            "present": false
+          },
+          {
+            "file": "barks/amber_welder_move_2.ogg",
+            "text": "Spooling fiber, moving.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/amber_welder_attack_1.ogg",
+            "text": "Payload away!",
+            "present": false
+          },
+          {
+            "file": "barks/amber_welder_attack_2.ogg",
+            "text": "Dropping on target!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "monsoon_spotter": {
+      "name": "Mekong Spider Drone",
+      "faction": "gtfc",
+      "voice": "Despina",
+      "style": "cold, clipped machine-like operator",
+      "events": {
+        "select": [
+          {
+            "file": "barks/monsoon_spotter_select_1.ogg",
+            "text": "Spider drone, active.",
+            "present": false
+          },
+          {
+            "file": "barks/monsoon_spotter_select_2.ogg",
+            "text": "Eight legs ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/monsoon_spotter_move_1.ogg",
+            "text": "Crawling forward.",
+            "present": false
+          },
+          {
+            "file": "barks/monsoon_spotter_move_2.ogg",
+            "text": "Skittering through.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/monsoon_spotter_attack_1.ogg",
+            "text": "Tether locked!",
+            "present": false
+          },
+          {
+            "file": "barks/monsoon_spotter_attack_2.ogg",
+            "text": "Stun them!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "bullion_truck": {
+      "name": "Irrawaddy Gyro-Gunship",
+      "faction": "gtfc",
+      "voice": "Sadaltager",
+      "style": "laid-back, confident helicopter pilot",
+      "events": {
+        "select": [
+          {
+            "file": "barks/bullion_truck_select_1.ogg",
+            "text": "Gyro-gunship, rotors up.",
+            "present": false
+          },
+          {
+            "file": "barks/bullion_truck_select_2.ogg",
+            "text": "Irrawaddy air, reporting.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/bullion_truck_move_1.ogg",
+            "text": "Lifting off!",
+            "present": false
+          },
+          {
+            "file": "barks/bullion_truck_move_2.ogg",
+            "text": "Following the river.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/bullion_truck_attack_1.ogg",
+            "text": "Guns hot!",
+            "present": false
+          },
+          {
+            "file": "barks/bullion_truck_attack_2.ogg",
+            "text": "Winch them up!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "scaffold_rig": {
+      "name": "Golden Dragon Dirigible",
+      "faction": "gtfc",
+      "voice": "Schedar",
+      "style": "slow, ominous airship captain",
+      "events": {
+        "select": [
+          {
+            "file": "barks/scaffold_rig_select_1.ogg",
+            "text": "The Dragon floats.",
+            "present": false
+          },
+          {
+            "file": "barks/scaffold_rig_select_2.ogg",
+            "text": "Golden Dragon, aloft.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/scaffold_rig_move_1.ogg",
+            "text": "Drifting forward.",
+            "present": false
+          },
+          {
+            "file": "barks/scaffold_rig_move_2.ogg",
+            "text": "Riding the monsoon wind.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/scaffold_rig_attack_1.ogg",
+            "text": "Dragon's breath!",
+            "present": false
+          },
+          {
+            "file": "barks/scaffold_rig_attack_2.ogg",
+            "text": "Bombs from the clouds!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "channel_ferry": {
+      "name": "Andaman Siege Barge",
+      "faction": "gtfc",
+      "voice": "Zubenelgenubi",
+      "style": "salty, loud barge captain",
+      "events": {
+        "select": [
+          {
+            "file": "barks/channel_ferry_select_1.ogg",
+            "text": "Siege barge, guns loaded.",
+            "present": false
+          },
+          {
+            "file": "barks/channel_ferry_select_2.ogg",
+            "text": "Andaman barge, afloat.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/channel_ferry_move_1.ogg",
+            "text": "Pushing up the coast.",
+            "present": false
+          },
+          {
+            "file": "barks/channel_ferry_move_2.ogg",
+            "text": "Full ahead!",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/channel_ferry_attack_1.ogg",
+            "text": "Broadside!",
+            "present": false
+          },
+          {
+            "file": "barks/channel_ferry_attack_2.ogg",
+            "text": "Overload the barrels!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "kachin_dog": {
+      "name": "Kachin Sapper Dog",
+      "faction": "gtfc",
+      "voice": "Sadachbia",
+      "style": "warm handler speaking for his dog, then a growl",
+      "events": {
+        "select": [
+          {
+            "file": "barks/kachin_dog_select_1.ogg",
+            "text": "Good dog. Ready.",
+            "present": false
+          },
+          {
+            "file": "barks/kachin_dog_select_2.ogg",
+            "text": "Kachin sapper, nose up.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/kachin_dog_move_1.ogg",
+            "text": "Go, girl, go!",
+            "present": false
+          },
+          {
+            "file": "barks/kachin_dog_move_2.ogg",
+            "text": "Following the scent.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/kachin_dog_attack_1.ogg",
+            "text": "Sic them!",
+            "present": false
+          },
+          {
+            "file": "barks/kachin_dog_attack_2.ogg",
+            "text": "Howl, girl!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "river_rifle": {
+      "name": "Patani Corsair Guard",
+      "faction": "nmrf",
+      "voice": "Puck",
+      "style": "brash, swaggering corsair",
+      "events": {
+        "select": [
+          {
+            "file": "barks/river_rifle_select_1.ogg",
+            "text": "Corsair guard, blade drawn.",
+            "present": false
+          },
+          {
+            "file": "barks/river_rifle_select_2.ogg",
+            "text": "Patani steel, ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/river_rifle_move_1.ogg",
+            "text": "Across the deck!",
+            "present": false
+          },
+          {
+            "file": "barks/river_rifle_move_2.ogg",
+            "text": "Moving fast!",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/river_rifle_attack_1.ogg",
+            "text": "Kris rush!",
+            "present": false
+          },
+          {
+            "file": "barks/river_rifle_attack_2.ogg",
+            "text": "Board them!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "sampan": {
+      "name": "Malacca Pocket-Sub",
+      "faction": "nmrf",
+      "voice": "Iapetus",
+      "style": "hushed, tense submarine skipper",
+      "events": {
+        "select": [
+          {
+            "file": "barks/sampan_select_1.ogg",
+            "text": "Pocket-sub, running silent.",
+            "present": false
+          },
+          {
+            "file": "barks/sampan_select_2.ogg",
+            "text": "Periscope up.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/sampan_move_1.ogg",
+            "text": "Diving now.",
+            "present": false
+          },
+          {
+            "file": "barks/sampan_move_2.ogg",
+            "text": "Slipping under the strait.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/sampan_attack_1.ogg",
+            "text": "Torpedo away!",
+            "present": false
+          },
+          {
+            "file": "barks/sampan_attack_2.ogg",
+            "text": "Ram speed!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "emerald_gunboat": {
+      "name": "Krakatoa Dreadnought",
+      "faction": "nmrf",
+      "voice": "Alnilam",
+      "style": "thunderous admiral",
+      "events": {
+        "select": [
+          {
+            "file": "barks/emerald_gunboat_select_1.ogg",
+            "text": "Dreadnought, all hands.",
+            "present": false
+          },
+          {
+            "file": "barks/emerald_gunboat_select_2.ogg",
+            "text": "Krakatoa answers.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/emerald_gunboat_move_1.ogg",
+            "text": "Steam ahead!",
+            "present": false
+          },
+          {
+            "file": "barks/emerald_gunboat_move_2.ogg",
+            "text": "Setting course.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/emerald_gunboat_attack_1.ogg",
+            "text": "All batteries, fire!",
+            "present": false
+          },
+          {
+            "file": "barks/emerald_gunboat_attack_2.ogg",
+            "text": "Shields up, ram them!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "mangrove_tube": {
+      "name": "Phillips Wave-Cannon",
+      "faction": "nmrf",
+      "voice": "Charon",
+      "style": "methodical gunnery chief",
+      "events": {
+        "select": [
+          {
+            "file": "barks/mangrove_tube_select_1.ogg",
+            "text": "Wave-cannon, charging.",
+            "present": false
+          },
+          {
+            "file": "barks/mangrove_tube_select_2.ogg",
+            "text": "Capacitors full.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/mangrove_tube_move_1.ogg",
+            "text": "Repositioning the battery.",
+            "present": false
+          },
+          {
+            "file": "barks/mangrove_tube_move_2.ogg",
+            "text": "Rolling to the shore.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/mangrove_tube_attack_1.ogg",
+            "text": "Release the wave!",
+            "present": false
+          },
+          {
+            "file": "barks/mangrove_tube_attack_2.ogg",
+            "text": "Fire the cannon!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "packer": {
+      "name": "Garuda Mecha-Overlord",
+      "faction": "nmrf",
+      "voice": "Rasalgethi",
+      "style": "colossal, mythic, echoing",
+      "events": {
+        "select": [
+          {
+            "file": "barks/packer_select_1.ogg",
+            "text": "Garuda awakens.",
+            "present": false
+          },
+          {
+            "file": "barks/packer_select_2.ogg",
+            "text": "I am the storm.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/packer_move_1.ogg",
+            "text": "The earth trembles.",
+            "present": false
+          },
+          {
+            "file": "barks/packer_move_2.ogg",
+            "text": "Garuda strides.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/packer_attack_1.ogg",
+            "text": "Monsoon charge!",
+            "present": false
+          },
+          {
+            "file": "barks/packer_attack_2.ogg",
+            "text": "Kneel before Garuda!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "jade_skiff": {
+      "name": "Johor Loiter-Swarm",
+      "faction": "nmrf",
+      "voice": "Laomedeia",
+      "style": "playful, quick drone controller",
+      "events": {
+        "select": [
+          {
+            "file": "barks/jade_skiff_select_1.ogg",
+            "text": "Swarm is buzzing.",
+            "present": false
+          },
+          {
+            "file": "barks/jade_skiff_select_2.ogg",
+            "text": "Johor swarm, linked.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/jade_skiff_move_1.ogg",
+            "text": "Swarm, follow me!",
+            "present": false
+          },
+          {
+            "file": "barks/jade_skiff_move_2.ogg",
+            "text": "Skimming the water.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/jade_skiff_attack_1.ogg",
+            "text": "Swarm, dive!",
+            "present": false
+          },
+          {
+            "file": "barks/jade_skiff_attack_2.ogg",
+            "text": "Sting them!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "olive_ranger": {
+      "name": "Sulu Tank-Buster",
+      "faction": "nmrf",
+      "voice": "Fenrir",
+      "style": "low, patient ambusher",
+      "events": {
+        "select": [
+          {
+            "file": "barks/olive_ranger_select_1.ogg",
+            "text": "Tank-buster, waiting.",
+            "present": false
+          },
+          {
+            "file": "barks/olive_ranger_select_2.ogg",
+            "text": "Sulu ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/olive_ranger_move_1.ogg",
+            "text": "Digging in elsewhere.",
+            "present": false
+          },
+          {
+            "file": "barks/olive_ranger_move_2.ogg",
+            "text": "Moving low.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/olive_ranger_attack_1.ogg",
+            "text": "Spring the ambush!",
+            "present": false
+          },
+          {
+            "file": "barks/olive_ranger_attack_2.ogg",
+            "text": "Armor down!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "emerald_cutter": {
+      "name": "Nusantara Boarder",
+      "faction": "nmrf",
+      "voice": "Orus",
+      "style": "hungry, aggressive pirate",
+      "events": {
+        "select": [
+          {
+            "file": "barks/emerald_cutter_select_1.ogg",
+            "text": "Boarder, hooks ready.",
+            "present": false
+          },
+          {
+            "file": "barks/emerald_cutter_select_2.ogg",
+            "text": "Nusantara crew.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/emerald_cutter_move_1.ogg",
+            "text": "Swimming out!",
+            "present": false
+          },
+          {
+            "file": "barks/emerald_cutter_move_2.ogg",
+            "text": "Closing the distance.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/emerald_cutter_attack_1.ogg",
+            "text": "Breach the hull!",
+            "present": false
+          },
+          {
+            "file": "barks/emerald_cutter_attack_2.ogg",
+            "text": "Take the ship!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "mangrove_skiff": {
+      "name": "Aceh Tsunami Tank",
+      "faction": "nmrf",
+      "voice": "Enceladus",
+      "style": "steady, unshakable tank commander",
+      "events": {
+        "select": [
+          {
+            "file": "barks/mangrove_skiff_select_1.ogg",
+            "text": "Tsunami tank, sealed.",
+            "present": false
+          },
+          {
+            "file": "barks/mangrove_skiff_select_2.ogg",
+            "text": "Aceh armor, ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/mangrove_skiff_move_1.ogg",
+            "text": "Rolling through the surf.",
+            "present": false
+          },
+          {
+            "file": "barks/mangrove_skiff_move_2.ogg",
+            "text": "Wave goes forward.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/mangrove_skiff_attack_1.ogg",
+            "text": "Hit them hard!",
+            "present": false
+          },
+          {
+            "file": "barks/mangrove_skiff_attack_2.ogg",
+            "text": "Deflectors up, fire!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "river_tug": {
+      "name": "Malacca Recon Drone",
+      "faction": "nmrf",
+      "voice": "Erinome",
+      "style": "chirpy, alert recon operator",
+      "events": {
+        "select": [
+          {
+            "file": "barks/river_tug_select_1.ogg",
+            "text": "Recon drone, eyes up.",
+            "present": false
+          },
+          {
+            "file": "barks/river_tug_select_2.ogg",
+            "text": "Watching the strait.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/river_tug_move_1.ogg",
+            "text": "Scouting ahead.",
+            "present": false
+          },
+          {
+            "file": "barks/river_tug_move_2.ogg",
+            "text": "Flying low.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/river_tug_attack_1.ogg",
+            "text": "Latch on!",
+            "present": false
+          },
+          {
+            "file": "barks/river_tug_attack_2.ogg",
+            "text": "Detonate!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "jade_mortar": {
+      "name": "Sumatra Hover-Technical",
+      "faction": "nmrf",
+      "voice": "Achird",
+      "style": "hyper, thrill-seeking driver",
+      "events": {
+        "select": [
+          {
+            "file": "barks/jade_mortar_select_1.ogg",
+            "text": "Hover-fans at max RPM!",
+            "present": false
+          },
+          {
+            "file": "barks/jade_mortar_select_2.ogg",
+            "text": "Technical, revved up.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/jade_mortar_move_1.ogg",
+            "text": "Skimming the waves!",
+            "present": false
+          },
+          {
+            "file": "barks/jade_mortar_move_2.ogg",
+            "text": "Hold on tight!",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/jade_mortar_attack_1.ogg",
+            "text": "Rockets out!",
+            "present": false
+          },
+          {
+            "file": "barks/jade_mortar_attack_2.ogg",
+            "text": "Light them up!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "packer_escort": {
+      "name": "Siti The Kraken",
+      "faction": "nmrf",
+      "voice": "Kore",
+      "style": "fierce, legendary sea captain heroine",
+      "events": {
+        "select": [
+          {
+            "file": "barks/packer_escort_select_1.ogg",
+            "text": "Siti here. Make it count.",
+            "present": false
+          },
+          {
+            "file": "barks/packer_escort_select_2.ogg",
+            "text": "The Kraken rises.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/packer_escort_move_1.ogg",
+            "text": "The sea parts for me.",
+            "present": false
+          },
+          {
+            "file": "barks/packer_escort_move_2.ogg",
+            "text": "Moving out.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/packer_escort_attack_1.ogg",
+            "text": "Drown in the maelstrom!",
+            "present": false
+          },
+          {
+            "file": "barks/packer_escort_attack_2.ogg",
+            "text": "The tide takes you!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "olive_sapper": {
+      "name": "Riau Syndicate Fixer",
+      "faction": "nmrf",
+      "voice": "Zephyr",
+      "style": "smooth, fast-talking fixer",
+      "events": {
+        "select": [
+          {
+            "file": "barks/olive_sapper_select_1.ogg",
+            "text": "Fixer's in. What's the job?",
+            "present": false
+          },
+          {
+            "file": "barks/olive_sapper_select_2.ogg",
+            "text": "Riau syndicate, listening.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/olive_sapper_move_1.ogg",
+            "text": "Skates on!",
+            "present": false
+          },
+          {
+            "file": "barks/olive_sapper_move_2.ogg",
+            "text": "On my way, boss.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/olive_sapper_attack_1.ogg",
+            "text": "Nothing personal!",
+            "present": false
+          },
+          {
+            "file": "barks/olive_sapper_attack_2.ogg",
+            "text": "Let's settle this!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "emerald_ferry": {
+      "name": "Singapore Trimaran",
+      "faction": "nmrf",
+      "voice": "Leda",
+      "style": "precise, polished naval officer",
+      "events": {
+        "select": [
+          {
+            "file": "barks/emerald_ferry_select_1.ogg",
+            "text": "Trimaran, on station.",
+            "present": false
+          },
+          {
+            "file": "barks/emerald_ferry_select_2.ogg",
+            "text": "Singapore fleet, ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/emerald_ferry_move_1.ogg",
+            "text": "Plotting course.",
+            "present": false
+          },
+          {
+            "file": "barks/emerald_ferry_move_2.ogg",
+            "text": "Full speed.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/emerald_ferry_attack_1.ogg",
+            "text": "Torpedo fan, spread!",
+            "present": false
+          },
+          {
+            "file": "barks/emerald_ferry_attack_2.ogg",
+            "text": "Engaging target.",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "wharf_gun": {
+      "name": "Mindanao Striker Walker",
+      "faction": "nmrf",
+      "voice": "Gacrux",
+      "style": "bold, cheerful mech pilot",
+      "events": {
+        "select": [
+          {
+            "file": "barks/wharf_gun_select_1.ogg",
+            "text": "Striker walker, systems green.",
+            "present": false
+          },
+          {
+            "file": "barks/wharf_gun_select_2.ogg",
+            "text": "Mindanao mech, ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/wharf_gun_move_1.ogg",
+            "text": "Stomping forward!",
+            "present": false
+          },
+          {
+            "file": "barks/wharf_gun_move_2.ogg",
+            "text": "Rotors or legs, your call.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/wharf_gun_attack_1.ogg",
+            "text": "Striker, engage!",
+            "present": false
+          },
+          {
+            "file": "barks/wharf_gun_attack_2.ogg",
+            "text": "Chopper mode, fire!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "clearance_trooper": {
+      "name": "Vanguard Shock-Trooper",
+      "faction": "mvd",
+      "voice": "Algieba",
+      "style": "disciplined, firm soldier",
+      "events": {
+        "select": [
+          {
+            "file": "barks/clearance_trooper_select_1.ogg",
+            "text": "Vanguard, ready.",
+            "present": false
+          },
+          {
+            "file": "barks/clearance_trooper_select_2.ogg",
+            "text": "Shield up.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/clearance_trooper_move_1.ogg",
+            "text": "Advancing.",
+            "present": false
+          },
+          {
+            "file": "barks/clearance_trooper_move_2.ogg",
+            "text": "Holding formation.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/clearance_trooper_attack_1.ogg",
+            "text": "Push forward!",
+            "present": false
+          },
+          {
+            "file": "barks/clearance_trooper_attack_2.ogg",
+            "text": "Open fire!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "hub_drone": {
+      "name": "Agent-Zero Cryo-Copter",
+      "faction": "mvd",
+      "voice": "Vindemiatrix",
+      "style": "cool, ice-calm pilot",
+      "events": {
+        "select": [
+          {
+            "file": "barks/hub_drone_select_1.ogg",
+            "text": "Agent-Zero, airborne.",
+            "present": false
+          },
+          {
+            "file": "barks/hub_drone_select_2.ogg",
+            "text": "Cryo systems ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/hub_drone_move_1.ogg",
+            "text": "Moving in.",
+            "present": false
+          },
+          {
+            "file": "barks/hub_drone_move_2.ogg",
+            "text": "Gliding over.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/hub_drone_attack_1.ogg",
+            "text": "Shrink ray, firing!",
+            "present": false
+          },
+          {
+            "file": "barks/hub_drone_attack_2.ogg",
+            "text": "Freeze them!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "charcoal_apc": {
+      "name": "Delta Amphibious IFV",
+      "faction": "mvd",
+      "voice": "Iapetus",
+      "style": "practical, steady crew chief",
+      "events": {
+        "select": [
+          {
+            "file": "barks/charcoal_apc_select_1.ogg",
+            "text": "Delta IFV, sealed.",
+            "present": false
+          },
+          {
+            "file": "barks/charcoal_apc_select_2.ogg",
+            "text": "Crew on board.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/charcoal_apc_move_1.ogg",
+            "text": "Into the delta.",
+            "present": false
+          },
+          {
+            "file": "barks/charcoal_apc_move_2.ogg",
+            "text": "Wheels to water.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/charcoal_apc_attack_1.ogg",
+            "text": "Suppressing fire!",
+            "present": false
+          },
+          {
+            "file": "barks/charcoal_apc_attack_2.ogg",
+            "text": "Engaging.",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "cyan_ifv": {
+      "name": "Saigon Prism-Lock Tank",
+      "faction": "mvd",
+      "voice": "Schedar",
+      "style": "clinical, focused tank commander",
+      "events": {
+        "select": [
+          {
+            "file": "barks/cyan_ifv_select_1.ogg",
+            "text": "Prism-lock, online.",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_ifv_select_2.ogg",
+            "text": "Saigon armor, ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/cyan_ifv_move_1.ogg",
+            "text": "Repositioning.",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_ifv_move_2.ogg",
+            "text": "Rolling.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/cyan_ifv_attack_1.ogg",
+            "text": "Target painted!",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_ifv_attack_2.ogg",
+            "text": "Prism, fire!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "relay_van": {
+      "name": "Colonel Nguyen Phantom",
+      "faction": "mvd",
+      "voice": "Charon",
+      "style": "quiet, dangerous, confident commander",
+      "events": {
+        "select": [
+          {
+            "file": "barks/relay_van_select_1.ogg",
+            "text": "Phantom here.",
+            "present": false
+          },
+          {
+            "file": "barks/relay_van_select_2.ogg",
+            "text": "Colonel Nguyen. Proceed.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/relay_van_move_1.ogg",
+            "text": "You won't see me.",
+            "present": false
+          },
+          {
+            "file": "barks/relay_van_move_2.ogg",
+            "text": "Moving like smoke.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/relay_van_attack_1.ogg",
+            "text": "Time is on my side.",
+            "present": false
+          },
+          {
+            "file": "barks/relay_van_attack_2.ogg",
+            "text": "Strike now.",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "river_drone": {
+      "name": "Athena Orbital Designator",
+      "faction": "mvd",
+      "voice": "Autonoe",
+      "style": "serene, precise satellite controller",
+      "events": {
+        "select": [
+          {
+            "file": "barks/river_drone_select_1.ogg",
+            "text": "Athena, uplink stable.",
+            "present": false
+          },
+          {
+            "file": "barks/river_drone_select_2.ogg",
+            "text": "Orbit confirmed.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/river_drone_move_1.ogg",
+            "text": "Adjusting position.",
+            "present": false
+          },
+          {
+            "file": "barks/river_drone_move_2.ogg",
+            "text": "Tracking.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/river_drone_attack_1.ogg",
+            "text": "Designating target.",
+            "present": false
+          },
+          {
+            "file": "barks/river_drone_attack_2.ogg",
+            "text": "Aegis ready, strike approved.",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "cyan_sentry": {
+      "name": "Cu Chi Tunnel Hound",
+      "faction": "mvd",
+      "voice": "Sadachbia",
+      "style": "low, gentle dog handler",
+      "events": {
+        "select": [
+          {
+            "file": "barks/cyan_sentry_select_1.ogg",
+            "text": "Hound, steady.",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_sentry_select_2.ogg",
+            "text": "Tunnel team, ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/cyan_sentry_move_1.ogg",
+            "text": "Down the tunnel.",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_sentry_move_2.ogg",
+            "text": "Follow the scent.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/cyan_sentry_attack_1.ogg",
+            "text": "Go! Take them!",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_sentry_attack_2.ogg",
+            "text": "Bark them out!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "charcoal_mortar": {
+      "name": "Mirage Camo-Tank",
+      "faction": "mvd",
+      "voice": "Umbriel",
+      "style": "soft-spoken, sly tank commander",
+      "events": {
+        "select": [
+          {
+            "file": "barks/charcoal_mortar_select_1.ogg",
+            "text": "Mirage, hidden.",
+            "present": false
+          },
+          {
+            "file": "barks/charcoal_mortar_select_2.ogg",
+            "text": "You see nothing.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/charcoal_mortar_move_1.ogg",
+            "text": "Moving unseen.",
+            "present": false
+          },
+          {
+            "file": "barks/charcoal_mortar_move_2.ogg",
+            "text": "Like a shadow.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/charcoal_mortar_attack_1.ogg",
+            "text": "Surprise!",
+            "present": false
+          },
+          {
+            "file": "barks/charcoal_mortar_attack_2.ogg",
+            "text": "Hologram up, fire!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "hub_lifter": {
+      "name": "Mekong Combat Sapper",
+      "faction": "mvd",
+      "voice": "Pulcherrima",
+      "style": "brisk, caring field medic engineer",
+      "events": {
+        "select": [
+          {
+            "file": "barks/hub_lifter_select_1.ogg",
+            "text": "Sapper, kit ready.",
+            "present": false
+          },
+          {
+            "file": "barks/hub_lifter_select_2.ogg",
+            "text": "Need repairs?",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/hub_lifter_move_1.ogg",
+            "text": "On my way.",
+            "present": false
+          },
+          {
+            "file": "barks/hub_lifter_move_2.ogg",
+            "text": "Bringing the tent.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/hub_lifter_attack_1.ogg",
+            "text": "Clearing the path!",
+            "present": false
+          },
+          {
+            "file": "barks/hub_lifter_attack_2.ogg",
+            "text": "Charges set!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "clearance_engineer": {
+      "name": "Viet-Tech Laser Operator",
+      "faction": "mvd",
+      "voice": "Despina",
+      "style": "sharp, technical specialist",
+      "events": {
+        "select": [
+          {
+            "file": "barks/clearance_engineer_select_1.ogg",
+            "text": "Laser operator, ready.",
+            "present": false
+          },
+          {
+            "file": "barks/clearance_engineer_select_2.ogg",
+            "text": "Optics calibrated.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/clearance_engineer_move_1.ogg",
+            "text": "Moving to grid.",
+            "present": false
+          },
+          {
+            "file": "barks/clearance_engineer_move_2.ogg",
+            "text": "Relocating.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/clearance_engineer_attack_1.ogg",
+            "text": "Laser locked!",
+            "present": false
+          },
+          {
+            "file": "barks/clearance_engineer_attack_2.ogg",
+            "text": "Beam on target!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "cyan_gunship": {
+      "name": "Tonkin Supersonic Fighter",
+      "faction": "mvd",
+      "voice": "Sadaltager",
+      "style": "fast, adrenaline jet pilot",
+      "events": {
+        "select": [
+          {
+            "file": "barks/cyan_gunship_select_1.ogg",
+            "text": "Tonkin fighter, wheels up.",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_gunship_select_2.ogg",
+            "text": "Supersonic, ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/cyan_gunship_move_1.ogg",
+            "text": "Going supersonic!",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_gunship_move_2.ogg",
+            "text": "Vector set.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/cyan_gunship_attack_1.ogg",
+            "text": "Missiles away!",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_gunship_attack_2.ogg",
+            "text": "Splash one!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "siege_tube": {
+      "name": "Vindicator Bomber",
+      "faction": "mvd",
+      "voice": "Zubenelgenubi",
+      "style": "deep, deliberate bomber pilot",
+      "events": {
+        "select": [
+          {
+            "file": "barks/siege_tube_select_1.ogg",
+            "text": "Vindicator, on station.",
+            "present": false
+          },
+          {
+            "file": "barks/siege_tube_select_2.ogg",
+            "text": "Bomb bay ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/siege_tube_move_1.ogg",
+            "text": "Inbound.",
+            "present": false
+          },
+          {
+            "file": "barks/siege_tube_move_2.ogg",
+            "text": "Climbing to altitude.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/siege_tube_attack_1.ogg",
+            "text": "Bombs away!",
+            "present": false
+          },
+          {
+            "file": "barks/siege_tube_attack_2.ogg",
+            "text": "Target destroyed, returning.",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "relay_mast": {
+      "name": "Mekong Assault Destroyer",
+      "faction": "mvd",
+      "voice": "Alnilam",
+      "style": "authoritative destroyer captain",
+      "events": {
+        "select": [
+          {
+            "file": "barks/relay_mast_select_1.ogg",
+            "text": "Destroyer, battle stations.",
+            "present": false
+          },
+          {
+            "file": "barks/relay_mast_select_2.ogg",
+            "text": "Mekong fleet.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/relay_mast_move_1.ogg",
+            "text": "Ahead full.",
+            "present": false
+          },
+          {
+            "file": "barks/relay_mast_move_2.ogg",
+            "text": "Heading upriver.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/relay_mast_attack_1.ogg",
+            "text": "Guns, fire!",
+            "present": false
+          },
+          {
+            "file": "barks/relay_mast_attack_2.ogg",
+            "text": "Armor locked, engage!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "charcoal_bike": {
+      "name": "Infiltrator Operative",
+      "faction": "mvd",
+      "voice": "Callirrhoe",
+      "style": "smooth, whispering spy",
+      "events": {
+        "select": [
+          {
+            "file": "barks/charcoal_bike_select_1.ogg",
+            "text": "Operative, in position.",
+            "present": false
+          },
+          {
+            "file": "barks/charcoal_bike_select_2.ogg",
+            "text": "Everyone has a price.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/charcoal_bike_move_1.ogg",
+            "text": "Blending in.",
+            "present": false
+          },
+          {
+            "file": "barks/charcoal_bike_move_2.ogg",
+            "text": "Slipping through.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/charcoal_bike_attack_1.ogg",
+            "text": "Take them quietly.",
+            "present": false
+          },
+          {
+            "file": "barks/charcoal_bike_attack_2.ogg",
+            "text": "Deal's off!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "cyan_skiff": {
+      "name": "Ha Long Hydrofoil",
+      "faction": "mvd",
+      "voice": "Achernar",
+      "style": "quick, upbeat boat pilot",
+      "events": {
+        "select": [
+          {
+            "file": "barks/cyan_skiff_select_1.ogg",
+            "text": "Hydrofoil, skimming.",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_skiff_select_2.ogg",
+            "text": "Ha Long, ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/cyan_skiff_move_1.ogg",
+            "text": "Foils up!",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_skiff_move_2.ogg",
+            "text": "Fast across the bay.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/cyan_skiff_attack_1.ogg",
+            "text": "Scramble their signals!",
+            "present": false
+          },
+          {
+            "file": "barks/cyan_skiff_attack_2.ogg",
+            "text": "Firing!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "hub_hauler": {
+      "name": "Indochina Drone Carrier",
+      "faction": "mvd",
+      "voice": "Rasalgethi",
+      "style": "grand, calm carrier captain",
+      "events": {
+        "select": [
+          {
+            "file": "barks/hub_hauler_select_1.ogg",
+            "text": "Carrier, deck ready.",
+            "present": false
+          },
+          {
+            "file": "barks/hub_hauler_select_2.ogg",
+            "text": "Indochina fleet command.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/hub_hauler_move_1.ogg",
+            "text": "Carrier underway.",
+            "present": false
+          },
+          {
+            "file": "barks/hub_hauler_move_2.ogg",
+            "text": "Changing heading.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/hub_hauler_attack_1.ogg",
+            "text": "Launch all drones!",
+            "present": false
+          },
+          {
+            "file": "barks/hub_hauler_attack_2.ogg",
+            "text": "Blackout, now!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "ch4": {
+      "name": "CH-4",
+      "faction": "black_market",
+      "voice": "Algenib",
+      "style": "flat, professional drone contractor",
+      "events": {
+        "select": [
+          {
+            "file": "barks/ch4_select_1.ogg",
+            "text": "CH-4, on the clock.",
+            "present": false
+          },
+          {
+            "file": "barks/ch4_select_2.ogg",
+            "text": "Contract accepted.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/ch4_move_1.ogg",
+            "text": "Repositioning.",
+            "present": false
+          },
+          {
+            "file": "barks/ch4_move_2.ogg",
+            "text": "Orbiting.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/ch4_attack_1.ogg",
+            "text": "Laser designation, hot.",
+            "present": false
+          },
+          {
+            "file": "barks/ch4_attack_2.ogg",
+            "text": "Missile away.",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "su30": {
+      "name": "Su-30",
+      "faction": "black_market",
+      "voice": "Fenrir",
+      "style": "arrogant ace mercenary pilot",
+      "events": {
+        "select": [
+          {
+            "file": "barks/su30_select_1.ogg",
+            "text": "Su-30, paid in full.",
+            "present": false
+          },
+          {
+            "file": "barks/su30_select_2.ogg",
+            "text": "Flanker, ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/su30_move_1.ogg",
+            "text": "Burners on.",
+            "present": false
+          },
+          {
+            "file": "barks/su30_move_2.ogg",
+            "text": "Vector locked.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/su30_attack_1.ogg",
+            "text": "Glide bombs released!",
+            "present": false
+          },
+          {
+            "file": "barks/su30_attack_2.ogg",
+            "text": "Stand-off strike!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "orlan10": {
+      "name": "Orlan-10",
+      "faction": "black_market",
+      "voice": "Sulafat",
+      "style": "dry, detached spotter",
+      "events": {
+        "select": [
+          {
+            "file": "barks/orlan10_select_1.ogg",
+            "text": "Orlan-10, eyes on.",
+            "present": false
+          },
+          {
+            "file": "barks/orlan10_select_2.ogg",
+            "text": "Camera rolling.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/orlan10_move_1.ogg",
+            "text": "Loitering.",
+            "present": false
+          },
+          {
+            "file": "barks/orlan10_move_2.ogg",
+            "text": "Moving overhead.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/orlan10_attack_1.ogg",
+            "text": "Telemetry linked.",
+            "present": false
+          },
+          {
+            "file": "barks/orlan10_attack_2.ogg",
+            "text": "Artillery, you have the grid.",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    },
+    "flh7": {
+      "name": "FLH7 Squad",
+      "faction": "black_market",
+      "voice": "Zephyr",
+      "style": "slick, rapid squad leader",
+      "events": {
+        "select": [
+          {
+            "file": "barks/flh7_select_1.ogg",
+            "text": "FLH7 squad, frequency set.",
+            "present": false
+          },
+          {
+            "file": "barks/flh7_select_2.ogg",
+            "text": "Mavics ready.",
+            "present": false
+          }
+        ],
+        "move": [
+          {
+            "file": "barks/flh7_move_1.ogg",
+            "text": "Hopping channels.",
+            "present": false
+          },
+          {
+            "file": "barks/flh7_move_2.ogg",
+            "text": "Squad, follow.",
+            "present": false
+          }
+        ],
+        "attack": [
+          {
+            "file": "barks/flh7_attack_1.ogg",
+            "text": "Dive, dive!",
+            "present": false
+          },
+          {
+            "file": "barks/flh7_attack_2.ogg",
+            "text": "Hop and strike!",
+            "present": false
+          }
+        ]
+      },
+      "error": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. "
+    }
+  },
+  "failures": []
+}
