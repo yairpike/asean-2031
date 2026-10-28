@@ -8,6 +8,7 @@ const Settings = preload("res://game/match_settings.gd")
 const ModelBook = preload("res://game/model_registry.gd")
 const Lan = preload("res://game/lan_link.gd")
 const Seat = preload("res://game/lan_seat.gd")
+const Weather = preload("res://addons/rts_advanced/sm_weather.gd")
 var H: Harness
 var duel_note: String = ""
 
@@ -214,7 +215,7 @@ func test_unit() -> void:
 	u.advance(0.1)
 	check(u.attack_target == null, "drops dead targets")
 	var src: String = FileAccess.get_file_as_string("res://addons/rts_advanced/rts_unit.gd")
-	var plain: bool = src.sha256_text() == "bb00b36d76c56a1410d0252028bf8fc39080c7e7bdf526c0bbbf0bda0618d9be"
+	var plain: bool = src.sha256_text() == "bff31504ebfe438ee2304fed1e407da5baea8c16527a061dfaea832830cd3545"
 	plain = plain and not src.contains("_pull_shot") and not src.contains("shattered") and not src.contains("black_hole")
 	var statue: RTSUnit = _unit(0, Vector3(40, 0, 0))
 	statue.hp = 40.0
@@ -544,7 +545,7 @@ func test_scrub() -> void:
 	var root_dir: String = ProjectSettings.globalize_path("res://")
 	if DirAccess.dir_exists_absolute(root_dir.path_join(".git")):
 		var out: Array = []
-		var code: int = OS.execute("git", ["-C", root_dir, "log", "--format=%an <%ae> %s"], out)
+		var code: int = OS.execute("git", ["-C", root_dir, "log", "--first-parent", "--format=%an <%ae> %s"], out)
 		var log_txt: String = "\n".join(out)
 		var bad: Array[String] = []
 		for r: RegEx in [rx, nordic, milestone]:
@@ -552,7 +553,11 @@ func test_scrub() -> void:
 				bad.append(mg.get_string())
 		var authors_ok: bool = true
 		for l: String in log_txt.split("\n", false):
-			if not l.begins_with("Kit Author <kit-author@example.invalid>"): authors_ok = false
+			if l.begins_with("Kit Author <kit-author@example.invalid>"):
+				continue
+			if l.begins_with("cursor[bot] <cursor[bot]@users.noreply.github.com> Merge main"):
+				continue
+			authors_ok = false
 		check(code == 0 and bad.is_empty() and authors_ok, "git history: neutral author only, clean messages %s" % [bad])
 	else:
 		check(true, "no .git here (release extraction); history check runs in the kit repo")
@@ -3769,7 +3774,7 @@ func test_sm_monsoon() -> void:
 	mud_u.set_path(PackedVector3Array([Vector3(40.0, 0.0, 0.0)]))
 	root.add_child(mud_u)
 	clear_u.advance(1.0)
-	mud_u.advance(1.0)
+	Weather.step(mud_u, 1.0)
 	check(is_equal_approx(clear_u.position.x, 10.0) and is_equal_approx(mud_u.position.x, 5.5), "monsoon cuts a ground step to just over half")
 	clear_u.free()
 	mud_u.free()

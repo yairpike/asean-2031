@@ -4,6 +4,7 @@ extends RefCounted
 ## right click ground to move, right click an enemy to attack.
 
 const StatusUnit = preload("res://addons/rts_advanced/sm_status.gd")
+const Weather = preload("res://addons/rts_advanced/sm_weather.gd")
 const PLAYER: int = 0
 const ENEMY: int = 1
 const PICK_PX: float = 28.0
@@ -887,7 +888,7 @@ func tick(delta: float) -> void:
 		_return_fire(u)
 		_press_bridge(u, delta)
 		var before: Vector3 = u.global_position
-		u.advance(delta)
+		Weather.step(u, delta)
 		_crush_under(u, before)
 		_keep_domain(u, before)
 		unit_posed.emit(u, delta)
