@@ -135,13 +135,13 @@ static func briefing_of(id: String) -> String:
 	if id == "kokang":
 		return "Kokang and Mogok. Text briefing. Raise the yard, clear the Orlan recon over the pits, run the ruby night shift, and bring one rare-earth stock home. If the company dies, the raid fails. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
 	if id == "tachileik":
-		return "Tachileik caravan. Text briefing. Break the ambush and the road relief, walk the jade caravan onto the bazaar, then snap the ruby pit and run the night shift until the purse fills."
+		return "Tachileik caravan. Text briefing. Break the ambush and the road relief, walk the jade caravan onto the bazaar, then snap the ruby pit and run the night shift until the purse fills. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
 	if id == "shwe_kokko":
-		return "Shwe Kokko. Text briefing. Destroy the garrison and the river gunboats, capture both server blocks, and siphon the enemy purse."
+		return "Shwe Kokko. Text briefing. Destroy the garrison and the river gunboats, capture both server blocks, and siphon the enemy purse. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
 	if id == "operation_1027":
-		return "Operation 1027. Text briefing. Knock out the junta EW jamming towers while the escorts press in, then destroy the parked Su-30 and CH-4 hangars. The drone swarm can help. Casting it does not end the mission."
+		return "Operation 1027. Text briefing. Knock out the junta EW jamming towers while the escorts press in, then destroy the parked Su-30 and CH-4 hangars. The drone swarm can help. Casting it does not end the mission. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
 	if id == "andaman":
-		return "Andaman breakout. Text briefing. Sink the channel boats and the second wave, then land an amphibious unit on the far shore."
+		return "Andaman breakout. Text briefing. Sink the channel boats and the second wave, then land an amphibious unit on the far shore. An ambush, a blown bridge, a turned guide, and a squall can arrive while you cross. The side cache is optional."
 	if id == "ghosts_of_patani":
 		return "Ghosts of Patani. Text briefing. Destroy every ghost in the jammer, including the shipment guards. GPS guidance drops there. A fiber link does not. Losing the company fails the mission. An ambush, a blown bridge, a turned guide, and a closing sky can arrive while you fight. The side cache is optional."
 	if id == "kilometer_watch":

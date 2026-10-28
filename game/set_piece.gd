@@ -1,7 +1,8 @@
 extends Node
-## Scripted opener for the first mission of each faction.
-## GTFC starts at Kokang, NMRF at Ghosts of Patani, MVD at Fog Over Pakbeng.
+## Scripted opener for a story mission.
 ## Beats are presentation. They do not change the win.
+## A hero line plays from dialogue/<language>/<mission>/<beat>.ogg
+## when that clip exists. Otherwise the subtitle stands alone.
 
 const Clips = preload("res://game/match_audio.gd")
 const Cameos = preload("res://game/match_cameos.gd")
@@ -25,6 +26,7 @@ var wide_distance: float = 42.0
 var faction: String = "gtfc"
 var cameo_id: String = "militia"
 var speaker_name: String = "Night commander"
+var last_voiced: bool = false
 
 var _host: Node3D
 var _clock: float = 0.0
@@ -43,7 +45,7 @@ var _bridge: MeshInstance3D
 static func attach(host: Node3D, id: String) -> void:
 	if host == null:
 		return
-	if id != "kokang" and id != "ghosts_of_patani" and id != "fog_over_pakbeng":
+	if not _covered(id):
 		return
 	if host.get_node_or_null("SetPiece") != null:
 		return
@@ -59,7 +61,7 @@ func open(host: Node3D, id: String) -> void:
 	_cast()
 	_chrome()
 	_span()
-	_say(_opening(), "")
+	_say(_line("open"), "", "open")
 
 func drive(delta: float) -> void:
 	if _host == null:
@@ -84,12 +86,31 @@ func drive(delta: float) -> void:
 	_press_patani()
 	_recount()
 
+static func _covered(id: String) -> bool:
+	return id == "kokang" or id == "tachileik" or id == "shwe_kokko" or id == "operation_1027" or id == "andaman" or id == "ghosts_of_patani" or id == "fog_over_pakbeng"
+
 func _cast() -> void:
 	faction = "gtfc"
 	cameo_id = "militia"
 	speaker_name = "Night commander"
 	bonus_at = Vector3(12.0, 0.0, -8.0)
-	if mission_id == "ghosts_of_patani":
+	if mission_id == "tachileik":
+		cameo_id = "slag_hauler"
+		speaker_name = "Caravan master"
+		bonus_at = Vector3(-16.0, 0.0, 8.0)
+	elif mission_id == "shwe_kokko":
+		cameo_id = "bullion_truck"
+		speaker_name = "Compound runner"
+		bonus_at = Vector3(16.0, 0.0, -10.0)
+	elif mission_id == "operation_1027":
+		cameo_id = "orlan10"
+		speaker_name = "Strip lead"
+		bonus_at = Vector3(-16.0, 0.0, 10.0)
+	elif mission_id == "andaman":
+		cameo_id = "channel_skiff"
+		speaker_name = "Beach master"
+		bonus_at = Vector3(-16.0, 0.0, 8.0)
+	elif mission_id == "ghosts_of_patani":
 		faction = "nmrf"
 		cameo_id = "river_rifle"
 		speaker_name = "River commander"
@@ -100,11 +121,75 @@ func _cast() -> void:
 		speaker_name = "Clearance commander"
 		bonus_at = Vector3(-14.0, 0.0, 8.0)
 
-func _opening() -> String:
+func _line(beat: String) -> String:
+	if mission_id == "tachileik":
+		if beat == "ambush":
+			return "Contact on the jade road."
+		if beat == "bridge":
+			return "The span is cut, and the guide has sold the road."
+		if beat == "relief":
+			return "Two rifles from Tachileik are with the wagon."
+		if beat == "weather":
+			return "Rain on the jade road. Keep the wagon moving."
+		return "The jade wagon is on the road. Break the ambush."
+	if mission_id == "shwe_kokko":
+		if beat == "ambush":
+			return "Garrison in the trees."
+		if beat == "bridge":
+			return "The span drops. The runner turns."
+		if beat == "relief":
+			return "A pair from the river are in."
+		if beat == "weather":
+			return "Rain on the compound. Keep the siphon up."
+		return "Both server blocks are live. Take the compound."
+	if mission_id == "operation_1027":
+		if beat == "ambush":
+			return "Escorts on the strip."
+		if beat == "bridge":
+			return "The span is down. The guide is with the junta."
+		if beat == "relief":
+			return "Two more rifles for the strip."
+		if beat == "weather":
+			return "Rain over the airfield. Finish the towers."
+		return "The jammers are up. The hangars are still parked."
+	if mission_id == "andaman":
+		if beat == "ambush":
+			return "Boats in the cut."
+		if beat == "bridge":
+			return "The span is gone. The pilot turns."
+		if beat == "relief":
+			return "Two rifles from the near shore are in."
+		if beat == "weather":
+			return "The squall is on. Cross while it lasts."
+		return "The channel is held. Land the far shore."
 	if mission_id == "ghosts_of_patani":
+		if beat == "ambush":
+			return "Ambush in the mist."
+		if beat == "bridge":
+			return "The guide turns on us. The span is down."
+		if beat == "relief":
+			return "Boats are in. Hold the company together."
+		if beat == "weather":
+			return "The sky is closing."
 		return "The jammer is live. Fiber holds. GPS does not."
 	if mission_id == "fog_over_pakbeng":
+		if beat == "ambush":
+			return "Raiders in the murk."
+		if beat == "bridge":
+			return "An ally breaks. The span is down."
+		if beat == "relief":
+			return "Relief is on the road."
+		if beat == "weather":
+			return "The haze has closed in. Do not leave the radar."
 		return "The haze is the weapon. Hold the radar."
+	if beat == "ambush":
+		return "Contact on the road. Ambush."
+	if beat == "bridge":
+		return "The slag bridge is cut, and the guide has turned."
+	if beat == "relief":
+		return "Two rifles from the night shift are here."
+	if beat == "weather":
+		return "The rain is on. Keep the company moving."
 	return "Raise the yard before the Orlans find the pits."
 
 func _chrome() -> void:
@@ -224,12 +309,7 @@ func _ambush() -> void:
 	_quiet(SMPointer.ENEMY, Vector3(14.0, 0.0, 7.0), "ambush")
 	_quiet(SMPointer.ENEMY, Vector3(12.0, 0.0, 9.0), "ambush")
 	ambush_spawned = true
-	if mission_id == "ghosts_of_patani":
-		_say("Ambush in the mist.", "base_under_attack")
-	elif mission_id == "fog_over_pakbeng":
-		_say("Raiders in the murk.", "base_under_attack")
-	else:
-		_say("Contact on the road. Ambush.", "base_under_attack")
+	_say(_line("ambush"), "base_under_attack", "ambush")
 
 func _blow() -> void:
 	if _bridge != null:
@@ -245,12 +325,7 @@ func _blow() -> void:
 		turncoat.attack_damage = 0.0
 	betrayed = true
 	bridge_down = true
-	if mission_id == "ghosts_of_patani":
-		_say("The guide turns on us. The span is down.", "unit_lost")
-	elif mission_id == "fog_over_pakbeng":
-		_say("An ally breaks. The span is down.", "unit_lost")
-	else:
-		_say("The slag bridge is cut, and the guide has turned.", "unit_lost")
+	_say(_line("bridge"), "unit_lost", "bridge")
 
 func _reinforce() -> void:
 	var left: RTSUnit = _quiet(SMPointer.PLAYER, Vector3(-11.0, 0.0, -7.0), "relief")
@@ -263,17 +338,12 @@ func _reinforce() -> void:
 		right.speed = 5.0
 		right.set_path(PackedVector3Array([dest + Vector3(1.6, 0.0, 0.4)]))
 	reinforced = true
-	if mission_id == "ghosts_of_patani":
-		_say("Boats are in. Hold the company together.", "")
-	elif mission_id == "fog_over_pakbeng":
-		_say("Relief is on the road.", "")
-	else:
-		_say("Two rifles from the night shift are here.", "")
+	_say(_line("relief"), "", "relief")
 
 func _weather() -> void:
 	weather_turned = true
 	if mission_id == "fog_over_pakbeng":
-		_say("The haze has closed in. Do not leave the radar.", "")
+		_say(_line("weather"), "", "weather")
 		return
 	var sky: SMSight = SMSight.new()
 	sky.force_monsoon(true)
@@ -281,10 +351,7 @@ func _weather() -> void:
 	if hud != null:
 		hud.use_sight(sky)
 		hud.refresh()
-	if mission_id == "ghosts_of_patani":
-		_say("The sky is closing.", "")
-	else:
-		_say("The rain is on. Keep the company moving.", "")
+	_say(_line("weather"), "", "weather")
 
 func _bonus_check() -> void:
 	if bonus_done:
@@ -353,12 +420,13 @@ func _quiet(team: int, at: Vector3, duty: String) -> RTSUnit:
 	u.set_meta("set_piece", true)
 	return u
 
-func _say(text: String, key: String) -> void:
+func _say(text: String, key: String, beat: String) -> void:
 	line_text = text
 	if _subtitle != null:
 		_subtitle.text = text
 	if _speaker != null:
 		_speaker.text = speaker_name
+	last_voiced = Clips.dialogue(_host, mission_id, beat)
 	if key != "":
 		Clips.announce_key(_host, faction, key)
 

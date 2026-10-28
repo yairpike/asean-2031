@@ -2311,7 +2311,7 @@ func test_sm_fx() -> void:
 	await process_frame
 
 func test_set_piece() -> void:
-	for id: String in ["kokang", "ghosts_of_patani", "fog_over_pakbeng"]:
+	for id: String in ["kokang", "tachileik", "shwe_kokko", "operation_1027", "andaman", "ghosts_of_patani", "fog_over_pakbeng"]:
 		SMCampaign.selected = id
 		var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
 		var scene: Node = (load(path) as PackedScene).instantiate()
@@ -2349,11 +2349,26 @@ func test_set_piece() -> void:
 		check(bool(piece.get("bonus_done")) and bool(piece.get("outro_started")) and bool(piece.get("outro_done")) and cam.distance > before + 8.0, "%s can finish the bonus and pulls the camera out" % id)
 		scene.free()
 		await process_frame
-	SMCampaign.selected = "tachileik"
+	SMCampaign.selected = "kilometer_watch"
 	var plain: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
 	root.add_child(plain)
 	await process_frame
 	check(plain.get_node_or_null("SetPiece") == null, "later missions keep the short briefing")
+	var quiet: bool = not (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
+	var clip_root: String = ProjectSettings.globalize_path("res://").path_join("build/web/audio/dialogue/en/tachileik")
+	DirAccess.make_dir_recursive_absolute(clip_root)
+	var clip_path: String = clip_root.path_join("open.ogg")
+	var sting: String = ProjectSettings.globalize_path("res://").path_join("build/web/audio/music/victory_sting.ogg")
+	var wrote: bool = false
+	if FileAccess.file_exists(sting):
+		wrote = DirAccess.copy_absolute(sting, clip_path) == OK
+	Settings.set_voice("malay")
+	var other_tongue: bool = not (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
+	Settings.set_voice("english")
+	var heard: bool = (load("res://game/match_audio.gd") as GDScript).call("dialogue", plain, "tachileik", "open")
+	if FileAccess.file_exists(clip_path):
+		DirAccess.remove_absolute(clip_path)
+	check(quiet and wrote and other_tongue and heard and plain.get_node_or_null("Dialogue") != null, "dialogue plays in the selected language and stays a subtitle otherwise")
 	plain.free()
 	await process_frame
 	SMCampaign.selected = "tachileik"

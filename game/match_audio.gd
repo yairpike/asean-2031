@@ -42,6 +42,8 @@ static var _said: Dictionary = {}
 static var _owner: Node
 static var _bark_index: Dictionary = {}
 static var _line_index: Dictionary = {}
+static var _dialogue_index: Dictionary = {}
+static var _dialogue_state: Dictionary = {}
 static var _index_state: Dictionary = {}
 static var _blocked: Dictionary = {}
 static var _unit_faction: Dictionary = {}
@@ -101,7 +103,7 @@ static func current_title() -> String:
 	return now_title
 
 static func is_lazy(rel: String) -> bool:
-	if rel.begins_with("music/user/") or rel.begins_with("announcer/"):
+	if rel.begins_with("music/user/") or rel.begins_with("announcer/") or rel.begins_with("dialogue/"):
 		return true
 	var parts: PackedStringArray = rel.split("/")
 	return parts.size() >= 3 and parts[0] == "barks"
@@ -124,6 +126,51 @@ static func alert_key(text: String) -> String:
 
 static func announce_line(host: Node, faction: String, text: String) -> void:
 	announce_key(host, faction, alert_key(text))
+
+## Hero dialogue for one mission beat. The selected language only.
+## dialogue/<lang>/<mission>/<beat>.ogg plays when that file is present.
+## A missing clip leaves the subtitle on screen and plays nothing.
+static func dialogue(host: Node, mission_id: String, beat: String) -> bool:
+	if host == null or not _clip_name(mission_id) or not _clip_name(beat):
+		return false
+	var lang: String = _lang()
+	if lang != "en" and lang != "my" and lang != "zh" and lang != "th" and lang != "ms":
+		return false
+	var rel: String = "dialogue/%s/%s/%s.ogg" % [lang, mission_id, beat]
+	if bool(_blocked.get(rel, false)) or not _accepted(rel):
+		return false
+	var listed: bool = false
+	if OS.has_feature("web"):
+		_pull_dialogue(lang)
+		var names: PackedStringArray = _dialogue_index.get(lang, PackedStringArray())
+		listed = names.has("%s/%s.ogg" % [mission_id, beat])
+	if not _ready(rel) and not listed:
+		return false
+	_buses()
+	var player: AudioStreamPlayer = _ensure(host, "Dialogue")
+	player.bus = "Radio"
+	player.volume_db = -2.0
+	_assign(player, rel, false)
+	return player.stream != null or bool(player.get_meta("fetching", false))
+
+static func _clip_name(id: String) -> bool:
+	if id == "" or id.length() > 40:
+		return false
+	for i: int in id.length():
+		var c: String = id.substr(i, 1)
+		var ok: bool = (c >= "a" and c <= "z") or (c >= "0" and c <= "9") or c == "_"
+		if not ok:
+			return false
+	return true
+
+static func _pull_dialogue(lang: String) -> void:
+	if _dialogue_state.has(lang):
+		return
+	if not OS.has_feature("web") or _owner == null or not is_instance_valid(_owner):
+		_dialogue_state[lang] = "ready"
+		return
+	_dialogue_state[lang] = "loading"
+	_fetch_index(lang, "dialogue/%s/index.txt" % lang, "dialogue")
 
 static func announce_key(host: Node, faction: String, key: String) -> void:
 	if host == null or key == "":
@@ -1174,6 +1221,10 @@ static func _got_index(result: int, code: int, _headers: PackedStringArray, body
 static func _finish_index(lang: String, kind: String, names: PackedStringArray) -> void:
 	if kind == "barks":
 		_bark_index[lang] = names
+	elif kind == "dialogue":
+		_dialogue_index[lang] = names
+		_dialogue_state[lang] = "ready"
+		return
 	else:
 		_line_index[lang] = names
 	if _bark_index.has(lang) and _line_index.has(lang):
