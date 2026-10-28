@@ -5,9 +5,10 @@ extends RefCounted
 ## Missing files leave the procedural cues in place.
 ## User songs live in music/user/ and are fetched one at a time. They are
 ## not part of the startup clip list.
-## Voice lines live in barks/<lang>/ and announcer/<lang>/<faction>/.
-## Languages are english, burmese, mandarin, thai, and malay.
-## A missing take uses the english folder, then the flat english file.
+## Voice lines live in barks/<folder>/ and announcer/<folder>/<faction>/.
+## Settings ids are english, burmese, mandarin, thai, and malay.
+## Those map to the folders on disk: en, my, zh, th, and ms.
+## A missing take uses the en folder, then the flat english file.
 ## The web build fetches only the selected language.
 
 static var _cache: Dictionary = {}
@@ -124,9 +125,10 @@ static func note_voice(owner: Node) -> void:
 	if _owner != null and not is_instance_valid(_owner):
 		_owner = null
 	var lang: String = _lang()
-	if _index_state.has(lang):
-		return
-	_pull_index(lang)
+	if not _index_state.has(lang):
+		_pull_index(lang)
+	if lang != "en" and not _index_state.has("en"):
+		_pull_index("en")
 
 static func _gap(key: String) -> int:
 	if key == "base_under_attack":
@@ -157,6 +159,11 @@ static func tick(host: Node) -> void:
 		return
 	_at = (_at + 1) % _queue.size()
 	_play_current(host)
+
+static func cue_clip(kind: String) -> AudioStream:
+	if kind == "" or kind.contains("/") or kind.contains(".") or kind.contains("\\"):
+		return null
+	return _stream("sfx/%s.ogg" % kind)
 
 static func clip_for(unit_id: String, event: String) -> AudioStream:
 	if unit_id == "":
@@ -404,10 +411,7 @@ static func _variants(unit_id: String, event: String) -> PackedStringArray:
 	return found
 
 static func _lang() -> String:
-	var id: String = Settings.voice
-	if id == "burmese" or id == "mandarin" or id == "thai" or id == "malay":
-		return id
-	return "english"
+	return Settings.voice_folder(Settings.voice)
 
 static func _best(kind: String, tail: String) -> String:
 	var lang: String = _lang()
@@ -416,12 +420,12 @@ static func _best(kind: String, tail: String) -> String:
 	_kick(preferred, lang)
 	if _ready(preferred):
 		return preferred
-	if lang != "english":
-		var english: String = "%s/english/%s" % [kind, tail]
+	if lang != "en":
+		var english: String = "%s/en/%s" % [kind, tail]
 		if _ready(english):
 			return english
 		if not _listed(preferred) and _index_state.get(lang, "") == "ready":
-			_kick(english, "english")
+			_kick(english, "en")
 			if _ready(english):
 				return english
 	var flat: String = "%s/%s" % [kind, tail]
@@ -437,7 +441,7 @@ static func _ready(rel: String) -> bool:
 static func _kick(rel: String, lang: String) -> void:
 	if not OS.has_feature("web") or _owner == null or not is_instance_valid(_owner) or not _listed(rel):
 		return
-	if lang != _lang() and lang != "english":
+	if lang != _lang() and lang != "en":
 		return
 	if lang != _lang() and _ready(rel):
 		return
@@ -460,7 +464,7 @@ static func _pull_index(lang: String) -> void:
 	if not OS.has_feature("web") or _owner == null:
 		_index_state[lang] = "ready"
 		return
-	if lang != _lang():
+	if lang != _lang() and lang != "en":
 		return
 	_index_state[lang] = "loading"
 	_fetch_index(lang, "barks/%s/index.txt" % lang, "barks")

@@ -37,7 +37,7 @@ The stand-ins in this folder were built to these limits. Two or three materials 
 
 ## Faction colour
 
-`Body` is multiplied by the faction primary. MVD's charcoal and Black Market's near-black are lifted first, so they do not multiply down to plain grey. `Trim` is set to the faction accent. A model with no `Trim` surface keeps the primary on every other surface. `Wake` is not recolored.
+`Body` is multiplied by about 60% of the faction primary, mixed into a dark ground so the palette shading stays visible. MVD's charcoal and Black Market's near-black are lifted first, so they do not multiply down to plain grey. `Trim` is set to the faction accent. A model with no `Trim` surface keeps the shaded primary on every other surface. `Wake` is not recolored. A frozen loaded model draws the ice shader as an overlay and does not replace those materials.
 
 ## Web
 

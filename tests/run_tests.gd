@@ -876,7 +876,8 @@ func test_sm_greybox() -> void:
 		body_mat = troop_body.get_surface_override_material(0) as StandardMaterial3D
 		if troop_body.mesh.get_surface_count() > 1:
 			trim_mat = troop_body.get_surface_override_material(1) as StandardMaterial3D
-	check(dressed_troop and body_mat != null and trim_mat != null and body_mat.albedo_color.is_equal_approx(Color.html("#B81E2D")) and trim_mat.albedo_color.is_equal_approx(Color.html("#E0A106")) and troop_body.material_override == null, "militia body stays crimson and trim is amber")
+	var shaded: Color = ModelBook.body_shade(Color.html("#B81E2D"))
+	check(dressed_troop and body_mat != null and trim_mat != null and body_mat.albedo_color.is_equal_approx(shaded) and shaded.r < 0.62 and shaded.r > 0.4 and trim_mat.albedo_color.is_equal_approx(Color.html("#E0A106")) and troop_body.material_override == null, "militia body keeps a dark crimson and trim is amber")
 	var loaded: MeshInstance3D = MeshInstance3D.new()
 	loaded.set_meta("model", "Model")
 	var loaded_gun: MeshInstance3D = MeshInstance3D.new()
@@ -884,8 +885,17 @@ func test_sm_greybox() -> void:
 	loaded_gun.mesh = BoxMesh.new()
 	loaded.add_child(loaded_gun)
 	host.add_child(loaded)
-	Forms.paint_status(loaded, StandardMaterial3D.new())
-	check(loaded.material_override == null and loaded_gun.material_override == null, "a loaded model does not override turret materials")
+	var fx_script: GDScript = load("res://game/fx_view.gd") as GDScript
+	var ice: Material = fx_script.call("ice_material") as Material
+	Forms.paint_status(loaded, ice)
+	check(loaded.material_override == null and loaded_gun.material_override == null and loaded_gun.material_overlay == ice, "a frozen loaded model keeps its paint and shows ice")
+	Forms.paint_status(loaded, null)
+	check(loaded_gun.material_overlay == null, "thawing a loaded model clears the ice")
+	var shadowed: MeshInstance3D = Forms.dress_unit("militia", "infantry", "ground", Color.WHITE, Color.html("#B81E2D"), Color.html("#E0A106"))
+	host.add_child(shadowed)
+	var blob: MeshInstance3D = shadowed.get_node_or_null("ContactShadow") as MeshInstance3D
+	var blob_mat: StandardMaterial3D = null if blob == null else blob.material_override as StandardMaterial3D
+	check(blob != null and blob_mat != null and blob_mat.albedo_texture != null and (blob.mesh as PlaneMesh).size.x > 0.5, "a loaded unit keeps a blob shadow")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(probe))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(probe + ".import"))
 	host.free()
@@ -913,6 +923,32 @@ func test_sm_phillips() -> void:
 	var terrain_land: MeshInstance3D = scene.get_node_or_null("TerrainLand") as MeshInstance3D
 	var terrain_water: MeshInstance3D = scene.get_node_or_null("TerrainWater") as MeshInstance3D
 	check(terrain_land != null and terrain_water != null and terrain_water.get_active_material(0) is ShaderMaterial, "phillips meshes the banks and shades the channel")
+	var mud_mesh: MeshInstance3D = scene.get_node_or_null("TerrainMud") as MeshInstance3D
+	var mud_mat: ShaderMaterial = null if mud_mesh == null else mud_mesh.get_active_material(0) as ShaderMaterial
+	var mud_contrast: float = 1.0 if mud_mat == null else float(mud_mat.get_shader_parameter("contrast"))
+	check(mud_mat != null and mud_contrast < 0.55 and mud_contrast > 0.2, "mud contrast is pulled toward a flat brown")
+	var ground_arrays: Array = []
+	if terrain_land != null and terrain_land.mesh != null:
+		ground_arrays = terrain_land.mesh.surface_get_arrays(0)
+	var ground_uv: PackedVector2Array = ground_arrays[Mesh.ARRAY_TEX_UV] if ground_arrays.size() > Mesh.ARRAY_TEX_UV else PackedVector2Array()
+	var ground_xyz: PackedVector3Array = ground_arrays[Mesh.ARRAY_VERTEX] if not ground_arrays.is_empty() else PackedVector3Array()
+	var uv_span: float = 0.0
+	var uv_i: int = 1
+	while uv_i < ground_xyz.size() and uv_i < 24 and uv_i < ground_uv.size():
+		var dx: float = absf(ground_xyz[uv_i].x - ground_xyz[0].x)
+		if dx > 0.2:
+			uv_span = absf(ground_uv[uv_i].x - ground_uv[0].x) / dx
+			break
+		uv_i += 1
+	check(uv_span > 2.5, "ground tiles repeat several times across a cell")
+	var help_button: Button = scene.find_child("HelpButton", true, false) as Button
+	var howto_title: Label = scene.find_child("HowToTitle", true, false) as Label
+	var power_label: Label = scene.find_child("HudPower", true, false) as Label
+	var help_font: Font = null if help_button == null else help_button.get_theme_font("font")
+	var title_face: Font = null if howto_title == null else howto_title.get_theme_font("font")
+	var power_font: Font = null if power_label == null else power_label.get_theme_font("font")
+	check(help_font != null and str(help_font.resource_path).contains("OperationNapalm") and power_font != null and str(power_font.resource_path).contains("OperationNapalm"), "hud body text uses Operation Napalm")
+	check(title_face != null and str(title_face.resource_path).contains("Warheed"), "hud headers use Warheed")
 	var jungle: MultiMeshInstance3D = scene.get_node_or_null("JungleTrees") as MultiMeshInstance3D
 	check(jungle != null and jungle.multimesh != null and jungle.multimesh.instance_count > 8, "phillips plants a stand of jungle trees")
 	var palms: MultiMeshInstance3D = scene.get_node_or_null("Palms") as MultiMeshInstance3D
@@ -3003,9 +3039,12 @@ func test_sm_bark() -> void:
 				barks_ok = false
 	check(barks_ok, "the nine shipped units decode both bark takes")
 	check(clips.call("clip_for", "militia", "select") != null, "a shipped bark is chosen for playback")
+	check(Settings.voice_folder("english") == "en" and Settings.voice_folder("burmese") == "my" and Settings.voice_folder("mandarin") == "zh" and Settings.voice_folder("thai") == "th" and Settings.voice_folder("malay") == "ms", "voice settings map onto en my zh th ms")
 	Settings.set_voice("thai")
-	check(clips.call("clip_for", "militia", "select") != null and clips.call("clip_for", "crimson_sapper", "select") != null, "a missing language falls back to the English bark")
+	check(clips.call("_best", "barks", "militia_select_1.ogg") == "barks/th/militia_select_1.ogg", "thai plays the th take")
+	check(clips.call("_best", "barks", "crimson_sapper_select_1.ogg") == "barks/en/crimson_sapper_select_1.ogg", "a missing language take falls back to en")
 	Settings.set_voice("english")
+	check(clips.call("_best", "barks", "militia_select_1.ogg") == "barks/en/militia_select_1.ogg", "english plays the en take")
 	check(clips.call("clip_for", "not_a_unit", "select") == null, "a missing bark stays empty for the tone")
 	check(clips.call("_stream", "barks/crimson_sapper_select_2.ogg") != null, "the sapper select line plays")
 	check(clips.call("clip_for", "crimson_sapper", "select") != null, "the sapper still has a select line")

@@ -6,6 +6,7 @@ var player: AudioStreamPlayer
 var voice: AudioStreamPlayer
 var cue_level: Callable
 var clip_for: Callable
+var cue_for: Callable
 
 func mount(parent: Node) -> void:
 	player = AudioStreamPlayer.new()
@@ -27,7 +28,12 @@ func play(kind: String) -> void:
 	if player == null:
 		return
 	player.volume_db = _volume(-8.0)
-	player.stream = SMTone.cue(kind)
+	var clip: AudioStream = null
+	if cue_for.is_valid():
+		var got: Variant = cue_for.call(kind)
+		if got is AudioStream:
+			clip = got
+	player.stream = clip if clip != null else SMTone.cue(kind)
 	player.play()
 
 func bark(pitch: float, unit_id: String = "", event: String = "") -> void:

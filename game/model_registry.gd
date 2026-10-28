@@ -37,6 +37,10 @@ static func body_ink(primary: Color) -> Color:
 		ink = ink.lerp(Color(0.62, 0.46, 0.30), 0.4)
 	return ink
 
+## About 60% of the lifted faction colour, mixed into a dark ground so the palette stays shaded.
+static func body_shade(primary: Color) -> Color:
+	return body_ink(primary).lerp(Color(0.16, 0.15, 0.13), 0.4)
+
 static func warm(owner: Node) -> void:
 	if owner == null or not OS.has_feature("web"):
 		return
@@ -184,7 +188,7 @@ static func _from_gltf(path: String) -> Node3D:
 	return generated as Node3D
 
 static func _paint(root: Node3D, primary: Color, accent: Color) -> void:
-	var ink: Color = body_ink(primary)
+	var ink: Color = body_shade(primary)
 	_paint_node(root, ink, accent)
 
 static func _paint_node(node: Node, primary: Color, accent: Color) -> void:
@@ -209,9 +213,13 @@ static func _paint_surfaces(mesh_node: MeshInstance3D, primary: Color, accent: C
 		if name == "trim" or str(mesh_node.name).to_lower() == "trim":
 			mat.albedo_color = accent
 			mat.albedo_texture = null
+			mat.roughness = 0.55
+			mat.metallic = 0.0
 			mat.resource_name = "Trim"
 		else:
 			mat.albedo_color = primary
+			mat.roughness = 0.84
+			mat.metallic = 0.0
 			mat.resource_name = "Body"
 		mesh_node.set_surface_override_material(surface, mat)
 

@@ -127,6 +127,7 @@ static func _on_layer(who: SMHud, layer: CanvasLayer) -> void:
 		return
 	who.sfx.cue_level = Callable(Settings, "cue_db")
 	who.sfx.clip_for = Callable(Clips, "clip_for")
+	who.sfx.cue_for = Callable(Clips, "cue_clip")
 	Clips.color_voice(who.sfx)
 	who.sfx.apply_levels()
 

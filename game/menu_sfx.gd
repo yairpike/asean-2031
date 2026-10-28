@@ -2,6 +2,7 @@ extends RefCounted
 ## Short menu ticks on the SFX bus. Recorded UI files replace the tones when they land.
 
 const Settings = preload("res://game/match_settings.gd")
+const Clips = preload("res://game/match_audio.gd")
 
 static var _player: AudioStreamPlayer
 
@@ -15,7 +16,8 @@ static func play(host: Node, kind: String) -> void:
 		_player.bus = "SFX"
 		host.get_tree().root.add_child(_player)
 	_player.bus = "SFX"
-	_player.stream = SMTone.cue(kind)
+	var clip: AudioStream = Clips.cue_clip(kind)
+	_player.stream = clip if clip != null else SMTone.cue(kind)
 	_player.play()
 
 static func _bus() -> void:

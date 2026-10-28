@@ -32,6 +32,10 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	var mud: SurfaceTool = _begin(_ground("mud", false))
 	var sand: SurfaceTool = _begin(_ground("sand", false))
 	var road: SurfaceTool = _begin(_ground("road", false))
+	var land_fade: SurfaceTool = _begin(_ground(land_stem, profile != "atolls", true))
+	var mud_fade: SurfaceTool = _begin(_ground("mud", false, true))
+	var sand_fade: SurfaceTool = _begin(_ground("sand", false, true))
+	var road_fade: SurfaceTool = _begin(_ground("road", false, true))
 	var water: SurfaceTool = _begin(_water_material())
 	var paddy: SurfaceTool = _begin(_ground("paddy", false))
 	var trees: Array[Transform3D] = []
@@ -42,6 +46,10 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	var mud_n: int = 0
 	var sand_n: int = 0
 	var road_n: int = 0
+	var land_fade_n: int = 0
+	var mud_fade_n: int = 0
+	var sand_fade_n: int = 0
+	var road_fade_n: int = 0
 	var water_n: int = 0
 	var paddy_n: int = 0
 	for y: int in grid.rows:
@@ -73,7 +81,15 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 			else:
 				_sloped(land, grid, cell, high, ink)
 				land_n += 1
-			_blend(profile, grid, cell, kind, high, shade, land, mud, sand, road)
+			var fade_kind: String = _blend(profile, grid, cell, kind, high, shade, land_fade, mud_fade, sand_fade, road_fade)
+			if fade_kind.contains("land"):
+				land_fade_n += 1
+			if fade_kind.contains("mud"):
+				mud_fade_n += 1
+			if fade_kind.contains("sand"):
+				sand_fade_n += 1
+			if fade_kind.contains("road"):
+				road_fade_n += 1
 			if domain != SMDomainGrid.Domain.LAND or _busy(profile, cell) or cut:
 				continue
 			var roll: int = _hash(x, y)
@@ -100,6 +116,10 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 		_commit(host, "TerrainRoad", road, true)
 	if paddy_n > 0:
 		_commit(host, "Paddy", paddy, true)
+	_commit(host, "TerrainLandBlend", land_fade, land_fade_n > 0)
+	_commit(host, "TerrainMudBlend", mud_fade, mud_fade_n > 0)
+	_commit(host, "TerrainSandBlend", sand_fade, sand_fade_n > 0)
+	_commit(host, "TerrainRoadBlend", road_fade, road_fade_n > 0)
 	_multi(host, "JungleTrees", _prop("tree"), trees)
 	_multi(host, "Palms", _prop("palm"), palms)
 	_multi(host, "Houses", _prop("house"), houses)
@@ -326,8 +346,9 @@ static func _ink(kind: String, tint: Color, shade: float, alpha: float) -> Color
 		return Color(tint.r * shade, tint.g * shade, tint.b * shade, alpha)
 	return Color(shade, shade, shade, alpha)
 
-static func _blend(profile: String, grid: SMDomainGrid, cell: Vector2i, kind: String, high: float, shade: float, land: SurfaceTool, mud: SurfaceTool, sand: SurfaceTool, road: SurfaceTool) -> void:
+static func _blend(profile: String, grid: SMDomainGrid, cell: Vector2i, kind: String, high: float, shade: float, land: SurfaceTool, mud: SurfaceTool, sand: SurfaceTool, road: SurfaceTool) -> String:
 	var dirs: Array[Vector2i] = [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]
+	var used: PackedStringArray = PackedStringArray()
 	for dir: Vector2i in dirs:
 		var next: Vector2i = cell + dir
 		if next.x < 0 or next.y < 0 or next.x >= grid.cols or next.y >= grid.rows:
@@ -342,7 +363,10 @@ static func _blend(profile: String, grid: SMDomainGrid, cell: Vector2i, kind: St
 			tool = sand
 		elif neighbor == "mud":
 			tool = mud
-		_sloped(tool, grid, cell, high + 0.03, Color(shade, shade, shade, 0.28))
+		_fade(tool, grid, cell, high + 0.045, Color(shade, shade, shade, 1.0), dir)
+		if not used.has(neighbor):
+			used.append(neighbor)
+	return ",".join(used)
 
 static func _sky(host: Node3D) -> void:
 	var env: WorldEnvironment = host.find_child("WorldEnvironment", false, false) as WorldEnvironment
@@ -382,9 +406,39 @@ static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector
 	_vert(st, d, color)
 
 static func _vert(st: SurfaceTool, p: Vector3, color: Color) -> void:
-	st.set_uv(Vector2(p.x, p.z) / 1.55)
+	st.set_uv(Vector2(p.x, p.z) / 0.32)
 	st.set_color(color)
 	st.add_vertex(p)
+
+static func _fade(st: SurfaceTool, grid: SMDomainGrid, cell: Vector2i, high: float, color: Color, dir: Vector2i) -> void:
+	var c: Vector3 = grid.cell_center(cell)
+	var h: float = grid.cell_size * 0.54
+	var y00: float = _corner(grid, cell, -1, -1, high)
+	var y10: float = _corner(grid, cell, 1, -1, high)
+	var y11: float = _corner(grid, cell, 1, 1, high)
+	var y01: float = _corner(grid, cell, -1, 1, high)
+	var p00: Vector3 = Vector3(c.x - h, y00, c.z - h)
+	var p10: Vector3 = Vector3(c.x + h, y10, c.z - h)
+	var p11: Vector3 = Vector3(c.x + h, y11, c.z + h)
+	var p01: Vector3 = Vector3(c.x - h, y01, c.z + h)
+	var c00: Color = _fade_color(color, dir, -1, -1)
+	var c10: Color = _fade_color(color, dir, 1, -1)
+	var c11: Color = _fade_color(color, dir, 1, 1)
+	var c01: Color = _fade_color(color, dir, -1, 1)
+	_vert(st, p00, c00)
+	_vert(st, p10, c10)
+	_vert(st, p11, c11)
+	_vert(st, p00, c00)
+	_vert(st, p11, c11)
+	_vert(st, p01, c01)
+
+static func _fade_color(color: Color, dir: Vector2i, sx: int, sz: int) -> Color:
+	var along: float = 0.0
+	if dir.x != 0:
+		along = 1.0 if sx == dir.x else 0.0
+	else:
+		along = 1.0 if sz == dir.y else 0.0
+	return Color(color.r, color.g, color.b, color.a * along)
 
 static func _box(st: SurfaceTool, c: Vector3, s: Vector3, color: Color) -> void:
 	var hx: float = s.x * 0.5
@@ -411,22 +465,21 @@ static func _land_material() -> StandardMaterial3D:
 		_land_ink.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return _land_ink
 
-static func _ground(stem: String, tint: bool) -> StandardMaterial3D:
-	var key: String = "ground:%s:%s" % [stem, str(tint)]
+static func _ground(stem: String, tint: bool, fade: bool = false) -> ShaderMaterial:
+	var key: String = "ground:%s:%s:%s" % [stem, str(tint), str(fade)]
 	if _prop_cache.has(key):
-		return _prop_cache[key] as StandardMaterial3D
-	var mat := StandardMaterial3D.new()
-	mat.roughness = 0.92
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.vertex_color_use_as_albedo = true
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
+		return _prop_cache[key] as ShaderMaterial
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://game/shaders/ground_fade.gdshader" if fade else "res://game/shaders/ground_tile.gdshader")
+	if fade:
+		mat.render_priority = 2
 	var tex: Texture2D = Art.texture("terrain/%s.webp" % stem)
 	if tex != null:
-		mat.albedo_texture = tex
-		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	if not tint and tex == null:
-		mat.vertex_color_use_as_albedo = true
+		mat.set_shader_parameter("albedo_tex", tex)
+		mat.set_shader_parameter("use_tex", 1.0)
+	if stem == "mud":
+		mat.set_shader_parameter("contrast", 0.28)
+		mat.set_shader_parameter("tone_mid", Color(0.32, 0.24, 0.15))
 	_prop_cache[key] = mat
 	return mat
 

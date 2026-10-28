@@ -9,6 +9,7 @@ const Models = preload("res://game/model_registry.gd")
 
 static var _ink: StandardMaterial3D
 static var _foam: StandardMaterial3D
+static var _blob: Texture2D
 static var _cache: Dictionary = {}
 
 static func dress_unit(kind: String, role: String, loco: String, accent: Color, primary: Color = Color.WHITE, trim: Color = Color.WHITE) -> MeshInstance3D:
@@ -32,6 +33,7 @@ static func dress_unit(kind: String, role: String, loco: String, accent: Color, 
 	var body_ink: Color = primary if not primary.is_equal_approx(Color.WHITE) or accent.is_equal_approx(Color.WHITE) else accent
 	var trim_ink: Color = trim if not trim.is_equal_approx(Color.WHITE) or accent.is_equal_approx(Color.WHITE) else accent
 	Models.apply_unit(body, kind, body_ink, trim_ink)
+	_seat_shadow(body)
 	return body
 
 static func dress_structure(mi: MeshInstance3D, size: Vector3, accent: Color) -> bool:
@@ -68,6 +70,7 @@ static func paint_status(body: MeshInstance3D, mat: Material) -> void:
 	if body == null:
 		return
 	if str(body.get_meta("model", "")) != "":
+		_paint_overlay(body, mat)
 		return
 	body.material_override = mat
 	var turret: MeshInstance3D = body.get_node_or_null("Turret") as MeshInstance3D
@@ -76,6 +79,45 @@ static func paint_status(body: MeshInstance3D, mat: Material) -> void:
 	var rotor: MeshInstance3D = body.get_node_or_null("Rotor") as MeshInstance3D
 	if rotor != null:
 		rotor.material_override = mat
+
+static func _paint_overlay(node: Node, mat: Material) -> void:
+	_coat(node, mat)
+	if mat != null:
+		return
+	_clear_coats(node)
+
+static func _coat(node: Node, mat: Material) -> void:
+	if str(node.name) == "IceCoat":
+		return
+	var mesh_node: MeshInstance3D = node as MeshInstance3D
+	if mesh_node != null:
+		var node_name: String = str(mesh_node.name)
+		if node_name != "Wake" and node_name != "ContactShadow":
+			mesh_node.material_overlay = mat
+			if mesh_node.mesh != null and mat != null:
+				var coat: MeshInstance3D = mesh_node.get_node_or_null("IceCoat") as MeshInstance3D
+				if coat == null:
+					coat = MeshInstance3D.new()
+					coat.name = "IceCoat"
+					coat.mesh = mesh_node.mesh
+					coat.scale = Vector3(1.03, 1.03, 1.03)
+					coat.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+					mesh_node.add_child(coat)
+				coat.material_override = mat
+	for child: Node in node.get_children():
+		if str(child.name) == "IceCoat":
+			continue
+		_coat(child, mat)
+
+static func _clear_coats(node: Node) -> void:
+	var coats: Array[Node] = []
+	for child: Node in node.get_children():
+		if str(child.name) == "IceCoat":
+			coats.append(child)
+		else:
+			_clear_coats(child)
+	for coat: Node in coats:
+		coat.free()
 
 static func unit_form(kind: String, role: String, loco: String) -> String:
 	var id: String = kind.to_lower()
@@ -340,15 +382,45 @@ static func _shadow(body: MeshInstance3D, form: String) -> void:
 	var plane := PlaneMesh.new()
 	plane.size = _shadow_size(form)
 	quad.mesh = plane
-	quad.position = Vector3(0.0, 0.03, 0.0)
+	quad.position = Vector3(0.0, 0.25, 0.0)
 	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.0, 0.0, 0.0, 0.45)
+	mat.albedo_color = Color(0.0, 0.0, 0.0, 1.0)
+	mat.albedo_texture = _blob_tex()
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
 	quad.material_override = mat
 	body.add_child(quad)
+
+static func _blob_tex() -> Texture2D:
+	if _blob != null:
+		return _blob
+	var img: Image = Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	for y: int in 64:
+		for x: int in 64:
+			var d: float = Vector2(float(x) - 31.5, float(y) - 31.5).length() / 31.5
+			var t: float = clampf((d - 0.05) / 0.95, 0.0, 1.0)
+			var a: float = (1.0 - t) * (1.0 - t) * 0.92
+			img.set_pixel(x, y, Color(0.0, 0.0, 0.0, a))
+	_blob = ImageTexture.create_from_image(img)
+	return _blob
+
+static func _seat_shadow(body: MeshInstance3D) -> void:
+	var shadow: MeshInstance3D = body.get_node_or_null("ContactShadow") as MeshInstance3D
+	var model: Node3D = body.get_node_or_null("Model") as Node3D
+	if shadow == null or model == null:
+		return
+	var local: AABB = Models._merged_aabb(model)
+	if local.size.length() < 0.01:
+		return
+	var placed: AABB = model.transform * local
+	var plane: PlaneMesh = shadow.mesh as PlaneMesh
+	if plane == null:
+		return
+	plane.size = Vector2(maxf(placed.size.x, 0.7) * 1.45, maxf(placed.size.z, 0.7) * 1.45)
+	shadow.position = Vector3(placed.get_center().x, 0.25, placed.get_center().z)
 
 static func _shadow_size(form: String) -> Vector2:
 	if form == "figure" or form == "hero":

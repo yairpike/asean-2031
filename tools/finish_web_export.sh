@@ -189,9 +189,9 @@ if [ -n "$AUDIO_SRC" ]; then
   find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' ! -path '*/music/user/*' ! -path '*/barks/*/*' 2>/dev/null \
     | sed "s#^$DEST/audio/##" \
     | sort > "$DEST/audio/clips.txt"
-  for lang in english burmese mandarin thai malay; do
+  for lang in en my zh th ms english burmese mandarin thai malay; do
     if [ -d "$DEST/audio/barks/$lang" ]; then
-      find "$DEST/audio/barks/$lang" -maxdepth 1 -type f -name '*.ogg' -printf '%f\n' | sort > "$DEST/audio/barks/$lang/index.txt"
+      find "$DEST/audio/barks/$lang" -maxdepth 1 -type f -name '*.ogg' ! -name '*.conflict.ogg' -printf '%f\n' | sort > "$DEST/audio/barks/$lang/index.txt"
     fi
     if [ -d "$DEST/audio/announcer/$lang" ]; then
       find "$DEST/audio/announcer/$lang" -type f -name '*.ogg' \

@@ -103,6 +103,17 @@ static func restore() -> void:
 	voice = "english"
 	_write()
 
+static func voice_folder(id: String) -> String:
+	if id == "burmese":
+		return "my"
+	if id == "mandarin":
+		return "zh"
+	if id == "thai":
+		return "th"
+	if id == "malay":
+		return "ms"
+	return "en"
+
 static func voice_name(id: String) -> String:
 	if id == "burmese":
 		return "Burmese"
