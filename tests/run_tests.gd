@@ -3169,9 +3169,13 @@ func test_sm_bark() -> void:
 	var market_order: PackedStringArray = clips.call("_order_for", "en", "black_market") as PackedStringArray
 	var thai_order: PackedStringArray = clips.call("_order_for", "th", "gtfc") as PackedStringArray
 	check(wanted == PackedStringArray(["en", "my", "th"]), "english on GTFC fetches Burmese and Thai")
+	SMFront.faction_id = "black_market"
+	var market_fetch: PackedStringArray = clips.call("_wanted_langs") as PackedStringArray
+	SMFront.faction_id = "gtfc"
+	check(market_fetch == PackedStringArray(["en", "ms"]), "english on the black market fetches Malay")
 	check(nmrf_order == PackedStringArray(["en", "ms"]), "english on NMRF falls back to Malay")
 	check(mvd_order == PackedStringArray(["en", "zh"]), "english on MVD falls back to Mandarin")
-	check(market_order == PackedStringArray(["en"]), "english on the black market has no faction fallback")
+	check(market_order == PackedStringArray(["en", "ms"]), "english on the black market falls back to Malay")
 	check(thai_order == PackedStringArray(["th", "en"]), "thai still falls back to a passing english take")
 	Settings.set_voice("thai")
 	check(clips.call("_best", "barks", "militia_select_1.ogg") == "barks/th/militia_select_1.ogg", "thai plays the th take")
@@ -3182,6 +3186,8 @@ func test_sm_bark() -> void:
 	check(clips.call("_best", "barks", "slag_hauler_attack_1.ogg") == "barks/th/slag_hauler_attack_1.ogg", "a failed Burmese take falls on to Thai")
 	check(clips.call("_best", "barks", "emerald_gunboat_select_1.ogg") == "barks/ms/emerald_gunboat_select_1.ogg", "a failed NMRF english take falls back to Malay")
 	check(clips.call("_best", "barks", "clearance_trooper_move_1.ogg") == "barks/zh/clearance_trooper_move_1.ogg", "a failed MVD english take falls back to Mandarin")
+	check(clips.call("_best", "barks", "ch4_select_1.ogg") == "barks/ms/ch4_select_1.ogg", "a failed black market take falls back to Malay")
+	check(clips.call("_best", "barks", "orlan10_select_1.ogg") == "barks/en/orlan10_select_1.ogg", "a passing black market take stays in English")
 	check(clips.call("_best", "announcer", "gtfc/unit_lost.ogg") == "announcer/my/gtfc/unit_lost.ogg", "a failed english announcer line falls back to Burmese")
 	check(clips.call("_best", "announcer", "gtfc/low_power.ogg") == "announcer/en/gtfc/low_power.ogg", "a passing english announcer line stays in English")
 	check(clips.call("clip_for", "not_a_unit", "select") == null, "a missing bark stays empty for the tone")

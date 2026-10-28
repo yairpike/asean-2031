@@ -10,7 +10,7 @@ extends RefCounted
 ## Those map to the folders on disk: en, my, zh, th, and ms.
 ## A clip with accent_fail, or status removed, is never played.
 ## In English, a failed take uses the unit's faction language:
-## GTFC Burmese then Thai, NMRF Malay, MVD Mandarin.
+## GTFC Burmese then Thai, NMRF Malay, MVD Mandarin, Black Market Malay.
 ## Another language uses its own take, then a passing English take.
 ## The page fetches the selected language plus that fallback.
 ## Recorded cues live in sfx/<kind>.ogg. sfx/manifest.json can map a
@@ -908,10 +908,17 @@ static func _order_for(lang: String, faction: String) -> PackedStringArray:
 		order.append("ms")
 	elif faction == "mvd":
 		order.append("zh")
+	elif faction == "black_market":
+		order.append("ms")
 	return order
 
+static func _match_faction() -> String:
+	if SMFront.faction_id == "nmrf" or SMFront.faction_id == "mvd" or SMFront.faction_id == "black_market":
+		return SMFront.faction_id
+	return "gtfc"
+
 static func _wanted_langs() -> PackedStringArray:
-	return _order_for(_lang(), SMFront.current())
+	return _order_for(_lang(), _match_faction())
 
 static func _best(kind: String, tail: String) -> String:
 	note_voice(null)
