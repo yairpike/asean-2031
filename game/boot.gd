@@ -828,10 +828,6 @@ func _hide_menu_chrome() -> void:
 		if node != null:
 			node.visible = false
 	for tab: Button in tab_buttons:
-		if tab.name == "SettingsButton":
-			tab.visible = true
-			tab.z_index = 40
-			continue
 		tab.visible = false
 		tab.z_index = 0
 
