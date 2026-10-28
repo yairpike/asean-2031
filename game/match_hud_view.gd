@@ -13,6 +13,15 @@ func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	hud.use_tiles = true
 	_style_self()
 	var top: HBoxContainer = _top_bar()
+	var now_playing: Label = Label.new()
+	now_playing.name = "NowPlaying"
+	now_playing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	now_playing.clip_text = true
+	now_playing.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	now_playing.add_theme_font_size_override("font_size", 14)
+	now_playing.add_theme_color_override("font_color", Color(0.78, 0.74, 0.62))
+	_anchor(now_playing, 0.0, 0.0, 0.0, 0.0, 12.0, 36.0, 480.0, 54.0)
+	add_child(now_playing)
 	hud.faction_label = _label(top, "HudFaction", 16)
 	hud.income_label = _label(top, "HudIncome", 15)
 	hud.income_label.add_theme_color_override("font_color", Color(0.55, 0.9, 0.48))

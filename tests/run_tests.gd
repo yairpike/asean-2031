@@ -2940,6 +2940,25 @@ func test_sm_bark() -> void:
 		if clips.call("_stream", track) == null:
 			tracks_ok = false
 	check(tracks_ok, "menu, faction, and sting tracks decode")
+	check(clips.call("titles_for", "menu") == PackedStringArray(["Menu", "Changes", "Not Needed Anymore"]), "the menu playlist names its songs")
+	check(clips.call("titles_for", "gtfc") == PackedStringArray(["GTFC", "Yangonite", "Ready To Rage Against The Abnormalities", "Poison", "Time"]), "the GTFC playlist names its songs")
+	check(clips.call("titles_for", "nmrf") == PackedStringArray(["NMRF", "Supayarlat", "Past Cracks", "Poison", "Time"]), "the NMRF playlist names its songs")
+	check(clips.call("titles_for", "mvd") == PackedStringArray(["MVD", "Machinesfuture", "Humanfuture", "Poison", "Time"]), "the MVD playlist names its songs")
+	check(clips.call("titles_for", "black_market") == PackedStringArray(["Black Market", "Night", "Love Drunk", "Poison", "Time"]), "the black market playlist names its songs")
+	check(clips.call("titles_for", "shared") == PackedStringArray(["Poison", "Time"]), "the shared playlist names its songs")
+	check(clips.call("is_lazy", "music/user/night.ogg") and not clips.call("is_lazy", "music/menu.ogg"), "user songs stay out of the startup download")
+	var user_tracks: PackedStringArray = PackedStringArray([
+		"music/user/changes.ogg", "music/user/humanfuture.ogg", "music/user/love-drunk.ogg",
+		"music/user/machinesfuture.ogg", "music/user/night.ogg", "music/user/not-needed-anymore.ogg",
+		"music/user/past-cracks.ogg", "music/user/poison.ogg",
+		"music/user/ready-to-rage-against-the-abnormalities.ogg", "music/user/supayarlat.ogg",
+		"music/user/time.ogg", "music/user/yangonite.ogg",
+	])
+	var user_ok: bool = true
+	for track: String in user_tracks:
+		if clips.call("_stream", track) == null:
+			user_ok = false
+	check(user_ok, "the twelve user songs decode")
 	var voiced: PackedStringArray = PackedStringArray([
 		"militia", "ruby_lancer", "amber_tank", "monsoon_tube", "channel_skiff",
 		"crimson_sapper", "amber_scout", "yard_crane", "ruby_mortar",
@@ -2975,6 +2994,10 @@ func test_sm_bark() -> void:
 	clips.call("play_menu", speaker)
 	var menu_player: AudioStreamPlayer = speaker.get_node_or_null("MenuMusic") as AudioStreamPlayer
 	check(menu_player != null and menu_player.playing and menu_player.stream != null, "menu music starts")
+	check(clips.call("current_title") == "Menu", "the menu opens on its generated track")
+	menu_player.stop()
+	clips.call("tick", speaker)
+	check(clips.call("current_title") == "Changes" and menu_player.playing, "the menu rotation advances to the next song")
 	clips.call("play_faction", speaker, "nmrf")
 	var faction_player: AudioStreamPlayer = speaker.get_node_or_null("FactionMusic") as AudioStreamPlayer
 	check(faction_player != null and faction_player.playing and faction_player.stream != null, "faction music starts")

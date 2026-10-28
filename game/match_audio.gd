@@ -3,6 +3,8 @@ extends RefCounted
 ## Desktop runs also read res://audio/. A new bark is
 ## barks/{unit}_{select|move|attack}_{n}.ogg; re-export picks it up.
 ## Missing files leave the procedural cues in place.
+## User songs live in music/user/ and are fetched one at a time. They are
+## not part of the startup clip list.
 
 static var _cache: Dictionary = {}
 static var _catalog: Dictionary = {}
@@ -10,6 +12,10 @@ static var _inflight: Dictionary = {}
 static var _buses_ready: bool = false
 static var _web_open: bool = false
 static var _held: Array[AudioStreamPlayer] = []
+static var _queue: PackedStringArray = PackedStringArray()
+static var _at: int = 0
+static var _player_name: String = ""
+static var now_title: String = ""
 
 static func arm(host: Node, mode: String) -> void:
 	if host == null or host.get_node_or_null("MatchAudio") != null:
@@ -22,27 +28,55 @@ static func arm(host: Node, mode: String) -> void:
 
 static func play_menu(host: Node) -> void:
 	_buses()
-	var player: AudioStreamPlayer = _ensure(host, "MenuMusic")
-	player.bus = "Music"
-	_assign(player, "music/menu.ogg", true)
+	_begin(host, "MenuMusic", _rels_for("menu"))
 
 static func play_faction(host: Node, faction: String) -> void:
 	_buses()
-	var player: AudioStreamPlayer = _ensure(host, "FactionMusic")
-	player.bus = "Music"
 	var id: String = faction
 	if id != "gtfc" and id != "nmrf" and id != "mvd" and id != "black_market":
 		id = "gtfc"
-	_assign(player, "music/%s.ogg" % id, true)
+	_begin(host, "FactionMusic", _rels_for(id))
 
 static func play_sting(host: Node, won: bool) -> void:
+	_queue = PackedStringArray()
+	_at = 0
+	now_title = "Victory" if won else "Defeat"
 	var music: AudioStreamPlayer = host.get_node_or_null("FactionMusic") as AudioStreamPlayer
 	if music != null:
 		music.stop()
+		music.set_meta("started", false)
 	var player: AudioStreamPlayer = _ensure(host, "StingMusic")
 	player.bus = "Music"
 	var rel: String = "music/victory_sting.ogg" if won else "music/defeat_sting.ogg"
 	_assign(player, rel, false)
+	_show_title(host)
+
+static func titles_for(list_id: String) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	for rel: String in _rels_for(list_id):
+		out.append(_title_of(rel))
+	return out
+
+static func current_title() -> String:
+	return now_title
+
+static func is_lazy(rel: String) -> bool:
+	return rel.begins_with("music/user/")
+
+static func tick(host: Node) -> void:
+	if host == null or _queue.is_empty():
+		return
+	var sting: AudioStreamPlayer = host.get_node_or_null("StingMusic") as AudioStreamPlayer
+	if sting != null and sting.playing:
+		return
+	var player: AudioStreamPlayer = host.get_node_or_null(_player_name) as AudioStreamPlayer
+	if player == null or bool(player.get_meta("fetching", false)) or player.playing:
+		_show_title(host)
+		return
+	if not bool(player.get_meta("started", false)):
+		return
+	_at = (_at + 1) % _queue.size()
+	_play_current(host)
 
 static func clip_for(unit_id: String, event: String) -> AudioStream:
 	if unit_id == "" or (event != "select" and event != "move" and event != "attack"):
@@ -96,6 +130,125 @@ static func color_voice(sfx: SMSfx) -> void:
 	if sfx != null and sfx.voice != null:
 		sfx.voice.bus = "Radio"
 
+static func _begin(host: Node, node_name: String, rels: PackedStringArray) -> void:
+	for other: String in ["MenuMusic", "FactionMusic"]:
+		if other == node_name:
+			continue
+		var other_player: AudioStreamPlayer = host.get_node_or_null(other) as AudioStreamPlayer
+		if other_player != null:
+			other_player.stop()
+			other_player.set_meta("started", false)
+	_queue = rels
+	_at = 0
+	_player_name = node_name
+	_play_current(host)
+
+static func _play_current(host: Node) -> void:
+	if host == null or _queue.is_empty():
+		return
+	var rel: String = _queue[_at]
+	now_title = _title_of(rel)
+	var player: AudioStreamPlayer = _ensure(host, _player_name)
+	player.bus = "Music"
+	_assign(player, rel, false)
+	_show_title(host)
+	var nxt: String = _queue[(_at + 1) % _queue.size()]
+	if is_lazy(nxt):
+		prefetch(host, nxt)
+
+static func _show_title(host: Node) -> void:
+	if host == null:
+		return
+	var label: Label = host.find_child("NowPlaying", true, false) as Label
+	if label != null:
+		label.text = now_title
+
+static func _rels_for(list_id: String) -> PackedStringArray:
+	var shared: PackedStringArray = PackedStringArray([
+		"music/user/poison.ogg",
+		"music/user/time.ogg",
+	])
+	if list_id == "shared":
+		return shared
+	var own: PackedStringArray = PackedStringArray()
+	match list_id:
+		"menu":
+			own = PackedStringArray([
+				"music/menu.ogg",
+				"music/user/changes.ogg",
+				"music/user/not-needed-anymore.ogg",
+			])
+		"gtfc":
+			own = PackedStringArray([
+				"music/gtfc.ogg",
+				"music/user/yangonite.ogg",
+				"music/user/ready-to-rage-against-the-abnormalities.ogg",
+			])
+		"nmrf":
+			own = PackedStringArray([
+				"music/nmrf.ogg",
+				"music/user/supayarlat.ogg",
+				"music/user/past-cracks.ogg",
+			])
+		"mvd":
+			own = PackedStringArray([
+				"music/mvd.ogg",
+				"music/user/machinesfuture.ogg",
+				"music/user/humanfuture.ogg",
+			])
+		"black_market":
+			own = PackedStringArray([
+				"music/black_market.ogg",
+				"music/user/night.ogg",
+				"music/user/love-drunk.ogg",
+			])
+		_:
+			own = PackedStringArray(["music/gtfc.ogg"])
+	if list_id == "menu":
+		return own
+	for rel: String in shared:
+		own.append(rel)
+	return own
+
+static func _title_of(rel: String) -> String:
+	match rel:
+		"music/menu.ogg":
+			return "Menu"
+		"music/gtfc.ogg":
+			return "GTFC"
+		"music/nmrf.ogg":
+			return "NMRF"
+		"music/mvd.ogg":
+			return "MVD"
+		"music/black_market.ogg":
+			return "Black Market"
+		"music/user/changes.ogg":
+			return "Changes"
+		"music/user/not-needed-anymore.ogg":
+			return "Not Needed Anymore"
+		"music/user/yangonite.ogg":
+			return "Yangonite"
+		"music/user/ready-to-rage-against-the-abnormalities.ogg":
+			return "Ready To Rage Against The Abnormalities"
+		"music/user/supayarlat.ogg":
+			return "Supayarlat"
+		"music/user/past-cracks.ogg":
+			return "Past Cracks"
+		"music/user/machinesfuture.ogg":
+			return "Machinesfuture"
+		"music/user/humanfuture.ogg":
+			return "Humanfuture"
+		"music/user/night.ogg":
+			return "Night"
+		"music/user/love-drunk.ogg":
+			return "Love Drunk"
+		"music/user/poison.ogg":
+			return "Poison"
+		"music/user/time.ogg":
+			return "Time"
+		_:
+			return ""
+
 static func _ensure(host: Node, node_name: String) -> AudioStreamPlayer:
 	var found: AudioStreamPlayer = host.get_node_or_null(node_name) as AudioStreamPlayer
 	if found != null:
@@ -119,6 +272,7 @@ static func _arm_player(player: AudioStreamPlayer, stream: AudioStream, loop: bo
 		ogg.loop = loop
 	player.stream = stream
 	player.volume_db = 0.0
+	player.set_meta("started", false)
 	if _audible():
 		_start(player)
 	elif not _held.has(player):
@@ -131,6 +285,7 @@ static func _start(player: AudioStreamPlayer) -> void:
 	if player == null or player.stream == null or player.playing:
 		return
 	player.play()
+	player.set_meta("started", true)
 	if not OS.has_feature("web"):
 		return
 	var label: String = "audio"
@@ -241,7 +396,7 @@ static func _begin_fetch(player: AudioStreamPlayer, rel: String, loop: bool) -> 
 	player.set_meta("fetching", true)
 	var http: HTTPRequest = HTTPRequest.new()
 	http.name = "AudioFetch"
-	http.timeout = 30.0
+	http.timeout = 120.0
 	http.accept_gzip = false
 	player.add_child(http)
 	http.request_completed.connect(_fetched.bind(player, http, rel, loop))

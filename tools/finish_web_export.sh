@@ -136,7 +136,8 @@ if [ -n "$AUDIO_SRC" ]; then
   if [ -f "$AUDIO_SRC/manifest.json" ]; then
     cp "$AUDIO_SRC/manifest.json" "$DEST/audio/manifest.json"
   fi
-  find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' 2>/dev/null \
+  # music/user/ is fetched when a song starts, not with the startup clip list.
+  find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' ! -path '*/music/user/*' 2>/dev/null \
     | sed "s#^$DEST/audio/##" \
     | sort > "$DEST/audio/clips.txt"
   if ! grep -q "music/menu.ogg" "$DEST/audio/clips.txt"; then

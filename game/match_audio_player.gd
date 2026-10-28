@@ -45,22 +45,21 @@ func _process(_delta: float) -> void:
 				faction = field.faction_id
 			Clips.play_faction(host, faction)
 		return
-	if _stung or str(get_meta("mode", "match")) == "menu":
-		return
-	var ended: bool = false
-	var won: bool = false
-	var outcome: SMOutcome = host.get("outcome") as SMOutcome
-	if outcome != null and outcome.over:
-		ended = true
-		won = outcome.victory
-	var story: SMStory = host.get("story") as SMStory
-	if story != null and (story.done or story.lost):
-		ended = true
-		won = story.done and not story.lost
-	if not ended:
-		return
-	_stung = true
-	Clips.play_sting(host, won)
+	if not _stung and str(get_meta("mode", "match")) != "menu":
+		var ended: bool = false
+		var won: bool = false
+		var outcome: SMOutcome = host.get("outcome") as SMOutcome
+		if outcome != null and outcome.over:
+			ended = true
+			won = outcome.victory
+		var story: SMStory = host.get("story") as SMStory
+		if story != null and (story.done or story.lost):
+			ended = true
+			won = story.done and not story.lost
+		if ended:
+			_stung = true
+			Clips.play_sting(host, won)
+	Clips.tick(host)
 
 func _fetch_list() -> void:
 	var http: HTTPRequest = HTTPRequest.new()
@@ -81,7 +80,7 @@ func _got_list(result: int, code: int, _headers: PackedStringArray, body: Packed
 	var lines: PackedStringArray = body.get_string_from_utf8().split("\n")
 	for line: String in lines:
 		var rel: String = line.strip_edges()
-		if rel == "":
+		if rel == "" or Clips.is_lazy(rel):
 			continue
 		Clips.remember(rel)
 		Clips.prefetch(self, rel)

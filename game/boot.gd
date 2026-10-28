@@ -25,6 +25,16 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", Color(0.95, 0.94, 0.9))
 	add_child(title)
+	var now_playing: Label = Label.new()
+	now_playing.name = "NowPlaying"
+	now_playing.position = Vector2(320, 22)
+	now_playing.size = Vector2(720, 24)
+	now_playing.clip_text = true
+	now_playing.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	now_playing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	now_playing.add_theme_font_size_override("font_size", 16)
+	now_playing.add_theme_color_override("font_color", Color(0.78, 0.74, 0.62))
+	add_child(now_playing)
 	_tab("Skirmish", "TabSkirmish", "skirmish", 48)
 	_tab("Campaign", "TabCampaign", "campaign", 248)
 	_tab("Faction", "TabFaction", "faction", 448)
