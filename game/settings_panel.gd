@@ -46,15 +46,31 @@ func _ready() -> void:
 	add_child(art)
 	var dim: ColorRect = ColorRect.new()
 	dim.name = "SettingsDimmer"
-	dim.color = Color(0.04, 0.05, 0.07, 0.96)
+	dim.color = Color(0.04, 0.05, 0.07, 0.34)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
+	if DisplayServer.get_name() != "headless":
+		var blur := ColorRect.new()
+		blur.name = "SettingsBlur"
+		blur.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		blur.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var mat := ShaderMaterial.new()
+		mat.shader = load("res://game/shaders/menu_blur.gdshader") as Shader
+		blur.material = mat
+		add_child(blur)
+		move_child(blur, art.get_index() + 1)
+	var rail := ColorRect.new()
+	rail.name = "SettingsRail"
+	rail.color = Color(0.02, 0.024, 0.034, 0.88)
+	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(rail)
 	highlight = ColorRect.new()
 	highlight.name = "SettingsHighlight"
 	highlight.color = Color(1, 1, 1, 0.12)
 	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	highlight.visible = false
+	highlight.position = Vector2(-400, -400)
 	add_child(highlight)
 	var title: Label = Label.new()
 	title.name = "SettingsTitle"
@@ -111,7 +127,7 @@ func _ready() -> void:
 	edge_box = CheckButton.new()
 	edge_box.name = "EdgePan"
 	edge_box.text = "Edge pan"
-	edge_box.add_theme_font_size_override("font_size", 16)
+	edge_box.add_theme_font_size_override("font_size", 18)
 	edge_box.add_theme_color_override("font_color", Color(1, 1, 1))
 	edge_box.set_meta("blurb", "The camera slides when the pointer nears the screen edge.")
 	edge_box.toggled.connect(_on_edge)
@@ -147,7 +163,7 @@ func _ready() -> void:
 	blurb.name = "SettingsBlurb"
 	blurb.text = "Highlight a row to read what it changes."
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	blurb.add_theme_font_size_override("font_size", 16)
+	blurb.add_theme_font_size_override("font_size", 18)
 	blurb.add_theme_color_override("font_color", Color(1, 1, 1))
 	add_child(blurb)
 	_watch(low_button)
@@ -201,20 +217,30 @@ func _tag_pages() -> void:
 
 func _layout(view: Vector2) -> void:
 	var narrow: bool = view.x < 900.0 or view.y > view.x + 4.0
-	var left: float = 20.0 if narrow else 96.0
-	var list_w: float = view.x - 36.0 if narrow else 460.0
+	var rail_w: float = view.x if narrow else view.x * 0.4
+	var rail: Control = get_node_or_null("SettingsRail") as Control
+	if rail != null:
+		rail.position = Vector2.ZERO
+		rail.size = Vector2(rail_w, view.y)
 	for child: Node in get_children():
 		var page: String = str(child.get_meta("page", ""))
-		if page != "":
-			var item: CanvasItem = child as CanvasItem
-			if item != null:
-				item.visible = page == _page
-	var y: float = 96.0 if not narrow else 28.0
+		if page == "":
+			continue
+		var item: CanvasItem = child as CanvasItem
+		if item == null:
+			continue
+		item.visible = page == _page
+		if page != _page:
+			var parked: Control = child as Control
+			if parked != null:
+				parked.position = Vector2(-800.0, -800.0)
+	var left: float = 20.0
+	var nav_w: float = rail_w - 40.0 if narrow else 150.0
 	var title: Control = get_node_or_null("SettingsTitle")
 	if title != null:
-		title.position = Vector2(left, y)
-		title.add_theme_font_size_override("font_size", 72 if not narrow else 40)
-	y = 200.0 if not narrow else 88.0
+		title.position = Vector2(left, 24.0)
+		title.add_theme_font_size_override("font_size", 36 if not narrow else 28)
+	var tab_y: float = 84.0
 	var tabs: PackedStringArray = PackedStringArray([
 		"SettingsTabVideo", "SettingsTabAudio", "SettingsTabControls", "SettingsTabGameplay", "SettingsTabHud",
 	])
@@ -222,60 +248,68 @@ func _layout(view: Vector2) -> void:
 		var tab: Control = get_node_or_null(tabs[i])
 		if tab == null:
 			continue
-		tab.position = Vector2(left, y + float(i) * 48.0)
-		tab.size = Vector2(220, 40)
-		tab.custom_minimum_size = Vector2(220, 40)
-	y = 200.0
-	var label_x: float = 340.0 if not narrow else left
-	var value_x: float = 560.0 if not narrow else left + list_w * 0.55
-	y = _place_section("SectionGraphics", label_x, y, 200.0)
-	y = _place_row(get_node_or_null("QualityLabel"), label_x, y, 200.0)
-	_place_value(low_button, value_x, y - 48.0, 88.0)
-	_place_value(high_button, value_x + 96.0, y - 48.0, 88.0)
-	y = _place_section("SectionAudio", label_x, y, 200.0)
-	y = _place_slider(master_readout, master_slider, master_value, label_x, y, 420.0)
-	y = _place_slider(sfx_readout, sfx_slider, sfx_value, label_x, y, 420.0)
-	y = _place_row(get_node_or_null("VoiceLabel"), label_x, y, 200.0)
-	_place_value(voice_value, value_x, y - 48.0, 180.0)
-	y = _place_section("SectionControls", label_x, y, 200.0)
-	y = _place_row(edge_box, label_x, y, 200.0)
-	y = _place_slider(pan_readout, pan_slider, pan_value, label_x, y, 420.0)
-	y = _place_section("SectionGameplay", label_x, y, 200.0)
-	y = _place_row(get_node_or_null("DifficultyLabel"), label_x, y, 200.0)
-	_place_value(get_node_or_null("SettingsDiffEasy"), value_x, y - 48.0, 88.0)
-	_place_value(get_node_or_null("SettingsDiffNormal"), value_x + 96.0, y - 48.0, 88.0)
-	_place_value(get_node_or_null("SettingsDiffHard"), value_x + 192.0, y - 48.0, 88.0)
-	y = _place_section("SectionHud", label_x, y, 200.0)
-	y = _place_row(get_node_or_null("HudNote"), label_x, y, 200.0)
-	_place_value(get_node_or_null("HudValue"), value_x, y - 48.0, 80.0)
+		tab.position = Vector2(left, tab_y + float(i) * 44.0)
+		tab.size = Vector2(nav_w, 36)
+		tab.custom_minimum_size = Vector2(nav_w, 36)
+	var content_x: float = left if narrow else left + nav_w + 16.0
+	var content_w: float = maxf(140.0, rail_w - content_x - 16.0)
+	var y: float = tab_y + float(tabs.size()) * 44.0 + 12.0 if narrow else tab_y
+	var label_w: float = minf(120.0, content_w * 0.34)
+	var value_w: float = 52.0
+	var value_x: float = content_x + content_w - value_w
+	var slider_x: float = content_x + label_w + 8.0
+	var slider_w: float = maxf(72.0, value_x - slider_x - 8.0)
+	y = _place_section("SectionGraphics", content_x, y, content_w)
+	y = _place_row(get_node_or_null("QualityLabel"), content_x, y, label_w)
+	_place_value(low_button, slider_x, y - 44.0, 72.0)
+	_place_value(high_button, slider_x + 80.0, y - 44.0, 72.0)
+	y = _place_section("SectionAudio", content_x, y, content_w)
+	y = _place_slider(master_readout, master_slider, master_value, content_x, y, label_w, slider_x, slider_w, value_x)
+	y = _place_slider(sfx_readout, sfx_slider, sfx_value, content_x, y, label_w, slider_x, slider_w, value_x)
+	y = _place_row(get_node_or_null("VoiceLabel"), content_x, y, maxf(96.0, value_x - content_x - 12.0))
+	_place_value(voice_value, value_x, y - 44.0, value_w)
+	y = _place_section("SectionControls", content_x, y, content_w)
+	y = _place_row(edge_box, content_x, y, content_w)
+	y = _place_slider(pan_readout, pan_slider, pan_value, content_x, y, label_w, slider_x, slider_w, value_x)
+	y = _place_section("SectionGameplay", content_x, y, content_w)
+	y = _place_row(get_node_or_null("DifficultyLabel"), content_x, y, label_w)
+	_place_value(get_node_or_null("SettingsDiffEasy"), slider_x, y - 44.0, 64.0)
+	_place_value(get_node_or_null("SettingsDiffNormal"), slider_x + 68.0, y - 44.0, 72.0)
+	_place_value(get_node_or_null("SettingsDiffHard"), slider_x + 144.0, y - 44.0, 64.0)
+	y = _place_section("SectionHud", content_x, y, content_w)
+	y = _place_row(get_node_or_null("HudNote"), content_x, y, label_w)
+	_place_value(get_node_or_null("HudValue"), value_x, y - 44.0, value_w)
 	var back: Control = get_node_or_null("SettingsClose")
 	var restore: Control = get_node_or_null("SettingsRestore")
-	var foot: float = view.y - 56.0
+	var foot: float = view.y - 52.0
 	if back != null:
 		back.position = Vector2(left, foot)
-		back.size = Vector2(88, 44)
-		back.custom_minimum_size = Vector2(88, 44)
+		back.size = Vector2(88, 40)
+		back.custom_minimum_size = Vector2(88, 40)
 	if restore != null:
-		restore.position = Vector2(left + 108.0, foot)
-		restore.size = Vector2(200, 44)
-		restore.custom_minimum_size = Vector2(200, 44)
+		restore.position = Vector2(left + 100.0, foot)
+		restore.size = Vector2(minf(200.0, rail_w - 140.0), 40)
+		restore.custom_minimum_size = Vector2(restore.size.x, 40)
 	if blurb != null:
-		if narrow:
-			blurb.position = Vector2(left, minf(y + 8.0, foot - 72.0))
-			blurb.size = Vector2(list_w, 64)
-		else:
-			blurb.position = Vector2(624.0, 220.0)
-			blurb.size = Vector2(minf(520.0, view.x - 660.0), 120.0)
-			var card: ColorRect = get_node_or_null("SettingsCard") as ColorRect
-			if card == null:
-				card = ColorRect.new()
-				card.name = "SettingsCard"
-				card.color = Color(0, 0, 0, 0.72)
-				card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				add_child(card)
-			card.position = Vector2(600.0, 200.0)
-			card.size = Vector2(blurb.size.x + 48.0, 160.0)
-			move_child(card, blurb.get_index())
+		blurb.position = Vector2(left, foot - 72.0)
+		blurb.size = Vector2(maxf(120.0, rail_w - 40.0), 64)
+	var card: CanvasItem = get_node_or_null("SettingsCard") as CanvasItem
+	if card != null:
+		card.visible = false
+
+func _place_slider(label: Control, slider: Control, value: Control, x: float, y: float, label_w: float, slider_x: float, slider_w: float, value_x: float) -> float:
+	if label != null and not label.visible:
+		return y
+	y = _place_row(label, x, y, label_w)
+	if slider != null:
+		slider.position = Vector2(slider_x, y - 42.0)
+		slider.size = Vector2(slider_w, 28)
+		slider.custom_minimum_size = Vector2(slider_w, 28)
+	if value != null:
+		value.position = Vector2(value_x, y - 40.0)
+		value.size = Vector2(52, 28)
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	return y
 
 func _place_section(node_name: String, x: float, y: float, width: float) -> float:
 	var label: Control = get_node_or_null(node_name)
@@ -300,25 +334,12 @@ func _place_value(node: Control, x: float, y: float, width: float) -> void:
 	node.size = Vector2(width, 36)
 	node.custom_minimum_size = Vector2(width, 36)
 
-func _place_slider(label: Control, slider: Control, value: Control, x: float, y: float, width: float) -> float:
-	if label != null and not label.visible:
-		return y
-	y = _place_row(label, x, y, width * 0.4)
-	if slider != null:
-		slider.position = Vector2(x + width * 0.42, y - 40.0)
-		slider.size = Vector2(width * 0.4, 36)
-		slider.custom_minimum_size = Vector2(width * 0.4, 36)
-	if value != null:
-		value.position = Vector2(x + width - 52.0, y - 40.0)
-		value.size = Vector2(48, 28)
-	return y
-
 func _section(node_name: String, text: String) -> void:
 	var label: Label = Label.new()
 	label.name = node_name
 	label.text = text
 	label.theme_type_variation = "Header"
-	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Color(1, 1, 1))
 	add_child(label)
 	var rule: ColorRect = ColorRect.new()
@@ -531,7 +552,7 @@ func _caption(node_name: String, text: String) -> Label:
 	var label: Label = Label.new()
 	label.name = node_name
 	label.text = text
-	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Color(1, 1, 1))
 	return label
 
@@ -539,8 +560,9 @@ func _choice(node_name: String, text: String) -> Button:
 	var button: Button = Button.new()
 	button.name = node_name
 	button.text = text
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.focus_mode = Control.FOCUS_ALL
-	button.add_theme_font_size_override("font_size", 16)
+	button.add_theme_font_size_override("font_size", 18)
 	button.add_theme_color_override("font_color", Color(1, 1, 1))
 	button.add_theme_color_override("font_hover_color", Color(1, 1, 1))
 	button.add_theme_color_override("font_disabled_color", Color(1, 1, 1))
@@ -574,5 +596,8 @@ func _show_blurb(node: Control) -> void:
 	if highlight == null:
 		return
 	highlight.visible = true
-	highlight.position = node.position + Vector2(-8, -2)
-	highlight.size = Vector2(maxf(node.size.x, 160.0) + 16.0, maxf(node.size.y, 32.0) + 4.0)
+	highlight.position = node.position
+	var fit: Vector2 = node.size
+	if fit.x < 8.0:
+		fit = node.custom_minimum_size
+	highlight.size = fit

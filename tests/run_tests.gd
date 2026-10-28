@@ -772,7 +772,7 @@ func test_sm_catalog() -> void:
 		elif id == "nmrf":
 			want = 15
 		check(units.size() == want, "%s fields its blueprint roster" % id)
-		check(str(data.get("balance", "")) == "placeholder", "%s costs stay placeholder until a balance pass" % id)
+		check(str(data.get("balance", "")) == "pass1", "%s costs record the balance pass" % id)
 		for unit: Dictionary in units:
 			check(SMCatalog.entry_ok(unit), "%s %s has a weapon and one secondary" % [id, str(unit.get("id", ""))])
 	var gtfc: Dictionary = SMCatalog.faction("gtfc")
@@ -888,7 +888,32 @@ func test_sm_greybox() -> void:
 		if troop_body.mesh.get_surface_count() > 1:
 			trim_mat = troop_body.get_surface_override_material(1) as StandardMaterial3D
 	var shaded: Color = ModelBook.body_shade(Color.html("#B81E2D"))
-	check(dressed_troop and body_mat != null and trim_mat != null and body_mat.albedo_color.is_equal_approx(shaded) and shaded.r < 0.62 and shaded.r > 0.4 and trim_mat.albedo_color.is_equal_approx(Color.html("#E0A106")) and troop_body.material_override == null, "militia body keeps a dark crimson and trim is amber")
+	var wash: Color = ModelBook.body_wash(Color.html("#B81E2D"))
+	var troop_trim: MeshInstance3D = troop.find_child("Trim", true, false) as MeshInstance3D
+	if troop_trim != null and troop_trim.mesh != null:
+		trim_mat = troop_trim.get_surface_override_material(0) as StandardMaterial3D
+	var troop_tex: Texture2D = null if body_mat == null else body_mat.albedo_texture
+	check(dressed_troop and body_mat != null and trim_mat != null and troop_tex != null and body_mat.albedo_color.is_equal_approx(wash) and wash.r > shaded.r + 0.2 and trim_mat.albedo_color.is_equal_approx(Color.html("#E0A106")) and troop_body.material_override == null, "a textured militia keeps its body texture and tints only the trim")
+	var dog: MeshInstance3D = MeshInstance3D.new()
+	var dog_box: BoxMesh = BoxMesh.new()
+	dog_box.size = Vector3(1.2, 1.0, 1.6)
+	dog.mesh = dog_box
+	host.add_child(dog)
+	var dressed_dog: bool = ModelBook.apply_unit(dog, "kachin_dog", Color.html("#B81E2D"), Color.html("#E0A106"))
+	var dog_body: MeshInstance3D = dog.find_child("Body", true, false) as MeshInstance3D
+	var dog_mat: StandardMaterial3D = null
+	if dog_body != null and dog_body.mesh != null:
+		dog_mat = dog_body.get_surface_override_material(0) as StandardMaterial3D
+	check(dressed_dog and dog_mat != null and dog_mat.albedo_color.is_equal_approx(shaded) and not dog_mat.albedo_color.is_equal_approx(wash) and shaded.r < 0.62 and shaded.r > 0.4, "a stand-in keeps the dark faction multiply")
+	var hall: MeshInstance3D = MeshInstance3D.new()
+	hall.name = "Built_barracks"
+	var hall_box: BoxMesh = BoxMesh.new()
+	hall_box.size = Vector3(3.8, 1.2, 1.65)
+	hall.mesh = hall_box
+	host.add_child(hall)
+	var dressed_hall: bool = ModelBook.apply_structure(hall, "barracks", Color.html("#B81E2D"), Color.html("#E0A106"))
+	var hall_model: Node3D = hall.get_node_or_null("Model") as Node3D
+	check(dressed_hall and hall_model != null and hall_model.scale.x > hall_model.scale.z * 1.5, "the barracks model fills the wide footprint")
 	var loaded: MeshInstance3D = MeshInstance3D.new()
 	loaded.set_meta("model", "Model")
 	var loaded_gun: MeshInstance3D = MeshInstance3D.new()
@@ -1282,6 +1307,11 @@ func _special_roster() -> void:
 		if pick == str(raider.sub_id) and pick != "":
 			seen_sub = true
 	check(seen_hero and seen_jet and seen_sub, "the bot trains a hero, a jet, and a sub from the right buildings")
+	var market: SMRaider = SMRaider.new()
+	market.attach(bot_field, Vector3(8.0, 0.0, 0.0), SMPointer.ENEMY)
+	market.bind_faction("black_market")
+	market._arm_macro()
+	check(str(market.infantry_id) == "flh7" and str(market.barracks_id) == "enemy_yard" and str(market.air_id) == "enemy_yard", "the black market trains its lightest aircraft from the yard")
 	host.free()
 	await process_frame
 	SMFront.faction_id = "gtfc"
@@ -4697,7 +4727,7 @@ func test_sm_settings() -> void:
 	var voice_row: Button = boot.find_child("VoiceValue", true, false) as Button
 	var covered_title: Label = boot.find_child("GameTitle", true, false) as Label
 	var dimmer: ColorRect = boot.find_child("SettingsDimmer", true, false) as ColorRect
-	var opened: bool = menu_panel != null and menu_panel.visible and covered_title != null and not covered_title.visible and dimmer != null and dimmer.color.a > 0.9
+	var opened: bool = menu_panel != null and menu_panel.visible and covered_title != null and not covered_title.visible and dimmer != null and dimmer.color.a > 0.25 and dimmer.color.a < 0.6
 	gear.pressed.emit()
 	check(opened and menu_panel != null and not menu_panel.visible and covered_title.visible and gear.visible, "the menu settings button opens the panel")
 	gear.pressed.emit()
@@ -4723,6 +4753,19 @@ func test_sm_settings() -> void:
 	var sun: DirectionalLight3D = suns[0] as DirectionalLight3D if suns.size() > 0 else null
 	var match_panel: Control = scene.find_child("SettingsPanel", true, false) as Control
 	check(trees != null and not trees.visible and (rain == null or not rain.visible) and env != null and env.environment != null and not env.environment.fog_enabled and sun != null and not sun.shadow_enabled, "low graphics hides trees, rain, fog, and shadows")
+	var low_field: SMPointer = scene.get("field") as SMPointer
+	var low_unit: RTSUnit = null
+	var low_body: MeshInstance3D = null
+	var low_blob: MeshInstance3D = null
+	var low_bar: MeshInstance3D = null
+	if low_field != null and low_field.units_of(0).size() > 0:
+		low_unit = low_field.units_of(0)[0]
+	if low_unit != null:
+		low_body = low_unit.get_node_or_null("Body") as MeshInstance3D
+		low_bar = low_unit.get_node_or_null("HealthBar") as MeshInstance3D
+	if low_body != null:
+		low_blob = low_body.get_node_or_null("ContactShadow") as MeshInstance3D
+	check(low_blob != null and not low_blob.visible and low_bar != null and not low_bar.visible and low_unit.hp >= low_unit.max_hp - 0.1, "low graphics hides blob shadows and full health bars")
 	check(cam != null and cam.edge_pan_px <= 0.0 and is_equal_approx(cam.pan_speed, 1.6) and match_panel != null, "edge pan and pan speed follow the saved settings")
 	scene.free()
 	await process_frame

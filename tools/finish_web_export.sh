@@ -69,6 +69,14 @@ while [ $# -gt 0 ]; do
       MODEL_SRC="$2"
       shift 2
       ;;
+    --tripo)
+      if [ $# -lt 2 ]; then
+        echo "finish_web_export: --tripo needs a directory"
+        exit 1
+      fi
+      TRIPO_SRC="$2"
+      shift 2
+      ;;
     *)
       echo "finish_web_export: unknown argument $1"
       exit 1
@@ -82,6 +90,7 @@ TERRAIN_SRC="${TERRAIN_SRC:-}"
 UI_SRC="${UI_SRC:-}"
 VIDEO_SRC="${VIDEO_SRC:-}"
 MODEL_SRC="${MODEL_SRC:-}"
+TRIPO_SRC="${TRIPO_SRC:-}"
 # Keep the project worker. Godot's exported worker reloads every open client
 # when it receives "update", which boots a match back to the menu.
 cp "$ROOT/web/sw.js" "$DEST/sw.js"
@@ -416,6 +425,13 @@ if [ -n "$MODEL_SRC" ]; then
   fi
   mkdir -p "$DEST/models"
   find "$MODEL_SRC" -maxdepth 1 -type f \( -name '*.glb' -o -name '*.gltf' \) -exec cp {} "$DEST/models/" \;
+  if [ -n "$TRIPO_SRC" ]; then
+    if [ ! -d "$TRIPO_SRC" ]; then
+      echo "finish_web_export: tripo source is not a directory"
+      exit 1
+    fi
+    find "$TRIPO_SRC" -maxdepth 1 -type f -name '*.glb' -exec cp {} "$DEST/models/" \;
+  fi
   find "$DEST/models" -maxdepth 1 -type f \( -name '*.glb' -o -name '*.gltf' \) -printf '%f\n' | sort > "$DEST/models/index.txt"
   : > "$DEST/models/.gdignore"
   if [ -f "$MODEL_SRC/CREDITS.md" ]; then

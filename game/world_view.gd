@@ -3,11 +3,37 @@ extends RefCounted
 
 const Forms = preload("res://game/unit_meshes.gd")
 const Ground = preload("res://game/ground_view.gd")
+const Settings = preload("res://game/match_settings.gd")
 
 static func sync(host: Node3D, sight: SMSight, cam: RTSCamera) -> void:
 	paint_fog(sight, host)
 	Ground.apply_sky(host, sight)
 	Ground.cull_props(host, cam)
+	quiet_crowd(host)
+
+static func quiet_crowd(host: Node3D) -> void:
+	if host == null:
+		return
+	var low: bool = Settings.low()
+	var field: SMPointer = host.get("field") as SMPointer
+	if field == null:
+		return
+	for u: RTSUnit in field.units:
+		if not is_instance_valid(u):
+			continue
+		var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
+		if body != null:
+			var shadow: MeshInstance3D = body.get_node_or_null("ContactShadow") as MeshInstance3D
+			if shadow != null:
+				shadow.visible = not low
+			body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if low else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		var bar: MeshInstance3D = u.get_node_or_null("HealthBar") as MeshInstance3D
+		if bar == null:
+			continue
+		if not low or u.selected or u.hp < u.max_hp - 0.4:
+			bar.visible = true
+		else:
+			bar.visible = false
 
 static func paint_fog(sight: SMSight, host: Node3D) -> void:
 	if host == null or sight == null or sight.grid == null:

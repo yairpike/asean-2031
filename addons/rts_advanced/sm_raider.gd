@@ -280,8 +280,31 @@ func _arm_macro() -> void:
 		if (urole == "boat" or urole == "amphibious") and cost < best_nav:
 			best_nav = cost
 			naval_unit = uid
+	_arm_import(data)
 	if queue != null:
 		queue.catalog = train_catalog
+
+func _arm_import(data: Dictionary) -> void:
+	if str(data.get("build_style", "")) != "none":
+		return
+	if infantry_id != &"" and barracks_id != &"":
+		return
+	barracks_id = &"enemy_yard"
+	if air_id == &"":
+		air_id = &"enemy_yard"
+	var best: int = 999999
+	var line: StringName = &""
+	for key: Variant in unit_rows.keys():
+		var uid: StringName = key as StringName
+		var unit: Dictionary = unit_rows[uid]
+		if SMCatalog.has_tag(unit, "jet") or SMCatalog.has_tag(unit, "hero") or SMCatalog.has_tag(unit, "sub"):
+			continue
+		var cost: int = int(unit.get("cost", 0))
+		if cost < best:
+			best = cost
+			line = uid
+	if line != &"":
+		infantry_id = line
 
 func _tempo() -> float:
 	if is_equal_approx(income_scale, 1.0):

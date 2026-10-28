@@ -84,12 +84,12 @@
       "display_name": "FLH7 Squad",
       "cameo": "IMP",
       "role": "air",
-      "cost": 140,
-      "time": 4,
-      "hp": 55,
+      "cost": 100,
+      "time": 3,
+      "hp": 80,
       "speed": 7.2,
       "weapon": "rifle",
-      "weapon_damage": 6,
+      "weapon_damage": 9,
       "secondary": "smart_cast",
       "guidance": "hop",
       "locomotion": "air",
@@ -101,5 +101,5 @@
     }
   ],
   "buildings": [],
-  "balance": "placeholder"
+  "balance": "pass1"
 }

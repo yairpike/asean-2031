@@ -132,10 +132,10 @@
       "role": "infantry",
       "cost": 90,
       "time": 3,
-      "hp": 95,
+      "hp": 90,
       "speed": 5,
       "weapon": "carbine",
-      "weapon_damage": 9,
+      "weapon_damage": 8,
       "secondary": "group_toggle",
       "guidance": "none",
       "locomotion": "ground",
@@ -276,7 +276,7 @@
       "hp": 95,
       "speed": 3.1,
       "weapon": "mortar",
-      "weapon_damage": 18,
+      "weapon_damage": 16,
       "secondary": "channeled_beam",
       "guidance": "none",
       "locomotion": "ground",
@@ -357,7 +357,7 @@
       "hp": 110,
       "speed": 3.0,
       "weapon": "tube",
-      "weapon_damage": 24,
+      "weapon_damage": 16,
       "secondary": "channeled_beam",
       "guidance": "none",
       "locomotion": "air",
@@ -449,5 +449,5 @@
       "f_stat": "damage"
     }
   ],
-  "balance": "placeholder"
+  "balance": "pass1"
 }

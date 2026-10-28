@@ -65,9 +65,7 @@ func _colors(hot: bool) -> void:
 
 func _ink(hot: bool, off: bool) -> Color:
 	if off:
-		return Color(1, 1, 1, 0.28)
+		return Color(1, 1, 1, 0.45)
 	if hot:
 		return Color(1, 1, 1, 1)
-	if bool(get_meta("nav", false)):
-		return Color(1, 1, 1, 0.6)
-	return Color(1, 1, 1, 0.45)
+	return Color(1, 1, 1, 0.94)

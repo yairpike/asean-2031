@@ -39,9 +39,50 @@ func _ready() -> void:
 	hud.use_tech(sim.tech)
 	SMSight.update_match(sight, field, self, sim.tech, raider)
 	preload("res://game/match_settings.gd").apply_scene(self)
+	_late_crowd()
 
 func scripted_playthrough() -> bool:
 	return sim.script_phillips()
+
+func _late_crowd() -> void:
+	if not OS.has_feature("web"):
+		return
+	var href: String = str(JavaScriptBridge.eval("window.location.search", true))
+	if href == "" or href == "null" or href == "<null>":
+		return
+	var settings: GDScript = preload("res://game/match_settings.gd")
+	if href.contains("gfx=high"):
+		settings.call("set_graphics", "high")
+		settings.call("apply_scene", self)
+	elif href.contains("gfx=low"):
+		settings.call("set_graphics", "low")
+		settings.call("apply_scene", self)
+	var mark: int = href.find("late=")
+	if mark < 0:
+		return
+	var digits: String = ""
+	var rest: String = href.substr(mark + 5)
+	for i: int in rest.length():
+		var ch: String = rest.substr(i, 1)
+		if ch < "0" or ch > "9":
+			break
+		digits += ch
+	var count: int = 150 if digits == "" else int(digits)
+	count = clampi(count, 0, 220)
+	# West bank, north of the cliff, inside the opening camera. The old grid sat in the channel.
+	var cols: int = 15
+	var rows: int = 1 if count == 0 else int((count + cols - 1) / cols)
+	var step: float = 1.55
+	var origin: Vector3 = Vector3(-61.0, 0.0, -36.0)
+	for i: int in count:
+		var at: Vector3 = origin + Vector3(float(i % cols) * step, 0.0, float(int(i / cols)) * step)
+		field.spawn(SMPointer.PLAYER, at, &"militia")
+	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
+	if cam != null and count > 0:
+		cam.distance = 48.0
+		cam.focus_on(origin + Vector3(float(cols - 1) * step * 0.5, 0.0, float(rows - 1) * step * 0.5))
+	SMSight.update_match(sight, field, self, sim.tech, raider)
+	JavaScriptBridge.eval("console.log('late crowd %d')" % count, true)
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()

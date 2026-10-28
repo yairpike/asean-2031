@@ -5,6 +5,7 @@ extends Control
 const SWEEP := preload("res://game/cameo_sweep.gd")
 const Art = preload("res://game/served_art.gd")
 const Clips = preload("res://game/match_audio.gd")
+const Marks = preload("res://game/faction_mark.gd")
 
 var _goals_open: bool = false
 
@@ -18,6 +19,7 @@ func _bind(hud: SMHud, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	_style_self()
 	_selection_row()
 	var top: HBoxContainer = _top_bar()
+	_faction_mark(top, hud)
 	var now_playing: Label = Label.new()
 	now_playing.name = "NowPlaying"
 	now_playing.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -335,6 +337,23 @@ func _top_bar() -> HBoxContainer:
 	_anchor(row, 0.0, 0.0, 1.0, 1.0, 12.0, 4.0, -12.0, -4.0)
 	top.add_child(row)
 	return row
+
+func _faction_mark(row: HBoxContainer, hud: SMHud) -> void:
+	var mark := TextureRect.new()
+	mark.name = "HudFactionMark"
+	mark.custom_minimum_size = Vector2(20, 20)
+	mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.texture = Marks.texture(_mark_id(hud))
+	row.add_child(mark)
+
+func _mark_id(hud: SMHud) -> String:
+	if hud != null and hud.field != null:
+		var id: String = str(hud.field.get("faction_id"))
+		if id != "":
+			return id
+	return SMFront.current()
 
 func _selection_row() -> void:
 	var row := Control.new()
