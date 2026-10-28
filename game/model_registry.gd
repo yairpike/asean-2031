@@ -78,7 +78,31 @@ static func model_id_for(node_name: String) -> String:
 		return name.trim_prefix("built_")
 	return name
 
+static var _docs: Dictionary = {}
+static var _states: Dictionary = {}
+
 static func _scene(id: String) -> Node3D:
+	var again: Node3D = _again(id)
+	if again != null:
+		return again
+	return _load_scene(id)
+
+## One parsed glTF per id. Each unit gets its own mesh so freeing one does not drop a shared material.
+static func _again(id: String) -> Node3D:
+	if not _states.has(id):
+		return null
+	var doc: GLTFDocument = _docs.get(id) as GLTFDocument
+	var state: GLTFState = _states.get(id) as GLTFState
+	if doc == null or state == null:
+		return null
+	var generated: Node = doc.generate_scene(state)
+	return generated as Node3D
+
+static func _keep(id: String, doc: GLTFDocument, state: GLTFState) -> void:
+	_docs[id] = doc
+	_states[id] = state
+
+static func _load_scene(id: String) -> Node3D:
 	var path: String = _path(id)
 	if path == "":
 		return null
@@ -90,15 +114,15 @@ static func _scene(id: String) -> Node3D:
 	if path.begins_with("user://") or path.begins_with("res://"):
 		var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
 		if not bytes.is_empty():
-			var parsed: Node3D = _from_buffer(bytes)
+			var parsed: Node3D = _from_buffer(id, bytes)
 			if parsed != null:
 				return parsed
 	var file: String = path
 	if path.begins_with("res://") or path.begins_with("user://"):
 		file = ProjectSettings.globalize_path(path)
-	return _from_gltf(file)
+	return _from_gltf(id, file)
 
-static func _from_buffer(bytes: PackedByteArray) -> Node3D:
+static func _from_buffer(id: String, bytes: PackedByteArray) -> Node3D:
 	if bytes.is_empty():
 		return null
 	var doc: GLTFDocument = GLTFDocument.new()
@@ -106,7 +130,10 @@ static func _from_buffer(bytes: PackedByteArray) -> Node3D:
 	if doc.append_from_buffer(bytes, "", state) != OK:
 		return null
 	var generated: Node = doc.generate_scene(state)
-	return generated as Node3D
+	var scene: Node3D = generated as Node3D
+	if scene != null:
+		_keep(id, doc, state)
+	return scene
 
 static var _tripo_set: Dictionary = {}
 static var _tripo_ready: bool = false
@@ -306,13 +333,16 @@ static func _got_model(result: int, code: int, _headers: PackedStringArray, body
 	file.close()
 	_redress(id)
 
-static func _from_gltf(path: String) -> Node3D:
+static func _from_gltf(id: String, path: String) -> Node3D:
 	var doc: GLTFDocument = GLTFDocument.new()
 	var state: GLTFState = GLTFState.new()
 	if doc.append_from_file(path, state) != OK:
 		return null
 	var generated: Node = doc.generate_scene(state)
-	return generated as Node3D
+	var scene: Node3D = generated as Node3D
+	if scene != null:
+		_keep(id, doc, state)
+	return scene
 
 static func _paint(root: Node3D, primary: Color, accent: Color, id: String) -> void:
 	_paint_node(root, primary, accent, _tripo_id(id))
@@ -328,6 +358,8 @@ static func _paint_node(node: Node, primary: Color, accent: Color, textured_wash
 
 static func _paint_surfaces(mesh_node: MeshInstance3D, primary: Color, accent: Color, textured_wash: bool) -> void:
 	mesh_node.material_override = null
+	if mesh_node.mesh != null:
+		mesh_node.mesh = mesh_node.mesh.duplicate() as Mesh
 	for surface: int in mesh_node.mesh.get_surface_count():
 		var src: Material = mesh_node.mesh.surface_get_material(surface)
 		var name: String = ""
@@ -358,11 +390,24 @@ static func _paint_surfaces(mesh_node: MeshInstance3D, primary: Color, accent: C
 		mesh_node.set_surface_override_material(surface, mat)
 
 static func _copy_mat(src: Material) -> StandardMaterial3D:
-	if src is StandardMaterial3D:
-		return (src as StandardMaterial3D).duplicate() as StandardMaterial3D
 	var mat := StandardMaterial3D.new()
-	if src is BaseMaterial3D:
-		mat.albedo_texture = (src as BaseMaterial3D).albedo_texture
+	var base: BaseMaterial3D = src as BaseMaterial3D
+	if base == null:
+		return mat
+	mat.albedo_color = base.albedo_color
+	mat.albedo_texture = base.albedo_texture
+	mat.normal_enabled = base.normal_enabled
+	mat.normal_texture = base.normal_texture
+	mat.roughness = base.roughness
+	mat.metallic = base.metallic
+	mat.metallic_texture = base.metallic_texture
+	mat.metallic_texture_channel = base.metallic_texture_channel
+	mat.roughness_texture = base.roughness_texture
+	mat.roughness_texture_channel = base.roughness_texture_channel
+	mat.ao_enabled = base.ao_enabled
+	mat.ao_texture = base.ao_texture
+	mat.ao_texture_channel = base.ao_texture_channel
+	mat.texture_filter = base.texture_filter
 	return mat
 
 static func _mount(body: MeshInstance3D, scene: Node3D, footprint: AABB, fill: bool, id: String) -> void:

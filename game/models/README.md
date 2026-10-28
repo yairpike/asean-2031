@@ -41,6 +41,6 @@ A grey stand-in multiplies `Body` by about 60% of the faction primary, mixed int
 
 ## Web
 
-`.glb` and `.gltf` files in this folder are left out of the web pack. The export copies them to `models/` beside the page, with `models/index.txt`, and copies a Tripo file over the stand-in of the same name. The page does not download them at startup. A match fetches the index, then each model when that unit or building appears, and writes it under `user://models/` (Tripo files under `user://models/tripo/`). The procedural mesh stays in place until that file is on disk.
+`.glb` and `.gltf` files in this folder are left out of the web pack. The export copies them to `models/` beside the page, with `models/index.txt`, and copies a Tripo file over the stand-in of the same name. The page does not download them at startup. A match fetches the index, then each model when that unit or building appears, and writes it under `user://models/` (Tripo files under `user://models/tripo/`). The parsed file is kept, so later copies of that unit do not read it again. The procedural mesh stays in place until that file is on disk.
 
 CC0 stand-in credits are in `CREDITS.md` next to the models.

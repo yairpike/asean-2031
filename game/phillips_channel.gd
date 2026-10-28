@@ -69,14 +69,20 @@ func _late_crowd() -> void:
 		digits += ch
 	var count: int = 150 if digits == "" else int(digits)
 	count = clampi(count, 0, 220)
-	var half: int = int(count / 2)
-	for i: int in half:
-		var col: float = float(i % 12)
-		var row: float = float(int(i / 12))
-		field.spawn(SMPointer.PLAYER, Vector3(-20.0 + col * 1.8, 0.0, -18.0 + row * 1.8), &"militia")
-		field.spawn(SMPointer.ENEMY, Vector3(8.0 + col * 1.8, 0.0, 4.0 + row * 1.8), &"militia")
-	if count % 2 == 1:
-		field.spawn(SMPointer.PLAYER, Vector3(-20.0, 0.0, -8.0), &"militia")
+	# West bank, north of the cliff, inside the opening camera. The old grid sat in the channel.
+	var cols: int = 15
+	var rows: int = 1 if count == 0 else int((count + cols - 1) / cols)
+	var step: float = 1.55
+	var origin: Vector3 = Vector3(-61.0, 0.0, -36.0)
+	for i: int in count:
+		var at: Vector3 = origin + Vector3(float(i % cols) * step, 0.0, float(int(i / cols)) * step)
+		field.spawn(SMPointer.PLAYER, at, &"militia")
+	var cam: RTSCamera = get_node_or_null("Camera") as RTSCamera
+	if cam != null and count > 0:
+		cam.distance = 48.0
+		cam.focus_on(origin + Vector3(float(cols - 1) * step * 0.5, 0.0, float(rows - 1) * step * 0.5))
+	SMSight.update_match(sight, field, self, sim.tech, raider)
+	JavaScriptBridge.eval("console.log('late crowd %d')" % count, true)
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
