@@ -130,5 +130,20 @@
  },
  "music_policy": "Keep the 7 Lyria tracks and media/music-sample.ogg; the user adds their own MP3s alongside. Run gen_audio.py only with --only barks.",
  "announcer": "Announcer lines have their own manifest at announcer/manifest.json (announcer/<lang>/<faction>/<key>.ogg). The first English announcer set is in _retired/announcer_v1/ and must not ship.",
- "status": "Complete: 7 music tracks; barks and announcer in en (Asian-accented), my, zh, th, ms via tools/gen_voices.py (supersedes gen_audio.py --only barks). See barks/manifest.json and announcer/manifest.json for coverage, accent_fail and fallback flags."
+ "status": "Complete: 7 music tracks; barks and announcer in en (Asian-accented), my, zh, th, ms via tools/gen_voices.py (supersedes gen_audio.py --only barks). See barks/manifest.json and announcer/manifest.json for coverage, accent_fail and fallback flags.",
+ "dialogue": {
+  "manifest": "dialogue/manifest.json",
+  "path_pattern": "dialogue/<lang>/<mission>/<beat>.ogg",
+  "source": "internal/dialogue-lines.json (60 lines, 15 missions x 4 beats)",
+  "languages": [
+   "en",
+   "my",
+   "zh",
+   "th",
+   "ms"
+  ],
+  "default_language": "en",
+  "tool": "tools/gen_dialogue.py",
+  "accent_policy": "same as barks: see dialogue/manifest.json accent_policy"
+ }
 }
