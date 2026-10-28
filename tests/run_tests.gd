@@ -2315,7 +2315,72 @@ func test_sm_fx() -> void:
 	SMCampaign.selected = "tachileik"
 	await process_frame
 
+func _set_piece_played(scene: Node, piece: Node, id: String) -> bool:
+	if not bool(piece.get("intro_done")):
+		return false
+	var order: PackedStringArray = piece.get("beat_ids")
+	var got: PackedStringArray = piece.get("fired")
+	if order.size() < 2 or got.size() != order.size():
+		return false
+	var shared: int = 0
+	for i: int in order.size():
+		if str(got[i]) != str(order[i]):
+			return false
+		var beat: String = str(order[i])
+		if beat == "ambush" or beat == "bridge" or beat == "relief" or beat == "weather":
+			shared += 1
+	if shared > 2:
+		return false
+	var weather: Label = scene.find_child("HudWeather", true, false) as Label
+	var sky: String = weather.text if weather != null else ""
+	if id == "black_haze" or id == "fog_over_pakbeng":
+		if sky != "Strait Haze":
+			return false
+	elif order.has("weather"):
+		if sky != "Monsoon":
+			return false
+	elif sky == "Monsoon":
+		return false
+	return _set_piece_prop(scene, id)
+
+func _set_piece_prop(scene: Node, id: String) -> bool:
+	var field: SMPointer = scene.get("field") as SMPointer
+	if id == "kokang":
+		return _duty_units(field, "spectacle").size() >= 2 and _duty_units(field, "night").size() == 1
+	if id == "tachileik":
+		return _duty_units(field, "escort").size() == 1 and _duty_units(field, "ambush").size() >= 1
+	if id == "shwe_kokko":
+		var hack: Label = scene.find_child("HackTimer", true, false) as Label
+		return hack != null and hack.text.begins_with("Hack:")
+	if id == "operation_1027":
+		return _duty_units(field, "spectacle").size() >= 2 and _duty_units(field, "relief").size() == 2
+	if id == "andaman":
+		return scene.get_node_or_null("SetMines") != null
+	if id == "ghosts_of_patani":
+		return _duty_units(field, "ambush").size() >= 2 and _duty_units(field, "betray").size() == 1
+	if id == "kilometer_watch":
+		return scene.get_node_or_null("SetPing") != null and _duty_units(field, "relief").size() == 2 and _duty_units(field, "betray").size() == 1
+	if id == "black_haze":
+		return _duty_units(field, "spectacle").size() >= 2
+	if id == "archipelago_rising":
+		return scene.get_node_or_null("SetWharf") != null and _duty_units(field, "packer").size() == 1
+	if id == "wrath_of_the_garuda":
+		return scene.get_node_or_null("SetNapalm") != null and _duty_units(field, "relief").size() == 2
+	if id == "fog_over_pakbeng":
+		return scene.get_node_or_null("SetRadar") != null and _duty_units(field, "betray").size() == 1
+	if id == "keng_tung":
+		return _duty_units(field, "spray").size() == 1
+	if id == "plain_of_jars":
+		return scene.get_node_or_null("SetFrost") != null
+	if id == "tonle_sap":
+		return _duty_units(field, "spectacle").size() >= 2
+	if id == "shattered_monsoon":
+		var count: Label = scene.find_child("CountTimer", true, false) as Label
+		return count != null and count.text == "Count: 0" and _duty_units(field, "spectacle").size() >= 2
+	return false
+
 func test_set_piece() -> void:
+	var orders: PackedStringArray = PackedStringArray()
 	for id: String in ["kokang", "tachileik", "shwe_kokko", "operation_1027", "andaman", "ghosts_of_patani", "kilometer_watch", "black_haze", "archipelago_rising", "wrath_of_the_garuda", "fog_over_pakbeng", "keng_tung", "plain_of_jars", "tonle_sap", "shattered_monsoon"]:
 		SMCampaign.selected = id
 		var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
@@ -2327,33 +2392,36 @@ func test_set_piece() -> void:
 		var portrait: TextureRect = scene.find_child("SetPortrait", true, false) as TextureRect
 		var speaker: Label = scene.find_child("SetSpeaker", true, false) as Label
 		var bonus: Label = scene.find_child("SetBonus", true, false) as Label
-		check(piece != null and subtitle != null and portrait != null and speaker != null and bonus != null and bonus.text.begins_with("Bonus:") and str(piece.get("line_text")) != "" and subtitle.text == str(piece.get("line_text")), "%s opens with a portrait and a line" % id)
+		var bonus_line: bool = bonus != null and ((bool(piece.get("has_bonus")) and bonus.visible and bonus.text.begins_with("Bonus:")) or (not bool(piece.get("has_bonus")) and not bonus.visible))
+		check(piece != null and subtitle != null and portrait != null and speaker != null and bonus_line and str(piece.get("line_text")) != "" and subtitle.text == str(piece.get("line_text")), "%s opens with a portrait and a line" % id)
 		var cam: RTSCamera = scene.get_node("Camera") as RTSCamera
 		piece.call("drive", 1.0)
 		var wide: float = float(piece.get("wide_distance"))
 		var home: float = float(piece.get("home_distance"))
 		check(cam.distance < wide - 2.0 and cam.distance > home and wide > home + 10.0, "%s pans the camera in" % id)
 		piece.call("drive", 24.0)
-		var sky_ok: bool = false
-		if id == "fog_over_pakbeng":
-			var sight: SMSight = (scene.get("story") as SMStory).sight
-			sky_ok = sight != null and sight.weather_name == "Strait Haze" and not sight.monsoon
-		else:
-			var weather: Label = scene.find_child("HudWeather", true, false) as Label
-			sky_ok = weather != null and weather.text == "Monsoon"
-		check(int(piece.get("stage")) >= 5 and bool(piece.get("ambush_spawned")) and bool(piece.get("bridge_down")) and bool(piece.get("betrayed")) and bool(piece.get("reinforced")) and bool(piece.get("weather_turned")) and bool(piece.get("intro_done")) and sky_ok, "%s plays ambush, bridge, betrayal, relief, and weather" % id)
+		check(_set_piece_played(scene, piece, id), "%s plays its own beats" % id)
+		orders.append(",".join(piece.get("fired")))
 		var story: SMStory = scene.get("story") as SMStory
 		var field: SMPointer = scene.get("field") as SMPointer
 		check(not bool(piece.get("bonus_done")) and not story.done, "%s leaves the bonus optional" % id)
-		var walker: RTSUnit = field.units_of(0)[0]
-		walker.global_position = piece.get("bonus_at") as Vector3
-		piece.call("drive", 0.2)
+		if bool(piece.get("has_bonus")):
+			var walker: RTSUnit = field.units_of(0)[0]
+			walker.global_position = piece.get("bonus_at") as Vector3
+			piece.call("drive", 0.2)
 		var before: float = cam.distance
 		story.done = true
 		piece.call("drive", 3.2)
-		check(bool(piece.get("bonus_done")) and bool(piece.get("outro_started")) and bool(piece.get("outro_done")) and cam.distance > before + 8.0, "%s can finish the bonus and pulls the camera out" % id)
+		var bonus_end: bool = bool(piece.get("bonus_done")) == bool(piece.get("has_bonus"))
+		check(bonus_end and bool(piece.get("outro_started")) and bool(piece.get("outro_done")) and cam.distance > before + 8.0, "%s pulls the camera out" % id)
 		scene.free()
 		await process_frame
+	var distinct: bool = orders.size() == 15
+	for i: int in orders.size():
+		for j: int in i:
+			if orders[i] == orders[j]:
+				distinct = false
+	check(distinct, "each mission keeps its own beat order")
 	SMCampaign.selected = "mae_sai"
 	var plain: Node = (load("res://game/campaign_mission.tscn") as PackedScene).instantiate()
 	root.add_child(plain)

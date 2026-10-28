@@ -133,35 +133,35 @@ static func title_of(id: String) -> String:
 
 static func briefing_of(id: String) -> String:
 	if id == "kokang":
-		return "Kokang and Mogok. Text briefing. Raise the yard, clear the Orlan recon over the pits, run the ruby night shift, and bring one rare-earth stock home. If the company dies, the raid fails. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
+		return "Kokang and Mogok. Text briefing. Raise the yard, clear the Orlan recon over the pits, run the ruby night shift, and bring one rare-earth stock home. If the company dies, the raid fails. Rain hits, Orlans pass the pits, and the night shift starts. The side cache is optional."
 	if id == "tachileik":
-		return "Tachileik caravan. Text briefing. Break the ambush and the road relief, walk the jade caravan onto the bazaar, then snap the ruby pit and run the night shift until the purse fills. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
+		return "Tachileik caravan. Text briefing. Break the ambush and the road relief, walk the jade caravan onto the bazaar, then snap the ruby pit and run the night shift until the purse fills. Stay with the wagon while drones harass it. The road ambush hits after that. The side cache is optional."
 	if id == "shwe_kokko":
-		return "Shwe Kokko. Text briefing. Destroy the garrison and the river gunboats, capture both server blocks, and siphon the enemy purse. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
+		return "Shwe Kokko. Text briefing. Destroy the garrison and the river gunboats, capture both server blocks, and siphon the enemy purse. A hack timer runs on the blocks, then the garrison hits, then the siphon comes up. The side cache is optional."
 	if id == "operation_1027":
-		return "Operation 1027. Text briefing. Knock out the junta EW jamming towers while the escorts press in, then destroy the parked Su-30 and CH-4 hangars. The drone swarm can help. Casting it does not end the mission. An ambush, a blown bridge, a turned guide, and rain can arrive while you work. The side cache is optional."
+		return "Operation 1027. Text briefing. Knock out the junta EW jamming towers while the escorts press in, then destroy the parked Su-30 and CH-4 hangars. The drone swarm can help. Casting it does not end the mission. The hangars scramble, the swarm crosses, and two rifles arrive."
 	if id == "andaman":
-		return "Andaman breakout. Text briefing. Sink the channel boats and the second wave, then land an amphibious unit on the far shore. An ambush, a blown bridge, a turned guide, and a squall can arrive while you cross. The side cache is optional."
+		return "Andaman breakout. Text briefing. Sink the channel boats and the second wave, then land an amphibious unit on the far shore. A mine line sits in the channel, the far shore opens, and a squall crosses. The side cache is optional."
 	if id == "ghosts_of_patani":
-		return "Ghosts of Patani. Text briefing. Destroy every ghost in the jammer, including the shipment guards. GPS guidance drops there. A fiber link does not. Losing the company fails the mission. An ambush, a blown bridge, a turned guide, and a closing sky can arrive while you fight. The side cache is optional."
+		return "Ghosts of Patani. Text briefing. Destroy every ghost in the jammer, including the shipment guards. GPS guidance drops there. A fiber link does not. Losing the company fails the mission. GPS drops, ghosts close in, and then the guide turns. The side cache is optional."
 	if id == "kilometer_watch":
-		return "The 74-Kilometer Watch. Text briefing. Destroy the radar garrison and its relief squad, then hold the hydro radar so water shows. An ambush, a blown bridge, a turned guide, and rain can arrive while you hold. The side cache is optional."
+		return "The 74-Kilometer Watch. Text briefing. Destroy the radar garrison and its relief squad, then hold the hydro radar so water shows. The radar pings, two rifles arrive, and the guide sells the watch."
 	if id == "black_haze":
-		return "Black Haze. Text briefing. Capture the hydro radar and hold it through the longer haze while a second raider wave attacks. An ambush, a blown bridge, a turned guide, and rain can arrive in the haze. The side cache is optional."
+		return "Black Haze. Text briefing. Capture the hydro radar and hold it through the longer haze while a second raider wave attacks. The haze closes, a second wave comes through it, and you hold the radar."
 	if id == "archipelago_rising":
-		return "Archipelago Rising. Text briefing. Sink the boats and the second picket, sail the packer into shallow water, unpack the wharf, and upgrade it. An ambush, a blown bridge, a turned guide, and a squall can arrive while you sail. The side cache is optional."
+		return "Archipelago Rising. Text briefing. Sink the boats and the second picket, sail the packer into shallow water, unpack the wharf, and upgrade it. The packer reaches the shallows, the wharf rises, and a squall hits."
 	if id == "wrath_of_the_garuda":
-		return "Wrath of the Garuda. Text briefing. Destroy the joint enemy fleet and its pickets. A napalm run can help. Calling it does not end the mission. An ambush, a blown bridge, a turned guide, and rain can arrive while you fight. The side cache is optional."
+		return "Wrath of the Garuda. Text briefing. Destroy the joint enemy fleet and its pickets. A napalm run can help. Calling it does not end the mission. Napalm is armed, pickets cross the bow, and two gunboats arrive."
 	if id == "fog_over_pakbeng":
-		return "Fog Over Pakbeng. Text briefing. Hold a hydro radar through the longer haze while a second raider wave attacks. An ambush, a blown bridge, and a turned guide can arrive in the murk. The haze stays shut. The side cache is optional."
+		return "Fog Over Pakbeng. Text briefing. Hold a hydro radar through the longer haze while a second raider wave attacks. An ally breaks first. The haze stays shut, and the radar has to be held. The side cache is optional."
 	if id == "keng_tung":
-		return "Keng Tung. Text briefing. Freeze the GTFC tank column, then destroy it. Infantry screens the tanks. Toxic Defoliation can freeze them. Casting it does not end the mission. An ambush, a blown bridge, a turned guide, and rain can arrive while you spray. The side cache is optional."
+		return "Keng Tung. Text briefing. Freeze the GTFC tank column, then destroy it. Infantry screens the tanks. Toxic Defoliation can freeze them. Casting it does not end the mission. A spray run comes down the road and has to be cut off. The side cache is optional."
 	if id == "plain_of_jars":
-		return "Plain of Jars. Text briefing. Hold the beam until the phantom freezes, then destroy the phantom, both batteries, and the screen. An ambush, a blown bridge, a turned guide, and rain can arrive while you hold the beam. The side cache is optional."
+		return "Plain of Jars. Text briefing. Hold the beam until the phantom freezes, then destroy the phantom, both batteries, and the screen. The beam holds, the phantom stutters, and the batteries stay up."
 	if id == "tonle_sap":
-		return "Tonle Sap. Text briefing. Defend the ferry until the longer timer runs out. NMRF trimarans keep arriving. Cryogeddon can help. Casting it does not end the mission. An ambush, a blown bridge, a turned guide, and a squall can arrive while you hold. The side cache is optional."
+		return "Tonle Sap. Text briefing. Defend the ferry until the longer timer runs out. NMRF trimarans keep arriving. Cryogeddon can help. Casting it does not end the mission. The ferry crosses under fire, and a squall hits the channel."
 	if id == "shattered_monsoon":
-		return "Operation Shattered Monsoon. Text briefing. Destroy both enemy superweapons. A garrison screens the citadel. Protocols can help. Casting them does not end the mission. An ambush, a blown bridge, a turned guide, and rain can arrive while you strike. The side cache is optional."
+		return "Operation Shattered Monsoon. Text briefing. Destroy both enemy superweapons. A garrison screens the citadel. Protocols can help. Casting them does not end the mission. The garrison comes out, a countdown runs, and the finale asks you to drop both weapons."
 	if id == "mae_sai":
 		return "Mae Sai. Text briefing. Raise the scaffold yard and keep the drain running until the frame is finished."
 	if id == "ruby_market":

@@ -1,6 +1,8 @@
 extends Node
 ## Scripted opener for a story mission.
 ## Beats are presentation. They do not change the win.
+## Each mission keeps its own order. At most two of the shared beats
+## (ambush, bridge, relief, weather) are on a mission, plus the side cache.
 ## A hero line plays from dialogue/<language>/<mission>/<beat>.ogg
 ## when that clip exists. Otherwise the subtitle stands alone.
 
@@ -19,6 +21,8 @@ var ambush_spawned: bool = false
 var reinforced: bool = false
 var weather_turned: bool = false
 var bonus_done: bool = false
+var has_bonus: bool = false
+var finale_done: bool = false
 var bonus_at: Vector3 = Vector3(12.0, 0.0, -8.0)
 var home_focus: Vector3 = Vector3.ZERO
 var home_distance: float = 18.0
@@ -27,6 +31,11 @@ var faction: String = "gtfc"
 var cameo_id: String = "militia"
 var speaker_name: String = "Night commander"
 var last_voiced: bool = false
+var beat_ids: PackedStringArray = PackedStringArray()
+var beat_at: PackedFloat32Array = PackedFloat32Array()
+var fired: PackedStringArray = PackedStringArray()
+var hack_end: float = -1.0
+var count_end: float = -1.0
 
 var _host: Node3D
 var _clock: float = 0.0
@@ -40,6 +49,8 @@ var _portrait: TextureRect
 var _speaker: Label
 var _subtitle: Label
 var _bonus: Label
+var _hack: Label
+var _count: Label
 var _bridge: MeshInstance3D
 
 static func attach(host: Node3D, id: String) -> void:
@@ -59,8 +70,10 @@ func open(host: Node3D, id: String) -> void:
 	_host = host
 	mission_id = id
 	_cast()
+	_arm_plan()
 	_chrome()
-	_span()
+	if beat_ids.has("bridge"):
+		_span()
 	_say(_line("open"), "", "open")
 
 func drive(delta: float) -> void:
@@ -74,17 +87,14 @@ func drive(delta: float) -> void:
 		_outro(delta)
 		return
 	_intro()
-	if _clock >= 5.0 and not ambush_spawned:
-		_ambush()
-	if _clock >= 11.0 and not bridge_down:
-		_blow()
-	if _clock >= 17.0 and not reinforced:
-		_reinforce()
-	if _clock >= 23.0 and not weather_turned:
-		_weather()
+	for i: int in beat_ids.size():
+		var beat: String = beat_ids[i]
+		if _clock >= beat_at[i] and not fired.has(beat):
+			_fire(beat)
+	_clocks()
 	_bonus_check()
 	_press_patani()
-	_recount()
+	stage = 1 + fired.size()
 
 static func _covered(id: String) -> bool:
 	return id == "kokang" or id == "tachileik" or id == "shwe_kokko" or id == "operation_1027" or id == "andaman" or id == "ghosts_of_patani" or id == "kilometer_watch" or id == "black_haze" or id == "archipelago_rising" or id == "wrath_of_the_garuda" or id == "fog_over_pakbeng" or id == "keng_tung" or id == "plain_of_jars" or id == "tonle_sap" or id == "shattered_monsoon"
@@ -161,156 +171,323 @@ func _cast() -> void:
 		speaker_name = "Citadel officer"
 		bonus_at = Vector3(18.0, 0.0, -8.0)
 
+func _plan(id: String, at: float) -> void:
+	beat_ids.append(id)
+	beat_at.append(at)
+
+func _arm_plan() -> void:
+	has_bonus = false
+	if mission_id == "kokang":
+		has_bonus = true
+		_plan("weather", 6.0)
+		_plan("orlans", 14.0)
+		_plan("night_shift", 22.0)
+	elif mission_id == "tachileik":
+		has_bonus = true
+		_plan("escort", 5.0)
+		_plan("drones", 13.0)
+		_plan("ambush", 21.0)
+	elif mission_id == "shwe_kokko":
+		has_bonus = true
+		_plan("hack", 4.0)
+		_plan("ambush", 12.0)
+		_plan("siphon", 20.0)
+	elif mission_id == "operation_1027":
+		_plan("scramble", 6.0)
+		_plan("swarm", 14.0)
+		_plan("relief", 22.0)
+	elif mission_id == "andaman":
+		has_bonus = true
+		_plan("mines", 5.0)
+		_plan("landing", 15.0)
+		_plan("weather", 23.0)
+	elif mission_id == "ghosts_of_patani":
+		has_bonus = true
+		_plan("blackout", 5.0)
+		_plan("ghosts", 14.0)
+		_plan("bridge", 22.0)
+	elif mission_id == "kilometer_watch":
+		_plan("ping", 5.0)
+		_plan("relief", 13.0)
+		_plan("bridge", 21.0)
+	elif mission_id == "black_haze":
+		_plan("haze", 6.0)
+		_plan("second_wave", 15.0)
+		_plan("hold", 23.0)
+	elif mission_id == "archipelago_rising":
+		_plan("packer", 6.0)
+		_plan("wharf", 14.0)
+		_plan("weather", 22.0)
+	elif mission_id == "wrath_of_the_garuda":
+		_plan("napalm", 5.0)
+		_plan("pickets", 13.0)
+		_plan("relief", 21.0)
+	elif mission_id == "fog_over_pakbeng":
+		has_bonus = true
+		_plan("bridge", 5.0)
+		_plan("haze", 13.0)
+		_plan("radar", 21.0)
+	elif mission_id == "keng_tung":
+		has_bonus = true
+		_plan("screen", 5.0)
+		_plan("spray", 12.0)
+		_plan("intercept", 20.0)
+	elif mission_id == "plain_of_jars":
+		_plan("beam", 6.0)
+		_plan("freeze", 14.0)
+		_plan("batteries", 22.0)
+	elif mission_id == "tonle_sap":
+		_plan("crossing", 5.0)
+		_plan("under_fire", 13.0)
+		_plan("weather", 21.0)
+	elif mission_id == "shattered_monsoon":
+		_plan("garrison", 4.0)
+		_plan("countdown", 11.0)
+		_plan("finale", 22.0)
+
 func _line(beat: String) -> String:
-	if mission_id == "tachileik":
-		if beat == "ambush":
-			return "Contact on the jade road."
-		if beat == "bridge":
-			return "The span is cut, and the guide has sold the road."
-		if beat == "relief":
-			return "Two rifles from Tachileik are with the wagon."
-		if beat == "weather":
-			return "Rain on the jade road. Keep the wagon moving."
-		return "The jade wagon is on the road. Break the ambush."
-	if mission_id == "shwe_kokko":
-		if beat == "ambush":
+	var key: String = "%s:%s" % [mission_id, beat]
+	match key:
+		"kokang:open":
+			return "Raise the yard before the Orlans find the pits."
+		"kokang:weather":
+			return "Rain on the pits. Keep the company moving."
+		"kokang:orlans":
+			return "Orlans over the ruby pits. They have not marked the yard."
+		"kokang:night_shift":
+			return "The night shift is on the road. Bring one stock home."
+		"tachileik:open":
+			return "The jade wagon is on the road. Walk it through."
+		"tachileik:escort":
+			return "Stay with the wagon. The bazaar is the drop."
+		"tachileik:drones":
+			return "Drones on the jade wagon. Keep it under the trees."
+		"tachileik:ambush":
+			return "Contact behind the wagon."
+		"shwe_kokko:open":
+			return "Both server blocks are live. Start the hack."
+		"shwe_kokko:hack":
+			return "The hack is running. Twenty seconds on the blocks."
+		"shwe_kokko:ambush":
 			return "Garrison in the trees."
-		if beat == "bridge":
-			return "The span drops. The runner turns."
-		if beat == "relief":
-			return "A pair from the river are in."
-		if beat == "weather":
-			return "Rain on the compound. Keep the siphon up."
-		return "Both server blocks are live. Take the compound."
-	if mission_id == "operation_1027":
-		if beat == "ambush":
-			return "Escorts on the strip."
-		if beat == "bridge":
-			return "The span is down. The guide is with the junta."
-		if beat == "relief":
-			return "Two more rifles for the strip."
-		if beat == "weather":
-			return "Rain over the airfield. Finish the towers."
-		return "The jammers are up. The hangars are still parked."
-	if mission_id == "andaman":
-		if beat == "ambush":
-			return "Boats in the cut."
-		if beat == "bridge":
-			return "The span is gone. The pilot turns."
-		if beat == "relief":
-			return "Two rifles from the near shore are in."
-		if beat == "weather":
+		"shwe_kokko:siphon":
+			return "Siphon is up. Stay on the blocks until it pays."
+		"operation_1027:open":
+			return "The jammers are up. The hangars are still parked."
+		"operation_1027:scramble":
+			return "The strip scrambles. The Su-30 and the CH-4 are still on the ground."
+		"operation_1027:swarm":
+			return "The swarm is in the air. It does not finish the towers."
+		"operation_1027:relief":
+			return "Two rifles for the strip."
+		"andaman:open":
+			return "The channel is mined. Break out and land the far shore."
+		"andaman:mines":
+			return "Mines in the cut. Take the boats wide of the line."
+		"andaman:landing":
+			return "The far shore is open. Put a boat on it."
+		"andaman:weather":
 			return "The squall is on. Cross while it lasts."
-		return "The channel is held. Land the far shore."
-	if mission_id == "kilometer_watch":
-		if beat == "ambush":
-			return "Contact on the kilometer road."
-		if beat == "bridge":
-			return "The span is cut. The guide has sold the watch."
-		if beat == "relief":
-			return "Two rifles from the watch are in."
-		if beat == "weather":
-			return "Rain on the road. Hold the radar."
-		return "The hydro radar is dark. Take the garrison and light the water."
-	if mission_id == "black_haze":
-		if beat == "ambush":
-			return "Raiders in the black haze."
-		if beat == "bridge":
-			return "The span drops. The pilot turns."
-		if beat == "relief":
-			return "Two boats from the mangrove are in."
-		if beat == "weather":
-			return "Rain cuts the haze. Keep the radar."
-		return "The haze is thick. Take the radar and stay on it."
-	if mission_id == "archipelago_rising":
-		if beat == "ambush":
-			return "Picket boats in the cut."
-		if beat == "bridge":
-			return "The span is gone. The guide turns with the tide."
-		if beat == "relief":
-			return "Two rifles from the near islet are in."
-		if beat == "weather":
-			return "The squall is on. Unpack while it lasts."
-		return "The atoll is held by boats. Sail the packer in and raise the wharf."
-	if mission_id == "wrath_of_the_garuda":
-		if beat == "ambush":
-			return "Pickets off the bow."
-		if beat == "bridge":
-			return "The span is down. The pilot is with them."
-		if beat == "relief":
-			return "Two gunboats from the river are in."
-		if beat == "weather":
-			return "Rain on the fleet. Finish the hulls."
-		return "The joint fleet is in the channel. Sink it."
-	if mission_id == "ghosts_of_patani":
-		if beat == "ambush":
-			return "Ambush in the mist."
-		if beat == "bridge":
+		"ghosts_of_patani:open":
+			return "The jammer is live. Fiber holds. GPS does not."
+		"ghosts_of_patani:blackout":
+			return "GPS drops in the mist. Fiber shots still land."
+		"ghosts_of_patani:ghosts":
+			return "Ghosts in the jammer. Every one of them has to fall."
+		"ghosts_of_patani:bridge":
 			return "The guide turns on us. The span is down."
-		if beat == "relief":
-			return "Boats are in. Hold the company together."
-		if beat == "weather":
-			return "The sky is closing."
-		return "The jammer is live. Fiber holds. GPS does not."
-	if mission_id == "keng_tung":
-		if beat == "ambush":
-			return "Infantry screen in the trees."
-		if beat == "bridge":
-			return "The span is cut. The guide is with the column."
-		if beat == "relief":
-			return "Two troopers from Keng Tung are in."
-		if beat == "weather":
-			return "Rain on the column. Keep the spray on the tanks."
-		return "The tank column is on the road. Freeze it, then break it."
-	if mission_id == "plain_of_jars":
-		if beat == "ambush":
-			return "A screen on the jars."
-		if beat == "bridge":
-			return "The span drops. The guide turns."
-		if beat == "relief":
-			return "Two rifles for the beam crew."
-		if beat == "weather":
-			return "Rain on the plain. Keep the beam on the phantom."
-		return "The phantom is on the plain. Hold the beam until it freezes."
-	if mission_id == "tonle_sap":
-		if beat == "ambush":
-			return "Trimarans in the channel."
-		if beat == "bridge":
-			return "The span is gone. The pilot turns on the ferry."
-		if beat == "relief":
-			return "Two rifles from the near bank are in."
-		if beat == "weather":
-			return "The squall is on. Keep the ferry afloat."
-		return "The ferry has to live. Hold it through the trimarans."
-	if mission_id == "shattered_monsoon":
-		if beat == "ambush":
-			return "Garrison off the citadel."
-		if beat == "bridge":
-			return "The span is cut. The guide is inside."
-		if beat == "relief":
-			return "Two troopers from the hub are in."
-		if beat == "weather":
-			return "The monsoon is on. Finish both weapons."
-		return "Both superweapons are live. Break the screen and drop them."
-	if mission_id == "fog_over_pakbeng":
-		if beat == "ambush":
-			return "Raiders in the murk."
-		if beat == "bridge":
+		"kilometer_watch:open":
+			return "The hydro radar is dark. Light the water."
+		"kilometer_watch:ping":
+			return "The radar pings. Water shows along the road."
+		"kilometer_watch:relief":
+			return "Two rifles from the watch are in."
+		"kilometer_watch:bridge":
+			return "The span is cut. The guide has sold the watch."
+		"black_haze:open":
+			return "The haze is thick. Take the radar and stay on it."
+		"black_haze:haze":
+			return "The haze closes over the radar. Do not walk off it."
+		"black_haze:second_wave":
+			return "A second wave is in the black haze."
+		"black_haze:hold":
+			return "Hold the radar. The haze is the clock."
+		"archipelago_rising:open":
+			return "The atoll is held by boats. Sail the packer in."
+		"archipelago_rising:packer":
+			return "The packer is in the shallows. Unpack it."
+		"archipelago_rising:wharf":
+			return "The wharf is up. Take it to the second level."
+		"archipelago_rising:weather":
+			return "The squall is on the shallows. Finish the wharf."
+		"wrath_of_the_garuda:open":
+			return "The joint fleet is in the channel. Sink it."
+		"wrath_of_the_garuda:napalm":
+			return "Napalm is armed. Calling it does not sink the fleet."
+		"wrath_of_the_garuda:pickets":
+			return "Pickets across the bow. They are not the fleet."
+		"wrath_of_the_garuda:relief":
+			return "Two gunboats from the river are in."
+		"fog_over_pakbeng:open":
+			return "The haze is the weapon. Hold the radar."
+		"fog_over_pakbeng:bridge":
 			return "An ally breaks. The span is down."
-		if beat == "relief":
-			return "Relief is on the road."
-		if beat == "weather":
+		"fog_over_pakbeng:haze":
 			return "The haze has closed in. Do not leave the radar."
-		return "The haze is the weapon. Hold the radar."
-	if beat == "ambush":
-		return "Contact on the road. Ambush."
-	if beat == "bridge":
-		return "The slag bridge is cut, and the guide has turned."
-	if beat == "relief":
-		return "Two rifles from the night shift are here."
-	if beat == "weather":
-		return "The rain is on. Keep the company moving."
-	return "Raise the yard before the Orlans find the pits."
+		"fog_over_pakbeng:radar":
+			return "Stay on the radar until the murk thins."
+		"keng_tung:open":
+			return "The tank column is on the road. Freeze it, then break it."
+		"keng_tung:screen":
+			return "Infantry screen the tanks. They are not the column."
+		"keng_tung:spray":
+			return "A spray run is coming down the road. Cut it off."
+		"keng_tung:intercept":
+			return "Stop the sprayer before it reaches the tanks."
+		"plain_of_jars:open":
+			return "The phantom is on the plain. Hold the beam until it freezes."
+		"plain_of_jars:beam":
+			return "Keep the beam on the phantom. It is not frozen yet."
+		"plain_of_jars:freeze":
+			return "The phantom stutters in the beam. Do not let go."
+		"plain_of_jars:batteries":
+			return "Both batteries are still up, and the screen is with them."
+		"tonle_sap:open":
+			return "The ferry has to live. Hold it through the channel."
+		"tonle_sap:crossing":
+			return "The ferry is in the channel. Keep guns on the water."
+		"tonle_sap:under_fire":
+			return "Trimarans on the ferry. Hold the crossing."
+		"tonle_sap:weather":
+			return "The squall is on. Keep the ferry afloat."
+		"shattered_monsoon:open":
+			return "Both superweapons are live. Break the screen and drop them."
+		"shattered_monsoon:garrison":
+			return "The citadel garrison is out. They screen the weapons."
+		"shattered_monsoon:countdown":
+			return "Both weapons are armed. The count is running."
+		"shattered_monsoon:finale":
+			return "The monsoon breaks over the citadel. Drop both weapons."
+	return ""
+
+func _fire(beat: String) -> void:
+	fired.append(beat)
+	match beat:
+		"ambush":
+			_ambush()
+		"bridge":
+			_blow()
+		"relief":
+			_reinforce()
+		"weather":
+			_monsoon()
+		"orlans":
+			_quiet(SMPointer.ENEMY, Vector3(14.0, 0.0, 7.0), "spectacle", &"orlan10")
+			_quiet(SMPointer.ENEMY, Vector3(12.0, 0.0, 9.0), "spectacle", &"orlan10")
+			_say(_line(beat), "", beat)
+		"night_shift":
+			_quiet(SMPointer.PLAYER, Vector3(-2.0, 0.0, 6.0), "night", &"slag_hauler")
+			_say(_line(beat), "", beat)
+		"escort":
+			var wagon: RTSUnit = _quiet(SMPointer.PLAYER, Vector3(0.0, 0.0, -1.0), "escort", &"slag_hauler")
+			if wagon != null:
+				wagon.speed = 3.5
+				wagon.set_path(PackedVector3Array([Vector3(4.0, 0.0, -2.0)]))
+			_say(_line(beat), "", beat)
+		"drones":
+			_quiet(SMPointer.ENEMY, Vector3(8.0, 0.0, 6.0), "spectacle", &"orlan10")
+			_quiet(SMPointer.ENEMY, Vector3(6.0, 0.0, 8.0), "spectacle", &"orlan10")
+			_say(_line(beat), "", beat)
+		"hack":
+			_hack = _timer("HackTimer", "Hack: 20s")
+			hack_end = _clock + 20.0
+			_say(_line(beat), "", beat)
+		"siphon":
+			_say(_line(beat), "", beat)
+		"scramble":
+			_quiet(SMPointer.ENEMY, Vector3(14.0, 0.0, 3.0), "spectacle", &"su30")
+			_quiet(SMPointer.ENEMY, Vector3(14.0, 0.0, -3.0), "spectacle", &"ch4")
+			_say(_line(beat), "", beat)
+		"swarm":
+			_quiet(SMPointer.ENEMY, Vector3(4.0, 0.0, 6.0), "spectacle", &"orlan10")
+			_say(_line(beat), "", beat)
+		"mines":
+			_mines()
+		"landing":
+			_say(_line(beat), "", beat)
+		"blackout":
+			_say(_line(beat), "", beat)
+		"ghosts":
+			_quiet(SMPointer.ENEMY, Vector3(10.0, 0.0, 6.0), "ambush", &"militia")
+			_quiet(SMPointer.ENEMY, Vector3(8.0, 0.0, 8.0), "ambush", &"militia")
+			_say(_line(beat), "", beat)
+		"ping":
+			_marker("SetPing", Vector3(10.0, 1.6, -6.0), Vector3(0.35, 3.2, 0.35), Color(0.45, 0.75, 0.95), true)
+			_say(_line(beat), "", beat)
+		"haze":
+			_haze()
+		"second_wave":
+			_quiet(SMPointer.ENEMY, Vector3(6.0, 0.0, 5.0), "spectacle", &"militia")
+			_quiet(SMPointer.ENEMY, Vector3(4.0, 0.0, 7.0), "spectacle", &"militia")
+			_say(_line(beat), "", beat)
+		"hold":
+			_say(_line(beat), "", beat)
+		"packer":
+			_quiet(SMPointer.PLAYER, Vector3(-14.0, 0.0, -6.0), "packer", &"channel_skiff")
+			_say(_line(beat), "", beat)
+		"wharf":
+			_marker("SetWharf", Vector3(8.0, 0.5, 5.0), Vector3(3.2, 0.4, 1.4), Color(0.35, 0.48, 0.42), false)
+			_say(_line(beat), "", beat)
+		"napalm":
+			_marker("SetNapalm", Vector3(8.0, 2.4, 1.0), Vector3(8.0, 0.15, 0.6), Color(0.85, 0.28, 0.08), true)
+			_say(_line(beat), "", beat)
+		"pickets":
+			_quiet(SMPointer.ENEMY, Vector3(11.0, 0.0, 6.0), "spectacle", &"channel_skiff")
+			_quiet(SMPointer.ENEMY, Vector3(9.0, 0.0, 8.0), "spectacle", &"channel_skiff")
+			_say(_line(beat), "", beat)
+		"radar":
+			_marker("SetRadar", Vector3(10.0, 1.6, -6.0), Vector3(0.4, 2.8, 0.4), Color(0.55, 0.78, 0.72), true)
+			_say(_line(beat), "", beat)
+		"screen":
+			_quiet(SMPointer.ENEMY, Vector3(8.0, 0.0, 6.0), "spectacle", &"militia")
+			_quiet(SMPointer.ENEMY, Vector3(7.0, 0.0, 4.0), "spectacle", &"militia")
+			_say(_line(beat), "", beat)
+		"spray":
+			var sprayer: RTSUnit = _quiet(SMPointer.ENEMY, Vector3(16.0, 0.0, 10.0), "spray", &"charcoal_mortar")
+			if sprayer != null:
+				sprayer.speed = 4.5
+				sprayer.set_path(PackedVector3Array([Vector3(6.0, 0.0, 2.0)]))
+			_say(_line(beat), "", beat)
+		"intercept":
+			_say(_line(beat), "", beat)
+		"beam":
+			_say(_line(beat), "", beat)
+		"freeze":
+			_marker("SetFrost", Vector3(6.0, 0.9, 3.0), Vector3(1.4, 1.8, 1.4), Color(0.7, 0.86, 0.92), false)
+			_say(_line(beat), "", beat)
+		"batteries":
+			_say(_line(beat), "", beat)
+		"crossing":
+			_say(_line(beat), "", beat)
+		"under_fire":
+			_quiet(SMPointer.ENEMY, Vector3(11.0, 0.0, 7.0), "spectacle", &"channel_skiff")
+			_quiet(SMPointer.ENEMY, Vector3(9.0, 0.0, 8.0), "spectacle", &"channel_skiff")
+			_say(_line(beat), "", beat)
+		"garrison":
+			_quiet(SMPointer.ENEMY, Vector3(8.0, 0.0, 5.0), "spectacle", &"militia")
+			_quiet(SMPointer.ENEMY, Vector3(7.0, 0.0, -4.0), "spectacle", &"militia")
+			_say(_line(beat), "", beat)
+		"countdown":
+			_count = _timer("CountTimer", "Count: 16s")
+			count_end = _clock + 16.0
+			_say(_line(beat), "", beat)
+		"finale":
+			finale_done = true
+			if _count != null:
+				_count.text = "Count: 0"
+			_say(_line(beat), "", beat)
+		_:
+			_say(_line(beat), "", beat)
 
 func _chrome() -> void:
 	var layer: CanvasLayer = _host.get("ui_layer") as CanvasLayer
@@ -361,7 +538,8 @@ func _chrome() -> void:
 	_bonus.name = "SetBonus"
 	_bonus.position = Vector2(96.0, 80.0)
 	_bonus.size = Vector2(600.0, 24.0)
-	_bonus.text = "Bonus: reach the side cache"
+	_bonus.text = "Bonus: reach the side cache" if has_bonus else ""
+	_bonus.visible = has_bonus
 	_bonus.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bonus.add_theme_font_size_override("font_size", 14)
 	_bonus.add_theme_color_override("font_color", Color(0.78, 0.84, 0.7))
@@ -426,8 +604,8 @@ func _outro(delta: float) -> void:
 		outro_done = true
 
 func _ambush() -> void:
-	_quiet(SMPointer.ENEMY, Vector3(14.0, 0.0, 7.0), "ambush")
-	_quiet(SMPointer.ENEMY, Vector3(12.0, 0.0, 9.0), "ambush")
+	_quiet(SMPointer.ENEMY, Vector3(14.0, 0.0, 7.0), "ambush", &"militia")
+	_quiet(SMPointer.ENEMY, Vector3(12.0, 0.0, 9.0), "ambush", &"militia")
 	ambush_spawned = true
 	_say(_line("ambush"), "base_under_attack", "ambush")
 
@@ -437,19 +615,20 @@ func _blow() -> void:
 		var mat: StandardMaterial3D = _bridge.material_override as StandardMaterial3D
 		if mat != null:
 			mat.albedo_color = Color(0.22, 0.18, 0.16)
-	var turncoat: RTSUnit = _quiet(SMPointer.PLAYER, Vector3(2.0, 0.0, 11.0), "guide")
+	var turncoat: RTSUnit = _quiet(SMPointer.PLAYER, Vector3(2.0, 0.0, 11.0), "guide", &"militia")
 	if turncoat != null:
 		turncoat.team = SMPointer.ENEMY
 		turncoat.set_meta("duty", "betray")
 		turncoat.set_meta("was_ally", true)
+		turncoat.set_meta("objective", false)
 		turncoat.attack_damage = 0.0
 	betrayed = true
 	bridge_down = true
 	_say(_line("bridge"), "unit_lost", "bridge")
 
 func _reinforce() -> void:
-	var left: RTSUnit = _quiet(SMPointer.PLAYER, Vector3(-11.0, 0.0, -7.0), "relief")
-	var right: RTSUnit = _quiet(SMPointer.PLAYER, Vector3(-9.0, 0.0, -8.0), "relief")
+	var left: RTSUnit = _quiet(SMPointer.PLAYER, Vector3(-11.0, 0.0, -7.0), "relief", &"militia")
+	var right: RTSUnit = _quiet(SMPointer.PLAYER, Vector3(-9.0, 0.0, -8.0), "relief", &"militia")
 	var dest: Vector3 = Vector3(-6.0, 0.0, -3.0)
 	if left != null:
 		left.speed = 5.0
@@ -460,11 +639,8 @@ func _reinforce() -> void:
 	reinforced = true
 	_say(_line("relief"), "", "relief")
 
-func _weather() -> void:
+func _monsoon() -> void:
 	weather_turned = true
-	if mission_id == "fog_over_pakbeng":
-		_say(_line("weather"), "", "weather")
-		return
 	var sky: SMSight = SMSight.new()
 	sky.force_monsoon(true)
 	var hud: SMHud = _host.get("hud") as SMHud
@@ -473,8 +649,18 @@ func _weather() -> void:
 		hud.refresh()
 	_say(_line("weather"), "", "weather")
 
+func _haze() -> void:
+	weather_turned = true
+	var sky: SMSight = SMSight.new()
+	sky.force_weather(true)
+	var hud: SMHud = _host.get("hud") as SMHud
+	if hud != null:
+		hud.use_sight(sky)
+		hud.refresh()
+	_say(_line("haze"), "", "haze")
+
 func _bonus_check() -> void:
-	if bonus_done:
+	if not has_bonus or bonus_done:
 		return
 	var field: SMPointer = _host.get("field") as SMPointer
 	if field == null:
@@ -526,11 +712,11 @@ func _only_spectacle() -> bool:
 			return false
 	return any
 
-func _quiet(team: int, at: Vector3, duty: String) -> RTSUnit:
+func _quiet(team: int, at: Vector3, duty: String, kind: StringName) -> RTSUnit:
 	var field: SMPointer = _host.get("field") as SMPointer
 	if field == null:
 		return null
-	var u: RTSUnit = field.spawn(team, at, &"militia")
+	var u: RTSUnit = field.spawn(team, at, kind)
 	u.max_hp = 16.0
 	u.hp = 16.0
 	u.attack_damage = 0.0
@@ -538,6 +724,8 @@ func _quiet(team: int, at: Vector3, duty: String) -> RTSUnit:
 	u.attack_range = 2.0
 	u.set_meta("duty", duty)
 	u.set_meta("set_piece", true)
+	if team == SMPointer.PLAYER:
+		u.set_meta("objective", true)
 	return u
 
 func _say(text: String, key: String, beat: String) -> void:
@@ -550,14 +738,56 @@ func _say(text: String, key: String, beat: String) -> void:
 	if key != "":
 		Clips.announce_key(_host, faction, key)
 
-func _recount() -> void:
-	var n: int = 1
-	if ambush_spawned:
-		n += 1
-	if bridge_down:
-		n += 1
-	if reinforced:
-		n += 1
-	if weather_turned:
-		n += 1
-	stage = n
+func _timer(node_name: String, text: String) -> Label:
+	var layer: CanvasLayer = _host.get("ui_layer") as CanvasLayer
+	var label: Label = Label.new()
+	label.name = node_name
+	label.text = text
+	label.position = Vector2(220.0, 472.0)
+	label.size = Vector2(280.0, 22.0)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_color_override("font_color", Color(0.96, 0.78, 0.42))
+	if layer != null:
+		layer.add_child(label)
+	return label
+
+func _clocks() -> void:
+	if _hack != null and hack_end >= 0.0:
+		var hack_left: int = int(ceil(maxf(hack_end - _clock, 0.0)))
+		_hack.text = "Hack: %ds" % hack_left
+	if _count != null and count_end >= 0.0 and not finale_done:
+		var count_left: int = int(ceil(maxf(count_end - _clock, 0.0)))
+		_count.text = "Count: %ds" % count_left
+
+func _mines() -> void:
+	var line: Node3D = Node3D.new()
+	line.name = "SetMines"
+	_host.add_child(line)
+	for i: int in 5:
+		var rock: MeshInstance3D = MeshInstance3D.new()
+		var ball: SphereMesh = SphereMesh.new()
+		ball.radius = 0.28
+		ball.height = 0.56
+		rock.mesh = ball
+		rock.position = Vector3(0.4, 0.2, -8.0 + float(i) * 4.0)
+		var mat: StandardMaterial3D = StandardMaterial3D.new()
+		mat.albedo_color = Color(0.08, 0.08, 0.09)
+		rock.material_override = mat
+		line.add_child(rock)
+	_say(_line("mines"), "", "mines")
+
+func _marker(node_name: String, at: Vector3, size: Vector3, color: Color, glow: bool) -> void:
+	var prop: MeshInstance3D = MeshInstance3D.new()
+	prop.name = node_name
+	var box: BoxMesh = BoxMesh.new()
+	box.size = size
+	prop.mesh = box
+	prop.position = at
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = color
+	if glow:
+		mat.emission_enabled = true
+		mat.emission = color
+	prop.material_override = mat
+	_host.add_child(prop)
