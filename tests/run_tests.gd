@@ -3143,6 +3143,9 @@ func test_sm_bark() -> void:
 		if clips.call("_stream", track) == null:
 			user_ok = false
 	check(user_ok, "the twelve user songs decode")
+	Settings.set_voice("english")
+	var held_faction: String = SMFront.faction_id
+	SMFront.faction_id = "gtfc"
 	var voiced: PackedStringArray = PackedStringArray([
 		"militia", "ruby_lancer", "amber_tank", "monsoon_tube", "channel_skiff",
 		"crimson_sapper", "amber_scout", "yard_crane", "ruby_mortar",
@@ -3151,23 +3154,41 @@ func test_sm_bark() -> void:
 	var barks_ok: bool = true
 	for unit_id: String in voiced:
 		for event_name: String in events:
-			var first: String = "barks/%s_%s_1.ogg" % [unit_id, event_name]
-			var second: String = "barks/%s_%s_2.ogg" % [unit_id, event_name]
-			if clips.call("_stream", first) == null:
+			var found: PackedStringArray = clips.call("_variants", unit_id, event_name) as PackedStringArray
+			if found.size() < 2 or clips.call("_stream", found[0]) == null or clips.call("_stream", found[1]) == null:
 				barks_ok = false
-			if clips.call("_stream", second) == null:
-				barks_ok = false
+			for rel: String in found:
+				if rel.contains("_retired") or rel.split("/").size() < 3:
+					barks_ok = false
 	check(barks_ok, "the nine shipped units decode both bark takes")
 	check(clips.call("clip_for", "militia", "select") != null, "a shipped bark is chosen for playback")
 	check(Settings.voice_folder("english") == "en" and Settings.voice_folder("burmese") == "my" and Settings.voice_folder("mandarin") == "zh" and Settings.voice_folder("thai") == "th" and Settings.voice_folder("malay") == "ms", "voice settings map onto en my zh th ms")
+	var wanted: PackedStringArray = clips.call("_wanted_langs") as PackedStringArray
+	var nmrf_order: PackedStringArray = clips.call("_order_for", "en", "nmrf") as PackedStringArray
+	var mvd_order: PackedStringArray = clips.call("_order_for", "en", "mvd") as PackedStringArray
+	var market_order: PackedStringArray = clips.call("_order_for", "en", "black_market") as PackedStringArray
+	var thai_order: PackedStringArray = clips.call("_order_for", "th", "gtfc") as PackedStringArray
+	check(wanted == PackedStringArray(["en", "my", "th"]), "english on GTFC fetches Burmese and Thai")
+	check(nmrf_order == PackedStringArray(["en", "ms"]), "english on NMRF falls back to Malay")
+	check(mvd_order == PackedStringArray(["en", "zh"]), "english on MVD falls back to Mandarin")
+	check(market_order == PackedStringArray(["en"]), "english on the black market has no faction fallback")
+	check(thai_order == PackedStringArray(["th", "en"]), "thai still falls back to a passing english take")
 	Settings.set_voice("thai")
 	check(clips.call("_best", "barks", "militia_select_1.ogg") == "barks/th/militia_select_1.ogg", "thai plays the th take")
-	check(clips.call("_best", "barks", "crimson_sapper_select_1.ogg") == "barks/en/crimson_sapper_select_1.ogg", "a missing language take falls back to en")
+	check(clips.call("_best", "barks", "crimson_sapper_select_1.ogg") == "barks/th/crimson_sapper_select_1.ogg", "thai plays the sapper's own take")
 	Settings.set_voice("english")
 	check(clips.call("_best", "barks", "militia_select_1.ogg") == "barks/en/militia_select_1.ogg", "english plays the en take")
+	check(clips.call("_best", "barks", "militia_move_1.ogg") == "barks/my/militia_move_1.ogg", "a failed english take falls back to Burmese")
+	check(clips.call("_best", "barks", "slag_hauler_attack_1.ogg") == "barks/th/slag_hauler_attack_1.ogg", "a failed Burmese take falls on to Thai")
+	check(clips.call("_best", "barks", "emerald_gunboat_select_1.ogg") == "barks/ms/emerald_gunboat_select_1.ogg", "a failed NMRF english take falls back to Malay")
+	check(clips.call("_best", "barks", "clearance_trooper_move_1.ogg") == "barks/zh/clearance_trooper_move_1.ogg", "a failed MVD english take falls back to Mandarin")
+	check(clips.call("_best", "announcer", "gtfc/unit_lost.ogg") == "announcer/my/gtfc/unit_lost.ogg", "a failed english announcer line falls back to Burmese")
+	check(clips.call("_best", "announcer", "gtfc/low_power.ogg") == "announcer/en/gtfc/low_power.ogg", "a passing english announcer line stays in English")
 	check(clips.call("clip_for", "not_a_unit", "select") == null, "a missing bark stays empty for the tone")
-	check(clips.call("_stream", "barks/crimson_sapper_select_2.ogg") != null, "the sapper select line plays")
-	check(clips.call("clip_for", "crimson_sapper", "select") != null, "the sapper still has a select line")
+	check(clips.call("_stream", "barks/crimson_sapper_select_2.ogg") == null, "the old flat sapper line is not played")
+	var sapper_lines: PackedStringArray = clips.call("_variants", "crimson_sapper", "select") as PackedStringArray
+	check(sapper_lines == PackedStringArray(["barks/my/crimson_sapper_select_1.ogg", "barks/my/crimson_sapper_select_2.ogg"]), "the sapper select line plays in Burmese")
+	SMFront.faction_id = held_faction
 	clips.call("color_voice", null)
 	var music_bus: int = AudioServer.get_bus_index("Music")
 	Settings.set_master(0.4)

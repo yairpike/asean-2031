@@ -1,15 +1,18 @@
 extends RefCounted
 ## Loads music and barks from the served audio/ folder, outside the pack.
-## Desktop runs also read res://audio/. A new bark is
-## barks/{unit}_{select|move|attack}_{n}.ogg; re-export picks it up.
+## Desktop runs also read res://audio/. A bark is
+## barks/<lang>/{unit}_{select|move|attack}_{n}.ogg.
 ## Missing files leave the procedural cues in place.
 ## User songs live in music/user/ and are fetched one at a time. They are
 ## not part of the startup clip list.
-## Voice lines live in barks/<folder>/ and announcer/<folder>/<faction>/.
+## Voice lines live in barks/<lang>/ and announcer/<lang>/<faction>/.
 ## Settings ids are english, burmese, mandarin, thai, and malay.
 ## Those map to the folders on disk: en, my, zh, th, and ms.
-## A missing take uses the en folder, then the flat english file.
-## The web build fetches only the selected language.
+## A clip with accent_fail, or status removed, is never played.
+## In English, a failed take uses the unit's faction language:
+## GTFC Burmese then Thai, NMRF Malay, MVD Mandarin.
+## Another language uses its own take, then a passing English take.
+## The page fetches the selected language plus that fallback.
 ## Recorded cues live in sfx/<kind>.ogg. sfx/manifest.json can map a
 ## kind onto another filename in that folder. A missing file stays a tone.
 
@@ -40,6 +43,14 @@ static var _owner: Node
 static var _bark_index: Dictionary = {}
 static var _line_index: Dictionary = {}
 static var _index_state: Dictionary = {}
+static var _blocked: Dictionary = {}
+static var _unit_faction: Dictionary = {}
+static var _barks_known: bool = false
+static var _lines_known: bool = false
+static var _voice_known: bool = false
+static var _voice_loading: bool = false
+static var _voice_gave_up: bool = false
+static var _manifest_left: int = 0
 
 const Settings = preload("res://game/match_settings.gd")
 
@@ -139,11 +150,10 @@ static func note_voice(owner: Node) -> void:
 		_owner = owner
 	if _owner != null and not is_instance_valid(_owner):
 		_owner = null
-	var lang: String = _lang()
-	if not _index_state.has(lang):
-		_pull_index(lang)
-	if lang != "en" and not _index_state.has("en"):
-		_pull_index("en")
+	_ensure_voice()
+	for lang: String in _wanted_langs():
+		if not _index_state.has(lang):
+			_pull_index(lang)
 
 static func _gap(key: String) -> int:
 	if key == "base_under_attack":
@@ -884,25 +894,218 @@ static func _variants(unit_id: String, event: String) -> PackedStringArray:
 static func _lang() -> String:
 	return Settings.voice_folder(Settings.voice)
 
-static func _best(kind: String, tail: String) -> String:
-	var lang: String = _lang()
-	note_voice(null)
-	var preferred: String = "%s/%s/%s" % [kind, lang, tail]
-	_kick(preferred, lang)
-	if _ready(preferred):
-		return preferred
+static func _order_for(lang: String, faction: String) -> PackedStringArray:
+	var order: PackedStringArray = PackedStringArray()
 	if lang != "en":
-		var english: String = "%s/en/%s" % [kind, tail]
-		if _ready(english):
-			return english
-		if not _listed(preferred) and _index_state.get(lang, "") == "ready":
-			_kick(english, "en")
-			if _ready(english):
-				return english
-	var flat: String = "%s/%s" % [kind, tail]
-	if _ready(flat):
-		return flat
+		order.append(lang)
+		order.append("en")
+		return order
+	order.append("en")
+	if faction == "gtfc":
+		order.append("my")
+		order.append("th")
+	elif faction == "nmrf":
+		order.append("ms")
+	elif faction == "mvd":
+		order.append("zh")
+	return order
+
+static func _wanted_langs() -> PackedStringArray:
+	return _order_for(_lang(), SMFront.current())
+
+static func _best(kind: String, tail: String) -> String:
+	note_voice(null)
+	var faction: String = _faction_of(kind, tail)
+	var order: PackedStringArray = _order_for(_lang(), faction)
+	for lang: String in order:
+		if not _index_state.has(lang):
+			_pull_index(lang)
+		if lang == "en" and not _voice_known:
+			continue
+		var rel: String = "%s/%s/%s" % [kind, lang, tail]
+		if rel.contains("_retired") or bool(_blocked.get(rel, false)):
+			continue
+		_kick(rel, lang)
+		if _ready(rel):
+			return rel
 	return ""
+
+static func _faction_of(kind: String, tail: String) -> String:
+	if kind == "announcer":
+		var parts: PackedStringArray = tail.split("/")
+		if parts.is_empty():
+			return ""
+		return parts[0]
+	return str(_unit_faction.get(_bark_unit(tail), ""))
+
+static func _bark_events() -> PackedStringArray:
+	return PackedStringArray(["under_attack", "ability", "attack", "select", "move"])
+
+static func _bark_unit(tail: String) -> String:
+	var name: String = tail.trim_suffix(".ogg")
+	var cut: int = name.rfind("_")
+	if cut < 0:
+		return ""
+	var stem: String = name.substr(0, cut)
+	for event_name: String in _bark_events():
+		var suffix: String = "_" + event_name
+		if stem.ends_with(suffix):
+			return stem.substr(0, stem.length() - suffix.length())
+	return ""
+
+static func _ensure_voice() -> void:
+	if _voice_known or _voice_loading or _voice_gave_up:
+		return
+	var bark_text: String = _read_text("barks/manifest.json")
+	var line_text: String = _read_text("announcer/manifest.json")
+	if bark_text != "" and _ingest_barks_text(bark_text):
+		_barks_known = true
+	if line_text != "" and _ingest_announcer_text(line_text):
+		_lines_known = true
+	if _barks_known and _lines_known:
+		_voice_known = true
+		return
+	if not OS.has_feature("web") or _owner == null or not is_instance_valid(_owner):
+		return
+	_voice_loading = true
+	if not _barks_known:
+		_fetch_manifest("barks/manifest.json")
+	if not _lines_known:
+		_fetch_manifest("announcer/manifest.json")
+	if _manifest_left == 0:
+		_voice_loading = false
+		_voice_gave_up = true
+
+static func _fetch_manifest(rel: String) -> void:
+	_manifest_left += 1
+	var http: HTTPRequest = HTTPRequest.new()
+	http.timeout = 30.0
+	http.accept_gzip = false
+	http.name = "VoiceManifest"
+	_owner.add_child(http)
+	http.request_completed.connect(_got_manifest.bind(http, rel))
+	var err: Error = http.request(_page_base() + "audio/" + rel)
+	if err != OK:
+		http.queue_free()
+		_manifest_left -= 1
+		_finish_manifests()
+
+static func _got_manifest(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest, rel: String) -> void:
+	if is_instance_valid(http):
+		http.queue_free()
+	if result == HTTPRequest.RESULT_SUCCESS and code == 200:
+		var text: String = body.get_string_from_utf8()
+		if rel.begins_with("barks/") and _ingest_barks_text(text):
+			_barks_known = true
+		elif not rel.begins_with("barks/") and _ingest_announcer_text(text):
+			_lines_known = true
+	_manifest_left -= 1
+	_finish_manifests()
+
+static func _finish_manifests() -> void:
+	if _manifest_left > 0:
+		return
+	_voice_loading = false
+	if _barks_known and _lines_known:
+		_voice_known = true
+	else:
+		_voice_gave_up = true
+
+static func _ingest_barks_text(text: String) -> bool:
+	var parsed: Variant = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return false
+	var data: Dictionary = parsed as Dictionary
+	var units: Variant = data.get("units", {})
+	if typeof(units) == TYPE_DICTIONARY:
+		var unit_map: Dictionary = units as Dictionary
+		for unit_id: Variant in unit_map.keys():
+			var info: Variant = unit_map[unit_id]
+			if typeof(info) != TYPE_DICTIONARY:
+				continue
+			_unit_faction[str(unit_id)] = str((info as Dictionary).get("faction", ""))
+	var clips: Variant = data.get("clips", {})
+	if typeof(clips) != TYPE_DICTIONARY:
+		return false
+	var clip_map: Dictionary = clips as Dictionary
+	for lang_key: Variant in clip_map.keys():
+		var by_unit: Variant = clip_map[lang_key]
+		if typeof(by_unit) != TYPE_DICTIONARY:
+			continue
+		var unit_clips: Dictionary = by_unit as Dictionary
+		for unit_id: Variant in unit_clips.keys():
+			var events: Variant = unit_clips[unit_id]
+			if typeof(events) != TYPE_DICTIONARY:
+				continue
+			var event_map: Dictionary = events as Dictionary
+			for event_name: Variant in event_map.keys():
+				var takes: Variant = event_map[event_name]
+				if typeof(takes) != TYPE_ARRAY:
+					continue
+				for take: Variant in takes as Array:
+					_consider_bark(take)
+	return true
+
+static func _consider_bark(take: Variant) -> void:
+	if typeof(take) != TYPE_DICTIONARY:
+		return
+	var body: Dictionary = take as Dictionary
+	var file: String = str(body.get("file", ""))
+	if file == "" or file == "<null>" or not file.begins_with("barks/"):
+		return
+	_mark_take(file, body)
+
+static func _ingest_announcer_text(text: String) -> bool:
+	var parsed: Variant = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return false
+	var data: Dictionary = parsed as Dictionary
+	var clips: Variant = data.get("clips", {})
+	if typeof(clips) != TYPE_DICTIONARY:
+		return false
+	var clip_map: Dictionary = clips as Dictionary
+	for lang_key: Variant in clip_map.keys():
+		var factions: Variant = clip_map[lang_key]
+		if typeof(factions) != TYPE_DICTIONARY:
+			continue
+		var faction_map: Dictionary = factions as Dictionary
+		for faction_key: Variant in faction_map.keys():
+			var lines: Variant = faction_map[faction_key]
+			if typeof(lines) != TYPE_DICTIONARY:
+				continue
+			var line_map: Dictionary = lines as Dictionary
+			for line_key: Variant in line_map.keys():
+				var take: Variant = line_map[line_key]
+				if typeof(take) == TYPE_ARRAY:
+					var listed: Array = take as Array
+					for item: Variant in listed:
+						_consider_line(item)
+				else:
+					_consider_line(take)
+	return true
+
+static func _consider_line(take: Variant) -> void:
+	if typeof(take) != TYPE_DICTIONARY:
+		return
+	var body: Dictionary = take as Dictionary
+	var file: String = str(body.get("file", ""))
+	if file == "" or file == "<null>":
+		return
+	var rel: String = file
+	if not rel.begins_with("announcer/"):
+		rel = "announcer/" + rel
+	_mark_take(rel, body)
+
+static func _mark_take(rel: String, take: Dictionary) -> void:
+	if rel.contains("..") or rel.begins_with("/") or rel.contains("\\") or rel.contains("_retired"):
+		_blocked[rel] = true
+		return
+	var failed: bool = take.get("accent_fail", false) == true
+	var status: String = str(take.get("status", ""))
+	if status == "<null>":
+		status = ""
+	if failed or status == "removed":
+		_blocked[rel] = true
 
 static func _ready(rel: String) -> bool:
 	if _cache.has(rel) and _cache[rel] != null:
@@ -911,8 +1114,6 @@ static func _ready(rel: String) -> bool:
 
 static func _kick(rel: String, lang: String) -> void:
 	if not OS.has_feature("web") or _owner == null or not is_instance_valid(_owner) or not _listed(rel):
-		return
-	if lang != _lang() and lang != "en":
 		return
 	if lang != _lang() and _ready(rel):
 		return
@@ -934,8 +1135,6 @@ static func _listed(rel: String) -> bool:
 static func _pull_index(lang: String) -> void:
 	if not OS.has_feature("web") or _owner == null:
 		_index_state[lang] = "ready"
-		return
-	if lang != _lang() and lang != "en":
 		return
 	_index_state[lang] = "loading"
 	_fetch_index(lang, "barks/%s/index.txt" % lang, "barks")
@@ -993,7 +1192,19 @@ static func _local_exists(rel: String) -> bool:
 	return false
 
 static func _accepted(rel: String) -> bool:
-	return rel.ends_with(".ogg") and not rel.contains("..") and not rel.begins_with("/") and not rel.contains("\\")
+	return rel.ends_with(".ogg") and not rel.contains("..") and not rel.begins_with("/") and not rel.contains("\\") and not rel.contains("_retired")
+
+static func _read_text(rel: String) -> String:
+	if not rel.ends_with(".json") or rel.contains("..") or rel.begins_with("/") or rel.contains("\\") or rel.contains("_retired"):
+		return ""
+	var packed: String = "res://audio/%s" % rel
+	if FileAccess.file_exists(packed):
+		return FileAccess.get_file_as_string(packed)
+	for root: String in _roots():
+		var path: String = root.path_join(rel)
+		if FileAccess.file_exists(path):
+			return FileAccess.get_file_as_string(path)
+	return ""
 
 static func _roots() -> PackedStringArray:
 	var roots: PackedStringArray = PackedStringArray()

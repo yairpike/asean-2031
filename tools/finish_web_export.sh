@@ -191,26 +191,130 @@ if [ -n "$AUDIO_SRC" ]; then
     find "$AUDIO_SRC/sfx" -maxdepth 1 -type f -name '*.ogg' ! -name '*.conflict.ogg' -exec cp {} "$DEST/audio/sfx/" \;
     find "$DEST/audio/sfx" -maxdepth 1 -type f -name '*.ogg' -printf '%f\n' | sort > "$DEST/audio/sfx/index.txt"
   fi
+  # The retired European takes and the old flat clips stay off the page.
+  rm -rf "$DEST/audio/_retired"
+  if [ -d "$DEST/audio" ]; then
+    find "$DEST/audio" -type d -name '_retired' -prune -exec rm -rf {} +
+  fi
+  if [ -d "$DEST/audio/barks" ]; then
+    find "$DEST/audio/barks" -maxdepth 1 -type f -name '*.ogg' -delete
+  fi
+  for fac in gtfc nmrf mvd; do
+    rm -rf "$DEST/audio/announcer/$fac"
+  done
   # music/user/ and voice-language folders are fetched when a clip plays.
   find "$DEST/audio/music" "$DEST/audio/barks" -type f -name '*.ogg' ! -path '*/music/user/*' ! -path '*/barks/*/*' 2>/dev/null \
     | sed "s#^$DEST/audio/##" \
     | sort > "$DEST/audio/clips.txt"
-  for lang in en my zh th ms english burmese mandarin thai malay; do
-    if [ -d "$DEST/audio/barks/$lang" ]; then
-      find "$DEST/audio/barks/$lang" -maxdepth 1 -type f -name '*.ogg' ! -name '*.conflict.ogg' -printf '%f\n' | sort > "$DEST/audio/barks/$lang/index.txt"
-    fi
-    if [ -d "$DEST/audio/announcer/$lang" ]; then
-      find "$DEST/audio/announcer/$lang" -type f -name '*.ogg' \
-        | sed "s#^$DEST/audio/announcer/$lang/##" \
-        | sort > "$DEST/audio/announcer/$lang/index.txt"
-    fi
-  done
+  python3 - "$DEST" << 'PY'
+import json, os, sys
+from collections import defaultdict
+dest = sys.argv[1]
+audio = os.path.join(dest, "audio")
+
+def playable(take):
+    if not isinstance(take, dict):
+        return False
+    if take.get("accent_fail") is True:
+        return False
+    if take.get("status") == "removed":
+        return False
+    file_name = take.get("file") or ""
+    if not file_name or "_retired" in file_name:
+        return False
+    return True
+
+bark_path = os.path.join(audio, "barks", "manifest.json")
+line_path = os.path.join(audio, "announcer", "manifest.json")
+if not os.path.isfile(bark_path) or not os.path.isfile(line_path):
+    raise SystemExit("finish_web_export: voice manifests were not copied")
+barks = json.load(open(bark_path, encoding="utf-8"))
+names = defaultdict(set)
+for units in barks.get("clips", {}).values():
+    if not isinstance(units, dict):
+        continue
+    for events in units.values():
+        if not isinstance(events, dict):
+            continue
+        for takes in events.values():
+            if not isinstance(takes, list):
+                continue
+            for take in takes:
+                if not playable(take):
+                    continue
+                parts = take["file"].split("/")
+                if len(parts) != 3 or parts[0] != "barks":
+                    continue
+                if os.path.isfile(os.path.join(audio, *parts)):
+                    names[parts[1]].add(parts[2])
+for lang, files in names.items():
+    folder = os.path.join(audio, "barks", lang)
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, "index.txt"), "w", encoding="utf-8") as out:
+        for name in sorted(files):
+            out.write(name + "\n")
+lines = json.load(open(line_path, encoding="utf-8"))
+spoken = defaultdict(set)
+for factions in lines.get("clips", {}).values():
+    if not isinstance(factions, dict):
+        continue
+    for keys in factions.values():
+        if not isinstance(keys, dict):
+            continue
+        for take in keys.values():
+            if not playable(take):
+                continue
+            file_name = take["file"]
+            if file_name.startswith("announcer/"):
+                file_name = file_name[len("announcer/"):]
+            parts = file_name.split("/")
+            if len(parts) != 3:
+                continue
+            if os.path.isfile(os.path.join(audio, "announcer", file_name)):
+                spoken[parts[0]].add(parts[1] + "/" + parts[2])
+for lang, files in spoken.items():
+    folder = os.path.join(audio, "announcer", lang)
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, "index.txt"), "w", encoding="utf-8") as out:
+        for name in sorted(files):
+            out.write(name + "\n")
+print("voice indexes", {lang: len(files) for lang, files in sorted(names.items())})
+print("line indexes", {lang: len(files) for lang, files in sorted(spoken.items())})
+PY
   if ! grep -q "music/menu.ogg" "$DEST/audio/clips.txt"; then
     echo "finish_web_export: clips.txt missing menu"
     exit 1
   fi
-  if ! grep -q "barks/crimson_sapper_select_2.ogg" "$DEST/audio/clips.txt"; then
-    echo "finish_web_export: clips.txt is missing the sapper select line"
+  if grep -q "barks/crimson_sapper_select_2.ogg" "$DEST/audio/clips.txt"; then
+    echo "finish_web_export: the flat sapper line is still in the startup download"
+    exit 1
+  fi
+  if [ ! -f "$DEST/audio/barks/my/crimson_sapper_select_1.ogg" ]; then
+    echo "finish_web_export: missing the Burmese sapper select line"
+    exit 1
+  fi
+  if [ ! -f "$DEST/audio/barks/manifest.json" ] || [ ! -f "$DEST/audio/announcer/manifest.json" ]; then
+    echo "finish_web_export: voice manifests were not copied"
+    exit 1
+  fi
+  if find "$DEST/audio" -type d -name '_retired' | grep -q .; then
+    echo "finish_web_export: retired voices were copied"
+    exit 1
+  fi
+  if grep -qx "militia_move_1.ogg" "$DEST/audio/barks/en/index.txt"; then
+    echo "finish_web_export: a failed English bark is in the index"
+    exit 1
+  fi
+  if ! grep -qx "militia_select_1.ogg" "$DEST/audio/barks/en/index.txt"; then
+    echo "finish_web_export: the passing militia select line is missing from the index"
+    exit 1
+  fi
+  if grep -qx "gtfc/unit_lost.ogg" "$DEST/audio/announcer/en/index.txt"; then
+    echo "finish_web_export: a failed English announcer line is in the index"
+    exit 1
+  fi
+  if ! grep -qx "gtfc/low_power.ogg" "$DEST/audio/announcer/en/index.txt"; then
+    echo "finish_web_export: the passing low power line is missing from the index"
     exit 1
   fi
   : > "$DEST/audio/.gdignore"
