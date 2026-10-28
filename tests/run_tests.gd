@@ -4412,7 +4412,7 @@ func _bar_ok(boot: Node) -> bool:
 	if bar == null or not bar.is_visible_in_tree():
 		return false
 	var text: String = bar.text
-	return text.contains("Left click selects") and text.contains("Right click moves or attacks") and text.contains("F ability") and text.contains("Edge pan") and text.contains("Wheel zoom")
+	return text.contains("Esc") and text.contains("Back") and text.contains("Enter") and text.contains("Select") and not text.contains("Left click")
 
 func _play_map(path: String, mesh_a: String, mesh_b: String, from_cell: Vector2i, to_cell: Vector2i, move_cell: Vector2i) -> void:
 	var scene: Node = (load(path) as PackedScene).instantiate()

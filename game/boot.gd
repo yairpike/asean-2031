@@ -24,6 +24,7 @@ var _pad_cool: float = 0.0
 var _save_polled: bool = false
 var _faction_i: int = 0
 var _menu_tab: String = "main"
+var _bot_i: int = 0
 
 func _ready() -> void:
 	preload("res://game/font_faces.gd").pin()
@@ -89,6 +90,8 @@ func _ready() -> void:
 	gear.name = "SettingsButton"
 	gear.text = "SETTINGS"
 	gear.theme_type_variation = "HeaderButton"
+	gear.set_meta("nav", true)
+	gear.add_theme_font_size_override("font_size", 32)
 	gear.pressed.connect(_toggle_settings)
 	add_child(gear)
 	tab_buttons.append(gear)
@@ -96,21 +99,27 @@ func _ready() -> void:
 	multi.name = "TabMultiplayer"
 	multi.text = "MULTIPLAYER"
 	multi.theme_type_variation = "HeaderButton"
+	multi.set_meta("nav", true)
+	multi.add_theme_font_size_override("font_size", 32)
 	multi.pressed.connect(_show_tab.bind("multi"))
 	add_child(multi)
 	tab_buttons.append(multi)
 	var quit: Button = Plate.new() as Button
 	quit.name = "QuitButton"
-	quit.text = "Quit"
+	quit.text = "QUIT"
+	quit.set_meta("nav", true)
+	quit.add_theme_font_size_override("font_size", 32)
 	quit.pressed.connect(_quit)
 	if OS.has_feature("web"):
 		quit.visible = false
 	add_child(quit)
 	var back: Button = Plate.new() as Button
 	back.name = "MenuBack"
-	back.text = "Back"
+	back.text = "BACK"
 	back.visible = false
-	back.pressed.connect(_show_tab.bind("main"))
+	back.set_meta("nav", true)
+	back.add_theme_font_size_override("font_size", 32)
+	back.pressed.connect(_go_back)
 	add_child(back)
 	multi_note = Label.new()
 	multi_note.name = "MultiplayerNote"
@@ -128,7 +137,10 @@ func _ready() -> void:
 	mark_difficulty()
 	preload("res://game/match_audio.gd").arm(self, "menu")
 	_loading_plate()
+	_menu_fade()
+	_detail_card()
 	_layout_menu(_view_size())
+	_paint_detail()
 
 func _lan_panel() -> void:
 	lan_panel = Control.new()
@@ -380,11 +392,14 @@ func _skirmish() -> void:
 	playing_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	skirmish_panel.add_child(playing_label)
 	var hint: Label = Label.new()
+	hint.name = "SkirmishHint"
+	hint.visible = false
 	hint.text = "Pick a map, then Play. The enemy builds, expands, and attacks."
-	hint.position = Vector2(48, 268)
-	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
 	skirmish_panel.add_child(hint)
 	_difficulty_row(skirmish_panel, "Skirmish", Vector2(48, 308))
+	_make_cycle("SkirmishFactionCycle", "faction")
+	_make_cycle("SkirmishDiffCycle", "diff")
+	_make_cycle("SkirmishBotCycle", "bot")
 	var grey: Button = Plate.new() as Button
 	grey.name = "GreyboxButton"
 	grey.text = "Greybox"
@@ -393,9 +408,9 @@ func _skirmish() -> void:
 	grey.pressed.connect(_open.bind("res://game/greybox.tscn"))
 	skirmish_panel.add_child(grey)
 	var grey_note: Label = Label.new()
+	grey_note.name = "GreyboxNote"
+	grey_note.visible = false
 	grey_note.text = "Systems demo. Camera only."
-	grey_note.position = Vector2(224, 468)
-	grey_note.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
 	skirmish_panel.add_child(grey_note)
 	play_button = Plate.new() as Button
 	play_button.name = "PlayButton"
@@ -450,9 +465,9 @@ func _faction() -> void:
 func _bar() -> void:
 	var bar: Label = Label.new()
 	bar.name = "ControlBar"
-	bar.text = "Left click selects    Right click moves or attacks    F ability    Edge pan    Wheel zoom"
+	bar.text = "Esc  Back    ·    Enter  Select"
 	bar.position = Vector2(48, 670)
-	bar.add_theme_font_size_override("font_size", 13)
+	bar.add_theme_font_size_override("font_size", 16)
 	bar.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bar)
@@ -476,6 +491,8 @@ func _tab(caption: String, node_name: String, which: String, _x: float) -> void:
 		b.pressed.connect(_expand_campaign)
 	else:
 		b.pressed.connect(_show_tab.bind(which))
+	b.set_meta("nav", true)
+	b.add_theme_font_size_override("font_size", 32)
 	add_child(b)
 	tab_buttons.append(b)
 
@@ -502,6 +519,7 @@ func _card(panel: Control, node_name: String, map_name: String, terrain: String,
 	line.add_theme_font_size_override("font_size", 15)
 	line.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
 	b.add_child(line)
+	b.set_meta("map_path", path)
 	b.pressed.connect(_choose_map.bind(path, b))
 	panel.add_child(b)
 	map_cards.append(b)
@@ -518,7 +536,9 @@ func _mission_row(box: VBoxContainer, mission_id: String) -> void:
 	brief.name = "Brief_%s" % mission_id
 	brief.text = SMCampaign.briefing_of(mission_id)
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	brief.custom_minimum_size = Vector2(880, 66)
+	brief.max_lines_visible = 2
+	brief.clip_text = true
+	brief.custom_minimum_size = Vector2(400, 44)
 	brief.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	brief.add_theme_font_size_override("font_size", 15)
 	brief.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
@@ -696,6 +716,8 @@ func _show_tab(which: String) -> void:
 	_sync_art()
 	_apply_screen(settings_open)
 	_layout_menu(_view_size())
+	_paint_detail()
+	_fade()
 
 func _show_act(act: String) -> void:
 	var keys: Array = act_lists.keys()
@@ -711,6 +733,7 @@ func _choose_map(path: String, card: Button) -> void:
 		var fill: Color = Color(0.18, 0.16, 0.12) if on else Color(0.11, 0.12, 0.15)
 		var edge: Color = Color(0.86, 0.7, 0.32) if on else Color(0.3, 0.32, 0.36)
 		_style_button(other, fill, edge, on)
+	_paint_detail()
 
 func _choose_faction(id: String) -> void:
 	SMFront.faction_id = id
@@ -790,6 +813,7 @@ func mark_difficulty() -> void:
 			var fill: Color = Color(0.28, 0.2, 0.1) if on else Color(0.12, 0.13, 0.16)
 			var edge: Color = Color(0.9, 0.72, 0.28) if on else Color(0.32, 0.34, 0.38)
 			_style_button(b, fill, edge, on)
+	_paint_cycles()
 
 func _refresh_playing() -> void:
 	if playing_label != null:
@@ -835,11 +859,19 @@ func _show_menu_chrome() -> void:
 ## A sub-screen replaces the option list. Back and Esc return to the main list.
 func _apply_screen(settings_open: bool) -> void:
 	var back: CanvasItem = find_child("MenuBack", true, false) as CanvasItem
-	var main: bool = _menu_tab == "main" and not settings_open
+	var submenu_open: bool = faction_submenu != null and faction_submenu.visible and _menu_tab == "main"
+	var main: bool = _menu_tab == "main" and not settings_open and not submenu_open
 	if back != null:
 		back.visible = not main and not settings_open
 	if settings_open:
 		_hide_menu_chrome()
+		return
+	if submenu_open:
+		for tab: Button in tab_buttons:
+			tab.visible = tab.name == "TabCampaign"
+		var folded_quit: CanvasItem = find_child("QuitButton", true, false) as CanvasItem
+		if folded_quit != null:
+			folded_quit.visible = false
 		return
 	if main:
 		return
@@ -848,6 +880,21 @@ func _apply_screen(settings_open: bool) -> void:
 	var quit: CanvasItem = find_child("QuitButton", true, false) as CanvasItem
 	if quit != null:
 		quit.visible = false
+
+func _go_back() -> void:
+	if faction_submenu != null and faction_submenu.visible and _menu_tab == "main":
+		_set_submenu(false)
+		_show_tab("main")
+		return
+	_show_tab("main")
+
+func _fade() -> void:
+	var veil: CanvasItem = find_child("MenuFade", true, false) as CanvasItem
+	if veil == null:
+		return
+	veil.modulate.a = 1.0
+	var tween: Tween = create_tween()
+	tween.tween_property(veil, "modulate:a", 0.0, 0.15)
 
 func _hide_menu_chrome() -> void:
 	var names: PackedStringArray = _chrome_names()
@@ -1014,35 +1061,35 @@ func _layout_menu(size: Vector2) -> void:
 	if faction_submenu != null:
 		faction_submenu.position = Vector2.ZERO
 		faction_submenu.size = size
-	var left: float = 20.0 if narrow else 72.0
-	var title_px: int = 34 if narrow else 64
+	var left: float = 24.0 if narrow else 96.0
+	var title_px: int = 40 if narrow else 72
 	var title: Control = find_child("GameTitle", true, false) as Control
 	if title != null:
-		title.position = Vector2(left, 28.0 if narrow else 48.0)
+		title.position = Vector2(left, 36.0 if narrow else 96.0)
 		title.add_theme_font_size_override("font_size", title_px)
-	var title_w: float = float(title_px) * 6.4
 	var rule: Control = find_child("TitleRule", true, false) as Control
 	if rule != null:
-		rule.position = Vector2(left + title_w + 14.0, (36.0 if narrow else 58.0))
-		rule.size = Vector2(2.0, float(title_px) - 8.0)
+		rule.visible = false
 	var version: Control = find_child("VersionMark", true, false) as Control
 	if version != null:
-		version.position = Vector2(left + title_w + 26.0, (40.0 if narrow else 78.0))
+		version.add_theme_font_size_override("font_size", 14)
+		version.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+		version.position = Vector2(size.x - 96.0, size.y - 36.0)
 	var now: Control = find_child("NowPlaying", true, false) as Control
 	if now != null:
-		now.position = Vector2(left, size.y - 52.0)
+		now.position = Vector2(left, size.y - 68.0)
 		now.size = Vector2(minf(480.0, size.x - left - 16.0), 20)
-	var plate_w: float = size.x - left * 2.0 if narrow else 340.0
-	var y: float = (108.0 if narrow else 168.0)
-	var row_h: float = 48.0 if narrow else 44.0
+	var plate_w: float = size.x - left * 2.0 if narrow else 420.0
+	var y: float = 120.0 if narrow else 220.0
+	var row_h: float = 48.0
 	y = _seat(find_child("TabCampaign", true, false) as Control, left, y, plate_w, row_h)
 	if faction_submenu != null and faction_submenu.visible:
-		y = _seat_factions(left + 16.0, y, plate_w - 16.0, narrow)
+		y = _seat_factions(left, y, plate_w, narrow)
 	y = _seat(find_child("TabSkirmish", true, false) as Control, left, y, plate_w, row_h)
 	y = _seat(find_child("TabMultiplayer", true, false) as Control, left, y, plate_w, row_h)
 	y = _seat(find_child("SettingsButton", true, false) as Control, left, y, plate_w, row_h)
 	y = _seat(find_child("QuitButton", true, false) as Control, left, y, plate_w, row_h)
-	_seat(find_child("MenuBack", true, false) as Control, left, size.y - 72.0, 180.0, row_h)
+	_seat(find_child("MenuBack", true, false) as Control, left, size.y - 88.0, 220.0, row_h)
 	var side: Control = find_child("TabFaction", true, false) as Control
 	if side != null:
 		side.position = Vector2(-400, -400)
@@ -1052,10 +1099,10 @@ func _layout_menu(size: Vector2) -> void:
 	if lan_panel != null:
 		lan_panel.position = multi_note.position + Vector2(0.0, 80.0)
 		lan_panel.size = Vector2(plate_w if narrow else 440.0, 530.0)
-	var content_y: float = y + 8.0 if narrow else 168.0
-	var content_x: float = 8.0 if narrow else 460.0
-	var content_w: float = size.x - 16.0 if narrow else size.x - content_x - 24.0
-	var content_h: float = maxf(160.0, size.y - content_y - 64.0)
+	var content_y: float = 0.0
+	var content_x: float = 0.0
+	var content_w: float = size.x
+	var content_h: float = size.y
 	for panel_name: String in ["PanelSkirmish", "PanelCampaign", "PanelFaction"]:
 		var panel: Control = find_child(panel_name, true, false) as Control
 		if panel == null:
@@ -1064,9 +1111,16 @@ func _layout_menu(size: Vector2) -> void:
 		panel.size = Vector2(content_w, content_h)
 	var bar: Control = find_child("ControlBar", true, false) as Control
 	if bar != null:
-		bar.position = Vector2(12, size.y - 36.0)
-		bar.size = Vector2(size.x - 24.0, 28)
+		bar.position = Vector2(size.x - 360.0, size.y - 36.0)
+		bar.size = Vector2(340.0, 24)
+		bar.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		bar.clip_text = true
+	var card: Control = find_child("MenuDetail", true, false) as Control
+	if card != null:
+		var show_card: bool = (skirmish_panel != null and skirmish_panel.visible) or (campaign_panel != null and campaign_panel.visible)
+		card.visible = show_card and not narrow
+		card.position = Vector2(600, 140)
+		card.size = Vector2(minf(600.0, size.x - 624.0), 440)
 	_place_skirmish(content_w, content_h)
 	_place_campaign(content_w, content_h)
 	_place_factions(content_w)
@@ -1106,8 +1160,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key: InputEventKey = event as InputEventKey
 	if key != null and key.pressed and not key.echo:
 		if key.keycode == KEY_ESCAPE:
-			if _menu_tab != "main":
-				_show_tab("main")
+			if _menu_tab != "main" or (faction_submenu != null and faction_submenu.visible):
+				_go_back()
 			get_viewport().set_input_as_handled()
 			return
 		if key.keycode == KEY_DOWN or key.keycode == KEY_S:
@@ -1173,74 +1227,200 @@ func _seat(node: Control, x: float, y: float, w: float, h: float) -> float:
 	node.position = Vector2(x, y)
 	node.size = Vector2(w, h)
 	node.custom_minimum_size = Vector2(w, h)
+	node.set_meta("base_pos", node.position)
 	return y + h + 8.0
+
+func _menu_fade() -> void:
+	var veil: ColorRect = ColorRect.new()
+	veil.name = "MenuFade"
+	veil.color = Color(0, 0, 0, 1)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	veil.z_index = 25
+	veil.modulate.a = 0.0
+	add_child(veil)
+
+func _detail_card() -> void:
+	var card: PanelContainer = PanelContainer.new()
+	card.name = "MenuDetail"
+	card.visible = false
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.z_index = 2
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.7)
+	style.border_color = Color(0.93, 0.78, 0.38, 1)
+	style.set_border_width_all(2)
+	style.content_margin_left = 20
+	style.content_margin_right = 20
+	style.content_margin_top = 16
+	style.content_margin_bottom = 16
+	card.add_theme_stylebox_override("panel", style)
+	add_child(card)
+	var box: VBoxContainer = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	card.add_child(box)
+	var title: Label = Label.new()
+	title.name = "DetailTitle"
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
+	box.add_child(title)
+	var body: Label = Label.new()
+	body.name = "DetailBody"
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.max_lines_visible = 2
+	body.add_theme_font_size_override("font_size", 16)
+	body.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	box.add_child(body)
+	var tags: Label = Label.new()
+	tags.name = "DetailTags"
+	tags.add_theme_font_size_override("font_size", 16)
+	tags.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	box.add_child(tags)
+
+func _make_cycle(node_name: String, kind: String) -> void:
+	var button: Button = Button.new()
+	button.name = node_name
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
+	button.pressed.connect(_spin_cycle.bind(kind))
+	skirmish_panel.add_child(button)
+
+func _cycle_row(node_name: String, x: float, y: float, width: float) -> void:
+	var row: Control = find_child(node_name, true, false) as Control
+	if row == null:
+		return
+	row.position = Vector2(x, y)
+	row.size = Vector2(width, 40)
+	row.custom_minimum_size = Vector2(width, 40)
+
+func _spin_cycle(kind: String) -> void:
+	if kind == "faction":
+		var ids: PackedStringArray = PackedStringArray(["gtfc", "nmrf", "mvd"])
+		var at: int = ids.find(SMFront.current())
+		SMFront.faction_id = ids[(at + 1) % ids.size()]
+		_mark_factions()
+		_refresh_playing()
+		_preview_faction(SMFront.current())
+	elif kind == "diff":
+		var names: PackedStringArray = PackedStringArray(["easy", "normal", "hard"])
+		var at_diff: int = names.find(str(preload("res://game/match_settings.gd").difficulty))
+		if at_diff < 0:
+			at_diff = 1
+		preload("res://game/match_settings.gd").set_difficulty(names[(at_diff + 1) % names.size()])
+		mark_difficulty()
+	else:
+		_bot_i = (_bot_i + 1) % 3
+	_paint_cycles()
+
+func _paint_cycles() -> void:
+	var faction: Button = find_child("SkirmishFactionCycle", true, false) as Button
+	if faction != null:
+		faction.text = "◀  %s  ▶" % SMFront.current().to_upper()
+	var diff: Button = find_child("SkirmishDiffCycle", true, false) as Button
+	if diff != null:
+		var label: String = str(preload("res://game/match_settings.gd").difficulty)
+		diff.text = "◀  %s  ▶" % label.to_upper()
+	var bot: Button = find_child("SkirmishBotCycle", true, false) as Button
+	if bot != null:
+		var bots: PackedStringArray = PackedStringArray(["RAIDER", "HOLDER", "RUSHER"])
+		bot.text = "◀  %s  ▶" % bots[_bot_i]
+
+func _paint_detail() -> void:
+	var title: Label = find_child("DetailTitle", true, false) as Label
+	var body: Label = find_child("DetailBody", true, false) as Label
+	var tags: Label = find_child("DetailTags", true, false) as Label
+	if title == null or body == null or tags == null:
+		return
+	_paint_cycles()
+	if skirmish_panel != null and skirmish_panel.visible:
+		var map_title: String = "Choose a map"
+		var terrain: String = ""
+		for card: Button in map_cards:
+			if str(card.get_meta("map_path", "")) == selected_map or (selected_map != "" and card == _selected_card()):
+				var line: Label = card.find_child("Title", true, false) as Label
+				var kind: Label = card.find_child("Terrain", true, false) as Label
+				if line != null:
+					map_title = line.text
+				if kind != null:
+					terrain = kind.text
+		title.text = map_title
+		body.text = "Two players. You and one enemy."
+		tags.text = terrain if terrain != "" else "2 players"
+		return
+	if campaign_panel != null and campaign_panel.visible:
+		title.text = SMCampaign.title_of(SMCampaign.selected) if SMCampaign.selected != "" else "Campaign"
+		body.text = SMCampaign.briefing_of(SMCampaign.selected)
+		tags.text = "☐  Clear the field    ☐  Hold the line    ☐  Bring it home"
+		return
+	title.text = ""
+	body.text = ""
+	tags.text = ""
+
+func _selected_card() -> Button:
+	for card: Button in map_cards:
+		if bool(card.get_meta("lit", false)):
+			return card
+	return null
 
 func _place_skirmish(panel_w: float, panel_h: float) -> void:
 	var names: PackedStringArray = PackedStringArray([
 		"CardPhillips", "CardSopRuak", "CardBurma", "CardAtolls", "CardMekong", "CardChiang",
 	])
-	var gap: float = 8.0
-	var columns: int = 2 if panel_w > 560.0 else 1
-	var card_w: float = (panel_w - gap * float(columns + 1)) / float(columns)
-	var card_h: float = 72.0
+	var list_x: float = 96.0 if panel_w >= 900.0 else 16.0
+	var list_w: float = 400.0 if panel_w >= 900.0 else maxf(160.0, panel_w - 32.0)
 	for i: int in names.size():
 		var card: Control = find_child(names[i], true, false) as Control
 		if card == null:
 			continue
-		var col: int = i % columns
-		var row: int = i / columns
-		card.position = Vector2(gap + float(col) * (card_w + gap), gap + float(row) * (card_h + gap))
-		card.size = Vector2(card_w, card_h)
-		card.custom_minimum_size = Vector2(card_w, card_h)
-	var rows: int = int(ceil(float(names.size()) / float(columns)))
-	var stack: float = gap + float(rows) * (card_h + gap)
+		card.position = Vector2(list_x, 210.0 + float(i) * 40.0)
+		card.size = Vector2(list_w, 36.0)
+		card.custom_minimum_size = Vector2(list_w, 36.0)
 	var playing: Control = find_child("PlayingAs", true, false) as Control
 	if playing != null:
-		playing.position = Vector2(gap, stack)
+		playing.position = Vector2(list_x, 460.0)
+		playing.size = Vector2(list_w, 48.0)
+	_cycle_row("SkirmishFactionCycle", list_x, 520.0, list_w)
+	_cycle_row("SkirmishDiffCycle", list_x, 568.0, list_w)
+	_cycle_row("SkirmishBotCycle", list_x, 616.0, list_w)
 	var play: Control = find_child("PlayButton", true, false) as Control
 	if play != null:
-		play.position = Vector2(gap, panel_h - 60.0)
-		play.size = Vector2(panel_w - gap * 2.0, 52)
-		play.custom_minimum_size = Vector2(maxf(120.0, panel_w - gap * 2.0), 52)
+		play.position = Vector2(panel_w - 280.0, panel_h - 96.0)
+		play.size = Vector2(240, 64)
+		play.custom_minimum_size = Vector2(240, 64)
 	var grey: Control = find_child("GreyboxButton", true, false) as Control
 	if grey != null:
-		grey.position = Vector2(gap, panel_h - 112.0)
-		grey.size = Vector2(minf(220.0, panel_w - gap * 2.0), 44)
-	var diff_names: PackedStringArray = PackedStringArray(["SkirmishDiffEasy", "SkirmishDiffNormal", "SkirmishDiffHard"])
-	var bw: float = (panel_w - gap * 4.0) / 3.0
-	for slot: int in diff_names.size():
-		var choice: Control = find_child(diff_names[slot], true, false) as Control
-		if choice == null:
-			continue
-		choice.position = Vector2(gap + float(slot) * (bw + gap), panel_h - 168.0)
-		choice.size = Vector2(bw, 44)
-		choice.custom_minimum_size = Vector2(bw, 44)
-	var diff_label: Control = find_child("SkirmishDiffLabel", true, false) as Control
-	if diff_label != null:
-		diff_label.visible = false
+		grey.position = Vector2(list_x, panel_h - 96.0)
+		grey.size = Vector2(180.0, 44.0)
+	for hidden_name: String in ["SkirmishDiffEasy", "SkirmishDiffNormal", "SkirmishDiffHard", "SkirmishDiffLabel"]:
+		var hidden: CanvasItem = find_child(hidden_name, true, false) as CanvasItem
+		if hidden != null:
+			hidden.visible = false
 
 func _place_campaign(panel_w: float, panel_h: float) -> void:
 	var acts: PackedStringArray = PackedStringArray(["ActI", "ActII", "ActIII"])
 	var lists: PackedStringArray = PackedStringArray(["ActIMissions", "ActIIMissions", "ActIIIMissions"])
 	var gap: float = 8.0
-	var tab_w: float = (panel_w - gap * 4.0) / 3.0
+	var left: float = 96.0 if panel_w >= 900.0 else gap
+	var list_w: float = 420.0 if panel_w >= 900.0 else panel_w - gap * 2.0
+	var tab_w: float = (list_w - gap * 2.0) / 3.0
 	for i: int in acts.size():
 		var act: Control = find_child(acts[i], true, false) as Control
 		if act == null:
 			continue
-		act.position = Vector2(gap + float(i) * (tab_w + gap), 4.0)
+		act.position = Vector2(left + float(i) * (tab_w + gap), 200.0)
 		act.size = Vector2(tab_w, 44)
 		act.custom_minimum_size = Vector2(tab_w, 44)
 	for list_name: String in lists:
 		var scroll: Control = find_child(list_name, true, false) as Control
 		if scroll == null:
 			continue
-		scroll.position = Vector2(gap, 56.0)
-		scroll.size = Vector2(panel_w - gap * 2.0, maxf(80.0, panel_h - 128.0))
+		scroll.position = Vector2(left, 256.0)
+		scroll.size = Vector2(list_w, maxf(80.0, panel_h - 360.0))
 		if scroll.get_child_count() > 0:
 			var inner: Control = scroll.get_child(0) as Control
 			if inner != null:
-				inner.custom_minimum_size = Vector2(maxf(80.0, panel_w - 32.0), 0)
+				inner.custom_minimum_size = Vector2(maxf(80.0, list_w - 16.0), 0)
 	for mission_id: String in SMCampaign.ids():
 		var row: Control = find_child("Mission_%s" % mission_id, true, false) as Control
 		if row == null:
