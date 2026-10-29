@@ -128,6 +128,13 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	_multi(host, "Palms", _prop("palm", profile), _spread(palms, palm_cap))
 	_multi(host, "Houses", _prop("house", profile), _spread(houses, house_cap))
 	_multi(host, "Stilts", _prop("stilt", profile), _spread(stilts, 10))
+	_tag_prop(host, "JungleTrees", Env.tree_id(profile))
+	_tag_prop(host, "Palms", Env.palm_id(profile))
+	_tag_prop(host, "Houses", Env.house_id(profile))
+	_tag_prop(host, "Stilts", "mekong_stilt_house" if profile == "mekong" or profile == "atolls" else "shan_stilt_house")
+	host.set_meta("env_profile", profile)
+	host.set_meta("env_grid", grid)
+	Env.pull_web(host, Env.wanted(profile))
 	_markers(host, profile)
 	_ocean_skirt(host, grid)
 	_sky(host)
@@ -332,6 +339,11 @@ static func _spread(spots: Array[Transform3D], cap: int) -> Array[Transform3D]:
 		out.append(spots[mini(spots.size() - 1, int(float(i) * step))])
 		i += 1
 	return out
+
+static func _tag_prop(host: Node3D, node_name: String, id: String) -> void:
+	var node: Node = host.get_node_or_null(node_name)
+	if node != null and id != "":
+		node.set_meta("env_id", id)
 
 static func _multi(host: Node3D, node_name: String, mesh: Mesh, spots: Array[Transform3D]) -> void:
 	if spots.is_empty():

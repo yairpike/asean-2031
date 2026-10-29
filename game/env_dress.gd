@@ -6,6 +6,7 @@ const Settings = preload("res://game/match_settings.gd")
 
 static var _mesh: Dictionary = {}
 static var _scene: Dictionary = {}
+static var _inflight: Dictionary = {}
 
 static func mesh_of(id: String) -> Mesh:
 	if _mesh.has(id):
@@ -118,6 +119,8 @@ static func _neon(profile: String) -> bool:
 	return profile == "sop" or profile == "chiang" or profile == "phillips" or profile == "mekong" or profile == "showcase"
 
 static func _place(host: Node3D, grid: SMDomainGrid, id: String, cell: Vector2i, landmark: bool, neon: bool) -> void:
+	if host.get_node_or_null("Landmark_%s" % id) != null or host.get_node_or_null("Scenery_%s" % id) != null:
+		return
 	if not grid.in_bounds(cell):
 		return
 	var domain: int = grid.domain_at_cell(cell)
@@ -274,4 +277,93 @@ static func _file(id: String) -> String:
 	var web: String = ProjectSettings.globalize_path("res://build/web/models/env/%s.glb" % id)
 	if FileAccess.file_exists(web):
 		return web
+	var cached: String = "user://env/%s.glb" % id
+	if FileAccess.file_exists(cached):
+		return cached
 	return ""
+
+## The web pack leaves glbs beside the page. Download one and swap it onto the props.
+static func pull_web(host: Node, ids: PackedStringArray) -> void:
+	if host == null or not OS.has_feature("web"):
+		return
+	for id: String in ids:
+		if id == "" or _inflight.has(id) or _file(id) != "":
+			continue
+		_inflight[id] = true
+		_scene.erase(id)
+		_mesh.erase(id)
+		var http := HTTPRequest.new()
+		http.timeout = 60.0
+		http.accept_gzip = false
+		host.add_child(http)
+		http.request_completed.connect(_got_web.bind(http, host, id))
+		var err: Error = http.request(_page() + "models/env/%s.glb" % id)
+		if err != OK:
+			_inflight.erase(id)
+			http.queue_free()
+
+static func wanted(profile: String) -> PackedStringArray:
+	var ids: PackedStringArray = PackedStringArray()
+	ids.append(tree_id(profile))
+	ids.append(palm_id(profile))
+	var house: String = house_id(profile)
+	if house != "":
+		ids.append(house)
+	ids.append("mekong_stilt_house" if profile == "mekong" or profile == "atolls" else "shan_stilt_house")
+	var mark: String = _mark_of(profile)
+	if mark != "":
+		ids.append(mark)
+	if profile == "atolls":
+		ids.append("karst_sea_stack")
+		ids.append("jetty")
+	if profile == "showcase":
+		ids.append_array(PackedStringArray([
+			"lm_shwedagon", "city_hdb", "city_highrise", "peranakan_shophouse", "city_flyover",
+			"wet_market", "concrete_bridge", "longtail_boat", "jungle_waterfall", "karst_tower",
+			"banyan_tree", "bamboo_clump", "lao_sim",
+		]))
+	return ids
+
+static func _got_web(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest, host: Node, id: String) -> void:
+	if is_instance_valid(http):
+		http.queue_free()
+	_inflight.erase(id)
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or body.is_empty():
+		return
+	var cache_path: String = "user://env/%s.glb" % id
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://env"))
+	var file := FileAccess.open(cache_path, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_buffer(body)
+	file.close()
+	_scene.erase(id)
+	_mesh.erase(id)
+	var mesh: Mesh = mesh_of(id)
+	if not is_instance_valid(host):
+		return
+	for node_name: String in ["JungleTrees", "Palms", "Houses", "Stilts"]:
+		var props: MultiMeshInstance3D = host.get_node_or_null(node_name) as MultiMeshInstance3D
+		if props == null or props.multimesh == null:
+			continue
+		if str(props.get_meta("env_id", "")) != id:
+			continue
+		if mesh != null:
+			props.multimesh.mesh = mesh
+	var grid: SMDomainGrid = host.get_meta("env_grid", null) as SMDomainGrid
+	var profile: String = str(host.get_meta("env_profile", ""))
+	if grid != null and profile != "":
+		stamp(host, grid, profile)
+
+static func _page() -> String:
+	var href: String = str(JavaScriptBridge.eval("window.location.href", true))
+	var cut: int = href.find("?")
+	if cut >= 0:
+		href = href.substr(0, cut)
+	cut = href.find("#")
+	if cut >= 0:
+		href = href.substr(0, cut)
+	var slash: int = href.rfind("/")
+	if slash >= 0:
+		href = href.substr(0, slash + 1)
+	return href
