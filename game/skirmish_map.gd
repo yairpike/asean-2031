@@ -30,6 +30,8 @@ func _ready() -> void:
 	_ui()
 	var rally: Vector3 = grid.cell_center(_player_cells()[0])
 	side.prepare(self, status, grid, rally, roster.economy)
+	if side.yard.style != SMBuildYard.Style.INTERNAL:
+		side.yard.radius = maxf(side.yard.radius, 34.0)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, _map_name(), rally, Callable(self, "fire_ability"), grid, cam)
@@ -69,6 +71,8 @@ func _prepare_ability() -> void:
 	sim.abilities.add_unit(12, sim.yard.center + Vector3(8.0, 0.0, 0.0), SMAbilities.SMART, 3.0, 0.6)
 
 func _grid_for(id: String) -> SMDomainGrid:
+	if id == "showcase":
+		return SMDomainGrid.showcase_layout()
 	if id == "ten_degree_atolls":
 		return SMDomainGrid.ten_degree_atolls_layout()
 	if id == "mekong_delta":
@@ -79,7 +83,9 @@ func _grid_for(id: String) -> SMDomainGrid:
 
 func _player_cells() -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
-	if map_id == "ten_degree_atolls":
+	if map_id == "showcase":
+		cells = [Vector2i(8, 40), Vector2i(10, 40), Vector2i(12, 40), Vector2i(8, 43), Vector2i(10, 43), Vector2i(12, 43)]
+	elif map_id == "ten_degree_atolls":
 		cells = [Vector2i(3, 16), Vector2i(5, 16), Vector2i(7, 16), Vector2i(3, 19), Vector2i(5, 19), Vector2i(7, 19)]
 	elif map_id == "mekong_delta":
 		cells = [Vector2i(3, 15), Vector2i(5, 15), Vector2i(7, 15), Vector2i(3, 18), Vector2i(5, 18), Vector2i(7, 18)]
@@ -87,7 +93,7 @@ func _player_cells() -> Array[Vector2i]:
 		cells = [Vector2i(4, 33), Vector2i(6, 33), Vector2i(8, 33), Vector2i(4, 36), Vector2i(6, 36), Vector2i(8, 36)]
 	else:
 		cells = [Vector2i(3, 13), Vector2i(5, 13), Vector2i(7, 13), Vector2i(3, 16), Vector2i(5, 16), Vector2i(7, 16)]
-	return cells
+	return _shift_cells(cells)
 
 func _plan_name() -> String:
 	if map_id == "burma_road":
@@ -154,7 +160,9 @@ func _seat(team: int, color: Color, ally_of: int, cell: Vector2i, caption: Strin
 
 func _enemy_cells() -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
-	if map_id == "ten_degree_atolls":
+	if map_id == "showcase":
+		cells = [Vector2i(58, 8), Vector2i(60, 8), Vector2i(62, 8)]
+	elif map_id == "ten_degree_atolls":
 		cells = [Vector2i(27, 16), Vector2i(29, 16), Vector2i(28, 19)]
 	elif map_id == "mekong_delta":
 		cells = [Vector2i(32, 15), Vector2i(34, 15), Vector2i(33, 18)]
@@ -162,16 +170,26 @@ func _enemy_cells() -> Array[Vector2i]:
 		cells = [Vector2i(44, 6), Vector2i(46, 6), Vector2i(48, 6), Vector2i(44, 9), Vector2i(46, 9), Vector2i(48, 9)]
 	else:
 		cells = [Vector2i(32, 13), Vector2i(34, 13), Vector2i(33, 16)]
-	return cells
+	return _shift_cells(cells)
 
 func _move_cell() -> Vector2i:
-	if map_id == "ten_degree_atolls":
-		return Vector2i(6, 18)
-	if map_id == "mekong_delta":
-		return Vector2i(6, 20)
-	if map_id == "chiang_rai":
-		return Vector2i(10, 34)
-	return Vector2i(10, 20)
+	var cell := Vector2i(10, 20)
+	if map_id == "showcase":
+		cell = Vector2i(12, 40)
+	elif map_id == "ten_degree_atolls":
+		cell = Vector2i(6, 18)
+	elif map_id == "mekong_delta":
+		cell = Vector2i(6, 20)
+	elif map_id == "chiang_rai":
+		cell = Vector2i(10, 34)
+	return cell + SMDomainGrid.pad_of(map_id)
+
+func _shift_cells(cells: Array[Vector2i]) -> Array[Vector2i]:
+	var pad: Vector2i = SMDomainGrid.pad_of(map_id)
+	var out: Array[Vector2i] = []
+	for cell: Vector2i in cells:
+		out.append(cell + pad)
+	return out
 
 func _world() -> void:
 	var env: WorldEnvironment = WorldEnvironment.new()
@@ -185,7 +203,9 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, 25, 0)
 	add_child(sun)
-	if map_id == "ten_degree_atolls":
+	if map_id == "showcase":
+		Ground.dress(self, grid, "showcase")
+	elif map_id == "ten_degree_atolls":
 		_atoll_world()
 	elif map_id == "mekong_delta":
 		_mekong_world()
@@ -197,7 +217,7 @@ func _world() -> void:
 	cam.name = "Camera"
 	var span: Vector2 = Vector2(float(grid.cols) * grid.cell_size, float(grid.rows) * grid.cell_size)
 	cam.bounds = Rect2(grid.origin.x - 8.0, grid.origin.z - 8.0, span.x + 16.0, span.y + 16.0)
-	cam.distance = 32.0 if map_id == "chiang_rai" else 28.0
+	cam.distance = 42.0 if map_id == "showcase" else (32.0 if map_id == "chiang_rai" else 28.0)
 	cam.edge_pan_px = 20.0
 	cam.focus = grid.cell_center(_player_cells()[0])
 	add_child(cam)
@@ -237,6 +257,8 @@ func _ui() -> void:
 	sim.protocols.mount_panel(ui_layer, roster.economy, SMPointer.PLAYER, sim.abilities, Callable(self, "_say"))
 
 func _map_name() -> String:
+	if map_id == "showcase":
+		return "Golden Confluence"
 	if map_id == "ten_degree_atolls":
 		return "Ten Degree Atolls"
 	if map_id == "mekong_delta":
@@ -246,6 +268,8 @@ func _map_name() -> String:
 	return "Burma Road"
 
 func _blurb() -> String:
+	if map_id == "showcase":
+		return "A city bank, a jungle bank, and a river between them. The landmark does not burn."
 	if map_id == "ten_degree_atolls":
 		return "Islands in deep water. Shoals are the crossings. The enemy builds, expands, and attacks."
 	if map_id == "mekong_delta":

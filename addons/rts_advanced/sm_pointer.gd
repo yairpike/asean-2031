@@ -101,8 +101,12 @@ func _nav_for_loco(grid: SMDomainGrid, loco: int) -> RTSGridNav:
 	var built: RTSGridNav = RTSGridNav.new(grid.cols, grid.rows, grid.cell_size, grid.origin)
 	for y: int in range(grid.rows):
 		for x: int in range(grid.cols):
-			if not grid.can_enter(grid.domain_at_cell(Vector2i(x, y)), loco):
-				built.set_blocked(Vector2i(x, y), true)
+			var cell: Vector2i = Vector2i(x, y)
+			var blocked: bool = not grid.can_enter(grid.domain_at_cell(cell), loco)
+			if not blocked and loco != SMDomainGrid.Loco.AIR and grid.holding(cell):
+				blocked = true
+			if blocked:
+				built.set_blocked(cell, true)
 	return built
 
 func nav_for_unit(u: RTSUnit) -> RTSGridNav:
