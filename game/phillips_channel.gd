@@ -30,7 +30,7 @@ func _ready() -> void:
 	_ui()
 	side.prepare(self, status, sim.grid, sim.yard.center, roster.economy)
 	if side.yard.style != SMBuildYard.Style.INTERNAL:
-		side.yard.radius = maxf(side.yard.radius, 34.0)
+		side.yard.radius = maxf(side.yard.radius, 44.0)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, "Phillips Channel", sim.yard.center, Callable(self, "fire_ability"), sim.grid, cam)
@@ -106,7 +106,8 @@ func _world() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-112.0, -68.0, 224.0, 136.0)
-	cam.distance = 26.0
+	cam.distance = 50.0
+	cam.zoom_max = 90.0
 	cam.edge_pan_px = 20.0
 	cam.focus = Vector3(-58, 0, -12)
 	add_child(cam)

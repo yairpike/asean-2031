@@ -45,10 +45,16 @@
     {"id": "chedi_ruin", "cell": [15, 14], "yaw": 30},
     {"id": "rock_set", "cell": [24, 17], "yaw": 0},
     {"id": "rock_set", "cell": [23, 31], "yaw": 90},
-    {"id": "shan_stilt_house", "cell": [56, 43], "yaw": 10},
-    {"id": "shan_stilt_house", "cell": [59, 42], "yaw": 190},
-    {"id": "teak_kyaung", "cell": [53, 44], "yaw": 0},
     {"id": "cell_tower", "cell": [18, 4], "yaw": 0}
+  ],
+  "towns": [
+    {"id": "sule_downtown", "place": "yangon_downtown", "rect": [8, 18, 11, 8], "axis": "z", "block": [4, 6], "high": [1],
+     "shops": "peranakan_shophouse", "homes": ["neon_shophouse", "border_guesthouse"]},
+    {"id": "shan_hamlet", "place": "lashio", "rect": [53, 40, 8, 6], "axis": "x", "block": [6, 4],
+     "homes": ["shan_stilt_house", "shan_stilt_house", "khmer_stilt_house"]}
+  ],
+  "orchards": [
+    {"id": "rubber_estate", "tree": "rubber_tree", "rect": [20, 3, 8, 8], "pitch": [1, 2]}
   ],
   "bot": {"plan_a": "ruby_fwd_b", "plan_b": "jade_b", "site": "radar_b", "name": "Tran"}
 }

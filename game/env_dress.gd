@@ -128,7 +128,10 @@ static func _stamp_plan(host: Node3D, grid: SMDomainGrid, plan: SMMapPlan, neon:
 	var mark: String = str(plan.landmark.get("id", ""))
 	if mark != "":
 		var rect: Rect2i = plan.landmark.get("rect", Rect2i()) as Rect2i
+		var twin: Rect2i = plan.landmark.get("twin", rect) as Rect2i
 		_put(host, grid, mark, "Landmark_%s" % mark, plan.rect_center(rect), 0.0, neon)
+		if twin != rect:
+			_put(host, grid, mark, "Landmark_%s_b" % mark, plan.rect_center(twin), 180.0, neon)
 	for i: int in plan.props.size():
 		var row: Dictionary = plan.props[i]
 		var id: String = str(row["id"])
@@ -277,7 +280,7 @@ static func wanted(profile: String, plan: SMMapPlan = null) -> PackedStringArray
 		var mark: String = str(plan.landmark.get("id", ""))
 		if mark != "":
 			ids.append(mark)
-		for row: Dictionary in plan.props:
+		for row: Dictionary in plan.props + plan.lots + plan.groves:
 			if not ids.has(str(row["id"])):
 				ids.append(str(row["id"]))
 	ids.append(tree_id(profile))
@@ -318,8 +321,8 @@ static func _got_web(result: int, code: int, _headers: PackedStringArray, body: 
 	var mesh: Mesh = mesh_of(id)
 	if not is_instance_valid(host):
 		return
-	for node_name: String in ["JungleTrees", "Palms", "Houses", "Stilts"]:
-		var props: MultiMeshInstance3D = host.get_node_or_null(node_name) as MultiMeshInstance3D
+	for child: Node in host.get_children():
+		var props: MultiMeshInstance3D = child as MultiMeshInstance3D
 		if props == null or props.multimesh == null:
 			continue
 		if str(props.get_meta("env_id", "")) != id:

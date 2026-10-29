@@ -110,6 +110,8 @@ func _run() -> void:
 	await H.section("test_building_materials", test_building_materials)
 	await H.section("test_hud_redesign", test_hud_redesign)
 	await H.section("test_hud_pause", test_hud_pause)
+	await H.section("test_map_symmetry", test_map_symmetry)
+	await H.section("test_model_scale", test_model_scale)
 	quit(H.finish())
 
 func test_scripts() -> void:
@@ -148,6 +150,202 @@ func _collect_scripts(dir_path: String, into: PackedStringArray) -> void:
 		if sub.begins_with(".") or sub == "build":
 			continue
 		_collect_scripts(dir_path.path_join(sub), into)
+
+const PLANNED_MAPS: Array[String] = ["burma_road", "ten_degree_atolls", "mekong_delta", "chiang_rai"]
+
+func test_map_symmetry() -> void:
+	for map_id: String in PLANNED_MAPS:
+		var plan: SMMapPlan = SMMapPlan.of(map_id)
+		check(plan != null and plan.cols > 0 and SMDomainGrid.pad_of(map_id) == Vector2i.ZERO, "%s loads from data/maps" % map_id)
+		if plan == null:
+			continue
+		var grid: SMDomainGrid = plan.grid()
+		var mirrored: bool = true
+		for y: int in grid.rows:
+			for x: int in grid.cols:
+				var c := Vector2i(x, y)
+				var t: Vector2i = plan.twin_cell(c)
+				if grid.domain_at_cell(c) != grid.domain_at_cell(t) or grid.holding(c) != grid.holding(t):
+					mirrored = false
+		check(mirrored, "%s terrain and holds match their twin cell by cell" % map_id)
+		var half: int = plan.starts.size() / 2
+		var seats_ok: bool = plan.starts.size() >= 2 and plan.starts.size() % 2 == 0
+		for seat: int in half:
+			seats_ok = seats_ok and plan.twin_cell(plan.start(seat)) == plan.start(seat + half)
+		check(seats_ok, "%s spawns are twins of each other" % map_id)
+		check(_side_parity(plan, plan.nodes, true) and _side_parity(plan, plan.sites, false), "%s resources and tech sites match side for side" % map_id)
+		var near_a: Array[float] = _node_reach(plan, grid, 0)
+		var near_b: Array[float] = _node_reach(plan, grid, half)
+		check(near_a.size() == plan.nodes.size() / 2 and near_a == near_b, "%s each side has the same node distances from its start" % map_id)
+		var clear: bool = true
+		for r: Rect2i in plan.plateaus:
+			for y: int in range(r.position.y, r.end.y):
+				for x: int in range(r.position.x, r.end.x):
+					if grid.domain_at_cell(Vector2i(x, y)) != SMDomainGrid.Domain.LAND or grid.holding(Vector2i(x, y)):
+						clear = false
+		for row: Dictionary in plan.props:
+			for r: Rect2i in plan.plateaus:
+				if r.has_point(row["cell"] as Vector2i):
+					clear = false
+		check(clear and not plan.plateaus.is_empty(), "%s start plateaus are open land with no scenery" % map_id)
+		var nav := RTSGridNav.new(grid.cols, grid.rows, grid.cell_size, grid.origin)
+		for y: int in grid.rows:
+			for x: int in grid.cols:
+				var c := Vector2i(x, y)
+				var d: int = grid.domain_at_cell(c)
+				nav.set_blocked(c, grid.holding(c) or not (d == SMDomainGrid.Domain.LAND or d == SMDomainGrid.Domain.SHALLOW))
+		var a: Vector3 = grid.cell_center(plan.start(0))
+		var b: Vector3 = grid.cell_center(plan.start(half))
+		check(nav.find_path(a, b).size() > 0 and nav.find_path(b, a).size() > 0, "%s ground forces can reach the other start" % map_id)
+		var built_a: int = _base_plots(grid, plan, 0)
+		var built_b: int = _base_plots(grid, plan, half)
+		check(built_a == built_b and built_a >= 9, "%s both bases fit the same footprints (%d and %d)" % [map_id, built_a, built_b])
+
+func _side_parity(plan: SMMapPlan, rows: Array[Dictionary], goods: bool) -> bool:
+	var a: Array[String] = []
+	var b: Array[String] = []
+	for row: Dictionary in rows:
+		var key: String = "%s|%d|%s" % [str(row["kind"]), int(row.get("rate", 0)), str(row.get("water", false))]
+		if int(row["side"]) == 0:
+			a.append(key)
+			var twin: Vector2i = plan.twin_cell(row["cell"] as Vector2i)
+			var found: bool = false
+			for other: Dictionary in rows:
+				if int(other["side"]) == 1 and other["cell"] == twin and str(other["kind"]) == str(row["kind"]):
+					found = true
+			if not found:
+				return false
+		else:
+			b.append(key)
+	a.sort()
+	b.sort()
+	return a == b and (not goods or a.size() >= 4)
+
+func _node_reach(plan: SMMapPlan, grid: SMDomainGrid, seat: int) -> Array[float]:
+	var side: int = 0 if seat < plan.starts.size() / 2 else 1
+	var home: Vector3 = grid.cell_center(plan.start(seat))
+	var out: Array[float] = []
+	for row: Dictionary in plan.nodes:
+		if int(row["side"]) == side:
+			out.append(snappedf(home.distance_to(grid.cell_center(row["cell"] as Vector2i)), 0.01))
+	out.sort()
+	return out
+
+func _base_plots(grid: SMDomainGrid, plan: SMMapPlan, seat: int) -> int:
+	var base := SMBasePlan.new(grid, grid.cell_center(plan.start(seat)), 48.0)
+	base.plot(&"yard", "yard")
+	var goods := SMCommodityNet.new()
+	for row: Dictionary in plan.nodes:
+		goods.add_node(row["id"] as StringName, SMMapPlan.goods_kind(row["kind"] as StringName), grid.cell_center(row["cell"] as Vector2i), 0, false)
+	base.keep_nets(goods, null)
+	var roles: PackedStringArray = ["power", "power", "refinery", "barracks", "factory", "air", "tech", "defense", "defense"]
+	var placed: int = 1
+	for i: int in roles.size():
+		base.plot(StringName("b%d" % i), roles[i])
+		if base.plots.has(StringName("b%d" % i)):
+			placed += 1
+	return placed if base.overlaps() == 0 else -1
+
+func test_model_scale() -> void:
+	const Forms = preload("res://game/unit_meshes.gd")
+	const Models = preload("res://game/model_registry.gd")
+	const Scale = preload("res://game/model_scale.gd")
+	const Env = preload("res://game/env_dress.gd")
+	var chart: Dictionary = SMBasePlan.chart()
+	check(not chart.is_empty() and float(chart.get("cell_m", 0.0)) == 4.0, "the scale chart loads with 4 m cells")
+	var unclassed: Array[String] = []
+	var unroled: Array[String] = []
+	var host := Node3D.new()
+	root.add_child(host)
+	var infantry_ok: bool = true
+	var infantry_seen: int = 0
+	var vehicles_ok: bool = true
+	var too_big: Array[String] = []
+	var too_small: Array[String] = []
+	var fitted: int = 0
+	for faction: String in ["gtfc", "mvd", "nmrf", "black_market"]:
+		SMFront.faction_id = faction
+		var data: Dictionary = SMCatalog.faction(faction)
+		for unit: Dictionary in SMCatalog.units_of(data):
+			var id: String = str(unit.get("id", ""))
+			var cls: String = Scale.unit_class(id)
+			if cls == "":
+				unclassed.append(id)
+				continue
+			var body: MeshInstance3D = Forms.dress_unit(id, str(unit.get("role", "")), str(unit.get("locomotion", "ground")), Color.GRAY)
+			host.add_child(body)
+			var model: Node3D = body.get_node_or_null("Model") as Node3D
+			if model != null:
+				var size: Vector3 = (model.transform * Models._merged_aabb(model)).size
+				var target: Dictionary = Scale.unit_target(id)
+				if cls == "infantry":
+					infantry_seen += 1
+					infantry_ok = infantry_ok and absf(size.y - 1.8) < 0.1
+				elif target.has("length") and not target.has("height_max"):
+					vehicles_ok = vehicles_ok and absf(maxf(size.x, size.z) - float(target["length"])) < float(target["length"]) * 0.06
+			body.free()
+		for item: Variant in data.get("buildings", []):
+			var row: Dictionary = item as Dictionary
+			var bid: String = str(row.get("id", ""))
+			var role: String = str(row.get("role", ""))
+			var roles: Dictionary = chart.get("building_roles", {}) as Dictionary
+			if not roles.has(role) and not (chart.get("buildings", {}) as Dictionary).has(bid):
+				unroled.append(bid)
+			var mi := MeshInstance3D.new()
+			mi.name = "Built_%s" % bid
+			if not Forms.dress_structure(mi, SMPointer.BUILDING_SIZE, Color.GRAY):
+				mi.free()
+				continue
+			host.add_child(mi)
+			var plot: Vector2 = mi.get_meta("footprint_m", Vector2.ZERO) as Vector2
+			var model: Node3D = mi.get_node_or_null("Model") as Node3D
+			if model != null and plot != Vector2.ZERO:
+				fitted += 1
+				var placed: AABB = model.transform * Models._merged_aabb(model)
+				var limit: float = Scale.fill() + 0.01
+				if placed.size.x > plot.x * limit or placed.size.z > plot.y * limit or placed.size.y > maxf(plot.x, plot.y) * Scale.height_ratio_max() + 0.05:
+					too_big.append(bid)
+				if maxf(placed.size.x / plot.x, placed.size.z / plot.y) < 0.5 and placed.size.y < maxf(plot.x, plot.y) * Scale.height_ratio_max() - 0.05:
+					too_small.append(bid)
+			mi.free()
+	SMFront.faction_id = "gtfc"
+	check(unclassed.is_empty(), "every unit has a scale class %s" % [unclassed.slice(0, 6)])
+	check(unroled.is_empty(), "every building has a footprint %s" % [unroled.slice(0, 6)])
+	check(infantry_seen > 0 and infantry_ok, "infantry models stand 1.8 m tall")
+	check(vehicles_ok, "vehicle, aircraft and ship models match their class length")
+	check(fitted > 10 and too_big.is_empty(), "%d building models sit inside their grid footprint %s" % [fitted, too_big.slice(0, 6)])
+	check(too_small.is_empty(), "building models fill their footprint %s" % [too_small.slice(0, 6)])
+	var yard: Vector2 = SMBasePlan.footprint_m("", "yard")
+	var wall: Vector2 = SMBasePlan.footprint_m("", "defense")
+	check(yard == Vector2(16.0, 16.0) and wall == Vector2(8.0, 8.0) and SMBasePlan.footprint_m("gun_wharf", "naval") == Vector2(8.0, 16.0), "footprints come from the chart in metres")
+	var env_ids: PackedStringArray = PackedStringArray()
+	for dir_path: String in ["res://game/models/env", "res://build/web/models/env"]:
+		var dir := DirAccess.open(dir_path)
+		if dir == null:
+			continue
+		for file: String in dir.get_files():
+			if file.ends_with(".glb") and not env_ids.has(file.get_basename()):
+				env_ids.append(file.get_basename())
+	var bare: Array[String] = []
+	for id: String in env_ids:
+		if Scale.scenery_class(id) == "":
+			bare.append(id)
+	check(env_ids.size() > 20 and bare.is_empty(), "every scenery model has a scale class %s" % [bare.slice(0, 6)])
+	var tree: Node3D = Env._load("teak_tree")
+	var house: Node3D = Env._load("shan_stilt_house")
+	var tree_h: float = -1.0
+	var house_l: float = -1.0
+	if tree != null:
+		var box: AABB = Models._merged_aabb(tree)
+		tree_h = box.size.y * Env.fit_of("teak_tree", box)
+		tree.free()
+	if house != null:
+		var hbox: AABB = Models._merged_aabb(house)
+		house_l = maxf(hbox.size.x, hbox.size.z) * Env.fit_of("shan_stilt_house", hbox)
+		house.free()
+	check(absf(tree_h - 9.0) < 0.1 and house_l > 4.0 and house_l <= 7.6, "trees stand 9 m and houses stay house-sized (%.1f m, %.1f m)" % [tree_h, house_l])
+	host.free()
+	await process_frame
 
 func test_hud_redesign() -> void:
 	SMFront.faction_id = "gtfc"
@@ -1295,7 +1493,7 @@ func test_sm_bots() -> void:
 	check(bool(tran["frozen"]) and bool(tran["flew"]) and str(tran["faction"]) == "gtfc", "tran uses cryo and air")
 	var bo: Dictionary = played.run_bot(SMBot.new(&"bo_mya"))
 	check(str(bo["faction"]) == "mvd" and bool(bo["fired"]), "bo mya fields drones")
-	var burma_ok: bool = _duel(&"bo_mya", "burma_road", &"iskandar", false)
+	var burma_ok: bool = _duel(&"bo_mya", "burma_road", &"iskandar", false, 90.0)
 	check(burma_ok, "bo mya wins on the burma road (%s)" % duel_note)
 	var sop_ok: bool = _duel(&"bo_mya", "sop_ruak", &"tran", true)
 	check(sop_ok, "bo mya wins across the sop ruak water (%s)" % duel_note)
@@ -1305,7 +1503,7 @@ func test_sm_bots() -> void:
 	check(atoll_ok, "iskandar wins on the atolls (%s)" % duel_note)
 	var mekong_ok: bool = _duel(&"tran", "mekong_delta", &"bo_mya", true, 75.0)
 	check(mekong_ok, "tran wins over the mekong canals (%s)" % duel_note)
-	var chiang_ok: bool = _duel(&"tran", "chiang_rai", &"iskandar", true)
+	var chiang_ok: bool = _duel(&"tran", "chiang_rai", &"iskandar", true, 90.0)
 	check(chiang_ok, "tran wins over the chiang rai river (%s)" % duel_note)
 
 func test_sm_mission() -> void:
@@ -1391,25 +1589,29 @@ func test_sm_maps() -> void:
 	var cliff: int = SMDomainGrid.Domain.CLIFF
 	var shallow: int = SMDomainGrid.Domain.SHALLOW
 	var burma: SMDomainGrid = SMDomainGrid.burma_road_layout()
-	check(burma.cols == 56 and burma.rows == 40, "burma road grew")
-	check(burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(2, 2))) == cliff and burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(18, 4))) == cliff, "burma highlands and the wall are cliffs")
-	check(burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(18, 13))) == land and burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(4, 14))) == land and burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(34, 14))) == land, "the burma road is land between the shores")
+	var burma_plan: SMMapPlan = SMMapPlan.of("burma_road")
+	check(burma.cols == 64 and burma.rows == 48, "burma road grew")
+	check(burma.domain_at_cell(Vector2i(0, 0)) == cliff and burma.domain_at_cell(Vector2i(30, 14)) == cliff and burma.domain_at_cell(Vector2i(33, 33)) == cliff, "burma highlands and the massif are cliffs")
+	check(burma.domain_at_cell(Vector2i(26, 19)) == land and burma.domain_at_cell(burma_plan.start(0)) == land and burma.domain_at_cell(burma_plan.start(1)) == land, "the burma pass is land between the plateaus")
 	var atolls: SMDomainGrid = SMDomainGrid.ten_degree_atolls_layout()
-	check(atolls.domain_at_cell(Vector2i(0, 0)) == deep and atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(18, 30))) == deep, "the atolls sit in deep water")
-	check(atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(4, 17))) == land and atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(28, 17))) == land and atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(16, 4))) == land, "three atoll islands are land")
-	check(atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(14, 17))) == shallow and atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(17, 10))) == shallow, "shoals link the atolls")
+	var atoll_plan: SMMapPlan = SMMapPlan.of("ten_degree_atolls")
+	check(atolls.domain_at_cell(Vector2i(0, 0)) == deep and atolls.domain_at_cell(Vector2i(21, 42)) == deep, "the atolls sit in deep water")
+	check(atolls.domain_at_cell(atoll_plan.start(0)) == land and atolls.domain_at_cell(atoll_plan.start(1)) == land and atolls.domain_at_cell(Vector2i(10, 11)) == land and atolls.domain_at_cell(Vector2i(30, 24)) == land, "home islands, islets and the reef are land")
+	check(atolls.domain_at_cell(Vector2i(21, 27)) == shallow and atolls.domain_at_cell(Vector2i(28, 11)) == shallow and atolls.domain_at_cell(Vector2i(10, 20)) == shallow, "shoals link the atolls")
 	var mekong: SMDomainGrid = SMDomainGrid.mekong_delta_layout()
-	check(mekong.cols == 56 and mekong.rows == 46, "the mekong grew")
-	check(mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 4))) == deep and mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(27, 28))) == deep, "mekong canals are deep water")
-	check(mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 15))) == land and mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(27, 16))) == land and mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(4, 16))) == land, "bridges and paddies stay land")
+	var mekong_plan: SMMapPlan = SMMapPlan.of("mekong_delta")
+	check(mekong.cols == 64 and mekong.rows == 48, "the mekong grew")
+	check(mekong.domain_at_cell(Vector2i(18, 4)) == deep and mekong.domain_at_cell(Vector2i(45, 30)) == deep, "mekong canals are deep water")
+	check(mekong.domain_at_cell(Vector2i(18, 23)) == land and mekong.domain_at_cell(Vector2i(45, 24)) == land and mekong.domain_at_cell(mekong_plan.start(0)) == land, "bridges and paddies stay land")
 	var chiang: SMDomainGrid = SMDomainGrid.chiang_rai_layout()
-	check(chiang.cols == 78 and chiang.rows == 56 and chiang.cols > burma.cols and chiang.rows > mekong.rows, "chiang rai is the larger map")
-	check(chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(27, 2))) == deep and chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(8, 7))) == cliff, "chiang rai has a river and a siege wall")
-	check(chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(27, 10))) == land and chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(27, 30))) == land and chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(8, 34))) == land and chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(46, 8))) == land, "fords and both camps on chiang rai are land")
-	await _play_map("res://game/burma_road.tscn", "HighlandWest", "Road", SMDomainGrid.at("burma_road", Vector2i(4, 14)), SMDomainGrid.at("burma_road", Vector2i(34, 14)), SMDomainGrid.at("burma_road", Vector2i(10, 20)))
-	await _play_map("res://game/ten_degree_atolls.tscn", "WestIsle", "Sea", SMDomainGrid.at("ten_degree_atolls", Vector2i(4, 17)), SMDomainGrid.at("ten_degree_atolls", Vector2i(28, 17)), SMDomainGrid.at("ten_degree_atolls", Vector2i(6, 18)))
-	await _play_map("res://game/mekong_delta.tscn", "CanalWest", "BridgeWest", SMDomainGrid.at("mekong_delta", Vector2i(4, 16)), SMDomainGrid.at("mekong_delta", Vector2i(34, 16)), SMDomainGrid.at("mekong_delta", Vector2i(6, 20)))
-	await _play_map("res://game/chiang_rai.tscn", "SiegeRiver", "WallWest", SMDomainGrid.at("chiang_rai", Vector2i(8, 34)), SMDomainGrid.at("chiang_rai", Vector2i(46, 8)), SMDomainGrid.at("chiang_rai", Vector2i(10, 34)))
+	check(chiang.cols == 80 and chiang.rows == 56 and chiang.cols > burma.cols and chiang.rows > mekong.rows, "chiang rai is the larger map")
+	var chiang_plan: SMMapPlan = SMMapPlan.of("chiang_rai")
+	check(chiang.domain_at_cell(Vector2i(39, 2)) == deep and chiang.domain_at_cell(Vector2i(15, 35)) == cliff, "chiang rai has a river and plateau walls")
+	check(chiang.domain_at_cell(Vector2i(39, 11)) == land and chiang.domain_at_cell(Vector2i(39, 27)) == land and chiang.domain_at_cell(Vector2i(39, 43)) == land and chiang.domain_at_cell(chiang_plan.start(0)) == land and chiang.domain_at_cell(chiang_plan.start(2)) == land, "fords and both camps on chiang rai are land")
+	await _play_map("res://game/burma_road.tscn", "HighlandWest", "Road", burma_plan.start(0), burma_plan.start(1), burma_plan.spawn_cells(0, 9)[8])
+	await _play_map("res://game/ten_degree_atolls.tscn", "WestIsle", "Sea", atoll_plan.start(0), atoll_plan.start(1), atoll_plan.spawn_cells(0, 9)[8])
+	await _play_map("res://game/mekong_delta.tscn", "CanalWest", "BridgeWest", mekong_plan.start(0), mekong_plan.start(1), mekong_plan.spawn_cells(0, 9)[8])
+	await _play_map("res://game/chiang_rai.tscn", "SiegeRiver", "WallWest", chiang_plan.start(0), chiang_plan.start(2), chiang_plan.spawn_cells(0, 9)[8])
 	var show: Node = (load("res://game/showcase.tscn") as PackedScene).instantiate()
 	root.add_child(show)
 	await process_frame
@@ -2216,7 +2418,7 @@ func test_sm_field() -> void:
 func test_sm_sites() -> void:
 	await _sites("res://game/phillips_channel.tscn", 8, 2, 0, 0, 0, 1, 0, 0)
 	await _sites("res://game/sop_ruak.tscn", 12, 3, 1, 0, 0, 0, 0, 0)
-	await _sites("res://game/burma_road.tscn", 8, 0, 2, 0, 2, 0, 0, 0)
+	await _sites("res://game/burma_road.tscn", 10, 0, 2, 0, 2, 0, 0, 0)
 	await _sites("res://game/ten_degree_atolls.tscn", 16, 0, 0, 0, 2, 0, 4, 0)
 	await _sites("res://game/mekong_delta.tscn", 14, 2, 0, 2, 0, 0, 0, 4)
 	await _sites("res://game/chiang_rai.tscn", 24, 4, 2, 0, 0, 0, 0, 0)
@@ -3560,10 +3762,11 @@ func _march_on_base(scene: Node, field: SMPointer) -> void:
 	var raider: SMRaider = scene.get("raider") as SMRaider
 	if raider == null or raider.yard == null:
 		return
-	var at: Vector3 = raider.yard.center
 	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
 		if not is_instance_valid(u) or not u.is_alive():
 			continue
+		var standing: StringName = raider.yard.nearest_living(u.global_position)
+		var at: Vector3 = raider.yard.center if standing == &"" else raider.yard.position_of(standing)
 		var nav: RTSGridNav = field.nav_for_unit(u)
 		if nav == null or nav.find_path(u.global_position, at).is_empty():
 			u.global_position = at + Vector3(3.0, 0.0, 0.0)
@@ -4656,11 +4859,13 @@ func test_sm_monsoon() -> void:
 			break
 	var deep: int = SMDomainGrid.Domain.DEEP
 	var land: int = SMDomainGrid.Domain.LAND
-	check(fell and sim.grid.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 14))) == deep and sim.grid.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 15))) == deep, "the north span falls into the canal")
+	var north_span: Rect2i = sim._bridge_span(&"bridge_a")
+	var south_span: Rect2i = sim._bridge_span(&"bridge_b")
+	check(fell and sim.grid.domain_at_cell(north_span.position + Vector2i(1, 0)) == deep and sim.grid.domain_at_cell(north_span.position + Vector2i(1, 1)) == deep, "the north span falls into the canal")
 	var plate: MeshInstance3D = scene.get_node_or_null("Bridge_bridge_a") as MeshInstance3D
 	var deck: MeshInstance3D = scene.get_node_or_null("BridgeWest") as MeshInstance3D
 	var box: BoxMesh = deck.mesh as BoxMesh if deck != null else null
-	check(sim.grid.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 16))) == land and sim.grid.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 17))) == land and plate != null and plate.position.y < 0.0 and deck != null and deck.visible and box != null and is_equal_approx(box.size.z, 8.0), "the south span stays up and the fallen deck sinks")
+	check(sim.grid.domain_at_cell(south_span.position + Vector2i(1, 0)) == land and sim.grid.domain_at_cell(south_span.position + Vector2i(1, 1)) == land and plate != null and plate.position.y < 0.0 and deck != null and deck.visible and box != null and is_equal_approx(box.size.z, 8.0), "the south span stays up and the fallen deck sinks")
 	var south: Vector3 = sim.tech.site_pos(&"bridge_b")
 	walker.global_position = south + Vector3(-6.0, 0.0, 0.0)
 	field.select_only([walker])
@@ -4669,12 +4874,12 @@ func test_sm_monsoon() -> void:
 		field.tick(0.2)
 		if not sim.tech.bridge_alive(&"bridge_b"):
 			break
-	var west: Vector3 = sim.grid.cell_center(SMDomainGrid.at("mekong_delta", Vector2i(4, 16)))
-	var east: Vector3 = sim.grid.cell_center(SMDomainGrid.at("mekong_delta", Vector2i(20, 16)))
+	var west: Vector3 = sim.grid.cell_center(SMMapPlan.of("mekong_delta").start(0))
+	var east: Vector3 = sim.grid.cell_center(Vector2i(26, 24))
 	check(not sim.tech.bridge_alive(&"bridge_b") and deck != null and not deck.visible, "both west spans drop and the deck is gone")
 	check(field.nav_ground.find_path(west, east).is_empty() and field.nav_amphib.find_path(west, east).size() > 0, "ground stops at the open canal and a boat still crosses")
 	var fresh: SMDomainGrid = SMDomainGrid.mekong_delta_layout()
-	check(fresh.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 15))) == land and fresh.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(27, 16))) == land, "a fresh Mekong layout still keeps both bridges")
+	check(fresh.domain_at_cell(north_span.position + Vector2i(1, 1)) == land and fresh.domain_at_cell(sim._bridge_span(&"bridge_c").position + Vector2i(1, 0)) == land, "a fresh Mekong layout still keeps both bridges")
 	scene.free()
 	await process_frame
 	var sop: Node = (load("res://game/sop_ruak.tscn") as PackedScene).instantiate()

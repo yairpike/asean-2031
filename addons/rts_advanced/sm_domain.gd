@@ -158,38 +158,20 @@ static func _deep_block(g: SMDomainGrid, x: int, y: int) -> void:
 static func burma_road_layout() -> SMDomainGrid:
 	return SMMapPlan.of("burma_road").grid()
 
-## Ten Degree Atolls: land islands in deep water, joined by shallow shoals.
+## Ten Degree Atolls: home islands, expansion islets and a reef in deep water, linked by three shoal lanes.
+## Half-turn symmetric, from res://data/maps/ten_degree_atolls.json.
 static func ten_degree_atolls_layout() -> SMDomainGrid:
-	var p: Vector2i = pad_of("ten_degree_atolls")
-	var g: SMDomainGrid = SMDomainGrid.new(50, 50, 4.0, Vector3(-100.0, 0.0, -100.0))
-	g.fill_rect(Rect2i(0, 0, 50, 50), Domain.DEEP)
-	g.fill_rect(Rect2i(10 + p.x, 16 + p.y, 16, 4), Domain.SHALLOW)
-	g.fill_rect(Rect2i(16 + p.x, 8 + p.y, 4, 8), Domain.SHALLOW)
-	g.fill_rect(Rect2i(2 + p.x, 14 + p.y, 8, 8), Domain.LAND)
-	g.fill_rect(Rect2i(26 + p.x, 14 + p.y, 8, 8), Domain.LAND)
-	g.fill_rect(Rect2i(14 + p.x, 2 + p.y, 8, 6), Domain.LAND)
-	return g
+	return SMMapPlan.of("ten_degree_atolls").grid()
 
-## Mekong Delta: two deep canals with a land bridge on each.
+## Mekong Delta: a deep canal in front of each base with a two-span bridge, contested levees between them.
+## Mirrored west to east, from res://data/maps/mekong_delta.json.
 static func mekong_delta_layout() -> SMDomainGrid:
-	var p: Vector2i = pad_of("mekong_delta")
-	var g: SMDomainGrid = SMDomainGrid.new(56, 46, 4.0, Vector3(-112.0, 0.0, -92.0))
-	g.fill_rect(Rect2i(12 + p.x, 0, 3, g.rows), Domain.DEEP)
-	g.fill_rect(Rect2i(26 + p.x, 0, 3, g.rows), Domain.DEEP)
-	g.fill_rect(Rect2i(12 + p.x, 14 + p.y, 3, 4), Domain.LAND)
-	g.fill_rect(Rect2i(26 + p.x, 14 + p.y, 3, 4), Domain.LAND)
-	return g
+	return SMMapPlan.of("mekong_delta").grid()
 
-## Siege of Chiang Rai: a wider field, a river, two fords, and a siege wall.
+## Siege of Chiang Rai: two plateaus a side for 2v2, a river with three fords, and the Doi Suthep landmark.
+## Half-turn symmetric, from res://data/maps/chiang_rai.json.
 static func chiang_rai_layout() -> SMDomainGrid:
-	var p: Vector2i = pad_of("chiang_rai")
-	var g: SMDomainGrid = SMDomainGrid.new(78, 56, 4.0, Vector3(-156.0, 0.0, -112.0))
-	g.fill_rect(Rect2i(26 + p.x, 0, 4, g.rows), Domain.DEEP)
-	g.fill_rect(Rect2i(26 + p.x, 8 + p.y, 4, 4), Domain.LAND)
-	g.fill_rect(Rect2i(26 + p.x, 28 + p.y, 4, 4), Domain.LAND)
-	g.fill_rect(Rect2i(6 + p.x, 6 + p.y, 8, 3), Domain.CLIFF)
-	g.fill_rect(Rect2i(42 + p.x, 30 + p.y, 8, 3), Domain.CLIFF)
-	return g
+	return SMMapPlan.of("chiang_rai").grid()
 
 ## Golden confluence: city on the north bank, jungle on the south, a river between, one landmark plaza.
 static func showcase_layout() -> SMDomainGrid:
