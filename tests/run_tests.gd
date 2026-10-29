@@ -3794,14 +3794,14 @@ func test_sm_bark() -> void:
 		if song != "":
 			rotation_unique[song] = true
 	check(rotation_titles.size() == 12 and rotation_unique.size() == 12 and rotation_titles.has("Yangonite") and rotation_titles.has("Poison"), "every map shares one twelve-song rotation")
-	var held_rels: PackedStringArray = clips.call("_rels_for", "held") as PackedStringArray
-	var held_out: bool = held_rels.size() == 5
-	for rel: String in held_rels:
-		if (clips.call("_rels_for", "rotation") as PackedStringArray).has(rel) or not clips.call("is_held", rel):
-			held_out = false
-	check(held_out, "the generated faction loops are held out of the rotation")
+	var retired_rels: PackedStringArray = clips.call("_rels_for", "retired") as PackedStringArray
+	var retired_out: bool = retired_rels.size() == 5
+	for rel: String in retired_rels:
+		if (clips.call("_rels_for", "rotation") as PackedStringArray).has(rel) or (clips.call("_rels_for", "menu") as PackedStringArray).has(rel) or not clips.call("is_retired", rel):
+			retired_out = false
+	check(retired_out, "the generated menu and faction loops are retired from the menu and the rotation")
 	check((clips.call("titles_for", "gtfc") as PackedStringArray).is_empty() and (clips.call("titles_for", "black_market") as PackedStringArray).is_empty(), "there are no per-faction playlists")
-	check(not clips.call("is_held", "music/victory_sting.ogg") and not clips.call("is_held", "music/user/time.ogg"), "the stings and user songs are not held")
+	check(not clips.call("is_retired", "music/victory_sting.ogg") and not clips.call("is_retired", "music/defeat_sting.ogg") and not clips.call("is_retired", "music/user/time.ogg"), "the stings and user songs are not retired")
 	var reshuffled: bool = true
 	for i: int in 20:
 		var order: PackedStringArray = clips.call("_shuffle", clips.call("_rels_for", "rotation"), "music/user/time.ogg") as PackedStringArray

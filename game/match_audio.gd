@@ -149,8 +149,8 @@ static func titles_for(list_id: String) -> PackedStringArray:
 		out.append(_title_of(rel))
 	return out
 
-static func is_held(rel: String) -> bool:
-	return _rels_for("held").has(rel)
+static func is_retired(rel: String) -> bool:
+	return _rels_for("retired").has(rel)
 
 static func current_title() -> String:
 	return now_title
@@ -1036,8 +1036,8 @@ static func _show_title(host: Node) -> void:
 		label.text = now_title
 
 ## "menu" is Yangonite on a loop. "rotation" is the twelve user songs, shuffled per session
-## and shared by every map. "held" is the generated faction loops, kept out of the rotation
-## until the user decides whether they stay.
+## and shared by every map. "retired" is the generated menu and faction loops: never played
+## and never fetched. The victory and defeat stings are separate and stay.
 static func _rels_for(list_id: String) -> PackedStringArray:
 	match list_id:
 		"menu":
@@ -1057,7 +1057,7 @@ static func _rels_for(list_id: String) -> PackedStringArray:
 				"music/user/poison.ogg",
 				"music/user/time.ogg",
 			])
-		"held":
+		"retired":
 			return PackedStringArray([
 				"music/menu.ogg",
 				"music/gtfc.ogg",

@@ -321,7 +321,7 @@ func _page() -> String:
 static var _cache: Dictionary = {}
 
 static func texture(stem: String) -> Texture2D:
-	if stem == "" or stem.contains("..") or stem.contains("main_bg") or stem.contains("key_art") or stem.contains("\\"):
+	if stem == "" or stem.contains("..") or stem.contains("\\"):
 		return null
 	if _cache.has(stem):
 		return _cache[stem] as Texture2D

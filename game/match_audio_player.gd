@@ -94,5 +94,5 @@ func _got_list(result: int, code: int, _headers: PackedStringArray, body: Packed
 		if rel == "" or Clips.is_lazy(rel):
 			continue
 		Clips.remember(rel)
-		if not Clips.is_held(rel):
+		if not Clips.is_retired(rel):
 			Clips.prefetch(self, rel)
