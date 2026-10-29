@@ -13,6 +13,8 @@ const CACHE_CAP: int = 4096
 
 static var current: String = "english"
 static var _installed: Dictionary = {}
+static var _guard_node: Node = null
+static var _guard_frame: int = -1
 
 static func ids() -> PackedStringArray:
 	return PackedStringArray(["english", "burmese", "mandarin", "thai", "malay"])
@@ -63,6 +65,39 @@ static func install() -> void:
 		_installed[locale] = table
 		if table != null:
 			TranslationServer.add_translation(table)
+	_guard()
+
+## TranslationServer outlives the script language, so a Table still registered at
+## shutdown aborts the engine. A node in the tree removes them as the tree goes down.
+static func uninstall() -> void:
+	for locale: Variant in _installed.keys():
+		var table: Table = _installed[locale] as Table
+		if table != null:
+			TranslationServer.remove_translation(table)
+	_installed.clear()
+
+static func _guard() -> void:
+	if _guard_node != null and is_instance_valid(_guard_node) and _guard_node.is_inside_tree():
+		return
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	if tree == null or tree.root == null or not tree.root.is_inside_tree():
+		return
+	if _guard_node == null or not is_instance_valid(_guard_node):
+		_guard_node = Guard.new()
+		_guard_node.name = "SMLangGuard"
+	if _guard_node.get_parent() == null and _guard_frame != Engine.get_process_frames():
+		_guard_frame = Engine.get_process_frames()
+		_seat_guard.call_deferred(tree.root)
+
+static func _seat_guard(root: Window) -> void:
+	if is_instance_valid(root) and is_instance_valid(_guard_node) and _guard_node.get_parent() == null:
+		root.add_child(_guard_node)
+
+class Guard:
+	extends Node
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_PREDELETE:
+			SMLang.uninstall()
 
 static func table(locale: String) -> Table:
 	install()
@@ -115,7 +150,7 @@ class Table:
 			if mark == "%%":
 				expr += "%"
 			elif mark.ends_with("s"):
-				expr += "(.+?)"
+				expr += "(.*?)"
 				kinds.append("s")
 			elif mark.ends_with("d"):
 				expr += "(-?\\d+)"
@@ -149,6 +184,7 @@ class Table:
 		return out
 
 	func _get_message(src_message: StringName, _context: StringName) -> StringName:
+		SMLang._guard()
 		var src: String = String(src_message)
 		if exact.has(src):
 			return StringName(exact[src])
@@ -187,6 +223,14 @@ class Table:
 					lines[i] = line
 					changed = true
 			return "\n".join(lines) if changed else ""
+		if src.contains(", "):
+			var items: PackedStringArray = src.split(", ")
+			for i: int in items.size():
+				var item: String = compose(items[i], depth + 1)
+				if item == "":
+					return ""
+				items[i] = item
+			return ", ".join(items)
 		return ""
 
 	func _match(src: String, depth: int) -> String:

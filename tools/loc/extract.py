@@ -35,7 +35,7 @@ ID_CALLS = re.compile(
 )
 STRING = re.compile(r'"((?:[^"\\]|\\.)*)"')
 NAME_ASSIGN = re.compile(r"\.name\s*=\s*$|\bname\s*=\s*$|==\s*$|!=\s*$|\bin\s*$|^\s*(?:if|elif)\b.*\b(?:==|!=)\s*$")
-FIRST_ARG_IS_NAME = re.compile(r"(?:_caption|_choice|_section|_page_tab|_slider|_button|_label|_chip|_card_line|_tab|_row|_cell)\(\s*$")
+FIRST_ARG_IS_NAME = re.compile(r"(?:_caption|_choice|_section|_page_tab|_slider|_button|_label|_chip|_card_line|_page_tab|_row|_cell)\(\s*$")
 
 
 def unescape(s: str) -> str:
@@ -152,7 +152,7 @@ def main() -> int:
     entries = []
     for msgid in sorted(found, key=lambda s: (s.lower(), s)):
         gloss = old.get(msgid, {}).get("msgstr", "") or msgid
-        entries.append({"msgid": msgid, "msgstr": gloss, "refs": found[msgid][:3]})
+        entries.append({"msgid": msgid, "msgstr": gloss, "refs": found[msgid][:1]})
     if "--check" in sys.argv:
         stale = set(found) ^ set(old)
         if stale:
