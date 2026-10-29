@@ -4,6 +4,7 @@ extends Control
 const Settings = preload("res://game/match_settings.gd")
 const Ground = preload("res://game/ground_view.gd")
 const Backdrop = preload("res://game/menu_backdrop.gd")
+const Glass = preload("res://game/glass.gd")
 
 var low_button: Button
 var high_button: Button
@@ -58,15 +59,17 @@ func _ready() -> void:
 		blur.name = "SettingsBlur"
 		blur.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		blur.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var mat := ShaderMaterial.new()
-		mat.shader = load("res://game/shaders/menu_blur.gdshader") as Shader
-		blur.material = mat
+		blur.color = Color(0, 0, 0, 1)
+		blur.material = Glass.material(Color(0.03, 0.04, 0.06, 0.3), Glass.EDGE, 2.6)
 		add_child(blur)
 		move_child(blur, art.get_index() + 1)
 	var rail := ColorRect.new()
 	rail.name = "SettingsRail"
 	rail.color = Color(0.02, 0.024, 0.034, 0.88)
 	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if Glass.live():
+		rail.color = Color(0, 0, 0, 1)
+		rail.material = Glass.material(Color(0.03, 0.035, 0.05, 0.58))
 	add_child(rail)
 	highlight = ColorRect.new()
 	highlight.name = "SettingsHighlight"
@@ -270,6 +273,7 @@ func _layout(view: Vector2) -> void:
 		var tab: Control = get_node_or_null(tabs[i])
 		if tab == null:
 			continue
+		tab.modulate = Color(1, 1, 1, 1.0 if str(tab.get_meta("page_id", "")) == _page else 0.55)
 		tab.position = Vector2(left, tab_y + float(i) * 44.0)
 		tab.size = Vector2(nav_w, 36)
 		tab.custom_minimum_size = Vector2(nav_w, 36)

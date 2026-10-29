@@ -5,6 +5,7 @@ const Plate = preload("res://game/menu_plate.gd")
 const Backdrop = preload("res://game/menu_backdrop.gd")
 const Lan = preload("res://game/lan_link.gd")
 const Marks = preload("res://game/faction_mark.gd")
+const Glass = preload("res://game/glass.gd")
 const VERSION: String = "v0.9.0"
 
 var selected_map: String = ""
@@ -43,10 +44,13 @@ func _ready() -> void:
 	rail.name = "MenuRail"
 	rail.color = Color(0.02, 0.024, 0.034, 0.88)
 	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if Glass.live():
+		rail.color = Color(0, 0, 0, 1)
+		rail.material = Glass.material(Color(0.03, 0.035, 0.05, 0.6))
 	add_child(rail)
 	var dim := ColorRect.new()
 	dim.name = "MenuDim"
-	dim.color = Color(0.0, 0.0, 0.0, 0.46)
+	dim.color = Color(0.0, 0.0, 0.0, 0.14 if Glass.live() else 0.46)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dim.visible = false
 	add_child(dim)
@@ -55,9 +59,8 @@ func _ready() -> void:
 		blur.name = "MenuBlur"
 		blur.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		blur.visible = false
-		var mat := ShaderMaterial.new()
-		mat.shader = load("res://game/shaders/menu_blur.gdshader") as Shader
-		blur.material = mat
+		blur.color = Color(0, 0, 0, 1)
+		blur.material = Glass.material(Color(0.03, 0.04, 0.06, 0.4))
 		add_child(blur)
 		move_child(blur, backdrop.get_index() + 1)
 	var title: Label = Label.new()
@@ -84,6 +87,9 @@ func _ready() -> void:
 	chip.name = "NowPlayingChip"
 	chip.color = Color(0.02, 0.024, 0.034, 0.88)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if Glass.live():
+		chip.color = Color(0, 0, 0, 1)
+		chip.material = Glass.material(Color(0.03, 0.035, 0.05, 0.5))
 	chip.visible = false
 	add_child(chip)
 	var now_playing: Label = Label.new()
@@ -1495,6 +1501,8 @@ func _detail_card() -> void:
 	style.content_margin_top = 16
 	style.content_margin_bottom = 16
 	card.add_theme_stylebox_override("panel", style)
+	if Glass.live():
+		Glass.dress(card, 10, Color(0.04, 0.045, 0.06, 0.55), 20, Color(0.93, 0.78, 0.38, 0.85))
 	add_child(card)
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)

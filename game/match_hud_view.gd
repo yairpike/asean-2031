@@ -964,10 +964,11 @@ func _message_lane() -> void:
 	radio.name = "RadioLine"
 	radio.visible = false
 	radio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	radio.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	radio.size_flags_vertical = Control.SIZE_FILL
+	radio.custom_minimum_size = Vector2(0, 22)
 	radio.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	radio.clip_text = true
-	radio.max_lines_visible = 2
+	radio.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	radio.add_theme_font_size_override("font_size", 16)
 	radio.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
 	radio.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
@@ -1129,6 +1130,7 @@ func _seat_chrome() -> void:
 	_seat_strip()
 	_seat_boot()
 	_seat_toast()
+	_seat_briefing()
 	var layer: Node = get_parent()
 	if layer == null:
 		return
@@ -1158,12 +1160,49 @@ func _seat_message() -> void:
 	var radio: Label = find_child("RadioLine", true, false) as Label
 	if lane == null or radio == null:
 		return
-	var play_w: float = size.x - SIDE_W
-	var width: float = clampf(play_w - 240.0, 280.0, 560.0)
-	var x: float = (play_w - width) * 0.5
-	_anchor(lane, 0.0, 0.0, 0.0, 0.0, x, 72.0, x + width, 110.0)
+	var column: Rect2 = _story_column()
+	_anchor(lane, 0.0, 0.0, 0.0, 0.0, column.position.x, 70.0, column.end.x, 106.0)
 	lane.visible = radio.visible and radio.text != ""
 	lane.modulate.a = radio.modulate.a
+
+## The centre column under the top bar, right of the objective and coach stack:
+## EVA line, then toast, then mission heading and briefing, so none of them overlap.
+func _story_column() -> Rect2:
+	var play_w: float = size.x - SIDE_W
+	var x: float = 448.0
+	var width: float = clampf(play_w - x - 12.0, 280.0, 560.0)
+	if x + width > play_w - 8.0:
+		x = maxf(220.0, play_w - 8.0 - width)
+	return Rect2(x, 70.0, width, 180.0)
+
+func _seat_briefing() -> void:
+	var layer: Node = get_parent()
+	if layer == null:
+		return
+	var brief: Label = layer.find_child("Briefing", true, false) as Label
+	if brief == null or not brief.visible:
+		return
+	var column: Rect2 = _story_column()
+	var heading: Control = layer.find_child("MissionHeading", true, false) as Control
+	var top: float = 148.0
+	if heading != null and heading.visible:
+		heading.position = Vector2(column.position.x, top)
+		heading.size = Vector2(column.size.x, 24.0)
+		(heading as Label).clip_text = true
+		top += 28.0
+	var width: float = minf(column.size.x, 760.0)
+	brief.position = Vector2(column.position.x, top)
+	brief.custom_minimum_size = Vector2(width, 64.0)
+	brief.size = Vector2(width, 64.0)
+	var base: Node = brief.get_parent()
+	for node_name: String in ["BriefingShade", "BriefingShadeGlass"]:
+		var shade: Control = base.get_node_or_null(node_name) as Control if base != null else null
+		if shade != null:
+			shade.position = brief.position
+			shade.size = brief.size
+	var details: Control = base.get_node_or_null("BriefingDetails") as Control if base != null else null
+	if details != null:
+		details.position = Vector2(brief.position.x + brief.size.x - 104.0, brief.position.y + brief.size.y + 4.0)
 
 func _seat_toast() -> void:
 	var layer: Node = get_parent()
@@ -1172,10 +1211,9 @@ func _seat_toast() -> void:
 	var toast: Control = layer.find_child("ToastLane", true, false) as Control
 	if toast == null or not toast.visible:
 		return
-	var play_w: float = size.x - SIDE_W
-	var width: float = clampf(play_w - 320.0, 240.0, 420.0)
-	var x: float = (play_w - width) * 0.5
-	toast.position = Vector2(x, 116.0)
+	var column: Rect2 = _story_column()
+	var width: float = minf(column.size.x, 420.0)
+	toast.position = Vector2(column.position.x, 112.0)
 	toast.size = Vector2(width, 28.0)
 	var line: Control = toast.find_child("ToastLine", true, false) as Control
 	if line != null:

@@ -16,6 +16,8 @@ func _initialize() -> void:
 		_args[key] = value
 		i += 2
 	SMFront.faction_id = str(_args.get("faction", "gtfc"))
+	if _args.has("mission"):
+		SMCampaign.selected = str(_args["mission"])
 	if _args.has("skin"):
 		root.set_meta("hud_skin", str(_args["skin"]))
 	change_scene_to_file(str(_args.get("scene", "res://game/burma_road.tscn")))
@@ -58,7 +60,23 @@ func _process(delta: float) -> bool:
 			if hud != null:
 				hud.show_line("Unit ready")
 	if _clock > wait:
+		if _args.has("dump"):
+			_dump(scene)
 		var image: Image = root.get_texture().get_image()
 		image.save_png(str(_args.get("out", "/tmp/hud_shot.png")))
 		quit()
 	return false
+
+func _dump(scene: Node) -> void:
+	for node: Node in scene.find_children("", "Control", true, false):
+		var c: Control = node as Control
+		if c == null or not c.is_visible_in_tree():
+			continue
+		var r: Rect2 = c.get_global_rect()
+		if (r.size.x < 40.0 or r.size.y < 12.0 or r.position.y > 300.0) and not str(c.name).contains("Radio"):
+			continue
+		var bit: String = ""
+		var label: Label = c as Label
+		if label != null:
+			bit = label.text.substr(0, 30)
+		print("DUMP %s %s %s z=%d %s" % [c.get_path(), c.get_class(), r, c.z_index, bit])

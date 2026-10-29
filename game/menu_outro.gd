@@ -17,6 +17,13 @@ static func show(layer: Node, won: bool) -> void:
 	art.call("set_screen", "faction")
 	art.call("set_faction", SMFront.current())
 	plate.add_child(art)
+	var rail: Panel = Panel.new()
+	rail.name = "OutroGlass"
+	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rail.position = Vector2(24, 32)
+	rail.size = Vector2(400, 192)
+	preload("res://game/glass.gd").dress(rail, 14, Color(0.03, 0.035, 0.05, 0.5), 0)
+	plate.add_child(rail)
 	var title := Label.new()
 	title.name = "OutroTitle"
 	title.text = "Victory" if won else "Defeat"
