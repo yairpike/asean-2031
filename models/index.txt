@@ -2,6 +2,7 @@ airfield.glb
 amber_scout.glb
 amber_tank.glb
 amber_welder.glb
+bamboo_hide.glb
 barracks.glb
 bullion_truck.glb
 ch4.glb
@@ -26,6 +27,7 @@ emerald_ferry.glb
 emerald_gunboat.glb
 flak_slag_mast.glb
 flh7.glb
+fpv_kamikaze.glb
 gtfc_airfield.glb
 gtfc_naval_yard.glb
 gtfc_war_factory.glb
@@ -37,8 +39,11 @@ hub_refinery.glb
 jade_mortar.glb
 jade_skiff.glb
 kachin_dog.glb
+kite_loiterer.glb
+longtail_raider.glb
 mangrove_skiff.glb
 mangrove_tube.glb
+mekong_uav.glb
 militia.glb
 monsoon_spotter.glb
 monsoon_tube.glb
@@ -55,6 +60,8 @@ olive_sapper.glb
 orlan10.glb
 packer_escort.glb
 packer.glb
+plantation_bomber.glb
+printsmith.glb
 relay_mast.glb
 relay_van.glb
 river_drone.glb
@@ -74,7 +81,10 @@ slag_pillbox.glb
 slag_refinery.glb
 solar_biomass.glb
 spectrum_prism.glb
+spool_fpv.glb
 su30.glb
+swarm_hive.glb
+teak_technical.glb
 tech_center.glb
 tidal_turbine.glb
 tide_refinery.glb
