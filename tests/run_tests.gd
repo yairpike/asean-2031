@@ -104,7 +104,109 @@ func _run() -> void:
 	await H.section("test_unit_facing", test_unit_facing)
 	await H.section("test_weapon_sockets", test_weapon_sockets)
 	await H.section("test_building_materials", test_building_materials)
+	await H.section("test_hud_redesign", test_hud_redesign)
+	await H.section("test_hud_pause", test_hud_pause)
 	quit(H.finish())
+
+func test_hud_redesign() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	await process_frame
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	check(mm != null and mm.backdrop != null and mm.backdrop.get_width() > 0, "the minimap carries a baked terrain backdrop")
+	if mm != null:
+		mm.sample()
+	check(mm != null and (mm.saw_land or mm.saw_water) and mm.frustum.size() >= 3, "the minimap samples terrain and the camera frustum")
+	var hud: SMHud = scene.get("hud") as SMHud
+	check(hud != null and mm != null and mm.sight != null and mm.sight.grid != null, "the HUD keeps a grid-bound sight for minimap fog")
+	var field: SMPointer = scene.get("field") as SMPointer
+	var unit: RTSUnit = field.units_of(0)[0] if field != null and field.units_of(0).size() > 0 else null
+	if unit != null:
+		field.selection.clear()
+		field.selection.call("_add", unit)
+	await process_frame
+	await process_frame
+	var hp: Label = scene.find_child("CardHp", true, false) as Label
+	var who: Label = scene.find_child("CardName", true, false) as Label
+	var rank: Control = scene.find_child("CardRank", true, false) as Control
+	var ability: Label = scene.find_child("CardAbility", true, false) as Label
+	check(unit != null and hp != null and hp.visible and hp.text != "0/0" and hp.text.contains("/") and who != null and who.text != "", "a selected unit shows its name and real HP")
+	check(rank != null and rank.visible and ability != null and ability.visible and ability.text != "", "a selected unit shows rank and ability")
+	var top: Control = scene.find_child("TopBar", true, false) as Control
+	var plate: Control = scene.find_child("CreditsPlate", true, false) as Control
+	var frame: Control = scene.find_child("MonitorFrame", true, false) as Control
+	check(top != null and plate != null and frame != null and scene.find_child("PowerIcon", true, false) != null, "the top bar has a credits plate and the sidebar frames the minimap")
+	var skin: GDScript = load("res://game/hud_skin.gd") as GDScript
+	var ids: PackedStringArray = PackedStringArray(["gtfc", "nmrf", "mvd", "black_market"])
+	var distinct: Dictionary = {}
+	for id: String in ids:
+		distinct[(skin.call("color", id, "trim") as Color).to_html()] = true
+	check(distinct.size() == 4, "each faction has its own sidebar trim")
+	scene.free()
+	await process_frame
+
+func test_hud_pause() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	await process_frame
+	var exit: Node = scene.get_node_or_null("MatchExit")
+	var pause: Control = scene.find_child("PauseMenu", true, false) as Control
+	check(exit != null and pause != null and not pause.visible, "a match builds the pause view hidden")
+	var esc: InputEventKey = InputEventKey.new()
+	esc.pressed = true
+	esc.keycode = KEY_ESCAPE
+	exit._unhandled_input(esc)
+	var settings: Control = scene.find_child("SettingsPanel", true, false) as Control
+	check(pause.visible and paused and settings != null and settings.visible and settings.get_parent() == pause and bool(settings.get("embedded")), "Esc pauses the match and opens settings inside the glass view")
+	var names: PackedStringArray = PackedStringArray(["PauseResume", "PauseQuit", "PauseSkip", "PauseTrack", "MasterVolume", "SfxVolume", "GraphicsLow", "VoiceValue", "EdgePan"])
+	var all: bool = true
+	for node_name: String in names:
+		if pause.find_child(node_name, true, false) == null:
+			all = false
+	check(all, "the pause view holds audio, graphics, voice, controls, resume, quit, and skip")
+	var glass: Control = pause.get_node_or_null("PauseGlass") as Control
+	var card: Control = pause.get_node_or_null("PauseCard") as Control
+	check(glass != null and bool(glass.get_meta("glass", false)) and card != null and bool(card.get_meta("glass", false)), "the pause view sits on frosted glass")
+	var backdrop: CanvasItem = settings.get_node_or_null("SettingsBackdrop") as CanvasItem
+	check(backdrop != null and not backdrop.visible, "the embedded settings drop their menu backdrop")
+	var skip_key: InputEventKey = InputEventKey.new()
+	skip_key.pressed = true
+	skip_key.keycode = KEY_N
+	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
+	clips.call("play_faction", scene, "gtfc")
+	var before: String = str(clips.call("current_title"))
+	exit._unhandled_input(skip_key)
+	check(str(clips.call("current_title")) != before, "N skips the song")
+	settings._unhandled_input(esc)
+	check(not pause.visible and not paused and settings.get_parent() != pause and not settings.visible and not bool(settings.get("embedded")), "Esc in the view resumes and returns settings to the layer")
+	pause.visible = true
+	exit.call("_process", 0.0)
+	check(paused and settings.get_parent() == pause, "the HUD menu button opens the same view")
+	(pause.find_child("PauseResume", true, false) as Button).pressed.emit()
+	check(not paused and not pause.visible, "Resume closes the view")
+	var phone_button: Button = scene.find_child("PauseButton", true, false) as Button
+	check(phone_button != null and phone_button.custom_minimum_size.x >= 44.0, "phones get a tappable pause button")
+	scene.free()
+	paused = false
+	await process_frame
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	var roll: Button = boot.find_child("CreditsButton", true, false) as Button
+	check(roll != null, "the menu has a credits button")
+	roll.pressed.emit()
+	var panel: Control = boot.find_child("CreditsPanel", true, false) as Control
+	var music: Label = boot.find_child("CreditsMusic", true, false) as Label
+	check(panel != null and panel.visible and music != null and music.text == "BlackBloc", "the credits screen credits BlackBloc for the music")
+	panel._unhandled_input(esc)
+	var title: CanvasItem = boot.find_child("GameTitle", true, false) as CanvasItem
+	check(not panel.visible and title != null and title.visible, "Esc closes the credits")
+	boot.free()
+	await process_frame
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
 	var u: RTSUnit = RTSUnit.new()
@@ -3675,12 +3777,27 @@ func test_sm_bark() -> void:
 		if clips.call("_stream", track) == null:
 			tracks_ok = false
 	check(tracks_ok, "menu, faction, and sting tracks decode")
-	check(clips.call("titles_for", "menu") == PackedStringArray(["Menu", "Changes", "Not Needed Anymore"]), "the menu playlist names its songs")
-	check(clips.call("titles_for", "gtfc") == PackedStringArray(["GTFC", "Yangonite", "Ready To Rage Against The Abnormalities", "Poison", "Time"]), "the GTFC playlist names its songs")
-	check(clips.call("titles_for", "nmrf") == PackedStringArray(["NMRF", "Supayarlat", "Past Cracks", "Poison", "Time"]), "the NMRF playlist names its songs")
-	check(clips.call("titles_for", "mvd") == PackedStringArray(["MVD", "Machinesfuture", "Humanfuture", "Poison", "Time"]), "the MVD playlist names its songs")
-	check(clips.call("titles_for", "black_market") == PackedStringArray(["Black Market", "Night", "Love Drunk", "Poison", "Time"]), "the black market playlist names its songs")
-	check(clips.call("titles_for", "shared") == PackedStringArray(["Poison", "Time"]), "the shared playlist names its songs")
+	check(clips.call("titles_for", "menu") == PackedStringArray(["Yangonite"]), "the menu plays only Yangonite")
+	var rotation_titles: PackedStringArray = clips.call("titles_for", "rotation") as PackedStringArray
+	var rotation_unique: Dictionary = {}
+	for song: String in rotation_titles:
+		if song != "":
+			rotation_unique[song] = true
+	check(rotation_titles.size() == 12 and rotation_unique.size() == 12 and rotation_titles.has("Yangonite") and rotation_titles.has("Poison"), "every map shares one twelve-song rotation")
+	var held_rels: PackedStringArray = clips.call("_rels_for", "held") as PackedStringArray
+	var held_out: bool = held_rels.size() == 5
+	for rel: String in held_rels:
+		if (clips.call("_rels_for", "rotation") as PackedStringArray).has(rel) or not clips.call("is_held", rel):
+			held_out = false
+	check(held_out, "the generated faction loops are held out of the rotation")
+	check((clips.call("titles_for", "gtfc") as PackedStringArray).is_empty() and (clips.call("titles_for", "black_market") as PackedStringArray).is_empty(), "there are no per-faction playlists")
+	check(not clips.call("is_held", "music/victory_sting.ogg") and not clips.call("is_held", "music/user/time.ogg"), "the stings and user songs are not held")
+	var reshuffled: bool = true
+	for i: int in 20:
+		var order: PackedStringArray = clips.call("_shuffle", clips.call("_rels_for", "rotation"), "music/user/time.ogg") as PackedStringArray
+		if order.size() != 12 or order[0] == "music/user/time.ogg":
+			reshuffled = false
+	check(reshuffled, "a reshuffle never opens on the song that just played")
 	check(clips.call("is_lazy", "music/user/night.ogg") and not clips.call("is_lazy", "music/menu.ogg"), "user songs stay out of the startup download")
 	check(clips.call("is_lazy", "barks/burmese/militia_select_1.ogg") and clips.call("is_lazy", "announcer/thai/gtfc/unit_ready.ogg") and not clips.call("is_lazy", "barks/militia_select_1.ogg"), "only the selected voice language stays out of the startup download")
 	var user_tracks: PackedStringArray = PackedStringArray([
@@ -3774,13 +3891,23 @@ func test_sm_bark() -> void:
 	clips.call("play_menu", speaker)
 	var menu_player: AudioStreamPlayer = speaker.get_node_or_null("MenuMusic") as AudioStreamPlayer
 	check(menu_player != null and menu_player.playing and menu_player.stream != null, "menu music starts")
-	check(clips.call("current_title") == "Menu", "the menu opens on its generated track")
-	menu_player.stop()
+	check(clips.call("current_title") == "Yangonite", "the menu opens on Yangonite")
+	var menu_ogg: AudioStreamOggVorbis = menu_player.stream as AudioStreamOggVorbis
 	clips.call("tick", speaker)
-	check(clips.call("current_title") == "Changes" and menu_player.playing, "the menu rotation advances to the next song")
+	check(menu_ogg != null and menu_ogg.loop and clips.call("current_title") == "Yangonite" and not clips.call("can_skip") and not clips.call("skip", speaker), "the menu loops Yangonite and ignores skip")
+	menu_ogg.loop = false
 	clips.call("play_faction", speaker, "nmrf")
 	var faction_player: AudioStreamPlayer = speaker.get_node_or_null("FactionMusic") as AudioStreamPlayer
 	check(faction_player != null and faction_player.playing and faction_player.stream != null, "faction music starts")
+	var first_song: String = str(clips.call("current_title"))
+	var skipped: bool = clips.call("skip", speaker)
+	var second_song: String = str(clips.call("current_title"))
+	check(skipped and second_song != first_song and second_song != "" and faction_player.playing and rotation_titles.has(second_song), "skip moves the match to the next song in the rotation")
+	var faction_ogg: AudioStreamOggVorbis = faction_player.stream as AudioStreamOggVorbis
+	check(faction_ogg != null and not faction_ogg.loop, "match songs play through once")
+	clips.call("play_faction", speaker, "gtfc")
+	var third_song: String = str(clips.call("current_title"))
+	check(third_song != second_song and rotation_titles.has(third_song), "the next map continues the same rotation instead of a faction list")
 	clips.call("play_sting", speaker, true)
 	var victory_player: AudioStreamPlayer = speaker.get_node_or_null("StingMusic") as AudioStreamPlayer
 	var victory_ogg: AudioStreamOggVorbis = null

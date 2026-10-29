@@ -23,6 +23,9 @@ var highlight: ColorRect
 var _syncing: bool = false
 var _rows: Array[Control] = []
 var _page: String = "video"
+## Set while the match Esc view hosts the panel: no backdrop, rail, title or Back row.
+var embedded: bool = false
+var on_close: Callable = Callable()
 
 static func attach(parent: Node) -> Control:
 	var script: GDScript = load("res://game/settings_panel.gd") as GDScript
@@ -190,6 +193,23 @@ func _ready() -> void:
 func _on_resized() -> void:
 	_layout(size)
 
+func embed(on: bool, closer: Callable = Callable()) -> void:
+	embedded = on
+	on_close = closer
+	for node_name: String in ["SettingsBackdrop", "SettingsDimmer", "SettingsBlur", "SettingsRail", "SettingsTitle", "SettingsClose"]:
+		var item: CanvasItem = get_node_or_null(node_name) as CanvasItem
+		if item != null:
+			item.visible = not on
+	if on:
+		set_anchors_preset(Control.PRESET_TOP_LEFT)
+	else:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		offset_left = 0.0
+		offset_top = 0.0
+		offset_right = 0.0
+		offset_bottom = 0.0
+	_layout(size if size.x > 32.0 else Vector2(1280, 720))
+
 func _page_tab(node_name: String, caption: String, page: String) -> void:
 	var button: Button = _choice(node_name, caption)
 	button.set_meta("page_id", page)
@@ -217,7 +237,9 @@ func _tag_pages() -> void:
 
 func _layout(view: Vector2) -> void:
 	var narrow: bool = view.x < 900.0 or view.y > view.x + 4.0
-	var rail_w: float = view.x if narrow else view.x * 0.4
+	if embedded:
+		narrow = view.x < 520.0
+	var rail_w: float = view.x if narrow or embedded else view.x * 0.4
 	var rail: Control = get_node_or_null("SettingsRail") as Control
 	if rail != null:
 		rail.position = Vector2.ZERO
@@ -240,7 +262,7 @@ func _layout(view: Vector2) -> void:
 	if title != null:
 		title.position = Vector2(left, 24.0)
 		title.add_theme_font_size_override("font_size", 36 if not narrow else 28)
-	var tab_y: float = 84.0
+	var tab_y: float = 8.0 if embedded else 84.0
 	var tabs: PackedStringArray = PackedStringArray([
 		"SettingsTabVideo", "SettingsTabAudio", "SettingsTabControls", "SettingsTabGameplay", "SettingsTabHud",
 	])
@@ -287,7 +309,7 @@ func _layout(view: Vector2) -> void:
 		back.size = Vector2(88, 40)
 		back.custom_minimum_size = Vector2(88, 40)
 	if restore != null:
-		restore.position = Vector2(left + 100.0, foot)
+		restore.position = Vector2(left if embedded else left + 100.0, foot)
 		restore.size = Vector2(minf(200.0, rail_w - 140.0), 40)
 		restore.custom_minimum_size = Vector2(restore.size.x, 40)
 	if blurb != null:
@@ -511,6 +533,9 @@ func _on_edge(on: bool) -> void:
 	_apply()
 
 func _close() -> void:
+	if embedded and on_close.is_valid():
+		on_close.call()
+		return
 	visible = false
 	var host: Node = get_parent()
 	if host != null and host.has_method("settings_closed"):

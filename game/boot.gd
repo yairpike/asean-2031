@@ -142,6 +142,14 @@ func _ready() -> void:
 	multi.pressed.connect(_show_tab.bind("multi"))
 	add_child(multi)
 	tab_buttons.append(multi)
+	var roll: Button = Plate.new() as Button
+	roll.name = "CreditsButton"
+	roll.text = "CREDITS"
+	roll.set_meta("nav", true)
+	roll.add_theme_font_size_override("font_size", 32)
+	roll.pressed.connect(_open_credits)
+	add_child(roll)
+	tab_buttons.append(roll)
 	var quit: Button = Plate.new() as Button
 	quit.name = "QuitButton"
 	quit.text = "QUIT"
@@ -171,6 +179,7 @@ func _ready() -> void:
 	set_process_unhandled_input(true)
 	SMSave.pull_web()
 	preload("res://game/settings_panel.gd").attach(self)
+	preload("res://game/credits_panel.gd").attach(self)
 	preload("res://game/match_settings.gd").apply_scene(self)
 	mark_difficulty()
 	preload("res://game/match_audio.gd").arm(self, "menu")
@@ -917,6 +926,16 @@ func _toggle_settings() -> void:
 	else:
 		settings_closed()
 
+func _open_credits() -> void:
+	var panel: Control = find_child("CreditsPanel", true, false) as Control
+	if panel == null:
+		return
+	panel.call("open")
+	_hide_menu_chrome()
+
+func credits_closed() -> void:
+	_show_tab(_menu_tab)
+
 func settings_closed() -> void:
 	var panel: Control = find_child("SettingsPanel", true, false) as Control
 	if panel != null:
@@ -1280,6 +1299,7 @@ func _layout_menu(size: Vector2) -> void:
 	var multi_h: float = 72.0 if OS.has_feature("web") else row_h
 	y = _seat(find_child("TabMultiplayer", true, false) as Control, left, y, plate_w, multi_h)
 	y = _seat(find_child("SettingsButton", true, false) as Control, left, y, plate_w, row_h)
+	y = _seat(find_child("CreditsButton", true, false) as Control, left, y, plate_w, row_h)
 	y = _seat(find_child("QuitButton", true, false) as Control, left, y, plate_w, row_h)
 	_seat(find_child("MenuBack", true, false) as Control, left, size.y - 88.0, 220.0, row_h)
 	var side: Control = find_child("TabFaction", true, false) as Control
@@ -1364,7 +1384,7 @@ func _quit() -> void:
 
 func _focusables() -> Array[Button]:
 	var rows: Array[Button] = []
-	for node_name: String in ["TabCampaign", "TabSkirmish", "TabMultiplayer", "SettingsButton", "QuitButton"]:
+	for node_name: String in ["TabCampaign", "TabSkirmish", "TabMultiplayer", "SettingsButton", "CreditsButton", "QuitButton"]:
 		var button: Button = find_child(node_name, true, false) as Button
 		if button != null:
 			rows.append(button)
@@ -1373,6 +1393,9 @@ func _focusables() -> Array[Button]:
 func _unhandled_input(event: InputEvent) -> void:
 	var settings: Control = find_child("SettingsPanel", true, false) as Control
 	if settings != null and settings.visible:
+		return
+	var roll: Control = find_child("CreditsPanel", true, false) as Control
+	if roll != null and roll.visible:
 		return
 	var key: InputEventKey = event as InputEventKey
 	if key != null and key.pressed and not key.echo:
