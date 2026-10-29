@@ -25,6 +25,7 @@ func _ready() -> void:
 	grid = SMDomainGrid.new(18, 12, 2.0, Vector3(-18.0, 0.0, -12.0))
 	_world()
 	_ui()
+	preload("res://game/model_registry.gd").look_faction = _enemy_faction(mission_id)
 	roster.setup("gtfc")
 	var rally: Vector3 = Vector3(-6.0, 0.0, -2.0)
 	side.prepare(self, status, grid, rally, roster.economy, "gtfc")
@@ -126,6 +127,15 @@ func _ui() -> void:
 	status.add_theme_font_size_override("font_size", 16)
 	status.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
 	ui_layer.add_child(status)
+
+func _enemy_faction(id: String) -> String:
+	if id == "ghosts_of_patani" or id == "kilometer_watch" or id == "black_haze" or id == "archipelago_rising" or id == "wrath_of_the_garuda":
+		return "gtfc"
+	if id == "fog_over_pakbeng" or id == "keng_tung" or id == "plain_of_jars" or id == "tonle_sap" or id == "shattered_monsoon":
+		return "mvd"
+	if id == "operation_1027":
+		return "black_market"
+	return "nmrf"
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera

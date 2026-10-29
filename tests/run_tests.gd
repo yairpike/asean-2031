@@ -864,7 +864,7 @@ func test_sm_greybox() -> void:
 	var swapped: bool = ModelBook.apply_unit(body, "registry_probe")
 	var fitted: Node3D = body.get_node_or_null("Model") as Node3D
 	var turret: Node = body.get_node_or_null("Turret")
-	check(swapped and body.mesh == null and fitted != null and turret != null and turret != old_turret and is_equal_approx(fitted.scale.x, 2.0), "a dropped gltf replaces the procedural mesh")
+	check(swapped and body.mesh == null and fitted != null and turret != null and turret != old_turret and is_equal_approx(fitted.scale.x, 2.0) and is_equal_approx(fitted.scale.y, fitted.scale.x) and is_equal_approx(fitted.scale.z, fitted.scale.x), "a dropped gltf replaces the procedural mesh")
 	var plain: MeshInstance3D = MeshInstance3D.new()
 	var kept: BoxMesh = BoxMesh.new()
 	plain.mesh = kept
@@ -899,7 +899,7 @@ func test_sm_greybox() -> void:
 	dog_box.size = Vector3(1.2, 1.0, 1.6)
 	dog.mesh = dog_box
 	host.add_child(dog)
-	var dressed_dog: bool = ModelBook.apply_unit(dog, "kachin_dog", Color.html("#B81E2D"), Color.html("#E0A106"))
+	var dressed_dog: bool = ModelBook.apply_unit(dog, "river_drone", Color.html("#B81E2D"), Color.html("#E0A106"))
 	var dog_body: MeshInstance3D = dog.find_child("Body", true, false) as MeshInstance3D
 	var dog_mat: StandardMaterial3D = null
 	if dog_body != null and dog_body.mesh != null:
@@ -913,7 +913,9 @@ func test_sm_greybox() -> void:
 	host.add_child(hall)
 	var dressed_hall: bool = ModelBook.apply_structure(hall, "barracks", Color.html("#B81E2D"), Color.html("#E0A106"))
 	var hall_model: Node3D = hall.get_node_or_null("Model") as Node3D
-	check(dressed_hall and hall_model != null and hall_model.scale.x > hall_model.scale.z * 1.5, "the barracks model fills the wide footprint")
+	check(dressed_hall and hall_model != null and is_equal_approx(hall_model.scale.x, hall_model.scale.y) and is_equal_approx(hall_model.scale.y, hall_model.scale.z) and hall_model.scale.x > 0.2, "a building scales evenly and keeps its height")
+	var proportion_fault: String = _proportion_fault()
+	check(proportion_fault == "", "no unit or building is squashed or stretched")
 	var loaded: MeshInstance3D = MeshInstance3D.new()
 	loaded.set_meta("model", "Model")
 	var loaded_gun: MeshInstance3D = MeshInstance3D.new()
@@ -1712,10 +1714,12 @@ func test_sm_shapes() -> void:
 	check(_shape_is(field, 0, "slag_hauler", "truck") and _shape_is(field, 0, "amber_tank", "tank") and _shape_is(field, 0, "monsoon_tube", "tube"), "trucks, tanks, and artillery have different bodies")
 	check(_shape_is(field, 0, "channel_skiff", "boat"), "boats are a hull")
 	check(_shape_is(field, 1, "raider", "figure"), "enemy soldiers are a low-poly figure")
+	var foe_body: MeshInstance3D = _unit_kind(field, 1, "raider").get_node_or_null("Body") as MeshInstance3D
+	check(foe_body != null and str(foe_body.get_meta("model", "")) == "Model", "an enemy soldier uses a finished model")
 	check(field.name_of(_unit_kind(field, 0, "militia")) == "Shan Insurgent Militia", "the floating name stays")
 	var player_yard: Mesh = (scene.get_node("PlayerYard") as MeshInstance3D).mesh
 	var enemy_yard: Mesh = (scene.get_node("EnemyYard") as MeshInstance3D).mesh
-	check(_tall_mesh(player_yard) and _tall_mesh(enemy_yard), "yard buildings are a taller block")
+	check(_yard_shown(scene.get_node("PlayerYard") as MeshInstance3D) and _yard_shown(scene.get_node("EnemyYard") as MeshInstance3D), "yard buildings are a model or a taller block")
 	var side: SMSide = scene.get("side") as SMSide
 	side.order_building(&"scaffold_yard")
 	var built: MeshInstance3D = scene.get_node_or_null("Built_scaffold_yard") as MeshInstance3D
@@ -2319,10 +2323,17 @@ func test_sm_fx() -> void:
 	var foe: RTSUnit = field.units_of(1)[0]
 	field.apply_status(foe, "frozen", 5.0)
 	var body: MeshInstance3D = foe.get_node_or_null("Body") as MeshInstance3D
-	var mat: ShaderMaterial = null
+	var ice_on: bool = false
 	if body != null:
-		mat = body.material_override as ShaderMaterial
-	var ice_on: bool = mat != null and mat.shader != null and mat.shader.resource_path.ends_with("cryo_freeze_overlay.gdshader")
+		var mat: ShaderMaterial = body.material_override as ShaderMaterial
+		if mat == null:
+			mat = body.material_overlay as ShaderMaterial
+		if mat != null and mat.shader != null and mat.shader.resource_path.ends_with("cryo_freeze_overlay.gdshader"):
+			ice_on = true
+		if not ice_on:
+			var coat: MeshInstance3D = body.find_child("IceCoat", true, false) as MeshInstance3D
+			var coat_mat: ShaderMaterial = null if coat == null else coat.material_override as ShaderMaterial
+			ice_on = coat_mat != null and coat_mat.shader != null and coat_mat.shader.resource_path.ends_with("cryo_freeze_overlay.gdshader")
 	check(bool(foe.get_meta("frozen")) and ice_on, "freezing a unit on the cryo mission shows the ice shader")
 	var fx: Script = preload("res://game/fx_view.gd")
 	var painter: MeshInstance3D = scene.find_child("BeamPainter", true, false) as MeshInstance3D
@@ -3715,6 +3726,7 @@ func test_sm_bark() -> void:
 	Settings.set_sfx(0.5)
 	Settings.apply_scene(null)
 	check(music_bus > 0 and AudioServer.get_bus_send(music_bus) == "Master" and is_equal_approx(AudioServer.get_bus_volume_db(0), linear_to_db(0.4)), "master volume scales the music bus")
+	check(AudioServer.get_bus_index("Master") == 0, "runtime buses leave Master at the speakers")
 	check(is_equal_approx(Settings.cue_db(-6.0), -6.0 + linear_to_db(0.5)), "sfx volume scales barks")
 	var capped: bool = false
 	var ceiling: float = 0.0
@@ -4377,6 +4389,147 @@ func _orders(scene: Node, field: SMPointer) -> bool:
 		return false
 	return bool(scene.call("fire_ability"))
 
+func _proportion_fault() -> String:
+	var buildings: Dictionary = {}
+	var also_unit: Dictionary = {}
+	var factions: PackedStringArray = PackedStringArray(["gtfc", "mvd", "nmrf", "black_market"])
+	for faction: String in factions:
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/factions/%s/faction.json" % faction))
+		var data: Dictionary = parsed as Dictionary
+		if data.is_empty():
+			return "faction %s" % faction
+		var rows: Array = data.get("buildings", []) as Array
+		for item: Variant in rows:
+			if item is Dictionary:
+				buildings[str((item as Dictionary).get("id", ""))] = true
+		var troops: Array = data.get("units", []) as Array
+		for item: Variant in troops:
+			if item is Dictionary:
+				also_unit[str((item as Dictionary).get("id", ""))] = true
+	var specifics: PackedStringArray = PackedStringArray([
+		"gtfc_airfield", "gtfc_naval_yard", "gtfc_war_factory",
+		"mvd_airfield", "mvd_naval_yard", "mvd_war_factory",
+		"nmrf_airfield", "nmrf_naval_yard", "nmrf_war_factory",
+	])
+	for extra: String in specifics:
+		buildings[extra] = true
+	var ids: PackedStringArray = PackedStringArray()
+	for line: String in FileAccess.get_file_as_string("res://data/tripo_ids.txt").split("\n"):
+		var name: String = line.strip_edges()
+		if name != "":
+			ids.append(name)
+	ids.append("river_drone")
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	for id: String in ids:
+		if buildings.has(id):
+			var fault: String = _proportion_structure(host, id)
+			if fault != "":
+				host.free()
+				return fault
+		if not buildings.has(id) or also_unit.has(id):
+			var unit_fault: String = _proportion_unit(host, id)
+			if unit_fault != "":
+				host.free()
+				return unit_fault
+	host.free()
+	return ""
+
+func _proportion_structure(host: Node3D, id: String) -> String:
+	var node_name: String = id
+	if id.begins_with("gtfc_") or id.begins_with("mvd_") or id.begins_with("nmrf_"):
+		node_name = id.substr(id.find("_") + 1)
+	var sample: MeshInstance3D = MeshInstance3D.new()
+	sample.name = "Built_%s" % node_name
+	sample.mesh = Forms.structure_mesh(Forms.structure_form(sample.name), Color.WHITE, SMPointer.BUILDING_SIZE.y)
+	if sample.mesh == null:
+		sample.free()
+		return "%s mesh" % id
+	var foot: AABB = sample.mesh.get_aabb()
+	var span: float = maxf(foot.size.x, foot.size.z)
+	host.add_child(sample)
+	var dressed: bool = ModelBook.apply_structure(sample, id, Color.WHITE, Color.WHITE)
+	var model: Node3D = sample.get_node_or_null("Model") as Node3D
+	var wide: float = _horizontal_span(sample)
+	var fault: String = ""
+	if not dressed or model == null:
+		fault = "%s missing" % id
+	elif not _scales_even(sample):
+		fault = "%s stretched" % id
+	elif absf(wide - span) > maxf(0.05, span * 0.02):
+		fault = "%s footprint %.2f vs %.2f" % [id, wide, span]
+	elif not _height_kept(model):
+		fault = "%s height" % id
+	sample.free()
+	return fault
+
+func _proportion_unit(host: Node3D, id: String) -> String:
+	var body: MeshInstance3D = Forms.dress_unit(id, "infantry", "ground", Color.WHITE)
+	host.add_child(body)
+	var model: Node3D = body.get_node_or_null("Model") as Node3D
+	var fault: String = ""
+	if model == null:
+		fault = "%s missing" % id
+	elif not _scales_even(body):
+		fault = "%s stretched" % id
+	elif not _height_kept(model):
+		fault = "%s height" % id
+	body.free()
+	return fault
+
+func _scales_even(root_node: Node) -> bool:
+	var stack: Array[Node] = [root_node]
+	while stack.size() > 0:
+		var node: Node = stack.pop_back()
+		var spatial: Node3D = node as Node3D
+		if spatial != null:
+			var s: Vector3 = spatial.scale
+			if not is_equal_approx(s.x, s.y) or not is_equal_approx(s.y, s.z) or s.x <= 0.0:
+				return false
+		for child: Node in node.get_children():
+			stack.append(child)
+	return true
+
+func _height_kept(model: Node3D) -> bool:
+	var local: AABB = _mesh_bounds(model, true)
+	var wide: float = maxf(local.size.x, local.size.z)
+	if wide < 0.001 or local.size.y < 0.001:
+		return false
+	var src: float = local.size.y / wide
+	var fitted: float = (local.size.y * model.scale.y) / maxf(wide * model.scale.x, 0.001)
+	return absf(src - fitted) < 0.02 and model.scale.x > 0.02 and model.scale.x < 30.0
+
+func _horizontal_span(root_node: Node3D) -> float:
+	var box: AABB = _mesh_bounds(root_node, true)
+	return maxf(box.size.x, box.size.z)
+
+func _mesh_bounds(root_node: Node3D, world: bool) -> AABB:
+	var box: AABB = AABB()
+	var started: bool = false
+	var meshes: Array[MeshInstance3D] = []
+	var own: MeshInstance3D = root_node as MeshInstance3D
+	if own != null and own.mesh != null and str(own.name) != "ContactShadow":
+		meshes.append(own)
+	for node: Node in root_node.find_children("*", "MeshInstance3D", true, false):
+		var mesh_node: MeshInstance3D = node as MeshInstance3D
+		if mesh_node != null and mesh_node.mesh != null and str(mesh_node.name) != "ContactShadow":
+			meshes.append(mesh_node)
+	for mesh_node: MeshInstance3D in meshes:
+		var xf: Transform3D = Transform3D.IDENTITY
+		if world:
+			var walk: Node3D = mesh_node
+			while walk != null and walk != root_node:
+				xf = walk.transform * xf
+				var parent: Node = walk.get_parent()
+				walk = parent as Node3D
+		var placed: AABB = xf * mesh_node.mesh.get_aabb()
+		if not started:
+			box = placed
+			started = true
+		else:
+			box = box.merge(placed)
+	return box
+
 func _has_names(field: SMPointer, need: PackedStringArray) -> bool:
 	var names: PackedStringArray = PackedStringArray()
 	for u: RTSUnit in field.units_of(0):
@@ -4404,6 +4557,13 @@ func _mesh_kind(u: RTSUnit) -> String:
 
 func _shape_is(field: SMPointer, team: int, kind: String, want: String) -> bool:
 	return _mesh_kind(_unit_kind(field, team, kind)) == want
+
+func _yard_shown(node: MeshInstance3D) -> bool:
+	if node == null:
+		return false
+	if str(node.get_meta("model", "")) != "":
+		return true
+	return _tall_mesh(node.mesh)
 
 func _tall_mesh(mesh: Mesh) -> bool:
 	if mesh == null:
@@ -4436,7 +4596,11 @@ func _structure_forms(scene: Node, side: SMSide, field: SMPointer) -> bool:
 	if needle == null or str(needle.get_meta("form", "")) != "super":
 		return false
 	var yard_node: MeshInstance3D = scene.get_node_or_null("PlayerYard") as MeshInstance3D
-	return yard_node != null and str(yard_node.get_meta("form", "")) == "yard" and _tall_mesh(needle.mesh) and needle.mesh.get_aabb().size.y > yard_node.mesh.get_aabb().size.y
+	if yard_node == null or str(yard_node.get_meta("form", "")) != "yard" or needle.mesh == null:
+		return false
+	if yard_node.mesh == null:
+		return str(yard_node.get_meta("model", "")) != "" and _tall_mesh(needle.mesh)
+	return _tall_mesh(needle.mesh) and needle.mesh.get_aabb().size.y > yard_node.mesh.get_aabb().size.y
 
 func _albedo(u: RTSUnit) -> Color:
 	var body: MeshInstance3D = u.get_child(0) as MeshInstance3D

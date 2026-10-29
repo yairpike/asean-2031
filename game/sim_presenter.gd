@@ -3,6 +3,7 @@ extends RefCounted
 
 const World = preload("res://game/world_view.gd")
 const Forms = preload("res://game/unit_meshes.gd")
+const Models = preload("res://game/model_registry.gd")
 const FX = preload("res://game/fx_view.gd")
 const SettingsPanel = preload("res://game/settings_panel.gd")
 const Settings = preload("res://game/match_settings.gd")
@@ -34,7 +35,8 @@ static func follow(host: Node) -> void:
 		return
 	host.set_meta("view_bound", true)
 	Faces.pin()
-	preload("res://game/model_registry.gd").warm(host)
+	Models.look_faction = ""
+	Models.warm(host)
 	var field: SMPointer = host.get("field") as SMPointer
 	if field != null:
 		follow_pointer(field)
@@ -136,7 +138,10 @@ static func _on_unit(u: RTSUnit, team: int, kind: String, role: String, loco: St
 	if team == SMPointer.PLAYER:
 		primary = field.primary_color
 		trim = field.accent_color
-	var body: MeshInstance3D = Forms.dress_unit(kind, role, loco, tint, primary, trim)
+	var side: String = field.faction_id
+	if team != SMPointer.PLAYER:
+		side = Models.enemy_look(field.faction_id)
+	var body: MeshInstance3D = Forms.dress_unit(kind, role, loco, tint, primary, trim, side)
 	u.add_child(body)
 	World.dress_spawn(u, team, label)
 	field.visual_node = body

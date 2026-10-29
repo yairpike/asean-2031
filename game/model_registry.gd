@@ -137,18 +137,101 @@ static func _from_buffer(id: String, bytes: PackedByteArray) -> Node3D:
 
 static var _tripo_set: Dictionary = {}
 static var _tripo_ready: bool = false
+## Empty uses the faction opposite the player. A mission can set this before units spawn.
+static var look_faction: String = ""
+
+static func enemy_look(player_faction: String) -> String:
+	if look_faction != "":
+		return look_faction
+	if player_faction == "nmrf":
+		return "mvd"
+	if player_faction == "mvd":
+		return "gtfc"
+	if player_faction == "black_market":
+		return "gtfc"
+	return "nmrf"
+
+## A campaign soldier has no roster id. Pick a finished model for that faction and role.
+static func fallback_unit(role: String, loco: String, faction: String) -> String:
+	var slot: String = "infantry"
+	if role == "air" or role == "drone" or loco == "air":
+		slot = "air"
+	elif role == "boat" or role == "amphibious" or loco == "naval":
+		slot = "boat"
+	elif role == "armor":
+		slot = "armor"
+	elif role == "artillery":
+		slot = "artillery"
+	var side: String = faction
+	if side != "gtfc" and side != "nmrf" and side != "mvd" and side != "black_market":
+		side = "nmrf"
+	if side == "gtfc":
+		if slot == "armor":
+			return "amber_tank"
+		if slot == "artillery":
+			return "monsoon_tube"
+		if slot == "boat":
+			return "channel_skiff"
+		if slot == "air":
+			return "bullion_truck"
+		return "militia"
+	if side == "mvd":
+		if slot == "armor":
+			return "cyan_ifv"
+		if slot == "artillery":
+			return "charcoal_mortar"
+		if slot == "boat":
+			return "cyan_skiff"
+		if slot == "air":
+			return "hub_drone"
+		return "clearance_trooper"
+	if side == "black_market":
+		if slot == "air" or slot == "artillery":
+			return "su30"
+		if slot == "boat":
+			return "ch4"
+		return "orlan10"
+	if slot == "armor":
+		return "mangrove_skiff"
+	if slot == "artillery":
+		return "mangrove_tube"
+	if slot == "boat":
+		return "emerald_gunboat"
+	if slot == "air":
+		return "jade_skiff"
+	return "river_rifle"
+
+static func yard_of(faction: String) -> String:
+	if faction == "mvd":
+		return "command_hub"
+	if faction == "nmrf":
+		return "packer"
+	return "scaffold_yard"
+
+static func structure_id(node_name: String) -> String:
+	var id: String = model_id_for(node_name)
+	if id == "playeryard":
+		return yard_of(SMFront.current())
+	if id == "enemyyard" or id == "enemybase":
+		return yard_of(enemy_look(SMFront.current()))
+	var specific: String = "%s_%s" % [SMFront.current(), id]
+	if _tripo_id(specific):
+		return specific
+	return id
 
 static func _tripo_id(id: String) -> bool:
 	if not _tripo_ready:
 		_tripo_ready = true
-		_tripo_set["militia"] = true
-		_tripo_set["amber_tank"] = true
-		_tripo_set["barracks"] = true
+		var listed: String = ""
+		if FileAccess.file_exists("res://data/tripo_ids.txt"):
+			listed = FileAccess.get_file_as_string("res://data/tripo_ids.txt")
+		for line: String in listed.split("\n"):
+			var name: String = line.strip_edges()
+			if name != "":
+				_tripo_set[name] = true
 	return bool(_tripo_set.get(id, false))
 
-static func _authored_size(id: String) -> Vector3:
-	if id == "barracks":
-		return Vector3(8.61, 8.45, 7.94)
+static func _authored_size(_id: String) -> Vector3:
 	return Vector3.ZERO
 
 static func _cache_file(id: String) -> String:
@@ -454,13 +537,14 @@ static func _fit(model: Node3D, footprint: AABB, fill: bool, authored: Vector3) 
 		return
 	var sx: float = footprint.size.x / maxf(src_x, 0.001)
 	var sz: float = footprint.size.z / maxf(src_z, 0.001)
-	if fill and authored.x > 0.05:
-		model.scale = Vector3(sx, minf(sx, sz), sz)
-	else:
-		var scale: float = minf(sx, sz)
-		if scale <= 0.0 or is_inf(scale) or is_nan(scale):
-			return
-		model.scale = Vector3.ONE * scale
+	var scale: float = minf(sx, sz)
+	if fill:
+		var span: float = maxf(footprint.size.x, footprint.size.z)
+		var src: float = maxf(src_x, src_z)
+		scale = span / maxf(src, 0.001)
+	if scale <= 0.0 or is_inf(scale) or is_nan(scale):
+		return
+	model.scale = Vector3.ONE * scale
 	var fitted: AABB = _merged_aabb(model)
 	model.position += Vector3(
 		footprint.get_center().x - fitted.get_center().x,
