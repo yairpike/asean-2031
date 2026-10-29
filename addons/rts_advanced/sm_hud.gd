@@ -89,6 +89,7 @@ var power_fill: ColorRect
 var power_mark: ColorRect
 var repair_button: Button
 var sell_button: Button
+var sky: SMSight
 
 func mount(layer: CanvasLayer, p_field: SMPointer, p_roster: SMRoster, p_side: SMSide, p_map: String, p_rally: Vector3, ability: Callable, grid: SMDomainGrid, camera: RTSCamera) -> void:
 	field = p_field
@@ -161,6 +162,8 @@ func _finish_mount(layer: CanvasLayer) -> void:
 		field.on_bark = Callable(sfx, "bark")
 	layer_node = layer
 	layer.set_meta("hud", self)
+	if minimap != null and side != null:
+		minimap.yard = side.yard
 	if field != null:
 		field.place_rally(rally)
 	_hide_empty_tabs()
@@ -168,9 +171,14 @@ func _finish_mount(layer: CanvasLayer) -> void:
 	layer_mounted.emit(self, layer)
 	refresh()
 
+## A sight without a grid only names the weather. It keeps the fog it had.
 func use_sight(p_sight: SMSight) -> void:
-	if minimap != null:
-		minimap.sight = p_sight
+	sky = p_sight
+	if minimap == null:
+		return
+	if p_sight != null and p_sight.grid == null and minimap.sight != null:
+		return
+	minimap.sight = p_sight
 
 func use_tech(p_tech: SMTechNet) -> void:
 	tech = p_tech
@@ -201,12 +209,14 @@ func refresh() -> void:
 		_shown_map = map_name
 		map_label.text = map_name
 	if weather_label != null:
-		var sky: String = "Clear"
-		if minimap != null and minimap.sight != null:
-			sky = minimap.sight.weather_name
-		if sky != _shown_weather:
-			_shown_weather = sky
-			weather_label.text = sky
+		var sky_name: String = "Clear"
+		if sky != null:
+			sky_name = sky.weather_name
+		elif minimap != null and minimap.sight != null:
+			sky_name = minimap.sight.weather_name
+		if sky_name != _shown_weather:
+			_shown_weather = sky_name
+			weather_label.text = sky_name
 	if selection_label != null:
 		var line: String = _selection_line()
 		if line != _shown_selection:
