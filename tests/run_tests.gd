@@ -14,6 +14,7 @@ const Motion = preload("res://game/unit_motion.gd")
 const BuildingFx = preload("res://game/building_fx.gd")
 const BuildingWatch = preload("res://game/building_watch.gd")
 const WorldView = preload("res://game/world_view.gd")
+const Ground = preload("res://game/ground_view.gd")
 const Catalog = preload("res://game/model_catalog.gd")
 const Debris = preload("res://game/building_debris.gd")
 var H: Harness
@@ -36,6 +37,7 @@ func _run() -> void:
 	if Harness.selftest_mode() == "exit":
 		quit(0)
 		return
+	await H.section("test_scripts", test_scripts)
 	await H.section("test_teams", test_teams)
 	await H.section("test_economy", test_economy)
 	await H.section("test_resource_nodes", test_resource_nodes)
@@ -110,6 +112,43 @@ func _run() -> void:
 	await H.section("test_hud_pause", test_hud_pause)
 	quit(H.finish())
 
+func test_scripts() -> void:
+	var paths: PackedStringArray = PackedStringArray()
+	_collect_scripts("res://", paths)
+	var failed: PackedStringArray = PackedStringArray()
+	for path: String in paths:
+		if load(path) == null:
+			failed.append(path)
+	var note: String = "every script loads (%d)" % paths.size()
+	if not failed.is_empty():
+		note = "every script loads, failed %s" % ", ".join(failed)
+	check(paths.size() > 40 and failed.is_empty(), note)
+	var Served: GDScript = load("res://game/served_art.gd") as GDScript
+	Served.skip_export = true
+	Served._cache.clear()
+	var kokang_still: Texture2D = Served.texture("briefings/kokang.webp")
+	var patani_still: Texture2D = Served.texture("briefings/ghosts_of_patani.webp")
+	var pakbeng_still: Texture2D = Served.texture("briefings/fog_over_pakbeng.webp")
+	check(kokang_still != null and patani_still != null and pakbeng_still != null, "briefing stills resolve from fixtures without build/web")
+	Served.skip_export = false
+	Served._cache.clear()
+	var art_src: String = FileAccess.get_file_as_string("res://game/served_art.gd")
+	var boot_src: String = FileAccess.get_file_as_string("res://game/boot.gd")
+	check(art_src.contains("HTTPRequest") and art_src.contains("func _page"), "briefing stills are fetched over HTTP on the web")
+	check(boot_src.contains("warm.call_deferred"), "the menu prefetches models after the boot scene is ready")
+
+func _collect_scripts(dir_path: String, into: PackedStringArray) -> void:
+	var access: DirAccess = DirAccess.open(dir_path)
+	if access == null:
+		return
+	for name: String in access.get_files():
+		if name.ends_with(".gd"):
+			into.append(dir_path.path_join(name))
+	for sub: String in access.get_directories():
+		if sub.begins_with(".") or sub == "build":
+			continue
+		_collect_scripts(dir_path.path_join(sub), into)
+
 func test_hud_redesign() -> void:
 	SMFront.faction_id = "gtfc"
 	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
@@ -174,7 +213,7 @@ func test_hud_pause() -> void:
 	exit._unhandled_input(esc)
 	var settings: Control = scene.find_child("SettingsPanel", true, false) as Control
 	check(pause.visible and paused and settings != null and settings.visible and settings.get_parent() == pause and bool(settings.get("embedded")), "Esc pauses the match and opens settings inside the glass view")
-	var names: PackedStringArray = PackedStringArray(["PauseResume", "PauseQuit", "PauseSkip", "PauseTrack", "MasterVolume", "SfxVolume", "GraphicsLow", "VoiceValue", "EdgePan"])
+	var names: PackedStringArray = PackedStringArray(["PauseResume", "PauseQuit", "PauseSkip", "PauseTrack", "MasterVolume", "MusicVolume", "SfxVolume", "GraphicsLow", "VoiceValue", "EdgePan"])
 	var all: bool = true
 	for node_name: String in names:
 		if pause.find_child(node_name, true, false) == null:
@@ -1603,6 +1642,16 @@ func test_sm_campaign() -> void:
 		var button: Button = boot.find_child("Mission_%s" % id, true, false) as Button
 		check(button != null and button.text == SMCampaign.title_of(id), "boot lists %s" % id)
 	check(SMCampaign.debug_ids().size() == 14 and boot.find_child("Mission_mae_sai", true, false) == null and boot.find_child("Mission_channel_crossing", true, false) == null, "the old drills stay off the campaign tab")
+	boot.call("_show_tab", "campaign")
+	var detail_card: Control = boot.find_child("MenuDetail", true, false) as Control
+	check(detail_card != null and detail_card.mouse_filter == Control.MOUSE_FILTER_STOP and detail_card.gui_input.is_connected(Callable(boot, "_on_detail_gui")), "the campaign briefing card accepts a click")
+	var enter: InputEventKey = InputEventKey.new()
+	enter.pressed = true
+	enter.keycode = KEY_ENTER
+	enter.echo = false
+	boot.call("_unhandled_input", enter)
+	var loading_plate: Control = boot.find_child("LoadingPlate", true, false) as Control
+	check(loading_plate != null and loading_plate.visible and str(boot.get("_detail_mission")) == "kokang", "enter on the campaign card starts the selected mission")
 	check(camp.play("mae_sai"), "a debug drill can still be finished")
 	boot.free()
 	await process_frame
@@ -2959,6 +3008,20 @@ func test_lan() -> void:
 	var paste_join: Button = boot.find_child("PasteJoin", true, false) as Button
 	var paste_seal: Button = boot.find_child("PasteSeal", true, false) as Button
 	check(offer != null and paste_join != null and paste_seal != null and not offer.is_visible_in_tree(), "browser paste controls stay off the desktop menu")
+	var paste_copy: Button = boot.find_child("PasteCopy", true, false) as Button
+	check(offer.disabled and paste_copy != null and paste_copy.disabled, "copy stays disabled until the offer is ready")
+	var paste_status: Label = boot.find_child("PasteStatus", true, false) as Label
+	var fake: WebPaste = WebPaste.new()
+	fake.text = "ready-blob"
+	fake.phase = "answer"
+	Lan.seat()._web = fake
+	Lan.role = "client"
+	boot.call("_paint_paste")
+	check(paste_status != null and paste_status.text.contains("Answer is ready to copy.") and not offer.disabled, "the guest is told the answer is ready to copy")
+	Lan.role = "host"
+	boot.call("_paint_paste")
+	check(paste_status != null and paste_status.text.contains("Offer is ready to copy."), "the host is told the offer is ready to copy")
+	Lan.close()
 	host.pressed.emit()
 	var status: Label = boot.find_child("LanStatus", true, false) as Label
 	check(status != null and status.text.contains("Waiting") and status.text.contains("47931"), "hosting opens a LAN port")
@@ -3140,6 +3203,54 @@ func test_lan_match() -> void:
 	other_guest.watch(0.4)
 	check(other_guest.paused and other_guest.winner == "guest", "a dropped host gives the guest the win")
 	other_guest.close()
+	Lan.port = 47971
+	var host_seat: Seat = Seat.new()
+	var guest_seat: Seat = Seat.new()
+	host_seat.port = 47971
+	guest_seat.port = 47971
+	host_seat.faction = "gtfc"
+	guest_seat.faction = "nmrf"
+	var lobby_open: bool = host_seat.open_host() == OK and guest_seat.open_client("127.0.0.1") == OK
+	var saw_room: bool = false
+	if lobby_open:
+		for _k: int in 40:
+			host_seat.pump()
+			guest_seat.pump()
+			var host_raw: String = host_seat.take()
+			while host_raw != "":
+				host_seat.ingest(host_raw)
+				host_raw = host_seat.take()
+			var guest_raw: String = guest_seat.take()
+			while guest_raw != "":
+				if guest_seat.ingest(guest_raw) == "room":
+					saw_room = true
+				guest_raw = guest_seat.take()
+			if saw_room and host_seat.guest_joined:
+				break
+			OS.delay_msec(20)
+	check(lobby_open and saw_room and guest_seat.guest_joined and not guest_seat.lobby_line().contains("waiting"), "the guest lobby names the guest once the room arrives")
+	if saw_room:
+		guest_seat.pick_faction("mvd")
+		host_seat.pump()
+		guest_seat.pump()
+		var wish_raw: String = host_seat.take()
+		while wish_raw != "":
+			host_seat.ingest(wish_raw)
+			wish_raw = host_seat.take()
+		var echo: String = guest_seat.take()
+		while echo != "":
+			guest_seat.ingest(echo)
+			echo = guest_seat.take()
+		guest_seat.set_ready(true)
+		host_seat.pump()
+		guest_seat.pump()
+		var ready_raw: String = host_seat.take()
+		while ready_raw != "":
+			host_seat.ingest(ready_raw)
+			ready_raw = host_seat.take()
+	check(host_seat.guest_faction == "mvd" and host_seat.guest_ready and guest_seat.faction == "gtfc", "ready keeps the guest faction instead of resetting it to GTFC")
+	host_seat.close()
+	guest_seat.close()
 	Lan.port = 7777
 	Lan.silence_pause = 2.0
 	Lan.drop_after = 15.0
@@ -3710,6 +3821,9 @@ func test_sm_web() -> void:
 	SMSave.mark("tachileik")
 	SMSave.apply_payload(JSON.stringify(JSON.stringify(["kokang"])))
 	check(SMSave.has("kokang") and SMSave.has("tachileik"), "a wrapped IndexedDB campaign record merges into the save")
+	SMSave.apply_payload("")
+	SMSave.apply_payload("not json")
+	check(SMSave.has("kokang") and SMSave.has("tachileik"), "an empty campaign record is ignored")
 	SMSave.clear()
 	SMCampaign.selected = "tachileik"
 	await process_frame
@@ -3949,6 +4063,20 @@ func test_sm_guide() -> void:
 	var raid_brief: Label = raid.find_child("Briefing", true, false) as Label
 	var raid_boot: Button = raid.find_child("MissionBoot", true, false) as Button
 	check(raid_brief != null and raid_brief.position.x >= 210.0 and raid_brief.size.x <= 820.0 and raid_brief.size.y >= 60.0 and raid_brief.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART and raid_brief.clip_text, "the kokang briefing clears the minimap and wraps")
+	var raid_status: Control = raid.find_child("Status", true, false) as Control
+	var brief_box: Rect2 = raid_brief.get_global_rect() if raid_brief != null else Rect2()
+	var status_box: Rect2 = raid_status.get_global_rect() if raid_status != null else Rect2()
+	var brief_hit: Rect2 = brief_box.intersection(status_box)
+	check(raid_status != null and brief_box.size.y >= 60.0 and status_box.size.y >= 8.0 and (brief_hit.size.x < 1.0 or brief_hit.size.y < 1.0), "the kokang briefing lines do not overlap")
+	check(not _plain_box(raid.get_node_or_null("Scaffold")) and not _plain_box(raid.get_node_or_null("RubyNode")) and not _plain_box(raid.get_node_or_null("RareNode")), "kokang yard and ore nodes are not plain boxes")
+	var teak: MultiMeshInstance3D = raid.get_node_or_null("JungleTrees") as MultiMeshInstance3D
+	var teak_mesh: Mesh = teak.multimesh.mesh if teak != null and teak.multimesh != null else null
+	var fallback_tree: Mesh = Ground.fallback_tree()
+	check(teak_mesh != null and teak_mesh.get_faces().size() > 200 and fallback_tree.get_faces().size() > 200, "kokang trees are a crown, not a green cube")
+	var raid_map: SMMinimap = raid.find_child("Minimap", true, false) as SMMinimap
+	check(raid_map != null and raid_map.backdrop != null and not _flat_olive(raid_map.backdrop), "the kokang minimap is not a flat olive square")
+	var worker: String = FileAccess.get_file_as_string("res://web/sw.js")
+	check(worker.contains("shattered-monsoon-v3") and worker.contains("cache.put") and worker.contains("/models/") and worker.contains("/audio/") and worker.contains("index.wasm") and worker.contains("index.pck"), "the service worker precaches the shell and stores models and audio")
 	check(raid_boot != null and raid_boot.visible and raid_boot.text == "Boot menu", "kokang can return to the boot menu")
 	raid.free()
 	await process_frame
@@ -4085,6 +4213,11 @@ func test_sm_bark() -> void:
 	var sfx_bus: int = AudioServer.get_bus_index("SFX")
 	check(capped and is_equal_approx(ceiling, -1.0), "the master bus limiter ceilings at -1 dB")
 	check(sfx_bus > 0 and is_equal_approx(AudioServer.get_bus_volume_db(sfx_bus), Settings.sfx_bus_db()) and Settings.sfx_bus_db() < linear_to_db(Settings.sfx), "the sfx bus sits under the slider")
+	Settings.restore()
+	Settings.apply_scene(null)
+	var music_now: int = AudioServer.get_bus_index("Music")
+	var music_db: float = AudioServer.get_bus_volume_db(music_now)
+	check(music_now > 0 and music_db <= -4.0 and music_db >= -6.0 and is_equal_approx(music_db, Settings.music_bus_db()), "music defaults about 5 dB under full")
 	Settings.set_master(1.0)
 	Settings.set_sfx(1.0)
 	Settings.apply_scene(null)
@@ -5229,11 +5362,12 @@ func test_sm_settings() -> void:
 	Settings.set_graphics("low")
 	Settings.set_master(0.4)
 	Settings.set_sfx(0.25)
+	Settings.set_music(0.3)
 	Settings.set_pan(1.6)
 	Settings.set_edge(false)
 	Settings.set_difficulty("hard")
 	Settings.reread()
-	check(Settings.graphics == "low" and is_equal_approx(Settings.master, 0.4) and is_equal_approx(Settings.sfx, 0.25) and is_equal_approx(Settings.pan, 1.6) and not Settings.edge and Settings.difficulty == "hard" and Settings.voice == "english", "settings round-trip through user://")
+	check(Settings.graphics == "low" and is_equal_approx(Settings.master, 0.4) and is_equal_approx(Settings.sfx, 0.25) and is_equal_approx(Settings.music, 0.3) and is_equal_approx(Settings.pan, 1.6) and not Settings.edge and Settings.difficulty == "hard" and Settings.voice == "english", "settings round-trip through user://")
 	Settings.set_voice("mandarin")
 	Settings.reread()
 	check(Settings.voice == "mandarin", "the voice language round-trips")
@@ -5254,6 +5388,11 @@ func test_sm_settings() -> void:
 	gear.pressed.emit()
 	check(opened and menu_panel != null and not menu_panel.visible and covered_title.visible and gear.visible, "the menu settings button opens the panel")
 	gear.pressed.emit()
+	var audio_tab: Button = boot.find_child("SettingsTabAudio", true, false) as Button
+	if audio_tab != null:
+		audio_tab.pressed.emit()
+	var music_row: HSlider = boot.find_child("MusicVolume", true, false) as HSlider
+	check(menu_panel != null and menu_panel.visible and audio_tab != null and music_row != null and music_row.visible, "the menu settings audio page has a music slider")
 	var esc: InputEventKey = InputEventKey.new()
 	esc.pressed = true
 	esc.keycode = KEY_ESCAPE
@@ -5295,6 +5434,7 @@ func test_sm_settings() -> void:
 	Settings.set_graphics("high")
 	Settings.set_master(1.0)
 	Settings.set_sfx(1.0)
+	Settings.set_music(0.55)
 	Settings.set_pan(1.0)
 	Settings.set_edge(true)
 	Settings.set_difficulty("normal")
@@ -5778,4 +5918,26 @@ func test_building_materials() -> void:
 			piece_kinds[str(node.get_meta("material", ""))] = true
 	check(piece_kinds.has(Catalog.BRICK) and not piece_kinds.has(Catalog.GLASS), "barracks debris pieces are brick and timber, not generic blocks")
 	stage.queue_free()
+
+func _plain_box(node: Node) -> bool:
+	var mesh_node: MeshInstance3D = node as MeshInstance3D
+	return mesh_node != null and mesh_node.mesh is BoxMesh
+
+func _flat_olive(tex: Texture2D) -> bool:
+	if tex == null:
+		return true
+	var img: Image = tex.get_image()
+	if img == null or img.get_width() < 2 or img.get_height() < 2:
+		return true
+	var seen: Dictionary = {}
+	var y: int = 0
+	while y < img.get_height():
+		var x: int = 0
+		while x < img.get_width():
+			var ink: Color = img.get_pixel(x, y)
+			var key: String = "%d,%d,%d" % [int(ink.r * 8.0), int(ink.g * 8.0), int(ink.b * 8.0)]
+			seen[key] = true
+			x += 4
+		y += 4
+	return seen.size() < 3
 

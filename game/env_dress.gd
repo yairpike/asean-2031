@@ -268,6 +268,9 @@ static func _load(id: String) -> Node3D:
 	return root.duplicate() as Node3D
 
 static func _file(id: String) -> String:
+	var res_path: String = "res://game/models/env/%s.glb" % id
+	if FileAccess.file_exists(res_path):
+		return res_path
 	var packed: String = ProjectSettings.globalize_path("res://game/models/env/%s.glb" % id)
 	if FileAccess.file_exists(packed):
 		return packed

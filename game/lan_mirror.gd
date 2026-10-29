@@ -150,7 +150,7 @@ func _apply(raw: String) -> void:
 			if bits.size() < 6:
 				continue
 			_move_dot(int(bits[0]), float(bits[1]), float(bits[2]), int(bits[4]))
-	_blocks(row.get("b", []))
+	_sync_blocks(row.get("b", []))
 	if _purse != null and row.has("credits"):
 		var names: String = ""
 		var q: Variant = row.get("q", [])
@@ -242,7 +242,7 @@ func _clear_dots() -> void:
 			dot.queue_free()
 	_dots.clear()
 
-func _blocks(raw: Variant) -> void:
+func _sync_blocks(raw: Variant) -> void:
 	if typeof(raw) != TYPE_ARRAY:
 		return
 	var rows: Array = raw

@@ -9,6 +9,8 @@ static var loaded: bool = false
 static var graphics: String = "high"
 static var master: float = 1.0
 static var sfx: float = 1.0
+## 0.55 is about 5 dB under full scale, inside the 4–6 dB quieter default.
+static var music: float = 0.55
 static var pan: float = 1.0
 static var edge: bool = true
 static var difficulty: String = "normal"
@@ -82,6 +84,11 @@ static func set_sfx(v: float) -> void:
 	sfx = clampf(v, 0.0, 1.0)
 	_write()
 
+static func set_music(v: float) -> void:
+	ensure()
+	music = clampf(v, 0.0, 1.0)
+	_write()
+
 static func set_pan(v: float) -> void:
 	ensure()
 	pan = clampf(v, 0.4, 2.2)
@@ -97,6 +104,7 @@ static func restore() -> void:
 	graphics = "high"
 	master = 1.0
 	sfx = 1.0
+	music = 0.55
 	pan = 1.0
 	edge = true
 	difficulty = "normal"
@@ -172,6 +180,12 @@ static func sfx_bus_db() -> float:
 		return -80.0
 	return linear_to_db(sfx) - SFX_TRIM_DB
 
+static func music_bus_db() -> float:
+	ensure()
+	if music <= 0.001:
+		return -80.0
+	return linear_to_db(music)
+
 ## Append a bus in place. add_bus() on the web export reorders the sample
 ## graph and disconnects Master from the speakers, so every runtime bus uses this.
 static func append_bus(bus_name: String, send_to: String = "Master") -> int:
@@ -193,6 +207,9 @@ static func apply_audio() -> void:
 	_limit_master()
 	var sfx_i: int = append_bus("SFX", "Master")
 	AudioServer.set_bus_volume_db(sfx_i, sfx_bus_db())
+	var music_i: int = append_bus("Music", "Master")
+	AudioServer.set_bus_volume_db(music_i, music_bus_db())
+	AudioServer.set_bus_send(music_i, "Master")
 
 static func _limit_master() -> void:
 	var found: int = AudioServer.get_bus_effect_count(0)
@@ -235,6 +252,7 @@ static func _read() -> void:
 	graphics = "low" if stored == "low" else "high"
 	master = clampf(float(cfg.get_value("game", "master", 1.0)), 0.0, 1.0)
 	sfx = clampf(float(cfg.get_value("game", "sfx", 1.0)), 0.0, 1.0)
+	music = clampf(float(cfg.get_value("game", "music", 0.55)), 0.0, 1.0)
 	pan = clampf(float(cfg.get_value("game", "pan", 1.0)), 0.4, 2.2)
 	edge = bool(cfg.get_value("game", "edge", true))
 	var stored_diff: String = str(cfg.get_value("game", "difficulty", "normal"))
@@ -250,6 +268,7 @@ static func _write() -> void:
 	cfg.set_value("game", "graphics", graphics)
 	cfg.set_value("game", "master", master)
 	cfg.set_value("game", "sfx", sfx)
+	cfg.set_value("game", "music", music)
 	cfg.set_value("game", "pan", pan)
 	cfg.set_value("game", "edge", edge)
 	cfg.set_value("game", "difficulty", difficulty)
@@ -264,6 +283,7 @@ static func _mirror() -> void:
 		"graphics": graphics,
 		"master": master,
 		"sfx": sfx,
+		"music": music,
 		"pan": pan,
 		"edge": edge,
 		"difficulty": difficulty,

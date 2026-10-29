@@ -46,6 +46,7 @@ var _prev_fog: PackedByteArray = PackedByteArray()
 var _seq: int = 0
 var _web: Paste
 var _paste_note: String = ""
+var _picked_faction: String = ""
 
 static func faction_ids() -> PackedStringArray:
 	var ids: PackedStringArray = PackedStringArray()
@@ -203,6 +204,7 @@ func close() -> void:
 	inbox.clear()
 	chat_lines.clear()
 	_hello_sent = false
+	_picked_faction = ""
 	_stop_beacon()
 	hush_listen()
 
@@ -218,7 +220,7 @@ func pump() -> void:
 	while peer.get_available_packet_count() > 0:
 		inbox.append(peer.get_packet().get_string_from_utf8())
 	if role == "client" and not _hello_sent and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-		send({"k": "hello", "faction": faction})
+		send({"k": "hello", "faction": _wish_faction()})
 		_hello_sent = true
 
 func pulse(delta: float) -> void:
@@ -349,11 +351,28 @@ func send_start(path: String, host_faction: String, guest: String) -> void:
 	send({"k": "start", "map": map_path, "faction": faction, "guest": guest_faction})
 
 func pick_faction(id: String) -> void:
-	faction = known_faction(id)
+	var known: String = known_faction(id)
+	if role == "client":
+		_picked_faction = known
+		guest_faction = known
+		send({"k": "wish", "faction": known, "ready": guest_ready})
+		return
+	faction = known
 	if role == "host":
 		announce_room()
-	elif role == "client":
-		send({"k": "wish", "faction": faction, "ready": guest_ready})
+
+func lobby_line() -> String:
+	var guest_name: String = guest_faction if guest_joined else "waiting"
+	var host_state: String = "ready" if host_ready else "open"
+	var guest_state: String = "ready" if guest_ready else "open"
+	return "Host %s %s    Guest %s %s" % [faction, host_state, guest_name, guest_state]
+
+func _wish_faction() -> String:
+	if _picked_faction != "":
+		return _picked_faction
+	if role == "client" and guest_joined and guest_faction != "":
+		return guest_faction
+	return faction
 
 func pick_map(path: String) -> void:
 	if role != "host":
@@ -369,7 +388,7 @@ func set_ready(on: bool) -> void:
 		announce_room()
 	elif role == "client":
 		guest_ready = on
-		send({"k": "wish", "faction": faction, "ready": guest_ready})
+		send({"k": "wish", "faction": _wish_faction(), "ready": guest_ready})
 
 func say(text: String) -> void:
 	var line: String = text.strip_edges()
@@ -448,7 +467,12 @@ func ingest(raw: String) -> String:
 			announce_room()
 	elif kind == "room" and role == "client":
 		map_path = known_map(str(row.get("map", map_path)))
-		guest_faction = known_faction(str(row.get("guest", faction)))
+		guest_joined = true
+		var echoed: String = str(row.get("guest", ""))
+		if echoed != "":
+			guest_faction = known_faction(echoed)
+		elif _picked_faction != "":
+			guest_faction = _picked_faction
 		faction = known_faction(str(row.get("faction", "gtfc")))
 		host_ready = bool(row.get("host_ready", false))
 		guest_ready = bool(row.get("guest_ready", false))

@@ -189,7 +189,7 @@ func _ready() -> void:
 	mark_difficulty()
 	preload("res://game/match_audio.gd").arm(self, "menu")
 	_loading_plate()
-	preload("res://game/model_registry.gd").warm(self)
+	preload("res://game/model_registry.gd").warm.call_deferred(self)
 	_menu_fade()
 	_detail_card()
 	_offer_training()
@@ -298,6 +298,7 @@ func _paste_panel() -> void:
 	offer.text = "Copy offer"
 	offer.position = Vector2(0.0, 0.0)
 	offer.custom_minimum_size = Vector2(160.0, 36.0)
+	offer.disabled = true
 	offer.pressed.connect(_paste_offer)
 	paste_panel.add_child(offer)
 	var copy: Button = Button.new()
@@ -305,6 +306,7 @@ func _paste_panel() -> void:
 	copy.text = "Copy again"
 	copy.position = Vector2(176.0, 0.0)
 	copy.custom_minimum_size = Vector2(160.0, 36.0)
+	copy.disabled = true
 	copy.pressed.connect(_paste_copy)
 	paste_panel.add_child(copy)
 	var blob: TextEdit = TextEdit.new()
@@ -396,14 +398,26 @@ func _paste_blob() -> String:
 		return ""
 	return blob.text.strip_edges()
 
-func _paste_offer() -> void:
+func _arm_paste_offer() -> void:
+	if Lan.role != "":
+		_paint_paste()
+		return
 	var err: Error = Lan.paste_host()
 	if err == OK:
 		Lan.faction = SMFront.faction_id
 		if selected_map != "":
 			Lan.map_path = selected_map
-		_paste_copy()
 	_paint_paste()
+	_paint_lobby()
+
+func _paste_offer() -> void:
+	if Lan.paste_text() == "":
+		if Lan.role == "" and not Lan.show_controls():
+			_arm_paste_offer()
+		else:
+			_paint_paste()
+		return
+	_paste_copy()
 	_paint_lobby()
 
 func _paste_copy() -> void:
@@ -439,13 +453,21 @@ func _paste_say() -> void:
 
 func _paint_paste() -> void:
 	var status: Label = find_child("PasteStatus", true, false) as Label
+	var ready: bool = Lan.paste_text() != ""
+	var offer: Button = find_child("PasteOffer", true, false) as Button
+	var copy: Button = find_child("PasteCopy", true, false) as Button
+	if offer != null:
+		offer.disabled = not ready
+	if copy != null:
+		copy.disabled = not ready
 	if status == null:
 		return
 	var note: String = Lan.paste_note()
 	if note == "":
 		note = Lan.lan_note(true)
-	if Lan.paste_text() != "":
-		note = "%s  Offer is ready to copy." % note
+	if ready:
+		var kind: String = "Answer" if Lan.role == "client" else "Offer"
+		note = "%s  %s is ready to copy." % [note, kind]
 	status.text = note
 
 func _paste_poll(delta: float) -> void:
@@ -597,8 +619,7 @@ func _paint_lobby() -> void:
 	var chat: Label = find_child("LanChat", true, false) as Label
 	var count: Label = find_child("LanCount", true, false) as Label
 	if lobby != null:
-		var guest: String = Lan.seat().guest_faction if Lan.seat().guest_joined else "waiting"
-		lobby.text = "Host %s %s    Guest %s %s" % [Lan.seat().faction, "ready" if Lan.seat().host_ready else "open", guest, "ready" if Lan.seat().guest_ready else "open"]
+		lobby.text = Lan.seat().lobby_line()
 	if chat != null:
 		var lines: String = ""
 		for line: String in Lan.seat().chat_lines:
@@ -971,7 +992,10 @@ func _show_tab(which: String) -> void:
 	if lan_panel != null:
 		lan_panel.visible = which == "multi" and Lan.show_controls()
 	if paste_panel != null:
-		paste_panel.visible = which == "multi" and not Lan.show_controls()
+		var show_paste: bool = which == "multi" and not Lan.show_controls()
+		paste_panel.visible = show_paste
+		if show_paste:
+			_arm_paste_offer()
 	if which == "skirmish" or which == "multi":
 		_set_submenu(false)
 	elif which == "campaign" or which == "faction":
@@ -1619,7 +1643,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif key.keycode == KEY_RIGHT or key.keycode == KEY_D:
 			_move_faction(1)
 			get_viewport().set_input_as_handled()
-		elif key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER or key.keycode == KEY_SPACE:
+		elif key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER:
+			if _launch_detail(true):
+				get_viewport().set_input_as_handled()
+				return
+			_activate_focus()
+			get_viewport().set_input_as_handled()
+		elif key.keycode == KEY_SPACE:
 			_activate_focus()
 			get_viewport().set_input_as_handled()
 		return
@@ -1687,7 +1717,8 @@ func _detail_card() -> void:
 	var card: PanelContainer = PanelContainer.new()
 	card.name = "MenuDetail"
 	card.visible = false
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.gui_input.connect(_on_detail_gui)
 	card.z_index = 2
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.7)
@@ -1702,10 +1733,12 @@ func _detail_card() -> void:
 		Glass.dress(card, 10, Color(0.04, 0.045, 0.06, 0.55), 20, Color(0.93, 0.78, 0.38, 0.85))
 	add_child(card)
 	var box: VBoxContainer = VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 10)
 	card.add_child(box)
 	var title: Label = Label.new()
 	title.name = "DetailTitle"
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	box.add_child(title)
@@ -1718,11 +1751,13 @@ func _detail_card() -> void:
 	box.add_child(preview)
 	var players := Label.new()
 	players.name = "DetailPlayers"
+	players.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	players.add_theme_font_size_override("font_size", 18)
 	players.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	box.add_child(players)
 	var body: Label = Label.new()
 	body.name = "DetailBody"
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.max_lines_visible = 8
 	body.add_theme_font_size_override("font_size", 18)
@@ -1730,6 +1765,7 @@ func _detail_card() -> void:
 	box.add_child(body)
 	var tags: Label = Label.new()
 	tags.name = "DetailTags"
+	tags.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tags.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tags.add_theme_font_size_override("font_size", 18)
 	tags.add_theme_color_override("font_color", Color(1, 1, 1, 1))
@@ -1741,6 +1777,26 @@ func _detail_card() -> void:
 	more.add_theme_font_size_override("font_size", 18)
 	more.pressed.connect(_toggle_detail)
 	box.add_child(more)
+
+func _on_detail_gui(event: InputEvent) -> void:
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+		return
+	_launch_detail(false)
+
+## Enter, or a click on the briefing card, starts the mission shown in the card.
+func _launch_detail(from_key: bool) -> bool:
+	if campaign_panel == null or not campaign_panel.visible:
+		return false
+	if from_key:
+		var owner: Control = get_viewport().gui_get_focus_owner() as Control
+		if owner != null and (owner is LineEdit or owner.name == "DetailMore"):
+			return false
+	var mission_id: String = _detail_mission if _detail_mission != "" else SMCampaign.selected
+	if mission_id == "":
+		return false
+	_start_mission(mission_id)
+	return true
 
 func _toggle_detail() -> void:
 	var body: Label = find_child("DetailBody", true, false) as Label
@@ -1887,9 +1943,11 @@ func _paint_detail() -> void:
 			players.visible = false
 		if preview != null:
 			var rel: String = SMCampaign.still_of(mission_id)
-			var tex: Texture2D = preload("res://game/served_art.gd").texture(rel) if rel != "" else null
-			preview.texture = tex
-			preview.visible = tex != null
+			if rel == "":
+				preview.texture = null
+				preview.visible = false
+			else:
+				preload("res://game/served_art.gd").bind(preview, rel)
 		return
 	title.text = ""
 	body.text = ""

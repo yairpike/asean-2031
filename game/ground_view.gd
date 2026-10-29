@@ -605,10 +605,29 @@ static func _prop(kind: String, profile: String) -> Mesh:
 	_prop_cache[key] = mesh
 	return mesh
 
+## Used when the teak glb is not on disk yet. A tapered trunk and a crown of
+## small clumps, so the stand-in is not one green cube.
+static func fallback_tree() -> Mesh:
+	var st: SurfaceTool = _begin(_land_material())
+	_tree(st)
+	st.generate_normals()
+	return st.commit()
+
 static func _tree(st: SurfaceTool) -> void:
-	_box(st, Vector3(0.0, 0.7, 0.0), Vector3(0.28, 1.4, 0.28), WOOD)
-	_box(st, Vector3(0.0, 1.7, 0.0), Vector3(1.5, 0.9, 1.5), LEAF)
-	_box(st, Vector3(0.15, 2.2, -0.1), Vector3(1.0, 0.6, 1.0), Color(0.22, 0.48, 0.2))
+	_box(st, Vector3(0.0, 0.28, 0.0), Vector3(0.42, 0.16, 0.42), Color(0.28, 0.2, 0.1))
+	_box(st, Vector3(0.0, 0.55, 0.0), Vector3(0.32, 0.5, 0.32), WOOD)
+	_box(st, Vector3(0.02, 1.05, 0.0), Vector3(0.22, 0.55, 0.22), WOOD)
+	_box(st, Vector3(0.04, 1.5, -0.02), Vector3(0.14, 0.42, 0.14), Color(0.32, 0.22, 0.12))
+	_box(st, Vector3(0.28, 1.55, 0.05), Vector3(0.46, 0.08, 0.1), WOOD)
+	_box(st, Vector3(-0.22, 1.48, -0.08), Vector3(0.4, 0.08, 0.1), WOOD)
+	_box(st, Vector3(0.0, 1.85, 0.0), Vector3(0.55, 0.42, 0.5), LEAF)
+	_box(st, Vector3(0.38, 1.72, 0.12), Vector3(0.42, 0.36, 0.38), Color(0.16, 0.36, 0.14))
+	_box(st, Vector3(-0.34, 1.78, -0.1), Vector3(0.4, 0.34, 0.36), Color(0.2, 0.42, 0.16))
+	_box(st, Vector3(0.08, 2.15, -0.28), Vector3(0.38, 0.32, 0.34), LEAF)
+	_box(st, Vector3(-0.1, 2.18, 0.26), Vector3(0.36, 0.3, 0.32), Color(0.14, 0.38, 0.15))
+	_box(st, Vector3(0.22, 2.28, 0.02), Vector3(0.32, 0.28, 0.3), Color(0.22, 0.46, 0.18))
+	_box(st, Vector3(-0.16, 2.42, -0.04), Vector3(0.28, 0.26, 0.26), LEAF)
+	_box(st, Vector3(0.02, 2.62, 0.0), Vector3(0.22, 0.22, 0.2), Color(0.26, 0.5, 0.2))
 
 static func _palm(st: SurfaceTool) -> void:
 	_box(st, Vector3(0.0, 0.5, 0.0), Vector3(0.18, 1.0, 0.18), WOOD)

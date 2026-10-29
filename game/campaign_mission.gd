@@ -140,11 +140,12 @@ func _still(layer: CanvasLayer) -> void:
 	still.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	still.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	still.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var rel: String = SMCampaign.still_of(mission_id)
-	var tex: Texture2D = Served.texture(rel) if rel != "" else null
-	still.texture = tex
-	still.visible = tex != null
 	layer.add_child(still)
+	var rel: String = SMCampaign.still_of(mission_id)
+	if rel == "":
+		still.visible = false
+	else:
+		Served.bind(still, rel)
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
