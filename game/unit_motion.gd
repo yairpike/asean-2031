@@ -19,6 +19,7 @@ const TURN_HULL: float = 3.4
 const TURN_AIR: float = 4.6
 ## Seconds a stopped tube or mech waits before it braces (deploys).
 const BRACE_AFTER: float = 1.2
+const DRAW_RATE: float = 4.0
 const LOOPED: PackedStringArray = ["idle", "walk", "shoot", "run"]
 ## A clip a unit lacks falls back to the next name here.
 const STAND_IN: Dictionary = {"ability": "deploy", "run": "walk", "flinch": "", "deploy": ""}
@@ -290,24 +291,53 @@ static func _ability_k(body: Node) -> float:
 static func _weapon(body: MeshInstance3D, delta: float, key: String) -> void:
 	var kick: float = move_toward(float(body.get_meta("anim_kick", 0.0)), 0.0, delta * 7.0)
 	body.set_meta("anim_kick", kick)
+	var sling: Node3D = sling_of(body)
+	var drawn: float = 1.0
+	if sling != null:
+		drawn = move_toward(float(body.get_meta("anim_draw", 0.0)), 1.0 if key == "shoot" else 0.0, delta * DRAW_RATE)
+		body.set_meta("anim_draw", drawn)
 	for weapon: MeshInstance3D in weapons_of(body):
 		var muzzle: Node3D = weapon.get_node_or_null("Muzzle") as Node3D
 		if muzzle == null:
 			continue
 		if not weapon.has_meta("anim_rest"):
-			weapon.set_meta("anim_rest", weapon.position)
-		var rest: Vector3 = weapon.get_meta("anim_rest")
+			weapon.set_meta("anim_rest", weapon.transform)
+			weapon.set_meta("anim_holder", weapon.get_parent())
+		var stowed: bool = sling != null and drawn <= 0.0 and weapon.name == "Weapon"
+		var holder: Node = sling if stowed else weapon.get_meta("anim_holder") as Node
+		if holder != null and weapon.get_parent() != holder:
+			weapon.reparent(holder, false)
+		if stowed:
+			weapon.transform = Transform3D.IDENTITY
+			continue
+		var rest: Transform3D = weapon.get_meta("anim_rest")
 		var grip: Vector3 = weapon.get_aabb().get_center()
 		var axis: Vector3 = muzzle.position - grip
-		var back: Vector3 = weapon.basis * (-axis.normalized()) * axis.length() * 0.12
-		weapon.position = rest + back * _ease_kick(kick)
+		var back: Vector3 = rest.basis * (-axis.normalized()) * axis.length() * 0.12
+		weapon.transform = Transform3D(rest.basis, rest.origin + back * _ease_kick(kick))
+		if sling != null and drawn < 1.0 and weapon.name == "Weapon":
+			weapon.global_transform = weapon.global_transform.interpolate_with(sling.global_transform, 1.0 - drawn)
 	_brace_shields(body, delta, key)
 	var ik: SkeletonModifier3D = null
 	if body.has_meta("anim_ik") and is_instance_valid(body.get_meta("anim_ik")):
 		ik = body.get_meta("anim_ik") as SkeletonModifier3D
 	if ik != null:
 		var hold: bool = key == "idle" or key == "walk" or key == "run" or key == "shoot"
-		ik.influence = move_toward(ik.influence, 1.0 if hold else 0.0, delta * 5.0)
+		var want: float = drawn if sling != null else (1.0 if hold else 0.0)
+		ik.influence = move_toward(ik.influence, want, delta * 5.0)
+
+## A rifle carried on the back: the WeaponSling marker on the spine holds its slung place, and it is drawn into the
+## hands only to fire.
+static func sling_of(body: Node) -> Node3D:
+	var model: Node = body.get_node_or_null("Model")
+	if model == null:
+		return null
+	var stamp: int = model.get_instance_id()
+	if int(body.get_meta("anim_sling_of", -1)) != stamp:
+		body.set_meta("anim_sling_of", stamp)
+		body.set_meta("anim_sling", model.find_child("WeaponSling", true, false))
+	var found: Variant = body.get_meta("anim_sling")
+	return found as Node3D if found != null and is_instance_valid(found) else null
 
 static func weapons_of(body: Node) -> Array[MeshInstance3D]:
 	var out: Array[MeshInstance3D] = []
@@ -564,6 +594,9 @@ static func _muzzle(body: MeshInstance3D, barrel: Node3D) -> Vector3:
 		var hand: int = skel.find_bone("R_Hand")
 		if hand >= 0:
 			return skel.global_transform * skel.get_bone_global_pose(hand).origin
+		var head: int = skel.find_bone("tripo__Head_0")
+		if head >= 0:
+			return skel.global_transform * skel.get_bone_global_pose(head).origin + rendered_forward(body) * 0.15
 	var form: String = "figure" if player_of(body) != null else str(body.get_meta("form", ""))
 	var local: Vector3 = (load("res://game/unit_meshes.gd") as GDScript).call("muzzle_pos", form)
 	return body.global_transform * local

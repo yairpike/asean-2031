@@ -103,6 +103,7 @@ func _run() -> void:
 	await H.section("test_unit_motion", test_unit_motion)
 	await H.section("test_unit_facing", test_unit_facing)
 	await H.section("test_weapon_sockets", test_weapon_sockets)
+	await H.section("test_dog_motion", test_dog_motion)
 	await H.section("test_building_materials", test_building_materials)
 	quit(H.finish())
 
@@ -5186,10 +5187,14 @@ func _weapon_drift(id: String) -> Array:
 	return [worst, poses]
 
 func test_weapon_sockets() -> void:
-	var armed: PackedStringArray = ["militia", "clearance_trooper", "amber_scout", "charcoal_bike", "clearance_engineer", "emerald_cutter", "olive_ranger", "olive_sapper", "ruby_lancer", "ruby_mortar"]
+	var armed: PackedStringArray = ["militia", "clearance_trooper", "amber_scout", "charcoal_bike", "clearance_engineer", "emerald_cutter", "olive_ranger", "olive_sapper", "ruby_lancer", "ruby_mortar",
+		"river_rifle", "crimson_sapper", "packer_escort", "relay_van", "packer", "wharf_gun"]
 	for id: String in armed:
 		var got: Array = await _weapon_drift(id)
-		check(float(got[0]) >= 0.0 and float(got[0]) < 0.002 and int(got[1]) >= 20, "%s weapons stay rigid on their hand socket across every clip (%d poses, drift %.4f)" % [id, int(got[1]), float(got[0])])
+		check(float(got[0]) >= 0.0 and float(got[0]) < 0.002 and int(got[1]) >= 20, "%s weapons stay rigid on their socket across every clip (%d poses, drift %.4f)" % [id, int(got[1]), float(got[0])])
+	for id: String in ["militia", "olive_ranger", "river_rifle", "crimson_sapper", "packer_escort", "relay_van", "packer", "wharf_gun"]:
+		var aim: Vector3 = await _barrel_aim(id)
+		check(absf(aim.x) <= 22.0 and absf(aim.y) <= 25.0 and aim.z > 0.15, "%s fires with its barrel near level and on the target (pitch %.1f deg, yaw %.1f deg, tip %.2f m ahead)" % [id, aim.x, aim.y, aim.z])
 	var stage: Node3D = Node3D.new()
 	root.add_child(stage)
 	var rifle: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3.ZERO, 0, true)
@@ -5221,6 +5226,94 @@ func test_weapon_sockets() -> void:
 	var dims: Array[float] = [ext.x, ext.y, ext.z]
 	dims.sort()
 	check(shield != null and shield.skin == null and (shield.get_parent() as BoneAttachment3D).bone_name == "L_Forearm" and dims[1] > 0.5 * dims[2] and dims[0] < 0.4 * dims[1], "the riot shield is a rigid forearm prop with full face proportions")
+	var slinger: RTSUnit = _motion_unit(stage, "river_rifle", "infantry", Vector3(8, 0, 0), 0, true)
+	var foe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(8, 0, -6), 1, false)
+	var sling_body: MeshInstance3D = slinger.get_node("Body") as MeshInstance3D
+	var slung: MeshInstance3D = sling_body.find_child("Weapon", true, false) as MeshInstance3D
+	var sling: Node3D = Motion.sling_of(sling_body)
+	check(slung != null and sling != null and (sling.get_parent() as BoneAttachment3D).bone_name == "Spine02" and Motion.muzzle_of(sling_body) != null, "the river rifle has a rigid rifle with a muzzle and a sling marker on the spine")
+	slinger.set_path(PackedVector3Array([Vector3(8, 0, -3)]))
+	for f: int in 20:
+		slinger.advance(1.0 / 30.0)
+		Motion.pose(slinger, 1.0 / 30.0)
+		await process_frame
+	check(slung.get_parent() == sling and slung.global_position.distance_to(sling.global_position) < 0.01, "on the move the river rifle carries its rifle slung on the back")
+	slinger.stop()
+	slinger.attack_range = 12.0
+	slinger.attack_target = foe
+	for f: int in 30:
+		Motion.pose(slinger, 1.0 / 30.0)
+		await process_frame
+	var sling_ik: TwoBoneIK3D = sling_body.find_child("OffHandIK", true, false) as TwoBoneIK3D
+	check(slung.global_position.distance_to(sling.global_position) > 0.2 and sling_ik != null and sling_ik.influence > 0.95, "to fire, the river rifle draws the rifle into both hands")
+	stage.queue_free()
+
+## Barrel pitch and yaw off the target in degrees, and how far the muzzle sits toward the target, averaged over the
+## whole shoot clip.
+func _barrel_aim(id: String) -> Vector3:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var u: RTSUnit = _motion_unit(stage, id, "infantry", Vector3.ZERO, 0, true)
+	var foe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(0, 0, -6), 1, false)
+	var body: MeshInstance3D = u.get_node("Body") as MeshInstance3D
+	Motion.player_of(body)
+	var weapon: MeshInstance3D = body.find_child("Weapon", true, false) as MeshInstance3D
+	var muzzle: Node3D = Motion.muzzle_of(body)
+	if weapon == null or muzzle == null:
+		stage.queue_free()
+		return Vector3(90.0, 90.0, 0.0)
+	u.attack_range = 12.0
+	u.attack_target = foe
+	for f: int in 30:
+		Motion.pose(u, 1.0 / 30.0)
+	var player: AnimationPlayer = Motion.player_of(body)
+	var length: float = player.get_animation(player.current_animation).length
+	var pitch: float = 0.0
+	var yaw: float = 0.0
+	var ahead: float = 0.0
+	for k: int in 16:
+		player.seek(length * float(k) / 16.0, true)
+		Motion.pose(u, 0.0)
+		await process_frame
+		var barrel: Vector3 = (muzzle.global_position - weapon.global_transform * weapon.get_aabb().get_center()).normalized()
+		pitch += rad_to_deg(asin(clampf(barrel.y, -1.0, 1.0))) / 16.0
+		yaw += rad_to_deg(Vector3(barrel.x, 0.0, barrel.z).signed_angle_to(Vector3.FORWARD, Vector3.UP)) / 16.0
+		ahead += (muzzle.global_position - u.global_position).dot(Vector3.FORWARD) / 16.0
+	stage.queue_free()
+	return Vector3(pitch, yaw, ahead)
+
+func test_dog_motion() -> void:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var dog: RTSUnit = _motion_unit(stage, "kachin_dog", "infantry", Vector3.ZERO, 0, true)
+	var body: MeshInstance3D = dog.get_node("Body") as MeshInstance3D
+	var player: AnimationPlayer = Motion.player_of(body)
+	var missing: PackedStringArray = []
+	for clip: String in ["idle", "walk", "run", "shoot", "ability", "flinch", "die"]:
+		if not Motion.has_clip(player, clip):
+			missing.append(clip)
+	check(player != null and missing.is_empty(), "the sapper dog ships authored idle, walk, run, bite, howl, flinch and death clips (missing: %s)" % ", ".join(missing))
+	var skel: Skeleton3D = body.find_child("Skeleton3D", true, false) as Skeleton3D
+	var worst: float = 0.0
+	for clip: String in ["idle", "run", "shoot", "ability"]:
+		Motion.play(player, clip, 1.0)
+		player.seek(0.0, true)
+		await process_frame
+		var low: float = 99.0
+		for b: int in skel.get_bone_count():
+			low = minf(low, (skel.global_transform * skel.get_bone_global_pose(b).origin).y)
+		worst = maxf(worst, absf(low))
+	check(worst < 0.06, "the sapper dog stands on the ground in every clip (lowest bone off the ground by %.3f m)" % worst)
+	var foe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(0, 0, -4), 1, false)
+	dog.attack_range = 8.0
+	dog.attack_target = foe
+	for f: int in 20:
+		Motion.pose(dog, 1.0 / 30.0)
+	await process_frame
+	Motion.on_fired(dog, foe)
+	var flash: Node3D = stage.get_node_or_null("MuzzleFlash") as Node3D
+	var head: Vector3 = skel.global_transform * skel.get_bone_global_pose(skel.find_bone("tripo__Head_0")).origin
+	check(flash != null and flash.global_position.distance_to(head) < 0.3 and flash.global_position.y < 1.2, "the dog's howl starts at its head, not above it")
 	stage.queue_free()
 
 func test_building_materials() -> void:

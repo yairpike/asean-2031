@@ -33,6 +33,7 @@ var units: Array[RTSUnit] = []
 var dummy: RTSUnit
 var stills_dir: String = ""
 var only: String = ""
+var close_ids: PackedStringArray = CLOSE_IDS
 var shots: Array[Dictionary] = []
 var beat: String = ""
 var walkers: Array[RTSUnit] = []
@@ -48,6 +49,8 @@ func _ready() -> void:
 			stills_dir = arg.trim_prefix("--stills=")
 		elif arg.begins_with("--only="):
 			only = arg.trim_prefix("--only=")
+		elif arg.begins_with("--close="):
+			close_ids = PackedStringArray(arg.trim_prefix("--close=").split(",", false))
 	get_window().size = Vector2i(1280, 720)
 	_dress_stage()
 	cam = Camera3D.new()
@@ -58,8 +61,8 @@ func _ready() -> void:
 	for i: int in FACTIONS.size():
 		acts.append({"name": "grid", "faction": FACTIONS[i], "length": GRID_TIME, "origin": Vector3(220.0 * float(i), 0, 0)})
 	acts.append({"name": "compass", "length": LEG_TIME * 8.0 + 2.6, "origin": Vector3(0, 0, 220)})
-	for i: int in CLOSE_IDS.size():
-		acts.append({"name": "close", "id": CLOSE_IDS[i], "length": CLOSE_TIME, "origin": Vector3(220.0 + 30.0 * float(i), 0, 220)})
+	for i: int in close_ids.size():
+		acts.append({"name": "close", "id": close_ids[i], "length": CLOSE_TIME, "origin": Vector3(220.0 + 30.0 * float(i), 0, 220)})
 	acts.append({"name": "ruins", "length": 24.0, "origin": Vector3(0, 0, 440)})
 	if only != "":
 		acts = acts.filter(func(a: Dictionary) -> bool: return str(a["name"]) == only or str(a.get("faction", "")) == only or str(a.get("id", "")) == only)
@@ -415,8 +418,14 @@ func _measure() -> void:
 func _begin_close(a: Dictionary) -> void:
 	var origin: Vector3 = a["origin"]
 	var id: String = str(a["id"])
-	var faction: String = "gtfc" if id == "militia" or id == "ruby_lancer" else ("mvd" if id == "clearance_trooper" else "nmrf")
-	close_unit = _spawn(id, "infantry", "ground", origin, 0, _colors(faction))
+	var faction: String = "gtfc"
+	var role: String = "infantry"
+	for f: String in FACTIONS:
+		for item: Variant in _faction_units(f):
+			if item is Dictionary and str((item as Dictionary).get("id", "")) == id:
+				faction = f
+				role = str((item as Dictionary).get("role", role))
+	close_unit = _spawn(id, role, "ground", origin, 0, _colors(faction))
 	close_unit.attack_range = 200.0
 	close_unit.attack_interval = 0.42
 	close_unit.attack_damage = 0.0
@@ -431,7 +440,18 @@ func _begin_close(a: Dictionary) -> void:
 	Engine.time_scale = 0.5
 	title.text = "Firing close-up · %s" % id.replace("_", " ")
 	caption.text = "rigid weapon on the hand socket · flash and recoil at the muzzle · half speed"
-	_aim(origin + Vector3(0.45, 0.85, 0), Vector3(0.3, 0.22, 1.0), 3.1)
+	var tall: float = _height_of(close_unit)
+	var k: float = 1.0 if tall > 1.2 and tall < 2.4 else clampf(tall / 1.75, 0.5, 2.5)
+	_aim(origin + Vector3(0.45, 0.85, 0) * k, Vector3(0.3, 0.22, 1.0), 3.1 * k)
+
+func _height_of(u: Node3D) -> float:
+	var top: float = 0.0
+	for node: Node in u.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = node as MeshInstance3D
+		if mi.mesh != null and mi.visible:
+			var box: AABB = mi.global_transform * mi.mesh.get_aabb()
+			top = maxf(top, box.end.y - u.global_position.y)
+	return top if top > 0.1 else 1.75
 
 func _step_close(_a: Dictionary, _delta: float) -> void:
 	if act_t >= 0.25 and is_instance_valid(close_unit) and close_unit.attack_target == null:
@@ -502,7 +522,7 @@ func _snap() -> void:
 	elif kind == "compass":
 		marks = [[0.6 + LEG_TIME * 1.6, "compass-NE"], [0.6 + LEG_TIME * 5.6, "compass-SW"]]
 	elif kind == "close":
-		marks = [[1.6, "fire-%s" % str(a["id"])]]
+		marks = [[0.2, "ready-%s" % str(a["id"])], [1.6, "fire-%s" % str(a["id"])]]
 	elif kind == "ruins":
 		marks = [[2.2, "bldg-rise"], [8.6, "bldg-fire"], [10.0, "collapse-bamboo"], [14.6, "collapse-brick"], [19.2, "collapse-steel-glass"], [23.6, "rubble"]]
 	for pair: Array in marks:
