@@ -10,6 +10,8 @@ const Settings = preload("res://game/match_settings.gd")
 const Clips = preload("res://game/match_audio.gd")
 const Cameos = preload("res://game/match_cameos.gd")
 const Faces = preload("res://game/font_faces.gd")
+const Motion = preload("res://game/unit_motion.gd")
+const Watch = preload("res://game/building_watch.gd")
 
 ## Pins the objective to one line under the top bar, clear of the left rail.
 static func seat_status(status: Control) -> void:
@@ -143,6 +145,7 @@ static func _on_unit(u: RTSUnit, team: int, kind: String, role: String, loco: St
 		side = Models.enemy_look(field.faction_id)
 	var body: MeshInstance3D = Forms.dress_unit(kind, role, loco, tint, primary, trim, side)
 	u.add_child(body)
+	Motion.attach(u, body)
 	World.dress_spawn(u, team, label)
 	field.visual_node = body
 	if not u.fired.is_connected(_on_fired):
@@ -222,6 +225,7 @@ static func _bind_yard(host: Node, yard: SMBuildYard, enemy: bool) -> void:
 	if yard == null or bool(yard.get_meta("view_bound", false)):
 		return
 	yard.set_meta("view_bound", true)
+	Watch.watch(host as Node3D, yard)
 	if enemy:
 		yard.super_ready.connect(_announce.bind(host, "enemy_superweapon_detected"))
 		yard.super_fired.connect(_announce.bind(host, "enemy_superweapon_detected"))

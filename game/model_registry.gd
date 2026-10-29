@@ -251,6 +251,7 @@ static func _path(id: String) -> String:
 	if id == "" or id.contains("..") or id.contains("/") or id.contains("\\"):
 		return ""
 	var packed_try: PackedStringArray = PackedStringArray()
+	packed_try.append("res://game/models/rigged/%s.glb" % id)
 	if _tripo_id(id):
 		packed_try.append("res://game/models/tripo/%s.glb" % id)
 		packed_try.append("res://game/models/tripo/%s.gltf" % id)

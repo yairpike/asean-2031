@@ -4,6 +4,7 @@ extends RefCounted
 const Forms = preload("res://game/unit_meshes.gd")
 const Ground = preload("res://game/ground_view.gd")
 const Settings = preload("res://game/match_settings.gd")
+const BuildingFx = preload("res://game/building_fx.gd")
 
 static func sync(host: Node3D, sight: SMSight, cam: RTSCamera) -> void:
 	paint_fog(sight, host)
@@ -152,6 +153,7 @@ static func slab(host: Node3D, node_name: String, pos: Vector3, size: Vector3, c
 		mi.material_override = mat
 	if host != null:
 		host.add_child(mi)
+		BuildingFx.attach(mi)
 	return mi
 
 static func plain_slab(host: Node3D, node_name: String, at: Vector3, size: Vector3, color: Color) -> void:

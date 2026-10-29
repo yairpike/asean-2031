@@ -9,6 +9,10 @@ const ModelBook = preload("res://game/model_registry.gd")
 const Lan = preload("res://game/lan_link.gd")
 const Seat = preload("res://game/lan_seat.gd")
 const Weather = preload("res://addons/rts_advanced/sm_weather.gd")
+const Motion = preload("res://game/unit_motion.gd")
+const BuildingFx = preload("res://game/building_fx.gd")
+const BuildingWatch = preload("res://game/building_watch.gd")
+const WorldView = preload("res://game/world_view.gd")
 var H: Harness
 var duel_note: String = ""
 
@@ -94,6 +98,7 @@ func _run() -> void:
 	await H.section("test_sm_guns", test_sm_guns)
 	await H.section("test_lan", test_lan)
 	await H.section("test_lan_match", test_lan_match)
+	await H.section("test_unit_motion", test_unit_motion)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -4943,3 +4948,120 @@ func test_sm_settings() -> void:
 	Settings.hold("high")
 	var web_script: GDScript = load("res://addons/rts_advanced/sm_web.gd") as GDScript
 	check(int(web_script.call("pointer_mode", true)) == Input.MOUSE_MODE_CONFINED and int(web_script.call("pointer_mode", false)) == Input.MOUSE_MODE_VISIBLE, "a match keeps the pointer inside the window")
+
+func _motion_unit(stage: Node3D, kind: String, role: String, at: Vector3, team: int, animate: bool) -> RTSUnit:
+	var u: RTSUnit = RTSUnit.new()
+	u.unit_type = StringName(kind)
+	u.team = team
+	stage.add_child(u)
+	u.position = at
+	if animate:
+		var body: MeshInstance3D = Forms.dress_unit(kind, role, "ground", Color.RED, Color.RED, Color.YELLOW)
+		u.add_child(body)
+		Motion.attach(u, body)
+	return u
+
+func _motion_duel(animate: bool) -> PackedFloat32Array:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var a: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(0, 0, 0), 0, animate)
+	var b: RTSUnit = _motion_unit(stage, "amber_tank", "armor", Vector3(0, 0, -20), 1, animate)
+	a.attack_range = 8.0
+	b.attack_range = 6.0
+	b.attack_damage = 30.0
+	a.set_path(PackedVector3Array([Vector3(0, 0, -10)]))
+	a.attack_target = b
+	b.attack_target = a
+	var step: int = 0
+	while step < 240:
+		for u: RTSUnit in [a, b]:
+			if u.is_alive():
+				u.advance(1.0 / 30.0)
+				if animate:
+					Forms.animate(u, 1.0 / 30.0)
+		step += 1
+	var out: PackedFloat32Array = PackedFloat32Array([a.position.x, a.position.z, a.hp, b.position.x, b.position.z, b.hp, a.rotation.y, b.rotation.y])
+	stage.queue_free()
+	return out
+
+func test_unit_motion() -> void:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var rifle: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3.ZERO, 0, true)
+	var body: MeshInstance3D = rifle.get_node("Body") as MeshInstance3D
+	var player: AnimationPlayer = Motion.player_of(body)
+	check(player != null, "the rigged militia mounts with an AnimationPlayer")
+	var clips: PackedStringArray = PackedStringArray()
+	if player != null:
+		for clip: StringName in player.get_animation_list():
+			clips.append(str(clip).get_slice("/", str(clip).get_slice_count("/") - 1))
+	check(clips.has("idle") and clips.has("walk") and clips.has("shoot") and clips.has("die"), "the rigged militia carries idle, walk, shoot, and die clips")
+	check(Motion.clip_for(rifle, body) == "idle", "a still soldier idles")
+	rifle.set_path(PackedVector3Array([Vector3(0, 0, -5)]))
+	Motion.pose(rifle, 0.1)
+	check(Motion.clip_for(rifle, body) == "walk" and player != null and str(player.current_animation).ends_with("walk"), "a moving soldier plays walk")
+	var foe: RTSUnit = _motion_unit(stage, "cyan_ifv", "armor", Vector3(0, 0, -4), 1, true)
+	rifle.stop()
+	rifle.attack_range = 6.0
+	rifle.attack_target = foe
+	Motion.pose(rifle, 0.1)
+	check(Motion.clip_for(rifle, body) == "shoot" and str(player.current_animation).ends_with("shoot"), "a soldier with a target in range plays shoot")
+	check(player.get_animation(player.current_animation).loop_mode == Animation.LOOP_LINEAR, "the shoot clip loops")
+	var tank: RTSUnit = _motion_unit(stage, "amber_tank", "armor", Vector3(6, 0, 0), 0, true)
+	var hull: MeshInstance3D = tank.get_node("Body") as MeshInstance3D
+	var turret: Node3D = hull.get_node_or_null("Turret") as Node3D
+	var barrel: Node3D = turret.get_node_or_null("Barrel") as Node3D if turret != null else null
+	check(Motion.player_of(hull) == null and turret != null and barrel != null, "the tank stays procedural with a turret and barrel")
+	tank.attack_target = foe
+	var frame: int = 0
+	while frame < 30:
+		Motion.pose(tank, 1.0 / 30.0)
+		frame += 1
+	var dir: Vector3 = foe.global_position - tank.global_position
+	var want: float = wrapf(atan2(-dir.x, -dir.z) - tank.rotation.y, -PI, PI)
+	check(turret != null and absf(wrapf(turret.rotation.y - want, -PI, PI)) < 0.05, "the turret turns onto its target")
+	Motion.pose(tank, 1.0 / 30.0)
+	var rest: Vector3 = barrel.position if barrel != null else Vector3.ZERO
+	Motion.on_fired(tank, foe)
+	Motion.pose(tank, 1.0 / 30.0)
+	check(barrel != null and barrel.position.distance_to(rest) > 0.1, "firing kicks the barrel back")
+	frame = 0
+	while frame < 30:
+		Motion.pose(tank, 1.0 / 30.0)
+		frame += 1
+	check(barrel != null and barrel.position.distance_to(rest) < 0.01, "the barrel settles after the shot")
+	check(stage.get_node_or_null("MuzzleFlash") != null, "a shot leaves a muzzle flash in the stage")
+	rifle.take_damage(9999.0)
+	var dying: Node = stage.get_node_or_null("Dying_%d" % rifle.get_instance_id())
+	check(rifle.get_node_or_null("Body") == null and dying != null and dying.get_node_or_null("Body") != null, "a dead unit hands its body to a death rig")
+	check(player != null and str(player.current_animation).ends_with("die"), "the death rig plays the die clip")
+	var calm: PackedFloat32Array = _motion_duel(false)
+	var shown: PackedFloat32Array = _motion_duel(true)
+	check(calm == shown, "the same duel ends identically with and without unit motion")
+	var mi: MeshInstance3D = WorldView.slab(stage, "Built_barracks", Vector3(20, 2.3, 0), Vector3(2.2, 4.6, 2.2), Color.RED)
+	var fx: Node = mi.get_node_or_null("BuildingFx")
+	check(fx != null and mi.position.y < 2.3 - 0.5, "a new structure starts below ground for its rise")
+	await process_frame
+	check(stage.get_node_or_null("Scaffold_Built_barracks") != null, "the rise puts up a scaffold")
+	var rise: int = 0
+	while rise < 100 and int(fx.get("phase")) == BuildingFx.Phase.RAISE:
+		await create_timer(0.05).timeout
+		rise += 1
+	check(is_equal_approx(mi.position.y, 2.3) and stage.get_node_or_null("Scaffold_Built_barracks") == null, "the structure settles at its placed height and the scaffold comes down")
+	BuildingFx.set_health(mi, 0.5)
+	check(fx.get_node_or_null("Smoke") != null and fx.get_node_or_null("Fire") == null, "half health smokes")
+	BuildingFx.set_health(mi, 0.2)
+	check(fx.get_node_or_null("Fire") != null, "low health burns")
+	var yard: SMBuildYard = SMBuildYard.new()
+	yard.structure_hp[&"barracks"] = 10.0
+	yard.structure_max[&"barracks"] = 100.0
+	BuildingWatch.watch(stage, yard)
+	var watcher: Node = stage.get_node_or_null("BuildingWatch_%d" % yard.get_instance_id())
+	check(watcher != null, "a yard gets one building watch")
+	watcher.call("_process", 1.0)
+	check(is_equal_approx(float(fx.get("health")), 0.1), "the watch passes yard health to the structure")
+	check(yard.structure_hp[&"barracks"] == 10.0, "the watch leaves yard health untouched")
+	mi.visible = false
+	var ruin: Node3D = stage.get_node_or_null("Ruin_Built_barracks") as Node3D
+	check(ruin != null and ruin.visible and not mi.visible, "hiding a structure leaves a collapsing ruin in its place")
+	stage.queue_free()
