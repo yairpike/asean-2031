@@ -30,7 +30,7 @@ func _ready() -> void:
 	_ui()
 	side.prepare(self, status, sim.grid, sim.yard.center, roster.economy)
 	if side.yard.style != SMBuildYard.Style.INTERNAL:
-		side.yard.radius = maxf(side.yard.radius, 34.0)
+		side.yard.radius = maxf(side.yard.radius, 44.0)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, "Phillips Channel", sim.yard.center, Callable(self, "fire_ability"), sim.grid, cam)
@@ -98,7 +98,7 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, 20, 0)
 	add_child(sun)
-	Ground.dress(self, sim.grid, "phillips")
+	Ground.dress(self, sim.grid, "phillips", null, Rect2i(), SMMapPlan.dressing("phillips_channel"))
 	_slab("PlayerYard", SMPointer.building_at(sim.yard.center), SMPointer.BUILDING_SIZE, SMFront.primary())
 	_slab("EnemyBase", SMPointer.building_at(sim.grid.cell_center(SMDomainGrid.at("phillips", Vector2i(32, 12)))), SMPointer.BUILDING_SIZE, Color(0.16, 0.17, 0.18))
 	sim.paint_sites(self)
@@ -106,7 +106,8 @@ func _world() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-112.0, -68.0, 224.0, 136.0)
-	cam.distance = 26.0
+	cam.distance = 32.0
+	cam.zoom_max = 90.0
 	cam.edge_pan_px = 20.0
 	cam.focus = Vector3(-58, 0, -12)
 	add_child(cam)

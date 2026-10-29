@@ -7,6 +7,7 @@ const RUBBER: Color = Color(0.12, 0.12, 0.13)
 const GLASS: Color = Color(0.55, 0.75, 0.85)
 const Models = preload("res://game/model_registry.gd")
 const Motion = preload("res://game/unit_motion.gd")
+const Scale = preload("res://game/model_scale.gd")
 
 static var _ink: StandardMaterial3D
 static var _foam: StandardMaterial3D
@@ -45,8 +46,11 @@ static func dress_structure(mi: MeshInstance3D, size: Vector3, accent: Color) ->
 	var form: String = structure_form(str(mi.name))
 	if form == "":
 		return false
-	mi.mesh = structure_mesh(form, accent, size.y)
+	var role: String = _catalog_role(Models.model_id_for(str(mi.name)))
+	var plot: Vector2 = Vector2.ZERO if form == "super" else Scale.structure_footprint(str(mi.name), role if role != "" else form)
+	mi.mesh = _to_plot(structure_mesh(form, accent, size.y), plot, -size.y * 0.5)
 	mi.material_override = null
+	mi.set_meta("footprint_m", plot)
 	mi.set_meta("form", form)
 	mi.set_meta("paint", accent)
 	Models.apply_structure(mi, Models.structure_id(str(mi.name)), SMFront.primary(), SMFront.accent())
@@ -239,6 +243,24 @@ static func structure_mesh(form: String, accent: Color, height: float) -> ArrayM
 	var mesh: ArrayMesh = _commit(st)
 	_cache[key] = mesh
 	return mesh
+
+## The stand-in silhouette grows to the plot so a base reads at the right size before its model downloads.
+static func _to_plot(mesh: ArrayMesh, plot: Vector2, ground: float) -> ArrayMesh:
+	var box: AABB = mesh.get_aabb()
+	var span: float = maxf(box.size.x, box.size.z)
+	if span < 0.001 or plot == Vector2.ZERO:
+		return mesh
+	var s: float = minf(plot.x, plot.y) * Scale.fill() / span
+	var key: String = "plot|%d|%.2f|%.2f" % [mesh.get_instance_id(), plot.x, plot.y]
+	if _cache.has(key):
+		return _cache[key] as ArrayMesh
+	var xf := Transform3D(Basis.from_scale(Vector3.ONE * s), Vector3(0.0, ground - ground * s, 0.0))
+	var st := SurfaceTool.new()
+	st.append_from(mesh, 0, xf)
+	st.set_material(mesh.surface_get_material(0))
+	var out: ArrayMesh = st.commit()
+	_cache[key] = out
+	return out
 
 static func _building_form(id: String) -> String:
 	if id.contains("mast") or id.contains("flak") or id.contains("prism") or id.contains("multigunner"):

@@ -3,6 +3,8 @@ extends RefCounted
 ## Landmark footprints block ground movement and stay indestructible because they are not units.
 
 const Settings = preload("res://game/match_settings.gd")
+const Scale = preload("res://game/model_scale.gd")
+const Models = preload("res://game/model_registry.gd")
 
 static var _mesh: Dictionary = {}
 static var _scene: Dictionary = {}
@@ -20,7 +22,7 @@ static func mesh_of(id: String) -> Mesh:
 		root.free()
 		_mesh[id] = null
 		return null
-	var baked: Mesh = _bake(body)
+	var baked: Mesh = _bake(body, fit_of(id, _bounds(root)))
 	root.free()
 	_mesh[id] = baked
 	return baked
@@ -64,6 +66,10 @@ static func stamp(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 		return
 	if profile == "showcase":
 		_showcase(host, grid)
+		return
+	var plan_id: String = str(host.get_meta("map_plan", ""))
+	if plan_id != "":
+		_stamp_plan(host, grid, SMMapPlan.of(plan_id), _neon(profile))
 		return
 	if profile == "atolls":
 		_place(host, grid, "karst_sea_stack", Vector2i(4, 6), false, false)
@@ -115,6 +121,38 @@ static func _showcase(host: Node3D, grid: SMDomainGrid) -> void:
 	_place(host, grid, "bamboo_clump", Vector2i(40, 42), false, false)
 	_place(host, grid, "lao_sim", Vector2i(50, 40), false, neon)
 
+## The plan already holds the landmark rect, so nothing is held here. Props are decoration and never block.
+static func _stamp_plan(host: Node3D, grid: SMDomainGrid, plan: SMMapPlan, neon: bool) -> void:
+	if plan == null:
+		return
+	var mark: String = str(plan.landmark.get("id", ""))
+	if mark != "":
+		var rect: Rect2i = plan.landmark.get("rect", Rect2i()) as Rect2i
+		var twin: Rect2i = plan.landmark.get("twin", rect) as Rect2i
+		_put(host, grid, mark, "Landmark_%s" % mark, plan.rect_center(rect), 0.0, neon)
+		if twin != rect:
+			_put(host, grid, mark, "Landmark_%s_b" % mark, plan.rect_center(twin), 180.0, neon)
+	for i: int in plan.props.size():
+		var row: Dictionary = plan.props[i]
+		var id: String = str(row["id"])
+		_put(host, grid, id, "Scenery_%s_%d" % [id, i], plan.cell_center(row["cell"] as Vector2i), float(row["yaw"]), neon)
+
+static func _put(host: Node3D, grid: SMDomainGrid, id: String, node_name: String, at: Vector3, yaw: float, neon: bool) -> void:
+	if host.get_node_or_null(node_name) != null:
+		return
+	var cell: Vector2i = grid.cell_at(at)
+	if not grid.in_bounds(cell):
+		return
+	var root: Node3D = _load(id)
+	if root == null:
+		return
+	root.name = node_name
+	root.scale = Vector3.ONE * fit_of(id, _bounds(root))
+	root.rotation_degrees.y = yaw
+	root.position = at + Vector3(0.0, 1.55 if grid.domain_at_cell(cell) == SMDomainGrid.Domain.CLIFF else 0.0, 0.0)
+	_glow(root, neon and not Settings.low())
+	host.add_child(root)
+
 static func _neon(profile: String) -> bool:
 	return profile == "sop" or profile == "chiang" or profile == "phillips" or profile == "mekong" or profile == "showcase"
 
@@ -130,7 +168,8 @@ static func _place(host: Node3D, grid: SMDomainGrid, id: String, cell: Vector2i,
 	var root: Node3D = _load(id)
 	if root == null:
 		return
-	var fit: float = _fit_scale(id)
+	var authored: AABB = _bounds(root)
+	var fit: float = fit_of(id, authored)
 	root.name = "Landmark_%s" % id if landmark else "Scenery_%s" % id
 	root.scale = Vector3.ONE * fit
 	root.position = grid.cell_center(cell)
@@ -138,7 +177,7 @@ static func _place(host: Node3D, grid: SMDomainGrid, id: String, cell: Vector2i,
 	host.add_child(root)
 	if not landmark:
 		return
-	var span: float = _span(id) * fit
+	var span: float = maxf(authored.size.x, authored.size.z) * fit
 	var half: int = maxi(1, int(ceil(span / grid.cell_size * 0.5)))
 	var rect := Rect2i(cell.x - half, cell.y - half, half * 2 + 1, half * 2 + 1)
 	var clipped: Rect2i = rect.intersection(Rect2i(0, 0, grid.cols, grid.rows))
@@ -148,99 +187,29 @@ static func _place(host: Node3D, grid: SMDomainGrid, id: String, cell: Vector2i,
 			if grid.domain_at_cell(spot) == SMDomainGrid.Domain.LAND:
 				grid.hold(Rect2i(x, y, 1, 1))
 
-## Sacred sites stay under 28 m and 36 m across. Secular towers stay under 48 m and 40 m across.
-## lm_u_bein and lm_long_bien stay at authored size and are repeated as spans instead of stretched.
-static func _fit_scale(id: String) -> float:
-	var size: Vector3 = _size(id)
-	if size == Vector3.ZERO:
-		return 1.0
-	var sacred: bool = _sacred(id)
-	var height_cap: float = 28.0 if sacred else 48.0
-	var foot_cap: float = 36.0 if sacred else 40.0
-	if id.begins_with("lm_u_bein") or id == "lm_long_bien":
-		return 1.0
-	var foot: float = maxf(size.x, size.z)
-	var scale: float = 1.0
-	if size.y > height_cap:
-		scale = minf(scale, height_cap / size.y)
-	if foot > foot_cap:
-		scale = minf(scale, foot_cap / foot)
-	return scale
+## Scenery scale from the chart class in data/model_scale.json. Unlisted props keep their authored size.
+static func fit_of(id: String, authored: AABB) -> float:
+	return Scale.scale_for(authored.size, Scale.scenery_target(id))
 
-static func _sacred(id: String) -> bool:
-	return id in ["lm_shwedagon", "lm_sule", "lm_wat_arun", "lm_grand_palace", "lm_doi_suthep", "lm_that_luang", "lm_angkor", "lm_borobudur", "lm_omar_ali", "lm_kek_lok_si", "lm_bali_gate", "lm_mandalay_moat"]
-
-static func _span(id: String) -> float:
-	var size: Vector3 = _size(id)
-	return maxf(size.x, size.z)
-
-static func _size(id: String) -> Vector3:
-	match id:
-		"lm_shwedagon":
-			return Vector3(48.46, 40.0, 51.49)
-		"lm_intramuros":
-			return Vector3(30.0, 20.72, 21.9)
-		"lm_tha_phae":
-			return Vector3(30.0, 17.79, 23.19)
-		"lm_sule":
-			return Vector3(22.16, 25.0, 22.16)
-		"lm_bali_gate":
-			return Vector3(18.51, 20.0, 14.36)
-		"lm_turtle_tower":
-			return Vector3(9.32, 12.0, 11.44)
-		"lm_doi_suthep":
-			return Vector3(28.33, 25.0, 28.33)
-		"lm_mandalay_moat":
-			return Vector3(16.0, 15.12, 10.68)
-		"lm_wat_arun":
-			return Vector3(35.15, 36.0, 32.05)
-		"city_hdb":
-			return Vector3(26.38, 40.0, 16.83)
-		"city_highrise":
-			return Vector3(44.03, 60.0, 42.15)
-		"city_flyover":
-			return Vector3(10.0, 20.05, 27.33)
-		"city_colonial":
-			return Vector3(24.0, 23.53, 22.03)
-		"peranakan_shophouse":
-			return Vector3(12.0, 12.7, 8.62)
-		"karst_sea_stack":
-			return Vector3(13.49, 35.0, 20.07)
-		"jetty":
-			return Vector3(3.0, 2.03, 3.51)
-		"wet_market":
-			return Vector3(16.0, 9.42, 14.0)
-		"concrete_bridge":
-			return Vector3(10.0, 15.37, 19.88)
-		"longtail_boat":
-			return Vector3(10.0, 2.68, 2.37)
-		"jungle_waterfall":
-			return Vector3(17.42, 20.0, 17.81)
-		"karst_tower":
-			return Vector3(21.37, 40.0, 24.03)
-		"banyan_tree":
-			return Vector3(10.92, 12.0, 10.12)
-		"bamboo_clump":
-			return Vector3(7.46, 10.0, 4.87)
-		"lao_sim":
-			return Vector3(14.0, 10.46, 14.81)
-		_:
-			return Vector3.ZERO
+static func _bounds(root: Node3D) -> AABB:
+	return Models._merged_aabb(root)
 
 static func _glow(root: Node, on: bool) -> void:
 	var glow: Node = root.find_child("Glow", true, false)
 	if glow is Node3D:
 		(glow as Node3D).visible = on
 
-static func _bake(body: MeshInstance3D) -> Mesh:
+static func _bake(body: MeshInstance3D, fit: float = 1.0) -> Mesh:
 	var mesh: Mesh = body.mesh
-	if body.transform.is_equal_approx(Transform3D.IDENTITY):
+	var xf: Transform3D = Transform3D(Basis.from_scale(Vector3.ONE * fit), Vector3.ZERO) * body.transform
+	if xf.is_equal_approx(Transform3D.IDENTITY):
 		return mesh
 	var out := ArrayMesh.new()
 	var tool := SurfaceTool.new()
 	for surface: int in mesh.get_surface_count():
 		tool.clear()
-		tool.append_from(mesh, surface, body.transform)
+		tool.append_from(mesh, surface, xf)
+		tool.set_material(mesh.surface_get_material(surface))
 		tool.commit(out)
 	return out
 
@@ -305,8 +274,15 @@ static func pull_web(host: Node, ids: PackedStringArray) -> void:
 			_inflight.erase(id)
 			http.queue_free()
 
-static func wanted(profile: String) -> PackedStringArray:
+static func wanted(profile: String, plan: SMMapPlan = null) -> PackedStringArray:
 	var ids: PackedStringArray = PackedStringArray()
+	if plan != null:
+		var mark: String = str(plan.landmark.get("id", ""))
+		if mark != "":
+			ids.append(mark)
+		for row: Dictionary in plan.props + plan.lots + plan.groves:
+			if not ids.has(str(row["id"])):
+				ids.append(str(row["id"]))
 	ids.append(tree_id(profile))
 	ids.append(palm_id(profile))
 	var house: String = house_id(profile)
@@ -345,8 +321,8 @@ static func _got_web(result: int, code: int, _headers: PackedStringArray, body: 
 	var mesh: Mesh = mesh_of(id)
 	if not is_instance_valid(host):
 		return
-	for node_name: String in ["JungleTrees", "Palms", "Houses", "Stilts"]:
-		var props: MultiMeshInstance3D = host.get_node_or_null(node_name) as MultiMeshInstance3D
+	for child: Node in host.get_children():
+		var props: MultiMeshInstance3D = child as MultiMeshInstance3D
 		if props == null or props.multimesh == null:
 			continue
 		if str(props.get_meta("env_id", "")) != id:

@@ -16,6 +16,8 @@ var mission_id: String = ""
 var status: Label
 var ui_layer: CanvasLayer
 var story: SMStory = SMStory.new()
+## Cells round the rally that scenery leaves open for the base.
+const BASE_CLEAR: Rect2i = Rect2i(5, 2, 18, 18)
 
 func _ready() -> void:
 	preload("res://game/sim_presenter.gd").follow(self)
@@ -23,7 +25,7 @@ func _ready() -> void:
 	if mission_id == "":
 		mission_id = "tachileik"
 	briefing_text = SMCampaign.briefing_of(mission_id)
-	grid = SMDomainGrid.new(36, 24, 2.0, Vector3(-36.0, 0.0, -24.0))
+	grid = SMDomainGrid.new(36, 24, 4.0, Vector3(-72.0, 0.0, -48.0))
 	_world()
 	_ui()
 	var faction: String = SMCampaign.player_faction(mission_id)
@@ -32,6 +34,8 @@ func _ready() -> void:
 	roster.setup(faction)
 	var rally: Vector3 = Vector3(-6.0, 0.0, -2.0)
 	side.prepare(self, status, grid, rally, roster.economy, faction)
+	if side.yard.style != SMBuildYard.Style.INTERNAL:
+		side.yard.radius = maxf(side.yard.radius, 40.0)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of(mission_id), rally, Callable(self, "fire_secondary"), grid, cam)
@@ -70,11 +74,12 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-42, 20, 0)
 	add_child(sun)
-	Ground.dress(self, grid, "mission")
+	Ground.dress(self, grid, "mission", null, BASE_CLEAR, SMMapPlan.dressing(mission_id))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
-	cam.bounds = Rect2(-40, -28, 80, 56)
-	cam.distance = 30.0
+	cam.bounds = Rect2(-76, -52, 152, 104)
+	cam.distance = 46.0
+	cam.zoom_max = 90.0
 	cam.edge_pan_px = 16.0
 	cam.focus = Vector3(0, 0, 2)
 	add_child(cam)

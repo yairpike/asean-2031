@@ -19,12 +19,14 @@ var briefing_text: String = ""
 var status: Label
 var ui_layer: CanvasLayer
 var story: SMStory = SMStory.new()
+## Cells round the rally that scenery leaves open for the base.
+const BASE_CLEAR: Rect2i = Rect2i(3, 1, 18, 16)
 
 func _ready() -> void:
 	preload("res://game/sim_presenter.gd").follow(self)
 	mission.setup()
 	briefing_text = mission.briefing
-	grid = SMDomainGrid.new(28, 18, 2.0, Vector3(-28.0, 0.0, -18.0))
+	grid = SMDomainGrid.new(28, 18, 4.0, Vector3(-56.0, 0.0, -36.0))
 	_world()
 	_ui()
 	SMFront.faction_id = "gtfc"
@@ -32,6 +34,7 @@ func _ready() -> void:
 	roster.setup("gtfc")
 	var rally: Vector3 = Vector3(-6.0, 0.0, -4.0)
 	side.prepare(self, status, grid, rally, roster.economy, "gtfc")
+	side.yard.radius = maxf(side.yard.radius, 36.0)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of("kokang"), rally, Callable(self, "fire_secondary"), grid, cam)
@@ -59,14 +62,15 @@ func _world() -> void:
 	moon.rotation_degrees = Vector3(-35, 40, 0)
 	moon.light_color = Color(0.7, 0.75, 0.9)
 	add_child(moon)
-	Ground.dress(self, grid, "kokang")
+	Ground.dress(self, grid, "kokang", null, BASE_CLEAR, SMMapPlan.dressing("kokang"))
 	_feature("Scaffold", "scaffold_yard", Vector3(2.0, 0.0, 0.0), Vector3(6.0, 4.5, 6.0), Color(0.72, 0.12, 0.18), "scaffold")
 	_feature("RubyNode", "rock_set", Vector3(6.0, 0.0, 2.0), Vector3(2.4, 1.4, 2.4), Color(0.78, 0.1, 0.22), "ruby")
 	_feature("RareNode", "rock_set", Vector3(-6.0, 0.0, 4.0), Vector3(2.4, 1.4, 2.4), Color(0.42, 0.62, 0.3), "rare")
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
-	cam.bounds = Rect2(-32, -22, 64, 44)
-	cam.distance = 30.0
+	cam.bounds = Rect2(-60, -40, 120, 80)
+	cam.distance = 44.0
+	cam.zoom_max = 90.0
 	cam.edge_pan_px = 16.0
 	cam.focus = Vector3(0, 0, 2)
 	add_child(cam)

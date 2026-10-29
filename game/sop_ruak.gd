@@ -30,7 +30,7 @@ func _ready() -> void:
 	var rally: Vector3 = grid.cell_center(SMDomainGrid.at("sop_ruak", Vector2i(8, 22)))
 	side.prepare(self, status, grid, rally, roster.economy)
 	if side.yard.style != SMBuildYard.Style.INTERNAL:
-		side.yard.radius = maxf(side.yard.radius, 34.0)
+		side.yard.radius = maxf(side.yard.radius, 44.0)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, "Sop Ruak", rally, Callable(self, "fire_ability"), grid, cam)
@@ -81,11 +81,12 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, 25, 0)
 	add_child(sun)
-	Ground.dress(self, grid, "sop")
+	Ground.dress(self, grid, "sop", null, Rect2i(), SMMapPlan.dressing("sop_ruak"))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-100.0, -100.0, 200.0, 200.0)
-	cam.distance = 26.0
+	cam.distance = 32.0
+	cam.zoom_max = 90.0
 	cam.edge_pan_px = 20.0
 	cam.focus = Vector3(-36, 0, 16)
 	add_child(cam)

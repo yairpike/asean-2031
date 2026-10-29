@@ -5,6 +5,7 @@ extends RefCounted
 signal match_drawn(host: Node3D, sight: SMSight, cam: RTSCamera)
 
 const UNIT_RADIUS: float = 18.0
+const STRUCTURE_RADIUS: float = 24.0
 const CYCLE: float = 24.0
 const MONSOON_AT: float = 8.0
 const HAZE_AT: float = 16.0
@@ -153,7 +154,8 @@ func conceal(field: SMPointer, host: Node3D) -> void:
 	_hide_marker(host, "EnemyYard")
 	_hide_marker(host, "EnemyClaim")
 
-static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: SMTechNet, raider: SMRaider) -> void:
+## `own` is the player's build yard. Its living structures see like units, so a spread-out base is not fogged.
+static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: SMTechNet, raider: SMRaider, own: SMBuildYard = null) -> void:
 	if sight == null or field == null:
 		return
 	sight.begin()
@@ -162,6 +164,12 @@ static func update_match(sight: SMSight, field: SMPointer, host: Node3D, tech: S
 	for u: RTSUnit in field.units:
 		if is_instance_valid(u) and u.is_alive() and field.teams.are_allies(SMPointer.PLAYER, u.team):
 			sight.add_seer(u.global_position, reach)
+	if own != null:
+		for id: StringName in own.finished:
+			if own.structure_alive(id):
+				sight.add_seer(own.position_of(id), STRUCTURE_RADIUS)
+		if own.scaffold_active:
+			sight.add_seer(own.scaffold_pos, STRUCTURE_RADIUS)
 	if radar_held:
 		sight.river_lit = true
 		for at: Vector3 in tech.vision_points(SMPointer.PLAYER):

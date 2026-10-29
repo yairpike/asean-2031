@@ -567,25 +567,14 @@ func _loco_enum(name: String) -> int:
 func _layout(map_id: String) -> SMDomainGrid:
 	if map_id == "sop_ruak":
 		return SMDomainGrid.sop_ruak_layout()
-	if map_id == "burma_road":
-		return SMDomainGrid.burma_road_layout()
-	if map_id == "ten_degree_atolls":
-		return SMDomainGrid.ten_degree_atolls_layout()
-	if map_id == "mekong_delta":
-		return SMDomainGrid.mekong_delta_layout()
-	if map_id == "chiang_rai":
-		return SMDomainGrid.chiang_rai_layout()
+	if SMMapPlan.exists(map_id):
+		return SMMapPlan.of(map_id).grid()
 	return SMDomainGrid.phillips_layout()
 
 func _homes(map_id: String) -> Array[Vector2i]:
-	if map_id == "burma_road":
-		return [SMDomainGrid.at("burma_road", Vector2i(4, 14)), SMDomainGrid.at("burma_road", Vector2i(32, 14))]
+	if SMMapPlan.exists(map_id):
+		var plan: SMMapPlan = SMMapPlan.of(map_id)
+		return [plan.start(0), plan.start(plan.starts.size() / 2)]
 	if map_id == "sop_ruak":
 		return [SMDomainGrid.at("sop_ruak", Vector2i(4, 8)), SMDomainGrid.at("sop_ruak", Vector2i(30, 8))]
-	if map_id == "ten_degree_atolls":
-		return [SMDomainGrid.at("ten_degree_atolls", Vector2i(5, 18)), SMDomainGrid.at("ten_degree_atolls", Vector2i(29, 18))]
-	if map_id == "mekong_delta":
-		return [SMDomainGrid.at("mekong_delta", Vector2i(4, 4)), SMDomainGrid.at("mekong_delta", Vector2i(34, 4))]
-	if map_id == "chiang_rai":
-		return [SMDomainGrid.at("chiang_rai", Vector2i(8, 20)), SMDomainGrid.at("chiang_rai", Vector2i(44, 20))]
 	return [SMDomainGrid.at("phillips", Vector2i(2, 16)), SMDomainGrid.at("phillips", Vector2i(32, 16))]

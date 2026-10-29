@@ -405,6 +405,14 @@ func position_of(id: StringName) -> Vector3:
 		return structure_pos[id]
 	return center
 
+## Half the narrow side of the footprint, so attackers stop at the wall rather than the centre.
+func reach_of(id: StringName) -> float:
+	var role: String = str(building_role.get(id, ""))
+	if id == &"enemy_yard" or id == &"packer" or role == "yard":
+		role = "yard"
+	var size: Vector2 = SMBasePlan.footprint_m(str(id), role)
+	return minf(size.x, size.y) * 0.5
+
 func _stored_hp(id: StringName) -> float:
 	if structure_hp.has(id):
 		return structure_hp[id]

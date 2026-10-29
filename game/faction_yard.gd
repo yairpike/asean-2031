@@ -167,7 +167,8 @@ func _world() -> void:
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-90, -60, 180, 120)
-	cam.distance = 28.0
+	cam.distance = 32.0
+	cam.zoom_max = 90.0
 	cam.edge_pan_px = 20.0
 	cam.focus = grid.cell_center(SMDomainGrid.at("phillips", Vector2i(4, 8)))
 	add_child(cam)
