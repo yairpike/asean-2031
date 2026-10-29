@@ -91,7 +91,7 @@ Rotor blades, the dirigible envelope and fins, and the pocket-sub hull were mode
 | `packer_escort` | Siti The Kraken | Quaternius Toon Shooter Game Kit: `Character_Hazmat.gltf` |
 | `relay_mast` | Mekong Assault Destroyer | Kenney Watercraft Kit: `boat-tow-a.glb`; Quaternius Turret Pack: `Cannon_3.blend` (Turret) |
 | `relay_van` | Colonel Nguyen Phantom | Quaternius Toon Shooter Game Kit: `Character_Soldier.gltf` |
-| `river_drone` | Athena Orbital Designator | Kenney Space Kit: `craft_racer.glb` |
+| `river_drone` | Athena Orbital Designator | Tripo model in `models/tripo/`. The Kenney `craft_racer.glb` stand-in is retired. |
 | `river_rifle` | Patani Corsair Guard | Quaternius Toon Shooter Game Kit: `Character_Enemy.gltf` |
 | `river_tug` | Malacca Recon Drone | Kenney Space Kit: `craft_speederA.glb` |
 | `ruby_lancer` | Salween RPG Trooper | Quaternius Toon Shooter Game Kit: `Character_Soldier.gltf` |

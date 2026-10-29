@@ -64,6 +64,7 @@ plantation_bomber
 printsmith
 relay_mast
 relay_van
+river_drone
 river_rifle
 river_tug
 ruby_lancer

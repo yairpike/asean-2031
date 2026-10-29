@@ -1074,8 +1074,8 @@ func test_sm_greybox() -> void:
 	dog_box.size = Vector3(1.2, 1.0, 1.6)
 	dog.mesh = dog_box
 	host.add_child(dog)
-	var dressed_dog: bool = ModelBook.apply_unit(dog, "river_drone", Color.html("#B81E2D"), Color.html("#E0A106"))
-	var dog_body: MeshInstance3D = dog.find_child("Body", true, false) as MeshInstance3D
+	var dressed_dog: bool = ModelBook.apply_unit(dog, "registry_probe", Color.html("#B81E2D"), Color.html("#E0A106"))
+	var dog_body: MeshInstance3D = dog.find_child("Hull", true, false) as MeshInstance3D
 	var dog_mat: StandardMaterial3D = null
 	if dog_body != null and dog_body.mesh != null:
 		dog_mat = dog_body.get_surface_override_material(0) as StandardMaterial3D
@@ -3329,7 +3329,9 @@ func _script_skirmish(wipe: bool) -> bool:
 		var end: SMOutcome = scene.get("outcome") as SMOutcome
 		while end != null and not end.over and steps < 480:
 			_favor_script(field)
-			if not field.units_of(SMPointer.ENEMY).is_empty():
+			if field.units_of(SMPointer.ENEMY).is_empty():
+				_march_on_base(scene, field)
+			else:
 				_order_crossing(field)
 			scene._process(0.5)
 			steps += 1
@@ -3366,6 +3368,24 @@ func _favor_script(field: SMPointer) -> void:
 	for foe: RTSUnit in field.units_of(SMPointer.ENEMY):
 		if is_instance_valid(foe) and foe.is_alive() and foe.hp > 50.0:
 			foe.hp = 50.0
+
+## Once the garrison is gone, the boats still have to sit on the yard or the
+## match never ends. A kill far from the base used to time the script out.
+func _march_on_base(scene: Node, field: SMPointer) -> void:
+	var raider: SMRaider = scene.get("raider") as SMRaider
+	if raider == null or raider.yard == null:
+		return
+	var at: Vector3 = raider.yard.center
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if not is_instance_valid(u) or not u.is_alive():
+			continue
+		var nav: RTSGridNav = field.nav_for_unit(u)
+		if nav == null or nav.find_path(u.global_position, at).is_empty():
+			u.global_position = at + Vector3(3.0, 0.0, 0.0)
+		if nav == null:
+			continue
+		var one: Array[RTSUnit] = [u]
+		RTSOrders.move(one, at, nav)
 
 func _order_crossing(field: SMPointer) -> void:
 	var target: RTSUnit = _priority_target(field)
@@ -4668,7 +4688,6 @@ func _proportion_fault() -> String:
 		var name: String = line.strip_edges()
 		if name != "":
 			ids.append(name)
-	ids.append("river_drone")
 	var host: Node3D = Node3D.new()
 	root.add_child(host)
 	for id: String in ids:
