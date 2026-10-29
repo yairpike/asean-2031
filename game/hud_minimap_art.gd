@@ -27,6 +27,8 @@ static func profile_for(host: Node) -> String:
 			return "mekong"
 		"chiang_rai":
 			return "chiang"
+		"showcase":
+			return "showcase"
 	var file: String = host.scene_file_path.get_file().get_basename()
 	if file.contains("kokang"):
 		return "kokang"

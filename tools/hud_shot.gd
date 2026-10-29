@@ -1,6 +1,6 @@
 extends SceneTree
 ## Windowed screenshot of a match HUD. Not part of the test suite.
-## godot --path . --resolution 1280x720 -s res://tools/hud_shot.gd -- --scene res://game/burma_road.tscn --faction gtfc --out /tmp/a.png [--skin black_market] [--wait 3] [--menu boot|pause|settings] [--hover N]
+## godot --path . --resolution 1280x720 -s res://tools/hud_shot.gd -- --scene res://game/burma_road.tscn --faction gtfc --out /tmp/a.png [--skin black_market] [--wait 3] [--menu boot|pause|settings|skirmish] [--hover N]
 
 var _args: Dictionary = {}
 var _clock: float = 0.0
@@ -59,6 +59,13 @@ func _process(delta: float) -> bool:
 			var guide: CanvasItem = scene.find_child("HowToOverlay", true, false) as CanvasItem
 			if guide != null:
 				guide.visible = true
+		elif menu == "skirmish":
+			var tab: Button = scene.find_child("TabSkirmish", true, false) as Button
+			if tab != null:
+				tab.pressed.emit()
+			var pick: Button = scene.find_child(str(_args.get("card", "CardShowcase")), true, false) as Button
+			if pick != null:
+				pick.pressed.emit()
 		elif menu == "credits":
 			var roll: Button = scene.find_child("CreditsButton", true, false) as Button
 			if roll != null:

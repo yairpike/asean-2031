@@ -4410,6 +4410,9 @@ func test_sm_boot() -> void:
 	check(_card_line(boot, "CardAtolls", "Ten Degree Atolls", "Water"), "the atolls are a water card")
 	check(_card_line(boot, "CardMekong", "Mekong Delta", "River"), "the mekong is a river card")
 	check(_card_line(boot, "CardChiang", "Siege of Chiang Rai", "River"), "chiang rai is a river card")
+	var showcase_card: Button = boot.find_child("CardShowcase", true, false) as Button
+	check(_card_line(boot, "CardShowcase", "Golden Confluence", "River") and showcase_card != null and str(showcase_card.get_meta("map_path", "")) == "res://game/showcase.tscn" and ResourceLoader.exists("res://game/showcase.tscn"), "golden confluence is a river card that opens the showcase map")
+	check(boot.call("_map_preview", "res://game/showcase.tscn") != null and str(boot.call("_mission_title", "res://game/showcase.tscn")) == "Golden Confluence", "golden confluence has a map preview and a loading title")
 	var burma_card: Button = boot.find_child("CardBurma", true, false) as Button
 	burma_card.pressed.emit()
 	check(str(boot.get("selected_map")).contains("burma_road") and not play.disabled, "a card arms play")

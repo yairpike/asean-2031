@@ -440,6 +440,7 @@ func _skirmish() -> void:
 	_card(skirmish_panel, "CardAtolls", "Ten Degree Atolls", "Water", "res://game/ten_degree_atolls.tscn", Vector2(48, 124))
 	_card(skirmish_panel, "CardMekong", "Mekong Delta", "River", "res://game/mekong_delta.tscn", Vector2(348, 124))
 	_card(skirmish_panel, "CardChiang", "Siege of Chiang Rai", "River", "res://game/chiang_rai.tscn", Vector2(648, 124))
+	_card(skirmish_panel, "CardShowcase", "Golden Confluence", "River", "res://game/showcase.tscn", Vector2(48, 232))
 	playing_label = Label.new()
 	playing_label.name = "PlayingAs"
 	playing_label.position = Vector2(48, 236)
@@ -1160,6 +1161,8 @@ func _mission_title(path: String) -> String:
 		return "Mekong Delta"
 	if file == "chiang_rai.tscn":
 		return "Siege of Chiang Rai"
+	if file == "showcase.tscn":
+		return "Golden Confluence"
 	if file == "greybox.tscn":
 		return "Greybox"
 	if file == "nmrf_yard.tscn":
@@ -1263,13 +1266,14 @@ func _layout_menu(size: Vector2) -> void:
 		version.add_theme_font_size_override("font_size", 18)
 		version.add_theme_color_override("font_color", Color(1, 1, 1, 0.94))
 		version.position = Vector2(left, size.y - 36.0)
-	var rail_w: float = size.x * 0.4
+	var portrait: bool = size.y > size.x
+	var rail_w: float = size.x * (0.8 if portrait else 0.4)
 	var rail: Control = find_child("MenuRail", true, false) as Control
 	if rail != null:
 		rail.position = Vector2.ZERO
 		rail.size = Vector2(rail_w, size.y)
 	if title != null:
-		title.size = Vector2(maxf(160.0, rail_w - left - 16.0), 64.0)
+		title.size = Vector2(maxf(160.0, (size.x if portrait else rail_w) - left - 16.0), 64.0)
 		var title_label: Label = title as Label
 		if title_label != null:
 			title_label.clip_text = true
@@ -1288,12 +1292,13 @@ func _layout_menu(size: Vector2) -> void:
 				veil_rect.size = size
 	var now: Control = find_child("NowPlaying", true, false) as Control
 	var chip: Control = find_child("NowPlayingChip", true, false) as Control
+	var chip_y: float = 80.0 if portrait else 22.0
 	if now != null:
-		now.position = Vector2(size.x - 348.0, 28.0)
+		now.position = Vector2(size.x - 348.0, chip_y + 6.0)
 		now.size = Vector2(320.0, 28.0)
 	if chip != null:
-		chip.position = Vector2(size.x - 360.0, 22.0)
-		chip.size = Vector2(340.0, 40.0)
+		chip.position = Vector2(size.x - 360.0, chip_y)
+		chip.size = Vector2(340.0, 34.0 if portrait else 40.0)
 	var plate_w: float = rail_w - (48.0 if narrow else 120.0)
 	var y: float = 120.0 if narrow else 180.0
 	var row_h: float = 48.0
@@ -1731,6 +1736,8 @@ func _grid_for(path: String) -> SMDomainGrid:
 		return SMDomainGrid.mekong_delta_layout()
 	if file == "chiang_rai.tscn":
 		return SMDomainGrid.chiang_rai_layout()
+	if file == "showcase.tscn":
+		return SMDomainGrid.showcase_layout()
 	return null
 
 func _domain_ink(domain: int) -> Color:
@@ -1752,8 +1759,11 @@ func _selected_card() -> Button:
 
 func _place_skirmish(panel_w: float, panel_h: float) -> void:
 	var names: PackedStringArray = PackedStringArray([
-		"CardPhillips", "CardSopRuak", "CardBurma", "CardAtolls", "CardMekong", "CardChiang",
+		"CardPhillips", "CardSopRuak", "CardBurma", "CardAtolls", "CardMekong", "CardChiang", "CardShowcase",
 	])
+	if panel_w > panel_h and panel_h < 600.0 and panel_w < 900.0:
+		_place_skirmish_short(names, panel_w)
+		return
 	var narrow: bool = panel_w < 900.0
 	var rail_w: float = panel_w if narrow else panel_w * 0.4
 	var list_x: float = 16.0 if narrow else 28.0
@@ -1779,20 +1789,61 @@ func _place_skirmish(panel_w: float, panel_h: float) -> void:
 	var play: Control = find_child("PlayButton", true, false) as Control
 	if play != null:
 		var play_x: float = list_x if narrow else panel_w - 260.0
-		var play_y: float = foot - 60.0 if narrow else foot
+		var play_y: float = after + 236.0 if narrow else foot
 		play.position = Vector2(play_x, play_y)
 		play.size = Vector2(220, 52)
 		play.custom_minimum_size = Vector2(220, 52)
 	var grey: Control = find_child("GreyboxButton", true, false) as Control
 	if grey != null:
-		grey.position = Vector2(foot_x, foot + 6.0)
+		grey.position = Vector2(foot_x, after + 184.0 if narrow else foot + 6.0)
 		grey.size = Vector2(150.0, 40.0)
 	var train: Control = find_child("BasicTraining", true, false) as Control
 	if train != null:
-		var train_x: float = foot_x if narrow else foot_x + 162.0
-		var train_y: float = foot - 42.0 if narrow else foot + 6.0
+		var train_x: float = foot_x + 162.0
+		var train_y: float = after + 184.0 if narrow else foot + 6.0
 		train.position = Vector2(train_x, train_y)
 		train.size = Vector2(180.0, 40.0)
+	_hide_old_difficulty()
+
+## Landscape phones: maps in a two-wide grid on the left, choices and Play on the right.
+func _place_skirmish_short(names: PackedStringArray, panel_w: float) -> void:
+	var left_x: float = 24.0
+	var half: float = panel_w * 0.5
+	var card_w: float = (half - left_x - 12.0) * 0.5 - 4.0
+	var row_y: float = 88.0
+	for i: int in names.size():
+		var card: Control = find_child(names[i], true, false) as Control
+		if card == null:
+			continue
+		card.position = Vector2(left_x + float(i % 2) * (card_w + 8.0), row_y + floorf(float(i) / 2.0) * 40.0)
+		card.size = Vector2(card_w, 36.0)
+		card.custom_minimum_size = Vector2(card_w, 36.0)
+	var tools_y: float = row_y + ceilf(float(names.size()) / 2.0) * 40.0 + 4.0
+	var grey: Control = find_child("GreyboxButton", true, false) as Control
+	if grey != null:
+		grey.position = Vector2(left_x, tools_y)
+		grey.size = Vector2(card_w, 40.0)
+	var train: Control = find_child("BasicTraining", true, false) as Control
+	if train != null:
+		train.position = Vector2(left_x + card_w + 8.0, tools_y)
+		train.size = Vector2(card_w, 40.0)
+	var right_x: float = half + 12.0
+	var right_w: float = panel_w - right_x - 24.0
+	var playing: Control = find_child("PlayingAs", true, false) as Control
+	if playing != null:
+		playing.position = Vector2(right_x, row_y - 8.0)
+		playing.size = Vector2(right_w, 28.0)
+	_cycle_row("SkirmishFactionCycle", right_x, row_y + 22.0, right_w)
+	_cycle_row("SkirmishDiffCycle", right_x, row_y + 70.0, right_w)
+	_cycle_row("SkirmishBotCycle", right_x, row_y + 118.0, right_w)
+	var play: Control = find_child("PlayButton", true, false) as Control
+	if play != null:
+		play.position = Vector2(right_x, row_y + 172.0)
+		play.size = Vector2(220, 52)
+		play.custom_minimum_size = Vector2(220, 52)
+	_hide_old_difficulty()
+
+func _hide_old_difficulty() -> void:
 	for hidden_name: String in ["SkirmishDiffEasy", "SkirmishDiffNormal", "SkirmishDiffHard", "SkirmishDiffLabel"]:
 		var hidden: CanvasItem = find_child(hidden_name, true, false) as CanvasItem
 		if hidden != null:
