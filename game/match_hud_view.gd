@@ -1121,7 +1121,9 @@ func _glass(node: Control) -> void:
 func _seat_chrome() -> void:
 	var hud: SMHud = get_meta("hud", null) as SMHud
 	if hud != null and hud.phone:
+		_seat_phone(hud)
 		return
+	_seat_desktop()
 	_seat_context()
 	_seat_message()
 	_seat_objective()
@@ -1137,6 +1139,68 @@ func _seat_chrome() -> void:
 	var help: CanvasItem = layer.find_child("HelpButton", true, false) as CanvasItem
 	if help != null:
 		help.visible = false
+
+## The base phone layout docks the card at 72 px tall; the RA3 card needs two rows.
+func _seat_phone(hud: SMHud) -> void:
+	var layer: Node = get_parent()
+	if layer != null:
+		for node_name: String in ["ObjectiveShade", "ObjectiveMark"]:
+			var chrome: CanvasItem = layer.get_node_or_null(node_name) as CanvasItem
+			if chrome != null:
+				chrome.visible = false
+	var portrait: Control = find_child("CardCameo", true, false) as Control
+	if portrait != null:
+		portrait.custom_minimum_size = Vector2(64, 64)
+	_fit_commands(true)
+	var card: Control = get_node_or_null("UnitCard") as Control
+	if card == null:
+		return
+	var sheet: float = hud.phone_sheet if hud.drawer_open else 68.0
+	_anchor(card, 0.0, 1.0, 1.0, 1.0, 6.0, -(sheet + 122.0), -6.0, -(sheet + 6.0))
+
+func _seat_desktop() -> void:
+	var layer: Node = get_parent()
+	if layer != null:
+		for node_name: String in ["ObjectiveShade", "ObjectiveMark"]:
+			var chrome: CanvasItem = layer.get_node_or_null(node_name) as CanvasItem
+			if chrome != null:
+				chrome.visible = true
+	var portrait: Control = find_child("CardCameo", true, false) as Control
+	if portrait != null:
+		portrait.custom_minimum_size = Vector2(96, 96)
+	_fit_commands(false)
+	var side: float = 224.0 if size.y >= 600.0 or size.y < 240.0 else clampf(size.y - 278.0, 112.0, 224.0)
+	var monitor: Control = find_child("MonitorFrame", true, false) as Control
+	var stack: Control = find_child("MonitorStack", true, false) as Control
+	var hud: SMHud = get_meta("hud", null) as SMHud
+	if monitor == null or stack == null or hud == null or hud.minimap == null:
+		return
+	if is_equal_approx(hud.minimap.size.y, side):
+		return
+	monitor.custom_minimum_size.y = side + 8.0
+	stack.custom_minimum_size = Vector2(224, side)
+	hud.minimap.custom_minimum_size = Vector2(side, side)
+	hud.minimap.size = Vector2(side, side)
+	hud.minimap.position = Vector2((224.0 - side) * 0.5, 0.0)
+
+func _fit_commands(narrow: bool) -> void:
+	var cells: Node = find_child("CommandCells", true, false)
+	if cells == null:
+		return
+	for child: Node in cells.get_children():
+		var button: Button = child as Button
+		if button == null or narrow == button.has_meta("wide_flags"):
+			continue
+		if narrow:
+			button.set_meta("wide_flags", button.size_flags_horizontal)
+			button.custom_minimum_size = Vector2(0, 56)
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			button.add_theme_font_size_override("font_size", 10)
+		else:
+			button.size_flags_horizontal = int(button.get_meta("wide_flags"))
+			button.remove_meta("wide_flags")
+			button.custom_minimum_size = Vector2(56, 56)
+			button.add_theme_font_size_override("font_size", 12)
 
 func _seat_context() -> void:
 	var card: Control = get_node_or_null("UnitCard") as Control

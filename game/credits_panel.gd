@@ -21,7 +21,7 @@ func _ready() -> void:
 	visible = false
 	z_index = 30
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	set_process_unhandled_input(true)
 	Glass.sheet(self, "CreditsGlass", Color(0.03, 0.04, 0.06, 0.3))
 	var card: Panel = Panel.new()

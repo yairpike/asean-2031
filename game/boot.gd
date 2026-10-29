@@ -151,6 +151,7 @@ func _ready() -> void:
 	var roll: Button = Plate.new() as Button
 	roll.name = "CreditsButton"
 	roll.text = "CREDITS"
+	roll.theme_type_variation = "HeaderButton"
 	roll.set_meta("nav", true)
 	roll.add_theme_font_size_override("font_size", 32)
 	roll.pressed.connect(_open_credits)
@@ -1261,7 +1262,7 @@ func _layout_menu(size: Vector2) -> void:
 	if version != null:
 		version.add_theme_font_size_override("font_size", 18)
 		version.add_theme_color_override("font_color", Color(1, 1, 1, 0.94))
-		version.position = Vector2(size.x - 110.0, size.y - 36.0)
+		version.position = Vector2(left, size.y - 36.0)
 	var rail_w: float = size.x * 0.4
 	var rail: Control = find_child("MenuRail", true, false) as Control
 	if rail != null:

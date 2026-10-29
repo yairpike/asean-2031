@@ -186,10 +186,16 @@ func _draw() -> void:
 			var pulse: float = 4.0 + 1.5 * sin(float(Time.get_ticks_msec()) * 0.006)
 			draw_arc(beacon_p, pulse, 0.0, TAU, 16, Color(0.98, 0.82, 0.28), 1.5, true)
 	if frustum.size() == 4:
-		var loop: PackedVector2Array = frustum.duplicate()
-		loop.append(frustum[0])
-		draw_polyline(loop, Color(0, 0, 0, 0.5), 3.0, true)
-		draw_polyline(loop, VIEW_COLOR, 1.5, true)
+		var edge: Vector2 = size - Vector2(1, 1)
+		var bounds: PackedVector2Array = PackedVector2Array([Vector2(1, 1), Vector2(edge.x, 1), edge, Vector2(1, edge.y)])
+		var clipped: Array[PackedVector2Array] = Geometry2D.intersect_polygons(frustum, bounds)
+		for part: PackedVector2Array in clipped:
+			if part.size() < 3:
+				continue
+			var loop: PackedVector2Array = part.duplicate()
+			loop.append(part[0])
+			draw_polyline(loop, Color(0, 0, 0, 0.5), 3.0, true)
+			draw_polyline(loop, VIEW_COLOR, 1.5, true)
 	else:
 		var local_view: Rect2 = _world_rect_local(camera_rect)
 		if local_view.size.x > 1.0 and local_view.size.y > 1.0:

@@ -1,11 +1,12 @@
 extends SceneTree
 ## Windowed screenshot of a match HUD. Not part of the test suite.
-## godot --path . --resolution 1280x720 -s res://tools/hud_shot.gd -- --scene res://game/burma_road.tscn --faction gtfc --out /tmp/a.png [--skin black_market] [--wait 3] [--menu boot|pause|settings]
+## godot --path . --resolution 1280x720 -s res://tools/hud_shot.gd -- --scene res://game/burma_road.tscn --faction gtfc --out /tmp/a.png [--skin black_market] [--wait 3] [--menu boot|pause|settings] [--hover N]
 
 var _args: Dictionary = {}
 var _clock: float = 0.0
 var _selected: bool = false
 var _opened: bool = false
+var _hovered: bool = false
 
 func _initialize() -> void:
 	var raw: PackedStringArray = OS.get_cmdline_user_args()
@@ -30,6 +31,9 @@ func _process(delta: float) -> bool:
 	var wait: float = float(_args.get("wait", "3"))
 	if not _selected and _clock > wait * 0.5:
 		_selected = true
+		var fit_hud: SMHud = scene.get("hud") as SMHud
+		if fit_hud != null:
+			fit_hud.layout_for(root.get_visible_rect().size)
 		var field: SMPointer = scene.get("field") as SMPointer
 		if field != null:
 			var mine: Array[RTSUnit] = field.units_of(SMPointer.PLAYER)
@@ -55,10 +59,27 @@ func _process(delta: float) -> bool:
 			var guide: CanvasItem = scene.find_child("HowToOverlay", true, false) as CanvasItem
 			if guide != null:
 				guide.visible = true
+		elif menu == "credits":
+			var roll: Button = scene.find_child("CreditsButton", true, false) as Button
+			if roll != null:
+				roll.pressed.emit()
 		elif menu == "alert":
 			var hud: SMHud = scene.get("hud") as SMHud
 			if hud != null:
 				hud.show_line("Unit ready")
+	if not _hovered and _args.has("hover") and _clock > wait * 0.8:
+		_hovered = true
+		var grid_hud: SMHud = scene.get("hud") as SMHud
+		if grid_hud != null and grid_hud.icon_grid != null:
+			var at: int = int(_args["hover"])
+			var seen: int = 0
+			for child: Node in grid_hud.icon_grid.get_children():
+				var button: Button = child as Button
+				if button != null and button.visible:
+					if seen == at:
+						button.mouse_entered.emit()
+						break
+					seen += 1
 	if _clock > wait:
 		if _args.has("dump"):
 			_dump(scene)

@@ -144,6 +144,16 @@ func test_hud_redesign() -> void:
 	for id: String in ids:
 		distinct[(skin.call("color", id, "trim") as Color).to_html()] = true
 	check(distinct.size() == 4, "each faction has its own sidebar trim")
+	var card: Control = scene.find_child("UnitCard", true, false) as Control
+	var cameo: Control = scene.find_child("CardCameo", true, false) as Control
+	hud.layout_for(Vector2(390, 844))
+	await process_frame
+	await process_frame
+	check(hud.phone and card != null and is_equal_approx(card.anchor_right, 1.0) and cameo != null and cameo.custom_minimum_size.x < 96.0, "a portrait phone stretches the unit panel across the screen with a smaller portrait")
+	hud.layout_for(Vector2(1280, 720))
+	await process_frame
+	await process_frame
+	check(not hud.phone and is_equal_approx(card.anchor_right, 0.0) and is_equal_approx(cameo.custom_minimum_size.x, 96.0), "back on desktop the unit panel returns to the bottom centre")
 	scene.free()
 	await process_frame
 
