@@ -456,6 +456,12 @@ if [ -n "$MODEL_SRC" ]; then
     cp "$MODEL_SRC/CREDITS.md" "$DEST/models/CREDITS.md"
   fi
 fi
+if [ -d "$ROOT/game/models/env" ]; then
+  mkdir -p "$DEST/models/env"
+  find "$ROOT/game/models/env" -maxdepth 1 -type f -name '*.glb' -exec cp {} "$DEST/models/env/" \;
+  find "$DEST/models/env" -maxdepth 1 -type f -name '*.glb' -printf '%f\n' | sort > "$DEST/models/env/index.txt"
+  : > "$DEST/models/env/.gdignore"
+fi
 if [ -n "$TERRAIN_SRC" ]; then
   if [ ! -d "$TERRAIN_SRC" ]; then
     echo "finish_web_export: terrain source is not a directory"

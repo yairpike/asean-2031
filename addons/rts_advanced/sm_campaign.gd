@@ -366,8 +366,8 @@ func _packer_sail() -> bool:
 	var yard: SMBuildYard = SMBuildYard.new()
 	yard.style = SMBuildYard.Style.MOBILE
 	yard.grid = grid
-	yard.packer_pos = grid.cell_center(Vector2i(4, 8))
-	if not yard.move_packer(grid.cell_center(Vector2i(18, 5))):
+	yard.packer_pos = grid.cell_center(SMDomainGrid.at("phillips", Vector2i(4, 8)))
+	if not yard.move_packer(grid.cell_center(SMDomainGrid.at("phillips", Vector2i(18, 5)))):
 		return false
 	if grid.unit_domain(yard.packer_id) != SMDomainGrid.Domain.SHALLOW:
 		return false

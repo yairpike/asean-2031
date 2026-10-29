@@ -6,6 +6,7 @@ const WATER_SHADER = preload("res://game/shaders/channel_water.gdshader")
 const RAIN_SHADER = preload("res://game/shaders/monsoon_rain.gdshader")
 const Settings = preload("res://game/match_settings.gd")
 const Art = preload("res://game/served_art.gd")
+const Env = preload("res://game/env_dress.gd")
 const RAIN_CAP: int = 24
 const TREE_REACH: float = 80.0
 
@@ -42,6 +43,9 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	var palms: Array[Transform3D] = []
 	var houses: Array[Transform3D] = []
 	var stilts: Array[Transform3D] = []
+	var tree_cap: int = 16 if grid.cols < 24 else 64
+	var palm_cap: int = 10 if grid.cols < 24 else 36
+	var house_cap: int = 6 if grid.cols < 24 else 14
 	var land_n: int = 0
 	var mud_n: int = 0
 	var sand_n: int = 0
@@ -93,13 +97,13 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 			if domain != SMDomainGrid.Domain.LAND or _busy(profile, cell) or cut:
 				continue
 			var roll: int = _hash(x, y)
-			if bank and roll % 7 == 0 and palms.size() < 48:
+			if bank and roll % 7 == 0:
 				palms.append(_xf(grid, cell, high, roll))
-			elif not bank and roll % 9 == 0 and trees.size() < 90:
+			elif not bank and roll % 11 == 0:
 				trees.append(_xf(grid, cell, high, roll))
-			if bank and roll % 17 == 3 and stilts.size() < 18:
+			if bank and roll % 17 == 3:
 				stilts.append(_xf(grid, cell, high, roll))
-			elif not bank and not track and roll % 29 == 4 and houses.size() < 28:
+			elif not bank and not track and roll % 37 == 4:
 				houses.append(_xf(grid, cell, high, roll))
 			var rice: bool = profile == "mekong" and roll % 3 == 0 or roll % 23 == 1
 			if rice and not track and not bank and paddy_n < 48 and not _bridge_cell(cell):
@@ -120,13 +124,21 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	_commit(host, "TerrainMudBlend", mud_fade, mud_fade_n > 0)
 	_commit(host, "TerrainSandBlend", sand_fade, sand_fade_n > 0)
 	_commit(host, "TerrainRoadBlend", road_fade, road_fade_n > 0)
-	_multi(host, "JungleTrees", _prop("tree"), trees)
-	_multi(host, "Palms", _prop("palm"), palms)
-	_multi(host, "Houses", _prop("house"), houses)
-	_multi(host, "Stilts", _prop("stilt"), stilts)
+	_multi(host, "JungleTrees", _prop("tree", profile), _spread(trees, tree_cap))
+	_multi(host, "Palms", _prop("palm", profile), _spread(palms, palm_cap))
+	_multi(host, "Houses", _prop("house", profile), _spread(houses, house_cap))
+	_multi(host, "Stilts", _prop("stilt", profile), _spread(stilts, 10))
+	_tag_prop(host, "JungleTrees", Env.tree_id(profile))
+	_tag_prop(host, "Palms", Env.palm_id(profile))
+	_tag_prop(host, "Houses", Env.house_id(profile))
+	_tag_prop(host, "Stilts", "mekong_stilt_house" if profile == "mekong" or profile == "atolls" else "shan_stilt_house")
+	host.set_meta("env_profile", profile)
+	host.set_meta("env_grid", grid)
+	Env.pull_web(host, Env.wanted(profile))
 	_markers(host, profile)
 	_ocean_skirt(host, grid)
 	_sky(host)
+	Env.stamp(host, grid, profile)
 
 static func _ocean_skirt(host: Node3D, grid: SMDomainGrid) -> void:
 	if host.get_node_or_null("OceanSkirt") != null:
@@ -255,23 +267,32 @@ static func _touches_water(grid: SMDomainGrid, cell: Vector2i, sx: int, sz: int)
 	return false
 
 static func _track(profile: String, cell: Vector2i) -> bool:
-	if profile == "chiang" and cell.x >= 26 and cell.x < 30 and ((cell.y >= 8 and cell.y < 12) or (cell.y >= 28 and cell.y < 32)):
-		return true
+	if profile == "chiang":
+		var ford: Vector2i = SMDomainGrid.pad_of("chiang_rai")
+		var x0: int = 26 + ford.x
+		var north: bool = cell.y >= 8 + ford.y and cell.y < 12 + ford.y
+		var south: bool = cell.y >= 28 + ford.y and cell.y < 32 + ford.y
+		if cell.x >= x0 and cell.x < x0 + 4 and (north or south):
+			return true
 	return cell.y % 8 == 3
 
 static func _burma_cut(cell: Vector2i) -> bool:
-	return cell.x >= 16 and cell.x < 24 and cell.y >= 12 and cell.y < 16
+	var pad: Vector2i = SMDomainGrid.pad_of("burma_road")
+	return cell.x >= 16 + pad.x and cell.x < 24 + pad.x and cell.y >= 12 + pad.y and cell.y < 16 + pad.y
 
 static func _bridge_cell(cell: Vector2i) -> bool:
-	var west: bool = cell.x >= 12 and cell.x < 15 and cell.y >= 14 and cell.y < 18
-	var east: bool = cell.x >= 26 and cell.x < 29 and cell.y >= 14 and cell.y < 18
+	var pad: Vector2i = SMDomainGrid.pad_of("mekong_delta")
+	var west: bool = cell.x >= 12 + pad.x and cell.x < 15 + pad.x and cell.y >= 14 + pad.y and cell.y < 18 + pad.y
+	var east: bool = cell.x >= 26 + pad.x and cell.x < 29 + pad.x and cell.y >= 14 + pad.y and cell.y < 18 + pad.y
 	return west or east
 
 static func _busy(profile: String, cell: Vector2i) -> bool:
-	if profile == "phillips" and cell.y >= 7 and cell.y <= 9 and cell.x <= 14:
-		return true
-	if profile == "phillips" and cell.x >= 29 and cell.x <= 34 and cell.y >= 10 and cell.y <= 15:
-		return true
+	if profile == "phillips":
+		var pad: Vector2i = SMDomainGrid.pad_of("phillips")
+		if cell.y >= 7 + pad.y and cell.y <= 9 + pad.y and cell.x <= 14 + pad.x:
+			return true
+		if cell.x >= 29 + pad.x and cell.x <= 34 + pad.x and cell.y >= 10 + pad.y and cell.y <= 15 + pad.y:
+			return true
 	return false
 
 static func _tint(profile: String, cell: Vector2i, domain: int, bank: bool, road: bool) -> Color:
@@ -281,13 +302,9 @@ static func _tint(profile: String, cell: Vector2i, domain: int, bank: bool, road
 		return DIRT
 	if profile == "atolls":
 		return SAND
-	var roll: int = _hash(cell.x + 3, cell.y + 9)
 	if bank:
+		var roll: int = _hash(cell.x + 3, cell.y + 9)
 		return SAND if roll % 2 == 0 else MUD
-	if roll % 7 == 0:
-		return MUD
-	if roll % 7 == 1:
-		return SAND
 	return GRASS
 
 static func _hash(x: int, y: int) -> int:
@@ -311,7 +328,24 @@ static func _commit(host: Node3D, node_name: String, st: SurfaceTool, keep: bool
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	host.add_child(mi)
 
-static func _multi(host: Node3D, node_name: String, mesh: ArrayMesh, spots: Array[Transform3D]) -> void:
+## Keep props from both ends of a long map. Filling the cap from the north-west corner left the far shore bare.
+static func _spread(spots: Array[Transform3D], cap: int) -> Array[Transform3D]:
+	if cap <= 0 or spots.size() <= cap:
+		return spots
+	var out: Array[Transform3D] = []
+	var step: float = float(spots.size()) / float(cap)
+	var i: int = 0
+	while out.size() < cap:
+		out.append(spots[mini(spots.size() - 1, int(float(i) * step))])
+		i += 1
+	return out
+
+static func _tag_prop(host: Node3D, node_name: String, id: String) -> void:
+	var node: Node = host.get_node_or_null(node_name)
+	if node != null and id != "":
+		node.set_meta("env_id", id)
+
+static func _multi(host: Node3D, node_name: String, mesh: Mesh, spots: Array[Transform3D]) -> void:
 	if spots.is_empty():
 		return
 	var mm: MultiMesh = MultiMesh.new()
@@ -321,6 +355,7 @@ static func _multi(host: Node3D, node_name: String, mesh: ArrayMesh, spots: Arra
 	for i: int in spots.size():
 		mm.set_instance_transform(i, spots[i])
 	var node: MultiMeshInstance3D = MultiMeshInstance3D.new()
+	node.set_meta("all_spots", spots)
 	node.name = node_name
 	node.multimesh = mm
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -360,9 +395,9 @@ static func _vary(cell: Vector2i) -> float:
 	return 0.88 + float(_hash(cell.x + 11, cell.y + 5) % 13) * 0.01
 
 static func _ink(kind: String, tint: Color, shade: float, alpha: float) -> Color:
-	if kind == "land" and tint != SAND:
+	if kind == "land" and tint == ROCK:
 		return Color(tint.r * shade, tint.g * shade, tint.b * shade, alpha)
-	return Color(shade, shade, shade, alpha)
+	return Color(shade, shade * 0.98, shade * 0.94, alpha)
 
 static func _blend(profile: String, grid: SMDomainGrid, cell: Vector2i, kind: String, high: float, shade: float, land: SurfaceTool, mud: SurfaceTool, sand: SurfaceTool, road: SurfaceTool) -> String:
 	var dirs: Array[Vector2i] = [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]
@@ -424,7 +459,7 @@ static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector
 	_vert(st, d, color)
 
 static func _vert(st: SurfaceTool, p: Vector3, color: Color) -> void:
-	st.set_uv(Vector2(p.x, p.z) / 0.32)
+	st.set_uv(Vector2(p.x, p.z) / 4.0)
 	st.set_color(color)
 	st.add_vertex(p)
 
@@ -491,7 +526,7 @@ static func _ground(stem: String, tint: bool, fade: bool = false) -> ShaderMater
 	mat.shader = load("res://game/shaders/ground_fade.gdshader" if fade else "res://game/shaders/ground_tile.gdshader")
 	if fade:
 		mat.render_priority = 2
-	var tex: Texture2D = Art.texture("terrain/%s.webp" % stem)
+	var tex: Texture2D = _terrain_tex(stem)
 	if tex != null:
 		mat.set_shader_parameter("albedo_tex", tex)
 		mat.set_shader_parameter("use_tex", 1.0)
@@ -505,8 +540,8 @@ static func _water_material() -> ShaderMaterial:
 	if _water_ink == null:
 		_water_ink = ShaderMaterial.new()
 		_water_ink.shader = WATER_SHADER
-	var shallow: Texture2D = Art.texture("terrain/shallow_water.webp")
-	var deep: Texture2D = Art.texture("terrain/deep_water.webp")
+	var shallow: Texture2D = _terrain_tex("shallow_water")
+	var deep: Texture2D = _terrain_tex("deep_water")
 	if shallow != null and deep != null:
 		_water_ink.set_shader_parameter("shallow_tex", shallow)
 		_water_ink.set_shader_parameter("deep_tex", deep)
@@ -521,9 +556,37 @@ static func _site_material() -> StandardMaterial3D:
 		_site_ink.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return _site_ink
 
-static func _prop(kind: String) -> ArrayMesh:
-	if _prop_cache.has(kind):
-		return _prop_cache[kind] as ArrayMesh
+static func _terrain_tex(stem: String) -> Texture2D:
+	var rel: String = "res://game/terrain/%s.webp" % stem
+	if ResourceLoader.exists(rel):
+		var loaded: Resource = load(rel)
+		if loaded is Texture2D:
+			return loaded as Texture2D
+	var bytes: PackedByteArray = FileAccess.get_file_as_bytes(rel)
+	if bytes.is_empty():
+		return Art.texture("terrain/%s.webp" % stem)
+	var image := Image.new()
+	if image.load_webp_from_buffer(bytes) != OK:
+		return null
+	return ImageTexture.create_from_image(image)
+
+static func _prop(kind: String, profile: String) -> Mesh:
+	var key: String = "%s:%s" % [kind, profile]
+	if _prop_cache.has(key):
+		return _prop_cache[key] as Mesh
+	var env_id: String = ""
+	if kind == "palm":
+		env_id = Env.palm_id(profile)
+	elif kind == "house":
+		env_id = Env.house_id(profile)
+	elif kind == "stilt":
+		env_id = "mekong_stilt_house" if profile == "mekong" or profile == "atolls" else "shan_stilt_house"
+	else:
+		env_id = Env.tree_id(profile)
+	var taken: Mesh = Env.mesh_of(env_id) if env_id != "" else null
+	if taken != null:
+		_prop_cache[key] = taken
+		return taken
 	var st: SurfaceTool = _begin(_land_material())
 	if kind == "palm":
 		_palm(st)
@@ -535,7 +598,7 @@ static func _prop(kind: String) -> ArrayMesh:
 		_tree(st)
 	st.generate_normals()
 	var mesh: ArrayMesh = st.commit()
-	_prop_cache[kind] = mesh
+	_prop_cache[key] = mesh
 	return mesh
 
 static func _tree(st: SurfaceTool) -> void:
@@ -650,6 +713,8 @@ static func cull_props(host: Node3D, cam: RTSCamera) -> void:
 	_cull_low = low
 	_cull_named(host, "JungleTrees", focus, low)
 	_cull_named(host, "Palms", focus, low)
+	_cull_named(host, "Houses", focus, low)
+	_cull_named(host, "Stilts", focus, low)
 
 static func _cull_named(host: Node3D, node_name: String, focus: Vector3, hide: bool) -> void:
 	var node: MultiMeshInstance3D = host.get_node_or_null(node_name) as MultiMeshInstance3D
