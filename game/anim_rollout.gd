@@ -445,6 +445,21 @@ func _begin_close(a: Dictionary) -> void:
 	var lift: float = maxf(0.85 * k, 0.55 * tall) if tall >= 2.0 else 0.85 * k
 	_aim(origin + Vector3(0.45 * k, lift, 0), Vector3(0.3, 0.22, 1.0), 3.1 * k * (1.15 if tall >= 2.0 else 1.0))
 
+## Outside the modifier pass the skeleton reports the clip's pose, so the off hand's rendered gap to its grip is
+## sampled when the skeleton finishes updating.
+func _watch_grip() -> void:
+	if not is_instance_valid(close_unit):
+		return
+	var ik: OffHandIK = close_unit.find_child("OffHandIK", true, false) as OffHandIK
+	if ik == null or ik.target == null or ik.has_meta("rendered_gap"):
+		return
+	ik.set_meta("rendered_gap", -1.0)
+	var skel: Skeleton3D = ik.get_skeleton()
+	skel.skeleton_updated.connect(func() -> void:
+		if is_instance_valid(ik) and is_instance_valid(ik.target):
+			var hand: Vector3 = skel.global_transform * skel.get_bone_global_pose(ik.hand).origin
+			ik.set_meta("rendered_gap", hand.distance_to(ik.target.global_position)))
+
 func _height_of(u: Node3D) -> float:
 	var top: float = 0.0
 	for node: Node in u.find_children("*", "MeshInstance3D", true, false):
@@ -455,6 +470,7 @@ func _height_of(u: Node3D) -> float:
 	return top if top > 0.1 else 1.75
 
 func _step_close(_a: Dictionary, _delta: float) -> void:
+	_watch_grip()
 	if act_t >= 0.25 and is_instance_valid(close_unit) and close_unit.attack_target == null:
 		close_unit.attack_target = dummy
 
@@ -532,3 +548,7 @@ func _snap() -> void:
 			continue
 		shots.append({"key": key})
 		get_viewport().get_texture().get_image().save_png(stills_dir.path_join("%s.png" % key))
+		if kind == "close" and is_instance_valid(close_unit):
+			var ik: OffHandIK = close_unit.find_child("OffHandIK", true, false) as OffHandIK
+			if ik != null and ik.has_meta("rendered_gap"):
+				print("STILL %s off hand to grip %.3f m (IK influence %.2f)" % [key, float(ik.get_meta("rendered_gap")), ik.influence])
