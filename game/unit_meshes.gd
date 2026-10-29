@@ -6,13 +6,14 @@ const METAL: Color = Color(0.22, 0.23, 0.26)
 const RUBBER: Color = Color(0.12, 0.12, 0.13)
 const GLASS: Color = Color(0.55, 0.75, 0.85)
 const Models = preload("res://game/model_registry.gd")
+const Motion = preload("res://game/unit_motion.gd")
 
 static var _ink: StandardMaterial3D
 static var _foam: StandardMaterial3D
 static var _blob: Texture2D
 static var _cache: Dictionary = {}
 
-static func dress_unit(kind: String, role: String, loco: String, accent: Color, primary: Color = Color.WHITE, trim: Color = Color.WHITE) -> MeshInstance3D:
+static func dress_unit(kind: String, role: String, loco: String, accent: Color, primary: Color = Color.WHITE, trim: Color = Color.WHITE, faction: String = "") -> MeshInstance3D:
 	var form: String = unit_form(kind, role, loco)
 	var body: MeshInstance3D = MeshInstance3D.new()
 	body.name = "Body"
@@ -32,7 +33,11 @@ static func dress_unit(kind: String, role: String, loco: String, accent: Color, 
 		wake.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var body_ink: Color = primary if not primary.is_equal_approx(Color.WHITE) or accent.is_equal_approx(Color.WHITE) else accent
 	var trim_ink: Color = trim if not trim.is_equal_approx(Color.WHITE) or accent.is_equal_approx(Color.WHITE) else accent
-	Models.apply_unit(body, kind, body_ink, trim_ink)
+	var model_id: String = kind
+	if kind == "raider" or kind == "wave":
+		var side: String = faction if faction != "" else Models.enemy_look("")
+		model_id = Models.fallback_unit(role, loco, side)
+	Models.apply_unit(body, model_id, body_ink, trim_ink)
 	_seat_shadow(body)
 	return body
 
@@ -44,24 +49,14 @@ static func dress_structure(mi: MeshInstance3D, size: Vector3, accent: Color) ->
 	mi.material_override = null
 	mi.set_meta("form", form)
 	mi.set_meta("paint", accent)
-	Models.apply_structure(mi, Models.model_id_for(str(mi.name)), SMFront.primary(), SMFront.accent())
+	Models.apply_structure(mi, Models.structure_id(str(mi.name)), SMFront.primary(), SMFront.accent())
 	return true
 
 static func animate(u: RTSUnit, delta: float) -> void:
 	var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
 	if body == null:
 		return
-	var turret: MeshInstance3D = body.get_node_or_null("Turret") as MeshInstance3D
-	if turret != null:
-		var yaw: float = 0.0
-		var target: RTSUnit = u.attack_target
-		if target != null and is_instance_valid(target) and target.is_alive():
-			var dir: Vector3 = target.global_position - u.global_position
-			yaw = wrapf(atan2(-dir.x, -dir.z) - u.rotation.y, -PI, PI)
-		turret.rotation.y = yaw
-	var rotor: MeshInstance3D = body.get_node_or_null("Rotor") as MeshInstance3D
-	if rotor != null:
-		rotor.rotate_y(delta * 14.0)
+	Motion.pose(u, delta)
 	var wake: MeshInstance3D = body.get_node_or_null("Wake") as MeshInstance3D
 	if wake != null:
 		wake.visible = u.is_moving()

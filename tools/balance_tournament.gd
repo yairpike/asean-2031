@@ -160,15 +160,15 @@ func _layout(map_id: String) -> SMDomainGrid:
 func _homes(map_id: String) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	if map_id == "sop_ruak":
-		cells = [Vector2i(8, 22), Vector2i(26, 22)]
+		cells = [SMDomainGrid.at("sop_ruak", Vector2i(8, 22)), SMDomainGrid.at("sop_ruak", Vector2i(26, 22))]
 	elif map_id == "burma_road":
-		cells = [Vector2i(3, 13), Vector2i(32, 13)]
+		cells = [SMDomainGrid.at("burma_road", Vector2i(3, 13)), SMDomainGrid.at("burma_road", Vector2i(32, 13))]
 	elif map_id == "ten_degree_atolls":
-		cells = [Vector2i(3, 16), Vector2i(27, 16)]
+		cells = [SMDomainGrid.at("ten_degree_atolls", Vector2i(3, 16)), SMDomainGrid.at("ten_degree_atolls", Vector2i(27, 16))]
 	elif map_id == "mekong_delta":
-		cells = [Vector2i(3, 15), Vector2i(32, 15)]
+		cells = [SMDomainGrid.at("mekong_delta", Vector2i(3, 15)), SMDomainGrid.at("mekong_delta", Vector2i(32, 15))]
 	elif map_id == "chiang_rai":
-		cells = [Vector2i(4, 33), Vector2i(44, 6)]
+		cells = [SMDomainGrid.at("chiang_rai", Vector2i(4, 33)), SMDomainGrid.at("chiang_rai", Vector2i(44, 6))]
 	else:
-		cells = [Vector2i(1, 8), Vector2i(30, 12)]
+		cells = [SMDomainGrid.at("phillips", Vector2i(1, 8)), SMDomainGrid.at("phillips", Vector2i(30, 12))]
 	return cells

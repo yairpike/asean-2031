@@ -4,6 +4,7 @@ extends RefCounted
 const Forms = preload("res://game/unit_meshes.gd")
 const Ground = preload("res://game/ground_view.gd")
 const Settings = preload("res://game/match_settings.gd")
+const BuildingFx = preload("res://game/building_fx.gd")
 
 static func sync(host: Node3D, sight: SMSight, cam: RTSCamera) -> void:
 	paint_fog(sight, host)
@@ -152,6 +153,7 @@ static func slab(host: Node3D, node_name: String, pos: Vector3, size: Vector3, c
 		mi.material_override = mat
 	if host != null:
 		host.add_child(mi)
+		BuildingFx.attach(mi)
 	return mi
 
 static func plain_slab(host: Node3D, node_name: String, at: Vector3, size: Vector3, color: Color) -> void:
@@ -235,15 +237,17 @@ static func dress_spawn(u: RTSUnit, team: int, label: String) -> void:
 	var reach: MeshInstance3D = MeshInstance3D.new()
 	reach.name = "RangeRing"
 	var band: TorusMesh = TorusMesh.new()
-	band.inner_radius = 0.92
+	band.inner_radius = 0.97
 	band.outer_radius = 1.0
+	band.rings = 48
+	band.ring_segments = 4
 	reach.mesh = band
 	reach.position = Vector3(0.0, 0.06, 0.0)
 	reach.visible = false
 	reach.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var reach_ink: StandardMaterial3D = StandardMaterial3D.new()
 	reach_ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	reach_ink.albedo_color = Color(0.95, 0.55, 0.22, 0.85)
+	reach_ink.albedo_color = Color(0.95, 0.55, 0.22, 0.55)
 	reach_ink.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	reach.material_override = reach_ink
 	u.add_child(reach)
@@ -260,27 +264,41 @@ static func place_beacon(host: Node3D, at: Vector3) -> void:
 		pole = MeshInstance3D.new()
 		pole.name = "GoalBeacon"
 		var box: BoxMesh = BoxMesh.new()
-		box.size = Vector3(0.45, 7.0, 0.45)
+		box.size = Vector3(0.1, 2.4, 0.1)
 		pole.mesh = box
 		pole.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var ink: StandardMaterial3D = StandardMaterial3D.new()
 		ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		ink.albedo_color = Color(0.98, 0.82, 0.28)
+		ink.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		ink.albedo_color = Color(0.98, 0.82, 0.28, 0.4)
 		pole.material_override = ink
+		var halo: MeshInstance3D = MeshInstance3D.new()
+		halo.name = "GoalHalo"
+		var ring: TorusMesh = TorusMesh.new()
+		ring.inner_radius = 0.82
+		ring.outer_radius = 0.98
+		halo.mesh = ring
+		halo.position = Vector3(0.0, -1.14, 0.0)
+		halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var halo_ink: StandardMaterial3D = StandardMaterial3D.new()
+		halo_ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		halo_ink.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		halo_ink.albedo_color = Color(0.98, 0.82, 0.28, 0.45)
+		halo.material_override = halo_ink
+		pole.add_child(halo)
 		host.add_child(pole)
-	var pulse: float = 1.0 + 0.12 * sin(float(Time.get_ticks_msec()) * 0.005)
-	var y_scale: float = 1.0
-	var cam: Camera3D = host.get_node_or_null("Camera") as Camera3D
-	if cam != null and cam.get_viewport() != null:
-		var view: Vector2 = cam.get_viewport().get_visible_rect().size
-		var dist: float = cam.global_position.distance_to(Vector3(at.x, 3.6, at.z))
-		var cap: float = view.y * 0.28
-		y_scale = preload("res://game/camera_fit.gd").span(view, cam.fov, dist, 7.0, cap)
-	pole.scale = Vector3(pulse, y_scale, pulse)
-	if y_scale < 0.999:
-		pole.position = Vector3(at.x, 0.1 + 3.5 * y_scale, at.z)
-	else:
-		pole.position = Vector3(at.x, 3.6, at.z)
+	var wave: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.004)
+	var ink_now: StandardMaterial3D = pole.material_override as StandardMaterial3D
+	if ink_now != null:
+		ink_now.albedo_color = Color(0.98, 0.82, 0.28, 0.18 + 0.32 * wave)
+	var halo_now: MeshInstance3D = pole.get_node_or_null("GoalHalo") as MeshInstance3D
+	if halo_now != null:
+		var halo_ink_now: StandardMaterial3D = halo_now.material_override as StandardMaterial3D
+		if halo_ink_now != null:
+			halo_ink_now.albedo_color = Color(0.98, 0.82, 0.28, 0.22 + 0.4 * wave)
+		halo_now.scale = Vector3(0.85 + 0.35 * wave, 1.0, 0.85 + 0.35 * wave)
+	pole.scale = Vector3(0.75 + 0.25 * wave, 1.0, 0.75 + 0.25 * wave)
+	pole.position = Vector3(at.x, 1.2, at.z)
 	pole.visible = true
 
 static func place_rally(host: Node3D, at: Vector3) -> void:

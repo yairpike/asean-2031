@@ -8,7 +8,15 @@ const Settings = preload("res://game/match_settings.gd")
 const ModelBook = preload("res://game/model_registry.gd")
 const Lan = preload("res://game/lan_link.gd")
 const Seat = preload("res://game/lan_seat.gd")
+const WebPaste = preload("res://game/web_paste.gd")
 const Weather = preload("res://addons/rts_advanced/sm_weather.gd")
+const Motion = preload("res://game/unit_motion.gd")
+const BuildingFx = preload("res://game/building_fx.gd")
+const BuildingWatch = preload("res://game/building_watch.gd")
+const WorldView = preload("res://game/world_view.gd")
+const Ground = preload("res://game/ground_view.gd")
+const Catalog = preload("res://game/model_catalog.gd")
+const Debris = preload("res://game/building_debris.gd")
 var H: Harness
 var duel_note: String = ""
 
@@ -29,6 +37,7 @@ func _run() -> void:
 	if Harness.selftest_mode() == "exit":
 		quit(0)
 		return
+	await H.section("test_scripts", test_scripts)
 	await H.section("test_teams", test_teams)
 	await H.section("test_economy", test_economy)
 	await H.section("test_resource_nodes", test_resource_nodes)
@@ -94,7 +103,161 @@ func _run() -> void:
 	await H.section("test_sm_guns", test_sm_guns)
 	await H.section("test_lan", test_lan)
 	await H.section("test_lan_match", test_lan_match)
+	await H.section("test_unit_motion", test_unit_motion)
+	await H.section("test_unit_facing", test_unit_facing)
+	await H.section("test_weapon_sockets", test_weapon_sockets)
+	await H.section("test_dog_motion", test_dog_motion)
+	await H.section("test_building_materials", test_building_materials)
+	await H.section("test_hud_redesign", test_hud_redesign)
+	await H.section("test_hud_pause", test_hud_pause)
 	quit(H.finish())
+
+func test_scripts() -> void:
+	var paths: PackedStringArray = PackedStringArray()
+	_collect_scripts("res://", paths)
+	var failed: PackedStringArray = PackedStringArray()
+	for path: String in paths:
+		if load(path) == null:
+			failed.append(path)
+	var note: String = "every script loads (%d)" % paths.size()
+	if not failed.is_empty():
+		note = "every script loads, failed %s" % ", ".join(failed)
+	check(paths.size() > 40 and failed.is_empty(), note)
+	var Served: GDScript = load("res://game/served_art.gd") as GDScript
+	Served.skip_export = true
+	Served._cache.clear()
+	var kokang_still: Texture2D = Served.texture("briefings/kokang.webp")
+	var patani_still: Texture2D = Served.texture("briefings/ghosts_of_patani.webp")
+	var pakbeng_still: Texture2D = Served.texture("briefings/fog_over_pakbeng.webp")
+	check(kokang_still != null and patani_still != null and pakbeng_still != null, "briefing stills resolve from fixtures without build/web")
+	Served.skip_export = false
+	Served._cache.clear()
+	var art_src: String = FileAccess.get_file_as_string("res://game/served_art.gd")
+	var boot_src: String = FileAccess.get_file_as_string("res://game/boot.gd")
+	check(art_src.contains("HTTPRequest") and art_src.contains("func _page"), "briefing stills are fetched over HTTP on the web")
+	check(boot_src.contains("warm.call_deferred"), "the menu prefetches models after the boot scene is ready")
+
+func _collect_scripts(dir_path: String, into: PackedStringArray) -> void:
+	var access: DirAccess = DirAccess.open(dir_path)
+	if access == null:
+		return
+	for name: String in access.get_files():
+		if name.ends_with(".gd"):
+			into.append(dir_path.path_join(name))
+	for sub: String in access.get_directories():
+		if sub.begins_with(".") or sub == "build":
+			continue
+		_collect_scripts(dir_path.path_join(sub), into)
+
+func test_hud_redesign() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	await process_frame
+	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
+	check(mm != null and mm.backdrop != null and mm.backdrop.get_width() > 0, "the minimap carries a baked terrain backdrop")
+	if mm != null:
+		mm.sample()
+	check(mm != null and (mm.saw_land or mm.saw_water) and mm.frustum.size() >= 3, "the minimap samples terrain and the camera frustum")
+	var hud: SMHud = scene.get("hud") as SMHud
+	check(hud != null and mm != null and mm.sight != null and mm.sight.grid != null, "the HUD keeps a grid-bound sight for minimap fog")
+	var field: SMPointer = scene.get("field") as SMPointer
+	var unit: RTSUnit = field.units_of(0)[0] if field != null and field.units_of(0).size() > 0 else null
+	if unit != null:
+		field.selection.clear()
+		field.selection.call("_add", unit)
+	await process_frame
+	await process_frame
+	var hp: Label = scene.find_child("CardHp", true, false) as Label
+	var who: Label = scene.find_child("CardName", true, false) as Label
+	var rank: Control = scene.find_child("CardRank", true, false) as Control
+	var ability: Label = scene.find_child("CardAbility", true, false) as Label
+	check(unit != null and hp != null and hp.visible and hp.text != "0/0" and hp.text.contains("/") and who != null and who.text != "", "a selected unit shows its name and real HP")
+	check(rank != null and rank.visible and ability != null and ability.visible and ability.text != "", "a selected unit shows rank and ability")
+	var top: Control = scene.find_child("TopBar", true, false) as Control
+	var plate: Control = scene.find_child("CreditsPlate", true, false) as Control
+	var frame: Control = scene.find_child("MonitorFrame", true, false) as Control
+	check(top != null and plate != null and frame != null and scene.find_child("PowerIcon", true, false) != null, "the top bar has a credits plate and the sidebar frames the minimap")
+	var skin: GDScript = load("res://game/hud_skin.gd") as GDScript
+	var ids: PackedStringArray = PackedStringArray(["gtfc", "nmrf", "mvd", "black_market"])
+	var distinct: Dictionary = {}
+	for id: String in ids:
+		distinct[(skin.call("color", id, "trim") as Color).to_html()] = true
+	check(distinct.size() == 4, "each faction has its own sidebar trim")
+	var card: Control = scene.find_child("UnitCard", true, false) as Control
+	var cameo: Control = scene.find_child("CardCameo", true, false) as Control
+	hud.layout_for(Vector2(390, 844))
+	await process_frame
+	await process_frame
+	check(hud.phone and card != null and is_equal_approx(card.anchor_right, 1.0) and cameo != null and cameo.custom_minimum_size.x < 96.0, "a portrait phone stretches the unit panel across the screen with a smaller portrait")
+	hud.layout_for(Vector2(1280, 720))
+	await process_frame
+	await process_frame
+	check(not hud.phone and is_equal_approx(card.anchor_right, 0.0) and is_equal_approx(cameo.custom_minimum_size.x, 96.0), "back on desktop the unit panel returns to the bottom centre")
+	scene.free()
+	await process_frame
+
+func test_hud_pause() -> void:
+	SMFront.faction_id = "gtfc"
+	var scene: Node = (load("res://game/phillips_channel.tscn") as PackedScene).instantiate()
+	root.add_child(scene)
+	await process_frame
+	await process_frame
+	var exit: Node = scene.get_node_or_null("MatchExit")
+	var pause: Control = scene.find_child("PauseMenu", true, false) as Control
+	check(exit != null and pause != null and not pause.visible, "a match builds the pause view hidden")
+	var esc: InputEventKey = InputEventKey.new()
+	esc.pressed = true
+	esc.keycode = KEY_ESCAPE
+	exit._unhandled_input(esc)
+	var settings: Control = scene.find_child("SettingsPanel", true, false) as Control
+	check(pause.visible and paused and settings != null and settings.visible and settings.get_parent() == pause and bool(settings.get("embedded")), "Esc pauses the match and opens settings inside the glass view")
+	var names: PackedStringArray = PackedStringArray(["PauseResume", "PauseQuit", "PauseSkip", "PauseTrack", "MasterVolume", "MusicVolume", "SfxVolume", "GraphicsLow", "VoiceValue", "EdgePan"])
+	var all: bool = true
+	for node_name: String in names:
+		if pause.find_child(node_name, true, false) == null:
+			all = false
+	check(all, "the pause view holds audio, graphics, voice, controls, resume, quit, and skip")
+	var glass: Control = pause.get_node_or_null("PauseGlass") as Control
+	var card: Control = pause.get_node_or_null("PauseCard") as Control
+	check(glass != null and bool(glass.get_meta("glass", false)) and card != null and bool(card.get_meta("glass", false)), "the pause view sits on frosted glass")
+	var backdrop: CanvasItem = settings.get_node_or_null("SettingsBackdrop") as CanvasItem
+	check(backdrop != null and not backdrop.visible, "the embedded settings drop their menu backdrop")
+	var skip_key: InputEventKey = InputEventKey.new()
+	skip_key.pressed = true
+	skip_key.keycode = KEY_N
+	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
+	clips.call("play_faction", scene, "gtfc")
+	var before: String = str(clips.call("current_title"))
+	exit._unhandled_input(skip_key)
+	check(str(clips.call("current_title")) != before, "N skips the song")
+	settings._unhandled_input(esc)
+	check(not pause.visible and not paused and settings.get_parent() != pause and not settings.visible and not bool(settings.get("embedded")), "Esc in the view resumes and returns settings to the layer")
+	pause.visible = true
+	exit.call("_process", 0.0)
+	check(paused and settings.get_parent() == pause, "the HUD menu button opens the same view")
+	(pause.find_child("PauseResume", true, false) as Button).pressed.emit()
+	check(not paused and not pause.visible, "Resume closes the view")
+	var phone_button: Button = scene.find_child("PauseButton", true, false) as Button
+	check(phone_button != null and phone_button.custom_minimum_size.x >= 44.0, "phones get a tappable pause button")
+	scene.free()
+	paused = false
+	await process_frame
+	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
+	root.add_child(boot)
+	await process_frame
+	var roll: Button = boot.find_child("CreditsButton", true, false) as Button
+	check(roll != null, "the menu has a credits button")
+	roll.pressed.emit()
+	var panel: Control = boot.find_child("CreditsPanel", true, false) as Control
+	var music: Label = boot.find_child("CreditsMusic", true, false) as Label
+	check(panel != null and panel.visible and music != null and music.text == "BlackBloc", "the credits screen credits BlackBloc for the music")
+	panel._unhandled_input(esc)
+	var title: CanvasItem = boot.find_child("GameTitle", true, false) as CanvasItem
+	check(not panel.visible and title != null and title.visible, "Esc closes the credits")
+	boot.free()
+	await process_frame
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
 	var u: RTSUnit = RTSUnit.new()
@@ -373,6 +536,57 @@ func test_camera() -> void:
 	cam.pan(Vector2(0, 1), 0.1)
 	check(cam.focus.z < 0.0, "pan up moves focus forward (-z)")
 	cam.free()
+	var ground: GDScript = load("res://game/ground_view.gd") as GDScript
+	var eye: Vector3 = Vector3(0.0, 8.5, 8.5)
+	var aim: Vector3 = Vector3.ZERO
+	var inside: float = float(ground.call("view_fade", Vector3(0.0, 0.0, 8.5), 12.0, 3.0, eye, aim))
+	check(inside > 0.85, "a teak crown around the low camera fades out")
+	var beside: float = float(ground.call("view_fade", Vector3(20.0, 0.0, 0.0), 12.0, 3.0, eye, aim))
+	check(beside < 0.05, "a teak off the view ray stays solid")
+	var above: float = float(ground.call("view_fade", Vector3.ZERO, 12.0, 3.0, Vector3(0.0, 20.0, 20.0), aim))
+	check(above < 0.05, "a camera above the canopy leaves the teak in place")
+	var short: float = float(ground.call("view_fade", Vector3(0.0, 0.0, 8.5), 2.4, 1.0, eye, aim))
+	check(short < 0.05, "short props under the camera stay visible")
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var box: BoxMesh = BoxMesh.new()
+	box.size = Vector3(6.0, 12.0, 6.0)
+	var mm: MultiMesh = MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = box
+	mm.instance_count = 2
+	var near_xf: Transform3D = Transform3D(Basis.IDENTITY, Vector3(0.0, 6.0, 8.5))
+	var far_xf: Transform3D = Transform3D(Basis.IDENTITY, Vector3(30.0, 6.0, 0.0))
+	mm.set_instance_transform(0, near_xf)
+	mm.set_instance_transform(1, far_xf)
+	var spots: Array[Transform3D] = [near_xf, far_xf]
+	var trees: MultiMeshInstance3D = MultiMeshInstance3D.new()
+	trees.name = "JungleTrees"
+	trees.multimesh = mm
+	trees.set_meta("all_spots", spots)
+	trees.set_meta("shown", spots)
+	host.add_child(trees)
+	var low_cam: RTSCamera = RTSCamera.new()
+	host.add_child(low_cam)
+	low_cam.distance = low_cam.zoom_min
+	low_cam.focus_on(Vector3.ZERO)
+	ground.call("fade_occluders", host, low_cam)
+	var fades: PackedFloat32Array = trees.get_meta("canopy_fade") as PackedFloat32Array
+	check(fades.size() == 2 and fades[0] > 0.85, "the teak the camera sits in is hidden")
+	check(fades[1] < 0.05, "a teak away from the camera keeps its scale")
+	var mark: Node3D = Node3D.new()
+	mark.name = "Scenery_teak"
+	var body: MeshInstance3D = MeshInstance3D.new()
+	var tall: BoxMesh = BoxMesh.new()
+	tall.size = Vector3(6.0, 12.0, 6.0)
+	body.mesh = tall
+	body.position = Vector3(0.0, 6.0, 8.5)
+	mark.add_child(body)
+	host.add_child(mark)
+	ground.call("fade_occluders", host, low_cam)
+	check(not mark.visible, "a tall prop the camera sits inside is hidden")
+	host.free()
 
 func test_bindings() -> void:
 	RTSBindings.install()
@@ -722,22 +936,23 @@ func test_sm_abilities() -> void:
 
 func test_sm_domain() -> void:
 	var g: SMDomainGrid = SMDomainGrid.phillips_layout()
-	check(g.domain_at_cell(Vector2i(8, 4)) == SMDomainGrid.Domain.LAND, "west land")
-	check(g.domain_at_cell(Vector2i(30, 12)) == SMDomainGrid.Domain.LAND, "east land")
-	check(g.domain_at_cell(Vector2i(20, 12)) == SMDomainGrid.Domain.DEEP, "deep channel")
-	check(g.domain_at_cell(Vector2i(16, 5)) == SMDomainGrid.Domain.SHALLOW, "shallow crossing")
-	check(g.domain_at_cell(Vector2i(5, 11)) == SMDomainGrid.Domain.CLIFF, "cliff flag")
-	check(g.domain_at_cell(Vector2i(19, 10)) == SMDomainGrid.Domain.AIR, "air flag")
+	check(g.cols == 56 and g.rows == 34 and g.cols * g.rows > 40 * 24 * 3 / 2, "phillips is about twice the old field")
+	check(g.domain_at_cell(SMDomainGrid.at("phillips", Vector2i(8, 4))) == SMDomainGrid.Domain.LAND, "west land")
+	check(g.domain_at_cell(SMDomainGrid.at("phillips", Vector2i(30, 12))) == SMDomainGrid.Domain.LAND, "east land")
+	check(g.domain_at_cell(SMDomainGrid.at("phillips", Vector2i(20, 12))) == SMDomainGrid.Domain.DEEP, "deep channel")
+	check(g.domain_at_cell(SMDomainGrid.at("phillips", Vector2i(16, 5))) == SMDomainGrid.Domain.SHALLOW, "shallow crossing")
+	check(g.domain_at_cell(SMDomainGrid.at("phillips", Vector2i(5, 11))) == SMDomainGrid.Domain.CLIFF, "cliff flag")
+	check(g.domain_at_cell(SMDomainGrid.at("phillips", Vector2i(19, 10))) == SMDomainGrid.Domain.AIR, "air flag")
 	_domain_seen.clear()
 	g.domain_changed.connect(_on_test_domain)
-	check(g.move_unit(3, g.cell_center(Vector2i(12, 5)), SMDomainGrid.Loco.AMPHIBIOUS), "amphibious steps onto land")
+	check(g.move_unit(3, g.cell_center(SMDomainGrid.at("phillips", Vector2i(12, 5))), SMDomainGrid.Loco.AMPHIBIOUS), "amphibious steps onto land")
 	check(_domain_seen.is_empty(), "the first placement does not signal")
-	check(g.move_unit(3, g.cell_center(Vector2i(16, 5)), SMDomainGrid.Loco.AMPHIBIOUS), "amphibious enters shallow water")
+	check(g.move_unit(3, g.cell_center(SMDomainGrid.at("phillips", Vector2i(16, 5))), SMDomainGrid.Loco.AMPHIBIOUS), "amphibious enters shallow water")
 	check(_domain_seen.size() == 2 and _domain_seen[0] == SMDomainGrid.Domain.LAND and _domain_seen[1] == SMDomainGrid.Domain.SHALLOW, "domain change at the shoreline")
-	check(not g.move_unit(4, g.cell_center(Vector2i(20, 12)), SMDomainGrid.Loco.GROUND), "ground movement stops at deep water")
-	check(not g.move_unit(5, g.cell_center(Vector2i(5, 11)), SMDomainGrid.Loco.AMPHIBIOUS), "a cliff blocks movement")
-	check(g.move_unit(6, g.cell_center(Vector2i(19, 10)), SMDomainGrid.Loco.AIR), "air enters an air cell")
-	check(g.move_unit(7, g.cell_center(Vector2i(20, 12)), SMDomainGrid.Loco.NAVAL), "naval enters deep water")
+	check(not g.move_unit(4, g.cell_center(SMDomainGrid.at("phillips", Vector2i(20, 12))), SMDomainGrid.Loco.GROUND), "ground movement stops at deep water")
+	check(not g.move_unit(5, g.cell_center(SMDomainGrid.at("phillips", Vector2i(5, 11))), SMDomainGrid.Loco.AMPHIBIOUS), "a cliff blocks movement")
+	check(g.move_unit(6, g.cell_center(SMDomainGrid.at("phillips", Vector2i(19, 10))), SMDomainGrid.Loco.AIR), "air enters an air cell")
+	check(g.move_unit(7, g.cell_center(SMDomainGrid.at("phillips", Vector2i(20, 12))), SMDomainGrid.Loco.NAVAL), "naval enters deep water")
 
 var _domain_seen: Array[int] = []
 
@@ -766,11 +981,11 @@ func test_sm_catalog() -> void:
 	for id: String in ["gtfc", "mvd", "nmrf"]:
 		var data: Dictionary = SMCatalog.faction(id)
 		var units: Array[Dictionary] = SMCatalog.units_of(data)
-		var want: int = 16
+		var want: int = 19
 		if id == "gtfc":
-			want = 17
+			want = 20
 		elif id == "nmrf":
-			want = 15
+			want = 17
 		check(units.size() == want, "%s fields its blueprint roster" % id)
 		check(str(data.get("balance", "")) == "pass1", "%s costs record the balance pass" % id)
 		for unit: Dictionary in units:
@@ -789,7 +1004,57 @@ func test_sm_catalog() -> void:
 	var flags: Dictionary = market["import_flags"]
 	check(bool(flags.get("rotary_slot", false)) and bool(flags.get("strike_slot", false)) and bool(flags.get("spotter_slot", false)), "black-market imports are flags")
 	var market_units: Array[Dictionary] = SMCatalog.units_of(market)
-	check(market_units.size() == 4, "black market air is in the catalog")
+	check(market_units.size() == 5, "black market air is in the catalog")
+	var fastest: float = 0.0
+	var teak_speed: float = 0.0
+	for unit: Dictionary in SMCatalog.units_of(gtfc):
+		if str(unit.get("locomotion", "")) != "ground":
+			continue
+		var pace: float = float(unit.get("speed", 0.0))
+		if str(unit.get("id", "")) == "teak_technical":
+			teak_speed = pace
+		elif pace > fastest:
+			fastest = pace
+	check(teak_speed > fastest and teak_speed >= 8.0, "the teak technical is the fastest GTFC ground unit")
+	var spool: Dictionary = {}
+	for unit: Dictionary in SMCatalog.units_of(mvd):
+		if str(unit.get("id", "")) == "spool_fpv":
+			spool = unit
+	var jam: SMEwField = SMEwField.new()
+	jam.center = Vector3.ZERO
+	jam.radius = 20.0
+	check(str(spool.get("guidance", "")) == "fiber" and jam.accuracy(Vector3.ZERO, SMEwField.guidance_of("fiber")) == 1.0, "the spool FPV is fibre guided and ignores a jammer")
+	var yard: SMBuildYard = SMBuildYard.new()
+	yard.style = SMBuildYard.Style.SCAFFOLD
+	yard.load_catalog(gtfc)
+	yard.finished.append(&"scaffold_yard")
+	check(yard.tech_order.size() == 10 and yard.can_build(&"bamboo_hide") and not yard.can_build(&"barracks"), "a bamboo hide builds beside the chain once the yard is up")
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var field: SMPointer = SMPointer.new()
+	field.bind(host, null)
+	field.faction_id = "gtfc"
+	field.use_open(20, 20, 2.0, Vector3(-20.0, 0.0, -20.0))
+	var lead: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3.ZERO, &"fpv_kamikaze")
+	check(field.units_of(SMPointer.PLAYER).size() == 3, "an FPV order launches a flight of three")
+	var tank: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(4.0, 0.0, 0.0), &"amber_tank")
+	var tank_hp: float = tank.hp
+	field.select_only([lead])
+	field.cast_f(tank.global_position)
+	check(not lead.is_alive() and tank.hp < tank_hp, "the lead FPV dives into armour")
+	field.faction_id = "mvd"
+	var hive: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(30.0, 0.0, 0.0), &"swarm_hive")
+	var chipped: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(32.0, 0.0, 0.0), &"clearance_trooper")
+	hive.set_meta("toggled", true)
+	var chip_hp: float = chipped.hp
+	field.tick(1.0)
+	check(chipped.hp < chip_hp, "a swarm hive chips units inside its cloud")
+	var boat: Dictionary = {}
+	for unit: Dictionary in SMCatalog.units_of(nmrf):
+		if str(unit.get("id", "")) == "longtail_raider":
+			boat = unit
+	check(str(boat.get("locomotion", "")) == "amphibious" and float(boat.get("speed", 0.0)) >= 8.0, "the longtail raider is a fast boat that can beach")
+	host.free()
 	for unit: Dictionary in market_units:
 		check(SMCatalog.entry_ok(unit), "black market %s has a weapon and one secondary" % str(unit.get("id", "")))
 	var banned: PackedStringArray = PackedStringArray(["opium", "heroin", "cocaine", "fentanyl", "yaba", "methamphetamine"])
@@ -864,7 +1129,7 @@ func test_sm_greybox() -> void:
 	var swapped: bool = ModelBook.apply_unit(body, "registry_probe")
 	var fitted: Node3D = body.get_node_or_null("Model") as Node3D
 	var turret: Node = body.get_node_or_null("Turret")
-	check(swapped and body.mesh == null and fitted != null and turret != null and turret != old_turret and is_equal_approx(fitted.scale.x, 2.0), "a dropped gltf replaces the procedural mesh")
+	check(swapped and body.mesh == null and fitted != null and turret != null and turret != old_turret and is_equal_approx(fitted.scale.x, 2.0) and is_equal_approx(fitted.scale.y, fitted.scale.x) and is_equal_approx(fitted.scale.z, fitted.scale.x), "a dropped gltf replaces the procedural mesh")
 	var plain: MeshInstance3D = MeshInstance3D.new()
 	var kept: BoxMesh = BoxMesh.new()
 	plain.mesh = kept
@@ -899,8 +1164,8 @@ func test_sm_greybox() -> void:
 	dog_box.size = Vector3(1.2, 1.0, 1.6)
 	dog.mesh = dog_box
 	host.add_child(dog)
-	var dressed_dog: bool = ModelBook.apply_unit(dog, "kachin_dog", Color.html("#B81E2D"), Color.html("#E0A106"))
-	var dog_body: MeshInstance3D = dog.find_child("Body", true, false) as MeshInstance3D
+	var dressed_dog: bool = ModelBook.apply_unit(dog, "registry_probe", Color.html("#B81E2D"), Color.html("#E0A106"))
+	var dog_body: MeshInstance3D = dog.find_child("Hull", true, false) as MeshInstance3D
 	var dog_mat: StandardMaterial3D = null
 	if dog_body != null and dog_body.mesh != null:
 		dog_mat = dog_body.get_surface_override_material(0) as StandardMaterial3D
@@ -913,7 +1178,9 @@ func test_sm_greybox() -> void:
 	host.add_child(hall)
 	var dressed_hall: bool = ModelBook.apply_structure(hall, "barracks", Color.html("#B81E2D"), Color.html("#E0A106"))
 	var hall_model: Node3D = hall.get_node_or_null("Model") as Node3D
-	check(dressed_hall and hall_model != null and hall_model.scale.x > hall_model.scale.z * 1.5, "the barracks model fills the wide footprint")
+	check(dressed_hall and hall_model != null and is_equal_approx(hall_model.scale.x, hall_model.scale.y) and is_equal_approx(hall_model.scale.y, hall_model.scale.z) and hall_model.scale.x > 0.2, "a building scales evenly and keeps its height")
+	var proportion_fault: String = _proportion_fault()
+	check(proportion_fault == "", "no unit or building is squashed or stretched")
 	var loaded: MeshInstance3D = MeshInstance3D.new()
 	loaded.set_meta("model", "Model")
 	var loaded_gun: MeshInstance3D = MeshInstance3D.new()
@@ -976,7 +1243,9 @@ func test_sm_phillips() -> void:
 			uv_span = absf(ground_uv[uv_i].x - ground_uv[0].x) / dx
 			break
 		uv_i += 1
-	check(uv_span > 2.5, "ground tiles repeat several times across a cell")
+	check(uv_span > 0.2 and uv_span < 0.35, "a ground tile covers about four metres")
+	var land_mat: ShaderMaterial = terrain_land.get_active_material(0) as ShaderMaterial
+	check(land_mat != null and float(land_mat.get_shader_parameter("use_tex")) > 0.5, "the ground uses a painted terrain texture")
 	var help_button: Button = scene.find_child("HelpButton", true, false) as Button
 	var howto_title: Label = scene.find_child("HowToTitle", true, false) as Label
 	var power_label: Label = scene.find_child("HudPower", true, false) as Label
@@ -1034,7 +1303,7 @@ func test_sm_bots() -> void:
 	check(phillips_ok, "iskandar wins on phillips channel (%s)" % duel_note)
 	var atoll_ok: bool = _duel(&"iskandar", "ten_degree_atolls", &"tran", true)
 	check(atoll_ok, "iskandar wins on the atolls (%s)" % duel_note)
-	var mekong_ok: bool = _duel(&"tran", "mekong_delta", &"bo_mya", true)
+	var mekong_ok: bool = _duel(&"tran", "mekong_delta", &"bo_mya", true, 75.0)
 	check(mekong_ok, "tran wins over the mekong canals (%s)" % duel_note)
 	var chiang_ok: bool = _duel(&"tran", "chiang_rai", &"iskandar", true)
 	check(chiang_ok, "tran wins over the chiang rai river (%s)" % duel_note)
@@ -1083,16 +1352,17 @@ func test_sm_sop_ruak() -> void:
 	var grid: SMDomainGrid = SMDomainGrid.sop_ruak_layout()
 	var land: int = SMDomainGrid.Domain.LAND
 	var deep: int = SMDomainGrid.Domain.DEEP
-	check(grid.domain_at_cell(Vector2i(8, 24)) == land and grid.domain_at_cell(Vector2i(28, 24)) == land and grid.domain_at_cell(Vector2i(18, 6)) == land, "sop ruak has three land sectors")
-	check(grid.domain_at_cell(Vector2i(17, 28)) == deep and grid.domain_at_cell(Vector2i(8, 8)) == deep and grid.domain_at_cell(Vector2i(27, 8)) == deep, "a Y of deep water splits the shores")
-	check(grid.domain_at_cell(Vector2i(17, 24)) == land and grid.domain_at_cell(Vector2i(10, 10)) == land and grid.domain_at_cell(Vector2i(24, 10)) == land, "a ford crosses each arm of the river")
+	check(grid.cols == 50 and grid.rows == 50, "sop ruak grew on every side")
+	check(grid.domain_at_cell(SMDomainGrid.at("sop_ruak", Vector2i(8, 24))) == land and grid.domain_at_cell(SMDomainGrid.at("sop_ruak", Vector2i(28, 24))) == land and grid.domain_at_cell(SMDomainGrid.at("sop_ruak", Vector2i(18, 6))) == land, "sop ruak has three land sectors")
+	check(grid.domain_at_cell(SMDomainGrid.at("sop_ruak", Vector2i(17, 28))) == deep and grid.domain_at_cell(SMDomainGrid.at("sop_ruak", Vector2i(8, 8))) == deep and grid.domain_at_cell(SMDomainGrid.at("sop_ruak", Vector2i(27, 8))) == deep, "a Y of deep water splits the shores")
+	check(grid.domain_at_cell(SMDomainGrid.at("sop_ruak", Vector2i(17, 24))) == land and grid.domain_at_cell(SMDomainGrid.at("sop_ruak", Vector2i(10, 10))) == land and grid.domain_at_cell(SMDomainGrid.at("sop_ruak", Vector2i(24, 10))) == land, "a ford crosses each arm of the river")
 	var scene: Node = (load("res://game/sop_ruak.tscn") as PackedScene).instantiate()
 	root.add_child(scene)
 	await process_frame
 	check(scene.get_node_or_null("WestSector") is MeshInstance3D and scene.get_node_or_null("EastSector") is MeshInstance3D and scene.get_node_or_null("NorthSector") is MeshInstance3D and scene.get_node_or_null("RiverStem") is MeshInstance3D, "sop ruak shows three shores and the river")
 	var field: SMPointer = scene.get("field") as SMPointer
-	var east_path: PackedVector3Array = field.nav.find_path(grid.cell_center(Vector2i(8, 24)), grid.cell_center(Vector2i(28, 24)))
-	var north_path: PackedVector3Array = field.nav.find_path(grid.cell_center(Vector2i(8, 24)), grid.cell_center(Vector2i(18, 6)))
+	var east_path: PackedVector3Array = field.nav.find_path(grid.cell_center(SMDomainGrid.at("sop_ruak", Vector2i(8, 24))), grid.cell_center(SMDomainGrid.at("sop_ruak", Vector2i(28, 24))))
+	var north_path: PackedVector3Array = field.nav.find_path(grid.cell_center(SMDomainGrid.at("sop_ruak", Vector2i(8, 24))), grid.cell_center(SMDomainGrid.at("sop_ruak", Vector2i(18, 6))))
 	check(east_path.size() > 0 and north_path.size() > 0, "fords link the west shore to the east and the north")
 	check(_gtfc_names(field), "sop ruak labels the six GTFC placeholders")
 	check(field.name_of(field.units_of(1)[0]) == "Enemy", "sop ruak labels the enemy")
@@ -1100,7 +1370,7 @@ func test_sm_sop_ruak() -> void:
 	var friends: Array[RTSUnit] = field.units_of(0)
 	var picked: RTSUnit = field.select_click(_proj(friends[0].global_position), Callable(self, "_proj"))
 	check(picked == friends[0] and field.selection.count() == 1, "left click selects one friendly unit")
-	var north: Vector3 = grid.cell_center(Vector2i(18, 6))
+	var north: Vector3 = grid.cell_center(SMDomainGrid.at("sop_ruak", Vector2i(18, 6)))
 	var moved: StringName = field.command_at(north, _proj(north), Callable(self, "_proj"))
 	check(moved == &"move" and friends[0].is_moving(), "right click on ground moves the selection")
 	var foes: Array[RTSUnit] = field.units_of(1)
@@ -1121,23 +1391,36 @@ func test_sm_maps() -> void:
 	var cliff: int = SMDomainGrid.Domain.CLIFF
 	var shallow: int = SMDomainGrid.Domain.SHALLOW
 	var burma: SMDomainGrid = SMDomainGrid.burma_road_layout()
-	check(burma.domain_at_cell(Vector2i(2, 2)) == cliff and burma.domain_at_cell(Vector2i(18, 4)) == cliff, "burma highlands and the wall are cliffs")
-	check(burma.domain_at_cell(Vector2i(18, 13)) == land and burma.domain_at_cell(Vector2i(4, 14)) == land and burma.domain_at_cell(Vector2i(34, 14)) == land, "the burma road is land between the shores")
+	check(burma.cols == 56 and burma.rows == 40, "burma road grew")
+	check(burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(2, 2))) == cliff and burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(18, 4))) == cliff, "burma highlands and the wall are cliffs")
+	check(burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(18, 13))) == land and burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(4, 14))) == land and burma.domain_at_cell(SMDomainGrid.at("burma_road", Vector2i(34, 14))) == land, "the burma road is land between the shores")
 	var atolls: SMDomainGrid = SMDomainGrid.ten_degree_atolls_layout()
-	check(atolls.domain_at_cell(Vector2i(0, 0)) == deep and atolls.domain_at_cell(Vector2i(18, 30)) == deep, "the atolls sit in deep water")
-	check(atolls.domain_at_cell(Vector2i(4, 17)) == land and atolls.domain_at_cell(Vector2i(28, 17)) == land and atolls.domain_at_cell(Vector2i(16, 4)) == land, "three atoll islands are land")
-	check(atolls.domain_at_cell(Vector2i(14, 17)) == shallow and atolls.domain_at_cell(Vector2i(17, 10)) == shallow, "shoals link the atolls")
+	check(atolls.domain_at_cell(Vector2i(0, 0)) == deep and atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(18, 30))) == deep, "the atolls sit in deep water")
+	check(atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(4, 17))) == land and atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(28, 17))) == land and atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(16, 4))) == land, "three atoll islands are land")
+	check(atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(14, 17))) == shallow and atolls.domain_at_cell(SMDomainGrid.at("ten_degree_atolls", Vector2i(17, 10))) == shallow, "shoals link the atolls")
 	var mekong: SMDomainGrid = SMDomainGrid.mekong_delta_layout()
-	check(mekong.domain_at_cell(Vector2i(13, 4)) == deep and mekong.domain_at_cell(Vector2i(27, 28)) == deep, "mekong canals are deep water")
-	check(mekong.domain_at_cell(Vector2i(13, 15)) == land and mekong.domain_at_cell(Vector2i(27, 16)) == land and mekong.domain_at_cell(Vector2i(4, 16)) == land, "bridges and paddies stay land")
+	check(mekong.cols == 56 and mekong.rows == 46, "the mekong grew")
+	check(mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 4))) == deep and mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(27, 28))) == deep, "mekong canals are deep water")
+	check(mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 15))) == land and mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(27, 16))) == land and mekong.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(4, 16))) == land, "bridges and paddies stay land")
 	var chiang: SMDomainGrid = SMDomainGrid.chiang_rai_layout()
-	check(chiang.cols > burma.cols and chiang.rows > mekong.rows, "chiang rai is the larger map")
-	check(chiang.domain_at_cell(Vector2i(27, 2)) == deep and chiang.domain_at_cell(Vector2i(8, 7)) == cliff, "chiang rai has a river and a siege wall")
-	check(chiang.domain_at_cell(Vector2i(27, 10)) == land and chiang.domain_at_cell(Vector2i(27, 30)) == land and chiang.domain_at_cell(Vector2i(8, 34)) == land and chiang.domain_at_cell(Vector2i(46, 8)) == land, "fords and both camps on chiang rai are land")
-	await _play_map("res://game/burma_road.tscn", "HighlandWest", "Road", Vector2i(4, 14), Vector2i(34, 14), Vector2i(10, 20))
-	await _play_map("res://game/ten_degree_atolls.tscn", "WestIsle", "Sea", Vector2i(4, 17), Vector2i(28, 17), Vector2i(6, 18))
-	await _play_map("res://game/mekong_delta.tscn", "CanalWest", "BridgeWest", Vector2i(4, 16), Vector2i(34, 16), Vector2i(6, 20))
-	await _play_map("res://game/chiang_rai.tscn", "SiegeRiver", "WallWest", Vector2i(8, 34), Vector2i(46, 8), Vector2i(10, 34))
+	check(chiang.cols == 78 and chiang.rows == 56 and chiang.cols > burma.cols and chiang.rows > mekong.rows, "chiang rai is the larger map")
+	check(chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(27, 2))) == deep and chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(8, 7))) == cliff, "chiang rai has a river and a siege wall")
+	check(chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(27, 10))) == land and chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(27, 30))) == land and chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(8, 34))) == land and chiang.domain_at_cell(SMDomainGrid.at("chiang_rai", Vector2i(46, 8))) == land, "fords and both camps on chiang rai are land")
+	await _play_map("res://game/burma_road.tscn", "HighlandWest", "Road", SMDomainGrid.at("burma_road", Vector2i(4, 14)), SMDomainGrid.at("burma_road", Vector2i(34, 14)), SMDomainGrid.at("burma_road", Vector2i(10, 20)))
+	await _play_map("res://game/ten_degree_atolls.tscn", "WestIsle", "Sea", SMDomainGrid.at("ten_degree_atolls", Vector2i(4, 17)), SMDomainGrid.at("ten_degree_atolls", Vector2i(28, 17)), SMDomainGrid.at("ten_degree_atolls", Vector2i(6, 18)))
+	await _play_map("res://game/mekong_delta.tscn", "CanalWest", "BridgeWest", SMDomainGrid.at("mekong_delta", Vector2i(4, 16)), SMDomainGrid.at("mekong_delta", Vector2i(34, 16)), SMDomainGrid.at("mekong_delta", Vector2i(6, 20)))
+	await _play_map("res://game/chiang_rai.tscn", "SiegeRiver", "WallWest", SMDomainGrid.at("chiang_rai", Vector2i(8, 34)), SMDomainGrid.at("chiang_rai", Vector2i(46, 8)), SMDomainGrid.at("chiang_rai", Vector2i(10, 34)))
+	var show: Node = (load("res://game/showcase.tscn") as PackedScene).instantiate()
+	root.add_child(show)
+	await process_frame
+	var show_grid: SMDomainGrid = show.get("grid") as SMDomainGrid
+	var show_field: SMPointer = show.get("field") as SMPointer
+	var mark: Node3D = show.get_node_or_null("Landmark_lm_shwedagon") as Node3D
+	check(mark != null and show_grid.holding(Vector2i(10, 8)) and show_field.nav_ground.is_blocked(Vector2i(10, 8)) and not show_field.nav_air.is_blocked(Vector2i(10, 8)), "the showcase landmark blocks the ground and lets aircraft pass")
+	var teak: MultiMeshInstance3D = show.get_node_or_null("JungleTrees") as MultiMeshInstance3D
+	check(teak != null and teak.multimesh != null and teak.multimesh.mesh != null and teak.multimesh.instance_count > 4, "the showcase plants jungle models")
+	show.free()
+	await process_frame
 	var boot: Node = (load("res://game/boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
 	await process_frame
@@ -1220,7 +1503,7 @@ func test_sm_roster() -> void:
 			var id: StringName = StringName(str(unit.get("id", "")))
 			if roster.train_and_finish(id) != id:
 				failed.append("%s:%s" % [faction_id, str(id)])
-	check(total == 52 and failed.is_empty(), "all 52 catalog units train through production %s" % [failed])
+	check(total == 61 and failed.is_empty(), "all 61 catalog units train through production %s" % [failed])
 	check(_spawned("gtfc", &"crimson_sapper", "Highland Saboteur", "rifle", "smart_cast", 9.0), "gtfc sapper spawns with a weapon and a secondary")
 	check(_spawned("mvd", &"cyan_sentry", "Cu Chi Tunnel Hound", "carbine", "group_toggle", 9.0), "mvd sentry spawns with a weapon and a secondary")
 	check(_spawned("nmrf", &"olive_ranger", "Sulu Tank-Buster", "rifle", "group_toggle", 8.0), "nmrf ranger spawns with a weapon and a secondary")
@@ -1359,6 +1642,16 @@ func test_sm_campaign() -> void:
 		var button: Button = boot.find_child("Mission_%s" % id, true, false) as Button
 		check(button != null and button.text == SMCampaign.title_of(id), "boot lists %s" % id)
 	check(SMCampaign.debug_ids().size() == 14 and boot.find_child("Mission_mae_sai", true, false) == null and boot.find_child("Mission_channel_crossing", true, false) == null, "the old drills stay off the campaign tab")
+	boot.call("_show_tab", "campaign")
+	var detail_card: Control = boot.find_child("MenuDetail", true, false) as Control
+	check(detail_card != null and detail_card.mouse_filter == Control.MOUSE_FILTER_STOP and detail_card.gui_input.is_connected(Callable(boot, "_on_detail_gui")), "the campaign briefing card accepts a click")
+	var enter: InputEventKey = InputEventKey.new()
+	enter.pressed = true
+	enter.keycode = KEY_ENTER
+	enter.echo = false
+	boot.call("_unhandled_input", enter)
+	var loading_plate: Control = boot.find_child("LoadingPlate", true, false) as Control
+	check(loading_plate != null and loading_plate.visible and str(boot.get("_detail_mission")) == "kokang", "enter on the campaign card starts the selected mission")
 	check(camp.play("mae_sai"), "a debug drill can still be finished")
 	boot.free()
 	await process_frame
@@ -1389,7 +1682,7 @@ func test_sm_hud() -> void:
 	var mm: SMMinimap = scene.find_child("Minimap", true, false) as SMMinimap
 	check(scene.find_child("CompanyList", true, false) == null and mm != null, "phillips uses a minimap instead of a name list")
 	mm.sample()
-	check(mm.terrain_kind(Vector2i(2, 8)) == "land" and mm.terrain_kind(Vector2i(18, 12)) == "water" and mm.saw_land and mm.saw_water, "the minimap draws land and water")
+	check(mm.terrain_kind(SMDomainGrid.at("phillips", Vector2i(2, 8))) == "land" and mm.terrain_kind(SMDomainGrid.at("phillips", Vector2i(18, 12))) == "water" and mm.saw_land and mm.saw_water, "the minimap draws land and water")
 	check(mm.player_dots == field.count_team(0) and mm.player_dots >= 6 and mm.enemy_dots == 0 and field.count_team(1) >= 1, "the minimap shows your units and hides enemies outside sight")
 	check(mm.camera_rect.size.x > 1.0 and mm.covers_focus(), "the minimap draws the camera rectangle")
 	var hint_line: Control = scene.find_child("Status", true, false) as Control
@@ -1492,14 +1785,26 @@ func _campaign_hud(scene: Node, id: String) -> bool:
 	mm.sample()
 	var field: SMPointer = scene.get("field") as SMPointer
 	var cam: RTSCamera = scene.get_node_or_null("Camera") as RTSCamera
-	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
-	var trained: Button = scene.find_child("Train_militia", true, false) as Button
+	var faction: String = SMCampaign.player_faction(id)
+	var faction_name: String = "GTFC"
+	var train_id: String = "Train_militia"
+	var build_id: String = "Build_scaffold_yard"
+	if faction == "nmrf":
+		faction_name = "NMRF"
+		train_id = "Train_river_rifle"
+		build_id = "MovePacker"
+	elif faction == "mvd":
+		faction_name = "MVD"
+		train_id = "Train_clearance_trooper"
+		build_id = "Build_command_hub"
+	var built: Button = scene.find_child(build_id, true, false) as Button
+	var trained: Button = scene.find_child(train_id, true, false) as Button
 	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
 	if field == null or cam == null or built == null or trained == null or ability == null or ability.text != "Ability (F)":
 		return false
 	if scene.find_child("GroupBuildings", true, false) == null or scene.find_child("GroupUnits", true, false) == null or scene.find_child("GroupAbility", true, false) == null:
 		return false
-	if _hud_text(scene, "HudFaction") != "GTFC" or _hud_text(scene, "HudCredits") != "Credits 50000":
+	if _hud_text(scene, "HudFaction") != faction_name or _hud_text(scene, "HudCredits") != "Credits 50000":
 		return false
 	if not _hud_text(scene, "HudPower").begins_with("⚡ ") or _hud_text(scene, "HudMap") != SMCampaign.title_of(id):
 		return false
@@ -1695,7 +2000,7 @@ func _sight_radar(path: String) -> void:
 	tech.capture(&"radar", 0)
 	SMSight.update_match(book, scene.get("field") as SMPointer, scene as Node3D, tech, scene.get("raider") as SMRaider)
 	check(yard.visible and book.sees(yard.global_position), "a captured hydro radar reveals the enemy yard")
-	var channel: Vector3 = grid.cell_center(Vector2i(20, 2))
+	var channel: Vector3 = grid.cell_center(SMDomainGrid.at("phillips", Vector2i(20, 2)))
 	check(book.river_lit and book.sees(channel) and grid.domain_at(channel) == SMDomainGrid.Domain.DEEP, "hydro radar lights the river corridor")
 	var corner: Vector2i = Vector2i(0, 23)
 	check(not book.sees(grid.cell_center(corner)) and book.cell_state(corner) == SMSight.HIDDEN, "ground outside the radar stays hidden")
@@ -1712,10 +2017,12 @@ func test_sm_shapes() -> void:
 	check(_shape_is(field, 0, "slag_hauler", "truck") and _shape_is(field, 0, "amber_tank", "tank") and _shape_is(field, 0, "monsoon_tube", "tube"), "trucks, tanks, and artillery have different bodies")
 	check(_shape_is(field, 0, "channel_skiff", "boat"), "boats are a hull")
 	check(_shape_is(field, 1, "raider", "figure"), "enemy soldiers are a low-poly figure")
+	var foe_body: MeshInstance3D = _unit_kind(field, 1, "raider").get_node_or_null("Body") as MeshInstance3D
+	check(foe_body != null and str(foe_body.get_meta("model", "")) == "Model", "an enemy soldier uses a finished model")
 	check(field.name_of(_unit_kind(field, 0, "militia")) == "Shan Insurgent Militia", "the floating name stays")
 	var player_yard: Mesh = (scene.get_node("PlayerYard") as MeshInstance3D).mesh
 	var enemy_yard: Mesh = (scene.get_node("EnemyYard") as MeshInstance3D).mesh
-	check(_tall_mesh(player_yard) and _tall_mesh(enemy_yard), "yard buildings are a taller block")
+	check(_yard_shown(scene.get_node("PlayerYard") as MeshInstance3D) and _yard_shown(scene.get_node("EnemyYard") as MeshInstance3D), "yard buildings are a model or a taller block")
 	var side: SMSide = scene.get("side") as SMSide
 	side.order_building(&"scaffold_yard")
 	var built: MeshInstance3D = scene.get_node_or_null("Built_scaffold_yard") as MeshInstance3D
@@ -1993,8 +2300,8 @@ func test_sm_haze() -> void:
 	var field: SMPointer = scene.get("field") as SMPointer
 	var sim: SMMatch = scene.get("sim") as SMMatch
 	var book: SMSight = scene.get("sight") as SMSight
-	var west: Vector3 = sim.grid.cell_center(Vector2i(8, 12))
-	var east: Vector3 = sim.grid.cell_center(Vector2i(30, 12))
+	var west: Vector3 = sim.grid.cell_center(SMDomainGrid.at("phillips", Vector2i(8, 12)))
+	var east: Vector3 = sim.grid.cell_center(SMDomainGrid.at("phillips", Vector2i(30, 12)))
 	check(field.nav_ground.find_path(west, east).is_empty(), "a ground path across the Phillips channel fails")
 	check(field.nav_amphib.find_path(west, east).size() > 0, "a boat path across the Phillips channel succeeds")
 	check(field.nav_naval.find_path(west, east).size() > 0, "a naval path uses the deep channel")
@@ -2027,7 +2334,7 @@ func test_sm_chain() -> void:
 	var sim: SMMatch = scene.get("sim") as SMMatch
 	var roster: SMRoster = scene.get("roster") as SMRoster
 	var walker: RTSUnit = field.units_of(0)[0]
-	var spot: Vector3 = sim.grid.cell_center(Vector2i(6, 4))
+	var spot: Vector3 = sim.grid.cell_center(SMDomainGrid.at("phillips", Vector2i(6, 4)))
 	walker.global_position = spot
 	var purse: int = roster.economy.credits(0)
 	scene.call("tick_world", 0.2)
@@ -2122,7 +2429,7 @@ func test_sm_names() -> void:
 				mortar = display
 			total += 1
 			check(_named_f(faction_id, id, display, str(unit.get("ability", "")), str(unit.get("f_stat", ""))), "%s %s shows its name and F changes one stat" % [faction_id, id])
-	check(total == 52 and mortar == "Slag Jump Mortar", "the roster is 52 blueprint names and the Kokang mortar stays storefront-safe")
+	check(total == 61 and mortar == "Slag Jump Mortar", "the roster is 61 blueprint names and the Kokang mortar stays storefront-safe")
 	SMFront.faction_id = "gtfc"
 	check(await _train_caption("res://game/phillips_channel.tscn", "Train_militia") == "Shan Insurgent Militia", "gtfc training shows the blueprint name")
 	check(await _train_caption("res://game/phillips_channel.tscn", "Train_kachin_dog") == "Kachin Sapper Dog", "gtfc training lists the sapper dog")
@@ -2319,10 +2626,17 @@ func test_sm_fx() -> void:
 	var foe: RTSUnit = field.units_of(1)[0]
 	field.apply_status(foe, "frozen", 5.0)
 	var body: MeshInstance3D = foe.get_node_or_null("Body") as MeshInstance3D
-	var mat: ShaderMaterial = null
+	var ice_on: bool = false
 	if body != null:
-		mat = body.material_override as ShaderMaterial
-	var ice_on: bool = mat != null and mat.shader != null and mat.shader.resource_path.ends_with("cryo_freeze_overlay.gdshader")
+		var mat: ShaderMaterial = body.material_override as ShaderMaterial
+		if mat == null:
+			mat = body.material_overlay as ShaderMaterial
+		if mat != null and mat.shader != null and mat.shader.resource_path.ends_with("cryo_freeze_overlay.gdshader"):
+			ice_on = true
+		if not ice_on:
+			var coat: MeshInstance3D = body.find_child("IceCoat", true, false) as MeshInstance3D
+			var coat_mat: ShaderMaterial = null if coat == null else coat.material_override as ShaderMaterial
+			ice_on = coat_mat != null and coat_mat.shader != null and coat_mat.shader.resource_path.ends_with("cryo_freeze_overlay.gdshader")
 	check(bool(foe.get_meta("frozen")) and ice_on, "freezing a unit on the cryo mission shows the ice shader")
 	var fx: Script = preload("res://game/fx_view.gd")
 	var painter: MeshInstance3D = scene.find_child("BeamPainter", true, false) as MeshInstance3D
@@ -2689,7 +3003,25 @@ func test_lan() -> void:
 	var note: Label = boot.find_child("MultiplayerNote", true, false) as Label
 	var found: ItemList = boot.find_child("LanFound", true, false) as ItemList
 	check(host != null and host.is_visible_in_tree() and join != null and join.is_visible_in_tree() and addr != null and addr.is_visible_in_tree() and found != null and found.is_visible_in_tree() and note != null and note.is_visible_in_tree() and not note.text.contains("not in this build"), "the multiplayer tab hosts and joins a LAN game")
-	check(Lan.show_controls() and Lan.lan_note(true) == "LAN play needs the desktop build.", "the web build hides LAN and says it needs desktop")
+	check(Lan.show_controls() and Lan.lan_note(true) == "Copy the offer into the other browser, then paste its answer back. No account.", "the web build tells you to copy an offer and paste the answer")
+	var offer: Button = boot.find_child("PasteOffer", true, false) as Button
+	var paste_join: Button = boot.find_child("PasteJoin", true, false) as Button
+	var paste_seal: Button = boot.find_child("PasteSeal", true, false) as Button
+	check(offer != null and paste_join != null and paste_seal != null and not offer.is_visible_in_tree(), "browser paste controls stay off the desktop menu")
+	var paste_copy: Button = boot.find_child("PasteCopy", true, false) as Button
+	check(offer.disabled and paste_copy != null and paste_copy.disabled, "copy stays disabled until the offer is ready")
+	var paste_status: Label = boot.find_child("PasteStatus", true, false) as Label
+	var fake: WebPaste = WebPaste.new()
+	fake.text = "ready-blob"
+	fake.phase = "answer"
+	Lan.seat()._web = fake
+	Lan.role = "client"
+	boot.call("_paint_paste")
+	check(paste_status != null and paste_status.text.contains("Answer is ready to copy.") and not offer.disabled, "the guest is told the answer is ready to copy")
+	Lan.role = "host"
+	boot.call("_paint_paste")
+	check(paste_status != null and paste_status.text.contains("Offer is ready to copy."), "the host is told the offer is ready to copy")
+	Lan.close()
 	host.pressed.emit()
 	var status: Label = boot.find_child("LanStatus", true, false) as Label
 	check(status != null and status.text.contains("Waiting") and status.text.contains("47931"), "hosting opens a LAN port")
@@ -2711,6 +3043,14 @@ func test_lan() -> void:
 	var seat: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	var seated: Error = seat.create_server(47923)
 	check(seated == OK and Lan.attach_peer(seat, true) == OK and Lan.role == "host" and Lan.peer == seat, "a WebRTC peer can take the same session slot later")
+	Lan.close()
+	var packed: String = WebPaste.pack("offer", "v=0\r\nstun", [["0", 0, "candidate:1 1 udp 1 1.2.3.4 9 typ host"]])
+	var unpacked: Dictionary = WebPaste.unpack(packed)
+	var ice: Array = unpacked.get("c", [])
+	check(WebPaste.STUN_URL == "stun:stun.l.google.com:19302" and str(unpacked.get("t", "")) == "offer" and str(unpacked.get("s", "")) == "v=0\r\nstun" and ice.size() == 1 and str(ice[0][2]).begins_with("candidate:"), "a WebRTC paste round-trips the offer and the STUN server")
+	check(WebPaste.unpack("").is_empty() and WebPaste.unpack("nope").is_empty() and WebPaste.unpack("ASEAN2031.!!!!").is_empty() and Lan.paste_join("nope") == ERR_INVALID_DATA, "a broken paste is ignored")
+	check(not WebPaste.ready() and Lan.paste_host() == ERR_UNAVAILABLE and Lan.paste_text() == "" and Lan.role == "" and Lan.paste_note() == WebPaste.DESKTOP_NOTE, "desktop without the WebRTC addon refuses to mint an offer")
+	check(Lan.paste_join(packed) == ERR_UNAVAILABLE and Lan.paste_seal(packed) == ERR_UNCONFIGURED, "joining waits for a browser WebRTC stack, and an answer needs an offer first")
 	Lan.close()
 	Lan.forget_hosts()
 	Lan.port = 7777
@@ -2826,7 +3166,7 @@ func test_lan_match() -> void:
 		var bits: Array = row
 		if int(bits[4]) == SMPointer.PLAYER:
 			seen_host = true
-	check(int(full.get("n", 0)) > 48 and listed.size() > 48 and not seen_host and str(full.get("fog", "")).length() == 960 and full.has("credits") and full.has("q") and (full.get("b", []) as Array).size() > 0, "the snapshot carries fog, economy, structures, and more than 48 units")
+	check(int(full.get("n", 0)) > 48 and listed.size() > 48 and not seen_host and str(full.get("fog", "")).length() == 1904 and full.has("credits") and full.has("q") and (full.get("b", []) as Array).size() > 0, "the snapshot carries fog, economy, structures, and more than 48 units")
 	var delta: Dictionary = seat.state_of(scene, false)
 	var changed: Array = delta.get("u", [])
 	check(int(delta.get("n", 0)) > 48 and changed.size() < int(delta.get("n", 0)) and not delta.has("fog"), "later snapshots send only what changed")
@@ -2863,11 +3203,61 @@ func test_lan_match() -> void:
 	other_guest.watch(0.4)
 	check(other_guest.paused and other_guest.winner == "guest", "a dropped host gives the guest the win")
 	other_guest.close()
+	Lan.port = 47971
+	var host_seat: Seat = Seat.new()
+	var guest_seat: Seat = Seat.new()
+	host_seat.port = 47971
+	guest_seat.port = 47971
+	host_seat.faction = "gtfc"
+	guest_seat.faction = "nmrf"
+	var lobby_open: bool = host_seat.open_host() == OK and guest_seat.open_client("127.0.0.1") == OK
+	var saw_room: bool = false
+	if lobby_open:
+		for _k: int in 40:
+			host_seat.pump()
+			guest_seat.pump()
+			var host_raw: String = host_seat.take()
+			while host_raw != "":
+				host_seat.ingest(host_raw)
+				host_raw = host_seat.take()
+			var guest_raw: String = guest_seat.take()
+			while guest_raw != "":
+				if guest_seat.ingest(guest_raw) == "room":
+					saw_room = true
+				guest_raw = guest_seat.take()
+			if saw_room and host_seat.guest_joined:
+				break
+			OS.delay_msec(20)
+	check(lobby_open and saw_room and guest_seat.guest_joined and not guest_seat.lobby_line().contains("waiting"), "the guest lobby names the guest once the room arrives")
+	if saw_room:
+		guest_seat.pick_faction("mvd")
+		host_seat.pump()
+		guest_seat.pump()
+		var wish_raw: String = host_seat.take()
+		while wish_raw != "":
+			host_seat.ingest(wish_raw)
+			wish_raw = host_seat.take()
+		var echo: String = guest_seat.take()
+		while echo != "":
+			guest_seat.ingest(echo)
+			echo = guest_seat.take()
+		guest_seat.set_ready(true)
+		host_seat.pump()
+		guest_seat.pump()
+		var ready_raw: String = host_seat.take()
+		while ready_raw != "":
+			host_seat.ingest(ready_raw)
+			ready_raw = host_seat.take()
+	check(host_seat.guest_faction == "mvd" and host_seat.guest_ready and guest_seat.faction == "gtfc", "ready keeps the guest faction instead of resetting it to GTFC")
+	host_seat.close()
+	guest_seat.close()
 	Lan.port = 7777
 	Lan.silence_pause = 2.0
 	Lan.drop_after = 15.0
 
 func test_sm_story() -> void:
+	check(SMCampaign.player_faction("kokang") == "gtfc" and SMCampaign.player_faction("ghosts_of_patani") == "nmrf" and SMCampaign.player_faction("plain_of_jars") == "mvd", "each act plays its own faction")
+	check(SMCampaign.enemy_faction("andaman") == "nmrf" and SMCampaign.enemy_faction("tonle_sap") == "nmrf" and SMCampaign.enemy_faction("keng_tung") == "gtfc" and SMCampaign.enemy_faction("operation_1027") == "black_market", "enemies match the briefing")
 	for id: String in SMCampaign.ids():
 		SMCampaign.selected = id
 		var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
@@ -2887,6 +3277,11 @@ func test_sm_story() -> void:
 		check(story_now.reinforcements >= 2, "%s fields a second beat" % id)
 		if id == "kokang":
 			check(_duty_units(field_now, "recon").size() >= 2, "kokang posts Orlan recon over the pits")
+			var still: TextureRect = scene.find_child("BriefingStill", true, false) as TextureRect
+			check(still != null and still.texture != null and still.visible, "kokang shows the briefing still")
+		if id == "ghosts_of_patani" or id == "fog_over_pakbeng":
+			var mission_still: TextureRect = scene.find_child("BriefingStill", true, false) as TextureRect
+			check(mission_still != null and mission_still.texture != null and mission_still.visible, "%s shows the briefing still" % id)
 		if id == "tachileik":
 			check(story_now.has_caravan(), "tachileik fields the jade caravan")
 		if id == "shwe_kokko":
@@ -2972,13 +3367,13 @@ func _meet_story(scene: Node, id: String) -> void:
 		story.tick(0.1)
 	elif id == "archipelago_rising":
 		_kill_duty(field, "clear")
-		_park(field, "channel_skiff", story.shallow_pad)
+		_park(field, "sampan", story.shallow_pad)
 		story.tick(0.1)
 	elif id == "ghosts_of_patani":
 		_wipe(field.units_of(1))
 		story.tick(0.1)
 	elif id == "plain_of_jars":
-		var tube: RTSUnit = _kind_unit(field, "monsoon_tube")
+		var tube: RTSUnit = _beam_tube(field)
 		var foe: RTSUnit = _duty_units(field, "phantom")[0]
 		foe.max_hp = 100000.0
 		foe.hp = 100000.0
@@ -3111,11 +3506,17 @@ func _script_skirmish(wipe: bool) -> bool:
 		_wipe(field.units_of(SMPointer.PLAYER))
 		scene._process(0.2)
 	else:
-		_train_boats(scene, 8)
+		if not _train_boats(scene, 8):
+			scene.free()
+			await process_frame
+			return false
 		var steps: int = 0
 		var end: SMOutcome = scene.get("outcome") as SMOutcome
 		while end != null and not end.over and steps < 480:
-			if not field.units_of(SMPointer.ENEMY).is_empty():
+			_favor_script(field)
+			if field.units_of(SMPointer.ENEMY).is_empty():
+				_march_on_base(scene, field)
+			else:
 				_order_crossing(field)
 			scene._process(0.5)
 			steps += 1
@@ -3127,12 +3528,49 @@ func _script_skirmish(wipe: bool) -> bool:
 	await process_frame
 	return ok
 
-func _train_boats(scene: Node, count: int) -> void:
+func _train_boats(scene: Node, count: int) -> bool:
 	var button: Button = scene.find_child("Train_channel_skiff", true, false) as Button
+	var spins: int = 0
+	while button == null and spins < 6:
+		scene._process(0.0)
+		button = scene.find_child("Train_channel_skiff", true, false) as Button
+		spins += 1
 	if button == null:
-		return
+		return false
 	for _i: int in count:
 		button.pressed.emit()
+	return true
+
+## The scripted crossing has to reach the objective either way the dice fall.
+## Player boats hit harder and the garrison is brittle, so a long suite cannot
+## lose the race that a quiet run wins.
+func _favor_script(field: SMPointer) -> void:
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if is_instance_valid(u) and u.is_alive():
+			u.attack_damage = maxf(u.attack_damage, 60.0)
+			if u.hp < 800.0:
+				u.hp = 800.0
+	for foe: RTSUnit in field.units_of(SMPointer.ENEMY):
+		if is_instance_valid(foe) and foe.is_alive() and foe.hp > 50.0:
+			foe.hp = 50.0
+
+## Once the garrison is gone, the boats still have to sit on the yard or the
+## match never ends. A kill far from the base used to time the script out.
+func _march_on_base(scene: Node, field: SMPointer) -> void:
+	var raider: SMRaider = scene.get("raider") as SMRaider
+	if raider == null or raider.yard == null:
+		return
+	var at: Vector3 = raider.yard.center
+	for u: RTSUnit in field.units_of(SMPointer.PLAYER):
+		if not is_instance_valid(u) or not u.is_alive():
+			continue
+		var nav: RTSGridNav = field.nav_for_unit(u)
+		if nav == null or nav.find_path(u.global_position, at).is_empty():
+			u.global_position = at + Vector3(3.0, 0.0, 0.0)
+		if nav == null:
+			continue
+		var one: Array[RTSUnit] = [u]
+		RTSOrders.move(one, at, nav)
 
 func _order_crossing(field: SMPointer) -> void:
 	var target: RTSUnit = _priority_target(field)
@@ -3150,6 +3588,8 @@ func _order_crossing(field: SMPointer) -> void:
 func _script_orders(scene: Node, id: String) -> void:
 	var field: SMPointer = scene.get("field") as SMPointer
 	var story: SMStory = scene.get("story") as SMStory
+	if id != "plain_of_jars":
+		_favor_script(field)
 	if id == "kokang":
 		_fight_enemies(scene, field, 160)
 		var build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
@@ -3165,6 +3605,7 @@ func _script_orders(scene: Node, id: String) -> void:
 		return
 	if id == "plain_of_jars":
 		_beam_once(scene, field)
+		_favor_script(field)
 		_fight_enemies(scene, field, 160)
 		return
 	if id == "black_haze" or id == "fog_over_pakbeng" or id == "tachileik" or id == "shwe_kokko" or id == "kilometer_watch":
@@ -3179,7 +3620,7 @@ func _script_orders(scene: Node, id: String) -> void:
 		return
 	if id == "archipelago_rising":
 		_fight_enemies(scene, field, 200)
-		_march(scene, field, story.shallow_pad, "channel_skiff")
+		_march(scene, field, story.shallow_pad, "sampan")
 		_sim_until_done(scene, 40, 0.5)
 		return
 	if id == "tonle_sap":
@@ -3212,8 +3653,14 @@ func _thawed_column(field: SMPointer) -> bool:
 			return true
 	return false
 
+func _beam_tube(field: SMPointer) -> RTSUnit:
+	var tube: RTSUnit = _kind_unit(field, "siege_tube")
+	if tube == null:
+		tube = _kind_unit(field, "monsoon_tube")
+	return tube
+
 func _beam_once(scene: Node, field: SMPointer) -> void:
-	var tube: RTSUnit = _kind_unit(field, "monsoon_tube")
+	var tube: RTSUnit = _beam_tube(field)
 	if tube == null or not tube.is_alive():
 		return
 	var wait: int = 0
@@ -3374,6 +3821,9 @@ func test_sm_web() -> void:
 	SMSave.mark("tachileik")
 	SMSave.apply_payload(JSON.stringify(JSON.stringify(["kokang"])))
 	check(SMSave.has("kokang") and SMSave.has("tachileik"), "a wrapped IndexedDB campaign record merges into the save")
+	SMSave.apply_payload("")
+	SMSave.apply_payload("not json")
+	check(SMSave.has("kokang") and SMSave.has("tachileik"), "an empty campaign record is ignored")
 	SMSave.clear()
 	SMCampaign.selected = "tachileik"
 	await process_frame
@@ -3398,7 +3848,7 @@ func test_sm_guide() -> void:
 	check(SMTone.peak(ui) > 1000 and SMTone.peak(shot) > 1000 and shot.data.size() > ui.data.size(), "procedural cues are audible and the attack cue is longer")
 	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
 	check(clips.call("cue_clip", "") == null and clips.call("cue_clip", "../shot") == null and clips.call("cue_clip", "a/b") == null, "a cue id cannot leave the sfx folder")
-	check(clips.call("weapon_kind", "rifle") == "weapon_rifle" and clips.call("weapon_kind", "cannon") == "weapon_cannon" and clips.call("weapon_kind", "tube") == "weapon_artillery" and clips.call("weapon_kind", "lance") == "weapon_rocket", "weapon types map onto rifle, cannon, artillery, and rocket cues")
+	check(clips.call("weapon_kind", "rifle") == "weapon_rifle" and clips.call("weapon_kind", "cannon") == "weapon_cannon" and clips.call("weapon_kind", "tube") == "weapon_artillery" and clips.call("weapon_kind", "lance") == "weapon_rocket" and clips.call("weapon_kind", "missile") == "weapon_missile" and clips.call("weapon_kind", "bomblet") == "weapon_missile" and clips.call("weapon_kind", "torpedo") == "weapon_torpedo" and clips.call("weapon_kind", "shaped_charge") == "weapon_rocket" and clips.call("weapon_kind", "warhead") == "weapon_rocket" and clips.call("weapon_kind", "swarm") == "weapon_missile", "weapon types map onto rifle, cannon, artillery, rocket, missile, and torpedo cues")
 	check(clips.call("impact_kind", 4.0) == "impact_small" and clips.call("impact_kind", 12.0) == "impact_medium" and clips.call("impact_kind", 24.0) == "impact_large", "hits pick a small, medium, or large impact")
 	check(clips.call("move_kind", "armor", "ground", "amber_tank") == "move_tank_treads" and clips.call("move_kind", "drone", "amphibious", "river_drone") == "move_hover" and clips.call("move_kind", "air", "air", "gunship") == "move_helicopter" and clips.call("move_kind", "air", "air", "su30") == "", "treads, hover, and rotors loop, and jets do not")
 	check(clips.call("ability_kind", "Ballistic Riot Shield") == "ability_shield" and clips.call("ability_kind", "Blackout EMP") == "ability_emp" and clips.call("ability_kind", "Black-Hole Armor") == "ability_black_hole" and clips.call("ability_kind", "S.H.R.I.N.K. Ray") == "weapon_shrink_ray" and clips.call("ability_kind", "Slag Molotov") == "ability_generic", "abilities pick shield, EMP, black hole, shrink, or a generic cue")
@@ -3613,6 +4063,20 @@ func test_sm_guide() -> void:
 	var raid_brief: Label = raid.find_child("Briefing", true, false) as Label
 	var raid_boot: Button = raid.find_child("MissionBoot", true, false) as Button
 	check(raid_brief != null and raid_brief.position.x >= 210.0 and raid_brief.size.x <= 820.0 and raid_brief.size.y >= 60.0 and raid_brief.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART and raid_brief.clip_text, "the kokang briefing clears the minimap and wraps")
+	var raid_status: Control = raid.find_child("Status", true, false) as Control
+	var brief_box: Rect2 = raid_brief.get_global_rect() if raid_brief != null else Rect2()
+	var status_box: Rect2 = raid_status.get_global_rect() if raid_status != null else Rect2()
+	var brief_hit: Rect2 = brief_box.intersection(status_box)
+	check(raid_status != null and brief_box.size.y >= 60.0 and status_box.size.y >= 8.0 and (brief_hit.size.x < 1.0 or brief_hit.size.y < 1.0), "the kokang briefing lines do not overlap")
+	check(not _plain_box(raid.get_node_or_null("Scaffold")) and not _plain_box(raid.get_node_or_null("RubyNode")) and not _plain_box(raid.get_node_or_null("RareNode")), "kokang yard and ore nodes are not plain boxes")
+	var teak: MultiMeshInstance3D = raid.get_node_or_null("JungleTrees") as MultiMeshInstance3D
+	var teak_mesh: Mesh = teak.multimesh.mesh if teak != null and teak.multimesh != null else null
+	var fallback_tree: Mesh = Ground.fallback_tree()
+	check(teak_mesh != null and teak_mesh.get_faces().size() > 200 and fallback_tree.get_faces().size() > 200, "kokang trees are a crown, not a green cube")
+	var raid_map: SMMinimap = raid.find_child("Minimap", true, false) as SMMinimap
+	check(raid_map != null and raid_map.backdrop != null and not _flat_olive(raid_map.backdrop), "the kokang minimap is not a flat olive square")
+	var worker: String = FileAccess.get_file_as_string("res://web/sw.js")
+	check(worker.contains("shattered-monsoon-v3") and worker.contains("cache.put") and worker.contains("/models/") and worker.contains("/audio/") and worker.contains("index.wasm") and worker.contains("index.pck"), "the service worker precaches the shell and stores models and audio")
 	check(raid_boot != null and raid_boot.visible and raid_boot.text == "Boot menu", "kokang can return to the boot menu")
 	raid.free()
 	await process_frame
@@ -3637,12 +4101,27 @@ func test_sm_bark() -> void:
 		if clips.call("_stream", track) == null:
 			tracks_ok = false
 	check(tracks_ok, "menu, faction, and sting tracks decode")
-	check(clips.call("titles_for", "menu") == PackedStringArray(["Menu", "Changes", "Not Needed Anymore"]), "the menu playlist names its songs")
-	check(clips.call("titles_for", "gtfc") == PackedStringArray(["GTFC", "Yangonite", "Ready To Rage Against The Abnormalities", "Poison", "Time"]), "the GTFC playlist names its songs")
-	check(clips.call("titles_for", "nmrf") == PackedStringArray(["NMRF", "Supayarlat", "Past Cracks", "Poison", "Time"]), "the NMRF playlist names its songs")
-	check(clips.call("titles_for", "mvd") == PackedStringArray(["MVD", "Machinesfuture", "Humanfuture", "Poison", "Time"]), "the MVD playlist names its songs")
-	check(clips.call("titles_for", "black_market") == PackedStringArray(["Black Market", "Night", "Love Drunk", "Poison", "Time"]), "the black market playlist names its songs")
-	check(clips.call("titles_for", "shared") == PackedStringArray(["Poison", "Time"]), "the shared playlist names its songs")
+	check(clips.call("titles_for", "menu") == PackedStringArray(["Yangonite"]), "the menu plays only Yangonite")
+	var rotation_titles: PackedStringArray = clips.call("titles_for", "rotation") as PackedStringArray
+	var rotation_unique: Dictionary = {}
+	for song: String in rotation_titles:
+		if song != "":
+			rotation_unique[song] = true
+	check(rotation_titles.size() == 12 and rotation_unique.size() == 12 and rotation_titles.has("Yangonite") and rotation_titles.has("Poison"), "every map shares one twelve-song rotation")
+	var retired_rels: PackedStringArray = clips.call("_rels_for", "retired") as PackedStringArray
+	var retired_out: bool = retired_rels.size() == 5
+	for rel: String in retired_rels:
+		if (clips.call("_rels_for", "rotation") as PackedStringArray).has(rel) or (clips.call("_rels_for", "menu") as PackedStringArray).has(rel) or not clips.call("is_retired", rel):
+			retired_out = false
+	check(retired_out, "the generated menu and faction loops are retired from the menu and the rotation")
+	check((clips.call("titles_for", "gtfc") as PackedStringArray).is_empty() and (clips.call("titles_for", "black_market") as PackedStringArray).is_empty(), "there are no per-faction playlists")
+	check(not clips.call("is_retired", "music/victory_sting.ogg") and not clips.call("is_retired", "music/defeat_sting.ogg") and not clips.call("is_retired", "music/user/time.ogg"), "the stings and user songs are not retired")
+	var reshuffled: bool = true
+	for i: int in 20:
+		var order: PackedStringArray = clips.call("_shuffle", clips.call("_rels_for", "rotation"), "music/user/time.ogg") as PackedStringArray
+		if order.size() != 12 or order[0] == "music/user/time.ogg":
+			reshuffled = false
+	check(reshuffled, "a reshuffle never opens on the song that just played")
 	check(clips.call("is_lazy", "music/user/night.ogg") and not clips.call("is_lazy", "music/menu.ogg"), "user songs stay out of the startup download")
 	check(clips.call("is_lazy", "barks/burmese/militia_select_1.ogg") and clips.call("is_lazy", "announcer/thai/gtfc/unit_ready.ogg") and not clips.call("is_lazy", "barks/militia_select_1.ogg"), "only the selected voice language stays out of the startup download")
 	var user_tracks: PackedStringArray = PackedStringArray([
@@ -3669,12 +4148,19 @@ func test_sm_bark() -> void:
 	for unit_id: String in voiced:
 		for event_name: String in events:
 			var found: PackedStringArray = clips.call("_variants", unit_id, event_name) as PackedStringArray
-			if found.size() < 2 or clips.call("_stream", found[0]) == null or clips.call("_stream", found[1]) == null:
+			if found.is_empty() or clips.call("_stream", found[0]) == null:
 				barks_ok = false
+			var english: bool = false
 			for rel: String in found:
-				if rel.contains("_retired") or rel.split("/").size() < 3:
+				if rel.begins_with("barks/en/"):
+					english = true
+				if clips.call("_stream", rel) == null or rel.contains("_retired") or rel.split("/").size() < 3:
 					barks_ok = false
-	check(barks_ok, "the nine shipped units decode both bark takes")
+			if english:
+				for rel: String in found:
+					if not rel.begins_with("barks/en/"):
+						barks_ok = false
+	check(barks_ok, "the nine shipped units decode a take, and English stays English")
 	check(clips.call("clip_for", "militia", "select") != null, "a shipped bark is chosen for playback")
 	check(Settings.voice_folder("english") == "en" and Settings.voice_folder("burmese") == "my" and Settings.voice_folder("mandarin") == "zh" and Settings.voice_folder("thai") == "th" and Settings.voice_folder("malay") == "ms", "voice settings map onto en my zh th ms")
 	var wanted: PackedStringArray = clips.call("_wanted_langs") as PackedStringArray
@@ -3715,6 +4201,7 @@ func test_sm_bark() -> void:
 	Settings.set_sfx(0.5)
 	Settings.apply_scene(null)
 	check(music_bus > 0 and AudioServer.get_bus_send(music_bus) == "Master" and is_equal_approx(AudioServer.get_bus_volume_db(0), linear_to_db(0.4)), "master volume scales the music bus")
+	check(AudioServer.get_bus_index("Master") == 0, "runtime buses leave Master at the speakers")
 	check(is_equal_approx(Settings.cue_db(-6.0), -6.0 + linear_to_db(0.5)), "sfx volume scales barks")
 	var capped: bool = false
 	var ceiling: float = 0.0
@@ -3726,6 +4213,11 @@ func test_sm_bark() -> void:
 	var sfx_bus: int = AudioServer.get_bus_index("SFX")
 	check(capped and is_equal_approx(ceiling, -1.0), "the master bus limiter ceilings at -1 dB")
 	check(sfx_bus > 0 and is_equal_approx(AudioServer.get_bus_volume_db(sfx_bus), Settings.sfx_bus_db()) and Settings.sfx_bus_db() < linear_to_db(Settings.sfx), "the sfx bus sits under the slider")
+	Settings.restore()
+	Settings.apply_scene(null)
+	var music_now: int = AudioServer.get_bus_index("Music")
+	var music_db: float = AudioServer.get_bus_volume_db(music_now)
+	check(music_now > 0 and music_db <= -4.0 and music_db >= -6.0 and is_equal_approx(music_db, Settings.music_bus_db()), "music defaults about 5 dB under full")
 	Settings.set_master(1.0)
 	Settings.set_sfx(1.0)
 	Settings.apply_scene(null)
@@ -3735,13 +4227,23 @@ func test_sm_bark() -> void:
 	clips.call("play_menu", speaker)
 	var menu_player: AudioStreamPlayer = speaker.get_node_or_null("MenuMusic") as AudioStreamPlayer
 	check(menu_player != null and menu_player.playing and menu_player.stream != null, "menu music starts")
-	check(clips.call("current_title") == "Menu", "the menu opens on its generated track")
-	menu_player.stop()
+	check(clips.call("current_title") == "Yangonite", "the menu opens on Yangonite")
+	var menu_ogg: AudioStreamOggVorbis = menu_player.stream as AudioStreamOggVorbis
 	clips.call("tick", speaker)
-	check(clips.call("current_title") == "Changes" and menu_player.playing, "the menu rotation advances to the next song")
+	check(menu_ogg != null and menu_ogg.loop and clips.call("current_title") == "Yangonite" and not clips.call("can_skip") and not clips.call("skip", speaker), "the menu loops Yangonite and ignores skip")
+	menu_ogg.loop = false
 	clips.call("play_faction", speaker, "nmrf")
 	var faction_player: AudioStreamPlayer = speaker.get_node_or_null("FactionMusic") as AudioStreamPlayer
 	check(faction_player != null and faction_player.playing and faction_player.stream != null, "faction music starts")
+	var first_song: String = str(clips.call("current_title"))
+	var skipped: bool = clips.call("skip", speaker)
+	var second_song: String = str(clips.call("current_title"))
+	check(skipped and second_song != first_song and second_song != "" and faction_player.playing and rotation_titles.has(second_song), "skip moves the match to the next song in the rotation")
+	var faction_ogg: AudioStreamOggVorbis = faction_player.stream as AudioStreamOggVorbis
+	check(faction_ogg != null and not faction_ogg.loop, "match songs play through once")
+	clips.call("play_faction", speaker, "gtfc")
+	var third_song: String = str(clips.call("current_title"))
+	check(third_song != second_song and rotation_titles.has(third_song), "the next map continues the same rotation instead of a faction list")
 	clips.call("play_sting", speaker, true)
 	var victory_player: AudioStreamPlayer = speaker.get_node_or_null("StingMusic") as AudioStreamPlayer
 	var victory_ogg: AudioStreamOggVorbis = null
@@ -4154,11 +4656,11 @@ func test_sm_monsoon() -> void:
 			break
 	var deep: int = SMDomainGrid.Domain.DEEP
 	var land: int = SMDomainGrid.Domain.LAND
-	check(fell and sim.grid.domain_at_cell(Vector2i(13, 14)) == deep and sim.grid.domain_at_cell(Vector2i(13, 15)) == deep, "the north span falls into the canal")
+	check(fell and sim.grid.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 14))) == deep and sim.grid.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 15))) == deep, "the north span falls into the canal")
 	var plate: MeshInstance3D = scene.get_node_or_null("Bridge_bridge_a") as MeshInstance3D
 	var deck: MeshInstance3D = scene.get_node_or_null("BridgeWest") as MeshInstance3D
 	var box: BoxMesh = deck.mesh as BoxMesh if deck != null else null
-	check(sim.grid.domain_at_cell(Vector2i(13, 16)) == land and sim.grid.domain_at_cell(Vector2i(13, 17)) == land and plate != null and plate.position.y < 0.0 and deck != null and deck.visible and box != null and is_equal_approx(box.size.z, 8.0), "the south span stays up and the fallen deck sinks")
+	check(sim.grid.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 16))) == land and sim.grid.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 17))) == land and plate != null and plate.position.y < 0.0 and deck != null and deck.visible and box != null and is_equal_approx(box.size.z, 8.0), "the south span stays up and the fallen deck sinks")
 	var south: Vector3 = sim.tech.site_pos(&"bridge_b")
 	walker.global_position = south + Vector3(-6.0, 0.0, 0.0)
 	field.select_only([walker])
@@ -4167,12 +4669,12 @@ func test_sm_monsoon() -> void:
 		field.tick(0.2)
 		if not sim.tech.bridge_alive(&"bridge_b"):
 			break
-	var west: Vector3 = sim.grid.cell_center(Vector2i(4, 16))
-	var east: Vector3 = sim.grid.cell_center(Vector2i(20, 16))
+	var west: Vector3 = sim.grid.cell_center(SMDomainGrid.at("mekong_delta", Vector2i(4, 16)))
+	var east: Vector3 = sim.grid.cell_center(SMDomainGrid.at("mekong_delta", Vector2i(20, 16)))
 	check(not sim.tech.bridge_alive(&"bridge_b") and deck != null and not deck.visible, "both west spans drop and the deck is gone")
 	check(field.nav_ground.find_path(west, east).is_empty() and field.nav_amphib.find_path(west, east).size() > 0, "ground stops at the open canal and a boat still crosses")
 	var fresh: SMDomainGrid = SMDomainGrid.mekong_delta_layout()
-	check(fresh.domain_at_cell(Vector2i(13, 15)) == land and fresh.domain_at_cell(Vector2i(27, 16)) == land, "a fresh Mekong layout still keeps both bridges")
+	check(fresh.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(13, 15))) == land and fresh.domain_at_cell(SMDomainGrid.at("mekong_delta", Vector2i(27, 16))) == land, "a fresh Mekong layout still keeps both bridges")
 	scene.free()
 	await process_frame
 	var sop: Node = (load("res://game/sop_ruak.tscn") as PackedScene).instantiate()
@@ -4234,6 +4736,9 @@ func test_sm_boot() -> void:
 	check(_card_line(boot, "CardAtolls", "Ten Degree Atolls", "Water"), "the atolls are a water card")
 	check(_card_line(boot, "CardMekong", "Mekong Delta", "River"), "the mekong is a river card")
 	check(_card_line(boot, "CardChiang", "Siege of Chiang Rai", "River"), "chiang rai is a river card")
+	var showcase_card: Button = boot.find_child("CardShowcase", true, false) as Button
+	check(_card_line(boot, "CardShowcase", "Golden Confluence", "River") and showcase_card != null and str(showcase_card.get_meta("map_path", "")) == "res://game/showcase.tscn" and ResourceLoader.exists("res://game/showcase.tscn"), "golden confluence is a river card that opens the showcase map")
+	check(boot.call("_map_preview", "res://game/showcase.tscn") != null and str(boot.call("_mission_title", "res://game/showcase.tscn")) == "Golden Confluence", "golden confluence has a map preview and a loading title")
 	var burma_card: Button = boot.find_child("CardBurma", true, false) as Button
 	burma_card.pressed.emit()
 	check(str(boot.get("selected_map")).contains("burma_road") and not play.disabled, "a card arms play")
@@ -4310,13 +4815,13 @@ func _trained(path: String) -> String:
 		return ""
 	return label
 
-func _duel(personality: StringName, map_id: String, foe: StringName, needs_water: bool) -> bool:
+func _duel(personality: StringName, map_id: String, foe: StringName, needs_water: bool, limit: float = 45.0) -> bool:
 	var host: Node3D = Node3D.new()
 	root.add_child(host)
 	var bot: SMBot = SMBot.new(personality)
 	var other: SMBot = SMBot.new(foe)
-	var result: Dictionary = bot.fight(other, map_id, 45.0, host)
-	var ok: bool = bool(result["won"]) and float(result["time"]) <= 45.0 and bool(result["scout_first"]) and bool(result["muster"]) and bool(result["flank"]) and bool(result["retreat"]) and bool(result["rebuilt"]) and bool(result["protocol"]) and bool(result["ability"]) and bool(result["power"]) and (not needs_water or bool(result["water"]))
+	var result: Dictionary = bot.fight(other, map_id, limit, host)
+	var ok: bool = bool(result["won"]) and float(result["time"]) <= limit and bool(result["scout_first"]) and bool(result["muster"]) and bool(result["flank"]) and bool(result["retreat"]) and bool(result["rebuilt"]) and bool(result["protocol"]) and bool(result["ability"]) and bool(result["power"]) and (not needs_water or bool(result["water"]))
 	duel_note = "" if ok else bot.last_note
 	host.free()
 	return ok
@@ -4377,6 +4882,146 @@ func _orders(scene: Node, field: SMPointer) -> bool:
 		return false
 	return bool(scene.call("fire_ability"))
 
+func _proportion_fault() -> String:
+	var buildings: Dictionary = {}
+	var also_unit: Dictionary = {}
+	var factions: PackedStringArray = PackedStringArray(["gtfc", "mvd", "nmrf", "black_market"])
+	for faction: String in factions:
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/factions/%s/faction.json" % faction))
+		var data: Dictionary = parsed as Dictionary
+		if data.is_empty():
+			return "faction %s" % faction
+		var rows: Array = data.get("buildings", []) as Array
+		for item: Variant in rows:
+			if item is Dictionary:
+				buildings[str((item as Dictionary).get("id", ""))] = true
+		var troops: Array = data.get("units", []) as Array
+		for item: Variant in troops:
+			if item is Dictionary:
+				also_unit[str((item as Dictionary).get("id", ""))] = true
+	var specifics: PackedStringArray = PackedStringArray([
+		"gtfc_airfield", "gtfc_naval_yard", "gtfc_war_factory",
+		"mvd_airfield", "mvd_naval_yard", "mvd_war_factory",
+		"nmrf_airfield", "nmrf_naval_yard", "nmrf_war_factory",
+	])
+	for extra: String in specifics:
+		buildings[extra] = true
+	var ids: PackedStringArray = PackedStringArray()
+	for line: String in FileAccess.get_file_as_string("res://data/tripo_ids.txt").split("\n"):
+		var name: String = line.strip_edges()
+		if name != "":
+			ids.append(name)
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	for id: String in ids:
+		if buildings.has(id):
+			var fault: String = _proportion_structure(host, id)
+			if fault != "":
+				host.free()
+				return fault
+		if not buildings.has(id) or also_unit.has(id):
+			var unit_fault: String = _proportion_unit(host, id)
+			if unit_fault != "":
+				host.free()
+				return unit_fault
+	host.free()
+	return ""
+
+func _proportion_structure(host: Node3D, id: String) -> String:
+	var node_name: String = id
+	if id.begins_with("gtfc_") or id.begins_with("mvd_") or id.begins_with("nmrf_"):
+		node_name = id.substr(id.find("_") + 1)
+	var sample: MeshInstance3D = MeshInstance3D.new()
+	sample.name = "Built_%s" % node_name
+	sample.mesh = Forms.structure_mesh(Forms.structure_form(sample.name), Color.WHITE, SMPointer.BUILDING_SIZE.y)
+	if sample.mesh == null:
+		sample.free()
+		return "%s mesh" % id
+	var foot: AABB = sample.mesh.get_aabb()
+	var span: float = maxf(foot.size.x, foot.size.z)
+	host.add_child(sample)
+	var dressed: bool = ModelBook.apply_structure(sample, id, Color.WHITE, Color.WHITE)
+	var model: Node3D = sample.get_node_or_null("Model") as Node3D
+	var wide: float = _horizontal_span(sample)
+	var fault: String = ""
+	if not dressed or model == null:
+		fault = "%s missing" % id
+	elif not _scales_even(sample):
+		fault = "%s stretched" % id
+	elif absf(wide - span) > maxf(0.05, span * 0.02):
+		fault = "%s footprint %.2f vs %.2f" % [id, wide, span]
+	elif not _height_kept(model):
+		fault = "%s height" % id
+	sample.free()
+	return fault
+
+func _proportion_unit(host: Node3D, id: String) -> String:
+	var body: MeshInstance3D = Forms.dress_unit(id, "infantry", "ground", Color.WHITE)
+	host.add_child(body)
+	var model: Node3D = body.get_node_or_null("Model") as Node3D
+	var fault: String = ""
+	if model == null:
+		fault = "%s missing" % id
+	elif not _scales_even(body):
+		fault = "%s stretched" % id
+	elif not _height_kept(model):
+		fault = "%s height" % id
+	body.free()
+	return fault
+
+func _scales_even(root_node: Node) -> bool:
+	var stack: Array[Node] = [root_node]
+	while stack.size() > 0:
+		var node: Node = stack.pop_back()
+		var spatial: Node3D = node as Node3D
+		if spatial != null:
+			var s: Vector3 = spatial.scale
+			if not is_equal_approx(s.x, s.y) or not is_equal_approx(s.y, s.z) or s.x <= 0.0:
+				return false
+		for child: Node in node.get_children():
+			stack.append(child)
+	return true
+
+func _height_kept(model: Node3D) -> bool:
+	var local: AABB = _mesh_bounds(model, true)
+	var wide: float = maxf(local.size.x, local.size.z)
+	if wide < 0.001 or local.size.y < 0.001:
+		return false
+	var src: float = local.size.y / wide
+	var fitted: float = (local.size.y * model.scale.y) / maxf(wide * model.scale.x, 0.001)
+	return absf(src - fitted) < 0.02 and model.scale.x > 0.02 and model.scale.x < 30.0
+
+func _horizontal_span(root_node: Node3D) -> float:
+	var box: AABB = _mesh_bounds(root_node, true)
+	return maxf(box.size.x, box.size.z)
+
+func _mesh_bounds(root_node: Node3D, world: bool) -> AABB:
+	var box: AABB = AABB()
+	var started: bool = false
+	var meshes: Array[MeshInstance3D] = []
+	var own: MeshInstance3D = root_node as MeshInstance3D
+	if own != null and own.mesh != null and str(own.name) != "ContactShadow":
+		meshes.append(own)
+	for node: Node in root_node.find_children("*", "MeshInstance3D", true, false):
+		var mesh_node: MeshInstance3D = node as MeshInstance3D
+		if mesh_node != null and mesh_node.mesh != null and str(mesh_node.name) != "ContactShadow":
+			meshes.append(mesh_node)
+	for mesh_node: MeshInstance3D in meshes:
+		var xf: Transform3D = Transform3D.IDENTITY
+		if world:
+			var walk: Node3D = mesh_node
+			while walk != null and walk != root_node:
+				xf = walk.transform * xf
+				var parent: Node = walk.get_parent()
+				walk = parent as Node3D
+		var placed: AABB = xf * mesh_node.mesh.get_aabb()
+		if not started:
+			box = placed
+			started = true
+		else:
+			box = box.merge(placed)
+	return box
+
 func _has_names(field: SMPointer, need: PackedStringArray) -> bool:
 	var names: PackedStringArray = PackedStringArray()
 	for u: RTSUnit in field.units_of(0):
@@ -4404,6 +5049,13 @@ func _mesh_kind(u: RTSUnit) -> String:
 
 func _shape_is(field: SMPointer, team: int, kind: String, want: String) -> bool:
 	return _mesh_kind(_unit_kind(field, team, kind)) == want
+
+func _yard_shown(node: MeshInstance3D) -> bool:
+	if node == null:
+		return false
+	if str(node.get_meta("model", "")) != "":
+		return true
+	return _tall_mesh(node.mesh)
 
 func _tall_mesh(mesh: Mesh) -> bool:
 	if mesh == null:
@@ -4436,7 +5088,11 @@ func _structure_forms(scene: Node, side: SMSide, field: SMPointer) -> bool:
 	if needle == null or str(needle.get_meta("form", "")) != "super":
 		return false
 	var yard_node: MeshInstance3D = scene.get_node_or_null("PlayerYard") as MeshInstance3D
-	return yard_node != null and str(yard_node.get_meta("form", "")) == "yard" and _tall_mesh(needle.mesh) and needle.mesh.get_aabb().size.y > yard_node.mesh.get_aabb().size.y
+	if yard_node == null or str(yard_node.get_meta("form", "")) != "yard" or needle.mesh == null:
+		return false
+	if yard_node.mesh == null:
+		return str(yard_node.get_meta("model", "")) != "" and _tall_mesh(needle.mesh)
+	return _tall_mesh(needle.mesh) and needle.mesh.get_aabb().size.y > yard_node.mesh.get_aabb().size.y
 
 func _albedo(u: RTSUnit) -> Color:
 	var body: MeshInstance3D = u.get_child(0) as MeshInstance3D
@@ -4706,11 +5362,12 @@ func test_sm_settings() -> void:
 	Settings.set_graphics("low")
 	Settings.set_master(0.4)
 	Settings.set_sfx(0.25)
+	Settings.set_music(0.3)
 	Settings.set_pan(1.6)
 	Settings.set_edge(false)
 	Settings.set_difficulty("hard")
 	Settings.reread()
-	check(Settings.graphics == "low" and is_equal_approx(Settings.master, 0.4) and is_equal_approx(Settings.sfx, 0.25) and is_equal_approx(Settings.pan, 1.6) and not Settings.edge and Settings.difficulty == "hard" and Settings.voice == "english", "settings round-trip through user://")
+	check(Settings.graphics == "low" and is_equal_approx(Settings.master, 0.4) and is_equal_approx(Settings.sfx, 0.25) and is_equal_approx(Settings.music, 0.3) and is_equal_approx(Settings.pan, 1.6) and not Settings.edge and Settings.difficulty == "hard" and Settings.voice == "english", "settings round-trip through user://")
 	Settings.set_voice("mandarin")
 	Settings.reread()
 	check(Settings.voice == "mandarin", "the voice language round-trips")
@@ -4731,6 +5388,11 @@ func test_sm_settings() -> void:
 	gear.pressed.emit()
 	check(opened and menu_panel != null and not menu_panel.visible and covered_title.visible and gear.visible, "the menu settings button opens the panel")
 	gear.pressed.emit()
+	var audio_tab: Button = boot.find_child("SettingsTabAudio", true, false) as Button
+	if audio_tab != null:
+		audio_tab.pressed.emit()
+	var music_row: HSlider = boot.find_child("MusicVolume", true, false) as HSlider
+	check(menu_panel != null and menu_panel.visible and audio_tab != null and music_row != null and music_row.visible, "the menu settings audio page has a music slider")
 	var esc: InputEventKey = InputEventKey.new()
 	esc.pressed = true
 	esc.keycode = KEY_ESCAPE
@@ -4772,6 +5434,7 @@ func test_sm_settings() -> void:
 	Settings.set_graphics("high")
 	Settings.set_master(1.0)
 	Settings.set_sfx(1.0)
+	Settings.set_music(0.55)
 	Settings.set_pan(1.0)
 	Settings.set_edge(true)
 	Settings.set_difficulty("normal")
@@ -4779,3 +5442,502 @@ func test_sm_settings() -> void:
 	Settings.hold("high")
 	var web_script: GDScript = load("res://addons/rts_advanced/sm_web.gd") as GDScript
 	check(int(web_script.call("pointer_mode", true)) == Input.MOUSE_MODE_CONFINED and int(web_script.call("pointer_mode", false)) == Input.MOUSE_MODE_VISIBLE, "a match keeps the pointer inside the window")
+
+func _motion_unit(stage: Node3D, kind: String, role: String, at: Vector3, team: int, animate: bool) -> RTSUnit:
+	var u: RTSUnit = RTSUnit.new()
+	u.unit_type = StringName(kind)
+	u.team = team
+	stage.add_child(u)
+	u.position = at
+	if animate:
+		var body: MeshInstance3D = Forms.dress_unit(kind, role, "ground", Color.RED, Color.RED, Color.YELLOW)
+		u.add_child(body)
+		Motion.attach(u, body)
+	return u
+
+func _motion_duel(animate: bool) -> PackedFloat32Array:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var a: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(0, 0, 0), 0, animate)
+	var b: RTSUnit = _motion_unit(stage, "amber_tank", "armor", Vector3(0, 0, -20), 1, animate)
+	a.attack_range = 8.0
+	b.attack_range = 6.0
+	b.attack_damage = 30.0
+	a.set_path(PackedVector3Array([Vector3(0, 0, -10)]))
+	a.attack_target = b
+	b.attack_target = a
+	var step: int = 0
+	while step < 240:
+		for u: RTSUnit in [a, b]:
+			if u.is_alive():
+				u.advance(1.0 / 30.0)
+				if animate:
+					Forms.animate(u, 1.0 / 30.0)
+		step += 1
+	var out: PackedFloat32Array = PackedFloat32Array([a.position.x, a.position.z, a.hp, b.position.x, b.position.z, b.hp, a.rotation.y, b.rotation.y])
+	stage.queue_free()
+	return out
+
+func test_unit_motion() -> void:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var rifle: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3.ZERO, 0, true)
+	var body: MeshInstance3D = rifle.get_node("Body") as MeshInstance3D
+	var player: AnimationPlayer = Motion.player_of(body)
+	check(player != null, "the rigged militia mounts with an AnimationPlayer")
+	var clips: PackedStringArray = PackedStringArray()
+	if player != null:
+		for clip: StringName in player.get_animation_list():
+			clips.append(str(clip).get_slice("/", str(clip).get_slice_count("/") - 1))
+	check(clips.has("idle") and clips.has("walk") and clips.has("shoot") and clips.has("die"), "the rigged militia carries idle, walk, shoot, and die clips")
+	check(Motion.clip_for(rifle, body) == "idle", "a still soldier idles")
+	rifle.set_path(PackedVector3Array([Vector3(0, 0, -5)]))
+	Motion.pose(rifle, 0.1)
+	check(Motion.clip_for(rifle, body) == "walk" and player != null and str(player.current_animation).ends_with("walk"), "a moving soldier plays walk")
+	var foe: RTSUnit = _motion_unit(stage, "cyan_ifv", "armor", Vector3(0, 0, -4), 1, true)
+	rifle.stop()
+	rifle.attack_range = 6.0
+	rifle.attack_target = foe
+	Motion.pose(rifle, 0.1)
+	check(Motion.clip_for(rifle, body) == "shoot" and str(player.current_animation).ends_with("shoot"), "a soldier with a target in range plays shoot")
+	check(player.get_animation(player.current_animation).loop_mode == Animation.LOOP_LINEAR, "the shoot clip loops")
+	var tank: RTSUnit = _motion_unit(stage, "amber_tank", "armor", Vector3(6, 0, 0), 0, true)
+	var hull: MeshInstance3D = tank.get_node("Body") as MeshInstance3D
+	var turret: Node3D = hull.get_node_or_null("Turret") as Node3D
+	var barrel: Node3D = turret.get_node_or_null("Barrel") as Node3D if turret != null else null
+	check(Motion.player_of(hull) == null and turret != null and barrel != null, "the tank stays procedural with a turret and barrel")
+	tank.attack_target = foe
+	var frame: int = 0
+	while frame < 30:
+		Motion.pose(tank, 1.0 / 30.0)
+		frame += 1
+	var dir: Vector3 = foe.global_position - tank.global_position
+	var want: float = wrapf(atan2(-dir.x, -dir.z) - tank.rotation.y, -PI, PI)
+	check(turret != null and absf(wrapf(turret.rotation.y - want, -PI, PI)) < 0.05, "the turret turns onto its target")
+	Motion.pose(tank, 1.0 / 30.0)
+	var rest: Vector3 = barrel.position if barrel != null else Vector3.ZERO
+	Motion.on_fired(tank, foe)
+	Motion.pose(tank, 1.0 / 30.0)
+	check(barrel != null and barrel.position.distance_to(rest) > 0.1, "firing kicks the barrel back")
+	frame = 0
+	while frame < 30:
+		Motion.pose(tank, 1.0 / 30.0)
+		frame += 1
+	check(barrel != null and barrel.position.distance_to(rest) < 0.01, "the barrel settles after the shot")
+	check(stage.get_node_or_null("MuzzleFlash") != null, "a shot leaves a muzzle flash in the stage")
+	rifle.take_damage(9999.0)
+	var dying: Node = stage.get_node_or_null("Dying_%d" % rifle.get_instance_id())
+	check(rifle.get_node_or_null("Body") == null and dying != null and dying.get_node_or_null("Body") != null, "a dead unit hands its body to a death rig")
+	check(player != null and str(player.current_animation).ends_with("die"), "the death rig plays the die clip")
+	var calm: PackedFloat32Array = _motion_duel(false)
+	var shown: PackedFloat32Array = _motion_duel(true)
+	check(calm == shown, "the same duel ends identically with and without unit motion")
+	var mi: MeshInstance3D = WorldView.slab(stage, "Built_barracks", Vector3(20, 2.3, 0), Vector3(2.2, 4.6, 2.2), Color.RED)
+	var fx: Node = mi.get_node_or_null("BuildingFx")
+	check(fx != null and mi.position.y < 2.3 - 0.5, "a new structure starts below ground for its rise")
+	await process_frame
+	check(stage.get_node_or_null("Scaffold_Built_barracks") != null, "the rise puts up a scaffold")
+	var rise: int = 0
+	while rise < 80 and int(fx.get("phase")) == BuildingFx.Phase.RAISE:
+		fx._process(0.05)
+		rise += 1
+	await process_frame
+	check(is_equal_approx(mi.position.y, 2.3) and stage.get_node_or_null("Scaffold_Built_barracks") == null, "the structure settles at its placed height and the scaffold comes down")
+	BuildingFx.set_health(mi, 0.5)
+	check(fx.get_node_or_null("Smoke") != null and fx.get_node_or_null("Fire") == null, "half health smokes")
+	BuildingFx.set_health(mi, 0.2)
+	check(fx.get_node_or_null("Fire") != null, "low health burns")
+	var yard: SMBuildYard = SMBuildYard.new()
+	yard.structure_hp[&"barracks"] = 10.0
+	yard.structure_max[&"barracks"] = 100.0
+	BuildingWatch.watch(stage, yard)
+	var watcher: Node = stage.get_node_or_null("BuildingWatch_%d" % yard.get_instance_id())
+	check(watcher != null, "a yard gets one building watch")
+	watcher.call("_process", 1.0)
+	check(is_equal_approx(float(fx.get("health")), 0.1), "the watch passes yard health to the structure")
+	check(yard.structure_hp[&"barracks"] == 10.0, "the watch leaves yard health untouched")
+	mi.visible = false
+	var ruin: Node3D = stage.get_node_or_null("Ruin_Built_barracks") as Node3D
+	check(ruin != null and ruin.visible and not mi.visible, "hiding a structure leaves a collapsing ruin in its place")
+	stage.queue_free()
+
+const FACING_STATIC: PackedStringArray = ["amber_tank", "cyan_ifv", "channel_skiff", "cyan_gunship", "hub_drone", "sampan"]
+const COMPASS: PackedStringArray = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+
+## Walks one unit toward each compass point and returns the worst angle, in degrees, between the drawn forward and the move.
+func _facing_error(stage: Node3D, id: String, role: String) -> float:
+	var worst: float = 0.0
+	for i: int in COMPASS.size():
+		var u: RTSUnit = _motion_unit(stage, id, role, Vector3.ZERO, 0, true)
+		var ang: float = float(i) * PI / 4.0
+		var move: Vector3 = Vector3(sin(ang), 0.0, -cos(ang))
+		u.set_path(PackedVector3Array([move * 40.0]))
+		var frame: int = 0
+		while frame < 40:
+			u.advance(1.0 / 30.0)
+			Motion.pose(u, 1.0 / 30.0)
+			frame += 1
+		await process_frame
+		var body: Node3D = u.get_node("Body") as Node3D
+		var seen: Vector3 = Motion.rendered_forward(body)
+		worst = maxf(worst, rad_to_deg(absf(seen.signed_angle_to(move, Vector3.UP))))
+		u.free()
+	return worst
+
+func test_unit_facing() -> void:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var ids: PackedStringArray = PackedStringArray(Catalog.RIGGED_YAW.keys())
+	ids.sort()
+	for id: String in ids:
+		var err: float = await _facing_error(stage, id, "infantry")
+		check(err <= 15.0, "rigged %s faces its move vector in all 8 directions (worst %.1f deg)" % [id, err])
+	for id: String in FACING_STATIC:
+		var role: String = "air" if id == "cyan_gunship" or id == "hub_drone" else ("boat" if id == "sampan" or id == "channel_skiff" else "armor")
+		var err: float = await _facing_error(stage, id, role)
+		check(err <= 15.0, "%s faces its move vector in all 8 directions (worst %.1f deg)" % [id, err])
+	var probe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3.ZERO, 0, true)
+	var body: Node3D = probe.get_node("Body") as Node3D
+	check(bool(body.get_meta("model_rigged", false)) and is_equal_approx(float(body.get_meta("model_yaw", 0.0)), float(Catalog.RIGGED_YAW["militia"])), "the registry turns the rigged militia by its catalog yaw")
+	Motion.pose(probe, 1.0 / 30.0)
+	probe.set_path(PackedVector3Array([Vector3(30, 0, 0)]))
+	probe.advance(1.0 / 30.0)
+	Motion.pose(probe, 1.0 / 30.0)
+	var first: float = absf(wrapf(Motion.heading_of(probe) - probe.rotation.y, -PI, PI))
+	check(first > 0.5, "a hard turn is not snapped: the body still lags the path heading after one frame")
+	var turn: int = 0
+	while turn < 20:
+		probe.advance(1.0 / 30.0)
+		Motion.pose(probe, 1.0 / 30.0)
+		turn += 1
+	check(absf(wrapf(Motion.heading_of(probe) - probe.rotation.y, -PI, PI)) < 0.05, "the body finishes the turn onto the path heading")
+	probe.stop()
+	var foe: RTSUnit = _motion_unit(stage, "cyan_ifv", "armor", Vector3(0, 0, 8), 1, false)
+	probe.attack_range = 12.0
+	probe.attack_target = foe
+	turn = 0
+	while turn < 30:
+		Motion.pose(probe, 1.0 / 30.0)
+		turn += 1
+	var aim: float = Motion.yaw_to(probe.global_position, foe.global_position)
+	check(absf(wrapf(Motion.heading_of(probe) - aim, -PI, PI)) < 0.05, "a standing soldier turns to face its target")
+	var tank: RTSUnit = _motion_unit(stage, "amber_tank", "armor", Vector3(10, 0, 0), 0, true)
+	tank.attack_range = 30.0
+	tank.attack_target = foe
+	tank.set_path(PackedVector3Array([Vector3(10, 0, -30)]))
+	turn = 0
+	while turn < 45:
+		tank.advance(1.0 / 30.0)
+		Motion.pose(tank, 1.0 / 30.0)
+		turn += 1
+	var hull: Node3D = tank.get_node("Body") as Node3D
+	var turret: Node3D = hull.get_node("Turret") as Node3D
+	var turret_world: float = hull.global_rotation.y + turret.rotation.y
+	check(absf(wrapf(Motion.heading_of(tank) - tank.rotation.y, -PI, PI)) < 0.05 and absf(wrapf(turret_world - Motion.yaw_to(tank.global_position, foe.global_position), -PI, PI)) < 0.1, "a moving tank keeps its hull on the path and its turret on the target")
+	stage.queue_free()
+
+## The hand bone, read in the weapon's own frame, must not drift: the weapon is a rigid prop riding the hand.
+func _weapon_drift(id: String) -> Array:
+	var doc: GLTFDocument = GLTFDocument.new()
+	var state: GLTFState = GLTFState.new()
+	if doc.append_from_file(ProjectSettings.globalize_path("res://game/models/rigged/%s.glb" % id), state) != OK:
+		return [-1.0, 0]
+	var model: Node3D = doc.generate_scene(state) as Node3D
+	root.add_child(model)
+	var player: AnimationPlayer = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false) as Skeleton3D
+	var weapons: Array[MeshInstance3D] = []
+	for node: Node in model.find_children("Weapon*", "MeshInstance3D", true, false):
+		weapons.append(node as MeshInstance3D)
+	var worst: float = 0.0
+	var poses: int = 0
+	var start: Dictionary = {}
+	for clip: StringName in player.get_animation_list():
+		player.play(clip)
+		var length: float = player.get_animation(clip).length
+		for k: int in 4:
+			player.seek(length * float(k) / 4.0, true)
+			await process_frame
+			poses += 1
+			for w: MeshInstance3D in weapons:
+				var holder: BoneAttachment3D = w.get_parent() as BoneAttachment3D
+				if holder == null or w.skin != null:
+					worst = 999.0
+					continue
+				var hand: Vector3 = skel.global_transform * skel.get_bone_global_pose(skel.find_bone(holder.bone_name)).origin
+				var local: Vector3 = w.global_transform.affine_inverse() * hand
+				var scale: Vector3 = w.global_basis.get_scale()
+				var key: String = str(w.name)
+				if not start.has(key):
+					start[key] = [local, scale]
+				var was: Array = start[key]
+				worst = maxf(worst, maxf(local.distance_to(was[0] as Vector3), (scale - (was[1] as Vector3)).length()))
+	model.free()
+	return [worst, poses]
+
+func test_weapon_sockets() -> void:
+	var armed: PackedStringArray = ["militia", "clearance_trooper", "amber_scout", "charcoal_bike", "clearance_engineer", "emerald_cutter", "olive_ranger", "olive_sapper", "ruby_lancer", "ruby_mortar",
+		"river_rifle", "crimson_sapper", "packer_escort", "relay_van", "packer", "wharf_gun"]
+	for id: String in armed:
+		var got: Array = await _weapon_drift(id)
+		check(float(got[0]) >= 0.0 and float(got[0]) < 0.002 and int(got[1]) >= 20, "%s weapons stay rigid on their socket across every clip (%d poses, drift %.4f)" % [id, int(got[1]), float(got[0])])
+	for id: String in armed:
+		var aim: Vector3 = await _barrel_aim(id)
+		var mounted: bool = id in ["packer", "wharf_gun"]
+		check(absf(aim.x) <= (22.0 if mounted else 8.0) and absf(aim.y) <= (25.0 if mounted else 15.0) and aim.z > 0.15, "%s fires with its barrel near level and on the target (pitch %.1f deg, yaw %.1f deg, tip %.2f m ahead)" % [id, aim.x, aim.y, aim.z])
+	for id: String in armed:
+		var gap: Vector2 = await _grip_gap(id)
+		if gap.y > 0.0:
+			check(gap.x < 0.05, "%s keeps its off hand on the weapon grip while firing (worst %.3f m over %d poses)" % [id, gap.x, int(gap.y)])
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var rifle: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3.ZERO, 0, true)
+	var body: MeshInstance3D = rifle.get_node("Body") as MeshInstance3D
+	Motion.player_of(body)
+	var weapon: MeshInstance3D = body.find_child("Weapon", true, false) as MeshInstance3D
+	var muzzle: Node3D = Motion.muzzle_of(body)
+	check(weapon != null and weapon.get_parent() is BoneAttachment3D and (weapon.get_parent() as BoneAttachment3D).bone_name == "R_Hand" and muzzle != null, "the militia rifle rides the right hand socket with a muzzle at the barrel tip")
+	var ik: Node = body.find_child("OffHandIK", true, false)
+	check(ik is OffHandIK and (ik as OffHandIK).get_skeleton().get_bone_name((ik as OffHandIK).hand) == "L_Hand", "the two-handed rifle puts the left hand on its grip through IK")
+	Motion.pose(rifle, 1.0 / 30.0)
+	await process_frame
+	var rest: Vector3 = weapon.position
+	Motion.on_fired(rifle, null)
+	var flash: Node3D = stage.get_node_or_null("MuzzleFlash") as Node3D
+	check(flash != null and flash.global_position.distance_to(muzzle.global_position) < 0.01, "the muzzle flash starts at the barrel tip")
+	Motion.pose(rifle, 1.0 / 60.0)
+	var kicked: Vector3 = weapon.position - rest
+	var barrel: Vector3 = weapon.basis * (muzzle.position - weapon.get_aabb().get_center())
+	check(kicked.length() > 0.001 and kicked.normalized().dot(-barrel.normalized()) > 0.95, "recoil pushes the rifle straight back along its barrel")
+	var settle: int = 0
+	while settle < 20:
+		Motion.pose(rifle, 1.0 / 30.0)
+		settle += 1
+	check(weapon.position.distance_to(rest) < 0.0005, "the rifle settles back into the hand after recoil")
+	var shield_unit: RTSUnit = _motion_unit(stage, "clearance_trooper", "infantry", Vector3(4, 0, 0), 0, true)
+	var shield: MeshInstance3D = shield_unit.find_child("Shield", true, false) as MeshInstance3D
+	var ext: Vector3 = shield.get_aabb().size if shield != null else Vector3.ZERO
+	var dims: Array[float] = [ext.x, ext.y, ext.z]
+	dims.sort()
+	check(shield != null and shield.skin == null and (shield.get_parent() as BoneAttachment3D).bone_name == "L_Forearm" and dims[1] > 0.5 * dims[2] and dims[0] < 0.4 * dims[1], "the riot shield is a rigid forearm prop with full face proportions")
+	var slinger: RTSUnit = _motion_unit(stage, "river_rifle", "infantry", Vector3(8, 0, 0), 0, true)
+	var foe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(8, 0, -6), 1, false)
+	var sling_body: MeshInstance3D = slinger.get_node("Body") as MeshInstance3D
+	var slung: MeshInstance3D = sling_body.find_child("Weapon", true, false) as MeshInstance3D
+	var sling: Node3D = Motion.sling_of(sling_body)
+	check(slung != null and sling != null and (sling.get_parent() as BoneAttachment3D).bone_name == "Spine02" and Motion.muzzle_of(sling_body) != null, "the river rifle has a rigid rifle with a muzzle and a sling marker on the spine")
+	slinger.set_path(PackedVector3Array([Vector3(8, 0, -3)]))
+	for f: int in 20:
+		slinger.advance(1.0 / 30.0)
+		Motion.pose(slinger, 1.0 / 30.0)
+		await process_frame
+	check(slung.get_parent() == sling and slung.global_position.distance_to(sling.global_position) < 0.01, "on the move the river rifle carries its rifle slung on the back")
+	slinger.stop()
+	slinger.attack_range = 12.0
+	slinger.attack_target = foe
+	for f: int in 30:
+		Motion.pose(slinger, 1.0 / 30.0)
+		await process_frame
+	var sling_ik: OffHandIK = sling_body.find_child("OffHandIK", true, false) as OffHandIK
+	check(slung.global_position.distance_to(sling.global_position) > 0.2 and sling_ik != null and sling_ik.influence > 0.95, "to fire, the river rifle draws the rifle into both hands")
+	stage.queue_free()
+
+## Worst distance between the off hand and the weapon's Grip socket across the shoot clip, measured on the posed
+## skeleton after the modifiers ran, and the number of poses sampled (0 when the unit has no off-hand IK).
+func _grip_gap(id: String) -> Vector2:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var u: RTSUnit = _motion_unit(stage, id, "infantry", Vector3.ZERO, 0, true)
+	var foe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(0, 0, -6), 1, false)
+	var body: MeshInstance3D = u.get_node("Body") as MeshInstance3D
+	var player: AnimationPlayer = Motion.player_of(body)
+	var ik: OffHandIK = body.find_child("OffHandIK", true, false) as OffHandIK
+	if ik == null or player == null:
+		stage.queue_free()
+		return Vector2.ZERO
+	var skel: Skeleton3D = ik.get_skeleton()
+	var gaps: Array[float] = []
+	var measure: Callable = func() -> void:
+		gaps.append((skel.global_transform * skel.get_bone_global_pose(ik.hand).origin).distance_to(ik.target.global_position))
+	u.attack_range = 12.0
+	u.attack_target = foe
+	for f: int in 30:
+		Motion.pose(u, 1.0 / 30.0)
+	var length: float = player.get_animation(player.current_animation).length
+	var worst: float = 0.0
+	var sampled: int = 0
+	skel.skeleton_updated.connect(measure)
+	for k: int in 16:
+		player.seek(length * float(k) / 16.0, true)
+		Motion.pose(u, 0.0)
+		gaps.clear()
+		await process_frame
+		await process_frame
+		if not gaps.is_empty():
+			worst = maxf(worst, gaps[gaps.size() - 1])
+			sampled += 1
+	skel.skeleton_updated.disconnect(measure)
+	stage.queue_free()
+	return Vector2(worst, float(sampled))
+
+## Barrel pitch and yaw off the target in degrees, and how far the muzzle sits toward the target, averaged over the
+## whole shoot clip. The build points the Muzzle socket's -Z along the barrel, which arrives in glTF as -Y.
+func _barrel_aim(id: String) -> Vector3:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var u: RTSUnit = _motion_unit(stage, id, "infantry", Vector3.ZERO, 0, true)
+	var foe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(0, 0, -6), 1, false)
+	var body: MeshInstance3D = u.get_node("Body") as MeshInstance3D
+	Motion.player_of(body)
+	var weapon: MeshInstance3D = body.find_child("Weapon", true, false) as MeshInstance3D
+	var muzzle: Node3D = Motion.muzzle_of(body)
+	if weapon == null or muzzle == null:
+		stage.queue_free()
+		return Vector3(90.0, 90.0, 0.0)
+	u.attack_range = 12.0
+	u.attack_target = foe
+	for f: int in 30:
+		Motion.pose(u, 1.0 / 30.0)
+	var player: AnimationPlayer = Motion.player_of(body)
+	var length: float = player.get_animation(player.current_animation).length
+	var pitch: float = 0.0
+	var yaw: float = 0.0
+	var ahead: float = 0.0
+	for k: int in 16:
+		player.seek(length * float(k) / 16.0, true)
+		Motion.pose(u, 0.0)
+		await process_frame
+		var barrel: Vector3 = -muzzle.global_basis.y.normalized()
+		pitch += rad_to_deg(asin(clampf(barrel.y, -1.0, 1.0))) / 16.0
+		yaw += rad_to_deg(Vector3(barrel.x, 0.0, barrel.z).signed_angle_to(Vector3.FORWARD, Vector3.UP)) / 16.0
+		ahead += (muzzle.global_position - u.global_position).dot(Vector3.FORWARD) / 16.0
+	stage.queue_free()
+	return Vector3(pitch, yaw, ahead)
+
+func test_dog_motion() -> void:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var dog: RTSUnit = _motion_unit(stage, "kachin_dog", "infantry", Vector3.ZERO, 0, true)
+	var body: MeshInstance3D = dog.get_node("Body") as MeshInstance3D
+	var player: AnimationPlayer = Motion.player_of(body)
+	var missing: PackedStringArray = []
+	for clip: String in ["idle", "walk", "run", "shoot", "ability", "flinch", "die"]:
+		if not Motion.has_clip(player, clip):
+			missing.append(clip)
+	check(player != null and missing.is_empty(), "the sapper dog ships authored idle, walk, run, bite, howl, flinch and death clips (missing: %s)" % ", ".join(missing))
+	var skel: Skeleton3D = body.find_child("Skeleton3D", true, false) as Skeleton3D
+	var worst: float = 0.0
+	for clip: String in ["idle", "run", "shoot", "ability"]:
+		Motion.play(player, clip, 1.0)
+		player.seek(0.0, true)
+		await process_frame
+		var low: float = 99.0
+		for b: int in skel.get_bone_count():
+			low = minf(low, (skel.global_transform * skel.get_bone_global_pose(b).origin).y)
+		worst = maxf(worst, absf(low))
+	check(worst < 0.06, "the sapper dog stands on the ground in every clip (lowest bone off the ground by %.3f m)" % worst)
+	var foe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(0, 0, -4), 1, false)
+	dog.attack_range = 8.0
+	dog.attack_target = foe
+	for f: int in 20:
+		Motion.pose(dog, 1.0 / 30.0)
+	await process_frame
+	Motion.on_fired(dog, foe)
+	var flash: Node3D = stage.get_node_or_null("MuzzleFlash") as Node3D
+	var head: Vector3 = skel.global_transform * skel.get_bone_global_pose(skel.find_bone("tripo__Head_0")).origin
+	check(flash != null and flash.global_position.distance_to(head) < 0.3 and flash.global_position.y < 1.2, "the dog's howl starts at its head, not above it")
+	stage.queue_free()
+
+func test_building_materials() -> void:
+	var ids: Dictionary = {}
+	for faction: String in ["gtfc", "mvd", "nmrf"]:
+		for item: Variant in SMCatalog.faction(faction).get("buildings", []):
+			var id: String = str((item as Dictionary).get("id", ""))
+			ids[id] = true
+			ids["%s_%s" % [faction, id]] = false
+	var missing: Array[String] = []
+	for id: String in ids.keys():
+		var tripo: bool = FileAccess.file_exists(ProjectSettings.globalize_path("res://game/models/tripo/%s.glb" % id))
+		if not bool(ids[id]) and not tripo:
+			continue
+		var kinds: PackedStringArray = Catalog.materials_of(id)
+		var ok: bool = Catalog.MATERIALS.has(id) and kinds.size() >= 1 and kinds.size() <= 2
+		for kind: String in kinds:
+			ok = ok and Catalog.KINDS.has(kind)
+		if not ok:
+			missing.append(id)
+	check(missing.is_empty(), "every building and faction variant carries one or two catalog materials %s" % [missing])
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var hide: MeshInstance3D = WorldView.slab(stage, "Built_bamboo_hide", Vector3(-12, 2.3, 0), Vector3(2.2, 4.6, 2.2), Color.RED)
+	var barracks: MeshInstance3D = WorldView.slab(stage, "Built_barracks", Vector3(0, 2.3, 0), Vector3(2.2, 4.6, 2.2), Color.RED)
+	var factory: MeshInstance3D = WorldView.slab(stage, "Built_mvd_war_factory", Vector3(12, 2.3, 0), Vector3(2.2, 4.6, 2.2), Color.RED)
+	check(str(barracks.get_meta("model", "")) != "" and BuildingFx.materials_for(barracks)[0] == Catalog.BRICK, "the barracks mounts its model and reads brick from the catalog")
+	var ink: PackedColorArray = Debris.palette(barracks, "barracks")
+	var spread: float = ink[4].get_luminance() - ink[0].get_luminance()
+	var warm: bool = false
+	for c: Color in ink:
+		warm = warm or (c.r > c.b + 0.08)
+	check(ink.size() == 5 and spread > 0.15 and warm, "the barracks palette comes from its red brick texture, dark to light")
+	var fx: Node3D = barracks.get_node("BuildingFx") as Node3D
+	fx.set("phase", BuildingFx.Phase.STAND)
+	fx.call("_start_work")
+	check(fx.get_node_or_null("Working") != null, "a standing building runs a working loop")
+	BuildingFx.set_state(barracks, false, false)
+	check(not (fx.get_node("Working") as Node3D).visible, "low power stops the working loop")
+	await process_frame
+	for mi: MeshInstance3D in [hide, barracks, factory]:
+		mi.visible = false
+	var hide_ruin: Node3D = stage.get_node_or_null("Ruin_Built_bamboo_hide") as Node3D
+	var brick_ruin: Node3D = stage.get_node_or_null("Ruin_Built_barracks") as Node3D
+	var steel_ruin: Node3D = stage.get_node_or_null("Ruin_Built_mvd_war_factory") as Node3D
+	var chunk_root: Node = brick_ruin.get_node_or_null("Chunks") if brick_ruin != null else null
+	check(chunk_root != null and chunk_root.get_child_count() >= 8, "the barracks breaks into textured chunks of its own model")
+	var source_tris: int = 0
+	for node: Node in barracks.find_children("*", "MeshInstance3D", true, false):
+		var m: Mesh = (node as MeshInstance3D).mesh
+		if m != null and node.name != "ContactShadow":
+			for s: int in m.get_surface_count():
+				source_tris += m.surface_get_array_index_len(s) / 3 if m.surface_get_array_index_len(s) > 0 else m.surface_get_array_len(s) / 3
+	var chunk_tris: int = 0
+	if chunk_root != null:
+		for node: Node in chunk_root.get_children():
+			var m: Mesh = (node as MeshInstance3D).mesh
+			for s: int in m.get_surface_count():
+				chunk_tris += m.surface_get_array_len(s) / 3
+	check(source_tris > 0 and chunk_tris == source_tris, "the chunks keep every triangle of the model (%d of %d)" % [chunk_tris, source_tris])
+	check(hide_ruin != null and hide_ruin.find_child("Embers", true, false) != null, "bamboo and thatch throw burning embers")
+	check(brick_ruin != null and brick_ruin.find_child("Dust", true, false) != null and brick_ruin.find_child("Splinters", true, false) != null, "brick raises dust and the timber frame splinters")
+	check(steel_ruin != null and steel_ruin.find_child("Sparks", true, false) != null and steel_ruin.find_child("Glass", true, false) != null, "steel throws sparks and glass panels shatter")
+	var heap: MeshInstance3D = brick_ruin.get_node_or_null("RubbleMound") as MeshInstance3D if brick_ruin != null else null
+	check(heap != null and (heap.material_override as StandardMaterial3D).albedo_color.is_equal_approx(ink[1]), "the rubble mound is shaded from the same palette")
+	var piece_kinds: Dictionary = {}
+	var piece_root: Node = brick_ruin.get_node_or_null("Debris") if brick_ruin != null else null
+	if piece_root != null:
+		for node: Node in piece_root.get_children():
+			piece_kinds[str(node.get_meta("material", ""))] = true
+	check(piece_kinds.has(Catalog.BRICK) and not piece_kinds.has(Catalog.GLASS), "barracks debris pieces are brick and timber, not generic blocks")
+	stage.queue_free()
+
+func _plain_box(node: Node) -> bool:
+	var mesh_node: MeshInstance3D = node as MeshInstance3D
+	return mesh_node != null and mesh_node.mesh is BoxMesh
+
+func _flat_olive(tex: Texture2D) -> bool:
+	if tex == null:
+		return true
+	var img: Image = tex.get_image()
+	if img == null or img.get_width() < 2 or img.get_height() < 2:
+		return true
+	var seen: Dictionary = {}
+	var y: int = 0
+	while y < img.get_height():
+		var x: int = 0
+		while x < img.get_width():
+			var ink: Color = img.get_pixel(x, y)
+			var key: String = "%d,%d,%d" % [int(ink.r * 8.0), int(ink.g * 8.0), int(ink.b * 8.0)]
+			seen[key] = true
+			x += 4
+		y += 4
+	return seen.size() < 3
+

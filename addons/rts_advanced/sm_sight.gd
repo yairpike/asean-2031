@@ -133,13 +133,23 @@ func cell_state(cell: Vector2i) -> int:
 
 func conceal(field: SMPointer, host: Node3D) -> void:
 	if field != null:
+		var hawks: Array[Vector3] = []
+		for spotter: RTSUnit in field.units:
+			if is_instance_valid(spotter) and spotter.is_alive() and spotter.unit_type == &"mekong_uav" and field.teams.are_allies(SMPointer.PLAYER, spotter.team):
+				hawks.append(spotter.global_position)
 		for u: RTSUnit in field.units:
 			if not is_instance_valid(u):
 				continue
 			if field.teams.are_allies(SMPointer.PLAYER, u.team):
 				u.visible = true
 			else:
-				u.visible = sees(u.global_position)
+				var shown: bool = sees(u.global_position)
+				if not shown:
+					for hawk: Vector3 in hawks:
+						if Vector2(hawk.x, hawk.z).distance_to(Vector2(u.global_position.x, u.global_position.z)) <= 22.0:
+							shown = true
+							break
+				u.visible = shown
 	_hide_marker(host, "EnemyYard")
 	_hide_marker(host, "EnemyClaim")
 

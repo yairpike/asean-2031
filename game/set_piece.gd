@@ -440,7 +440,7 @@ func _fire(beat: String) -> void:
 		"hold":
 			_say(_line(beat), "", beat)
 		"packer":
-			_quiet(SMPointer.PLAYER, Vector3(-14.0, 0.0, -6.0), "packer", &"channel_skiff")
+			_quiet(SMPointer.PLAYER, Vector3(-14.0, 0.0, -6.0), "packer", &"sampan")
 			_say(_line(beat), "", beat)
 		"wharf":
 			_marker("SetWharf", Vector3(8.0, 0.5, 5.0), Vector3(3.2, 0.4, 1.4), Color(0.35, 0.48, 0.42), false)
@@ -460,7 +460,7 @@ func _fire(beat: String) -> void:
 			_quiet(SMPointer.ENEMY, Vector3(7.0, 0.0, 4.0), "spectacle", &"militia")
 			_say(_line(beat), "", beat)
 		"spray":
-			var sprayer: RTSUnit = _quiet(SMPointer.ENEMY, Vector3(16.0, 0.0, 10.0), "spray", &"charcoal_mortar")
+			var sprayer: RTSUnit = _quiet(SMPointer.ENEMY, Vector3(16.0, 0.0, 10.0), "spray", &"monsoon_tube")
 			if sprayer != null:
 				sprayer.speed = 4.5
 				sprayer.set_path(PackedVector3Array([Vector3(6.0, 0.0, 2.0)]))
@@ -477,8 +477,8 @@ func _fire(beat: String) -> void:
 		"crossing":
 			_say(_line(beat), "", beat)
 		"under_fire":
-			_quiet(SMPointer.ENEMY, Vector3(11.0, 0.0, 7.0), "spectacle", &"channel_skiff")
-			_quiet(SMPointer.ENEMY, Vector3(9.0, 0.0, 8.0), "spectacle", &"channel_skiff")
+			_quiet(SMPointer.ENEMY, Vector3(11.0, 0.0, 7.0), "spectacle", &"sampan")
+			_quiet(SMPointer.ENEMY, Vector3(9.0, 0.0, 8.0), "spectacle", &"sampan")
 			_say(_line(beat), "", beat)
 		"garrison":
 			_quiet(SMPointer.ENEMY, Vector3(8.0, 0.0, 5.0), "spectacle", &"militia")

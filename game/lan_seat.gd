@@ -1,9 +1,10 @@
 extends RefCounted
-## One LAN endpoint. The host simulates. The guest is the second player.
-## Desktop uses ENet. attach_peer() can later take a WebRTCMultiplayerPeer.
+## One session endpoint. The host simulates. The guest is the second player.
+## Desktop uses ENet. Browsers attach a WebRTCMultiplayerPeer through the paste path.
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
 const World = preload("res://game/world_view.gd")
+const Paste = preload("res://game/web_paste.gd")
 
 var port: int = 7777
 var beacon_port: int = 7778
@@ -43,6 +44,9 @@ var _hi_acc: float = 0.0
 var _prev: Dictionary = {}
 var _prev_fog: PackedByteArray = PackedByteArray()
 var _seq: int = 0
+var _web: Paste
+var _paste_note: String = ""
+var _picked_faction: String = ""
 
 static func faction_ids() -> PackedStringArray:
 	var ids: PackedStringArray = PackedStringArray()
@@ -83,7 +87,7 @@ func show_controls() -> bool:
 
 func lan_note(web: bool) -> String:
 	if web:
-		return "LAN play needs the desktop build."
+		return "Copy the offer into the other browser, then paste its answer back. No account."
 	return "Host a 1v1 on this LAN, or join one. Each player brings a faction and a base."
 
 func holding() -> bool:
@@ -135,8 +139,56 @@ func attach_peer(next: MultiplayerPeer, as_host: bool) -> Error:
 	started = false
 	return OK
 
+func paste_host() -> Error:
+	close()
+	var link: Paste = Paste.new()
+	var err: Error = link.open_host()
+	_paste_note = link.note
+	if err != OK:
+		return err
+	_adopt_paste(link, true)
+	return OK
+
+func paste_join(blob: String) -> Error:
+	var row: Dictionary = Paste.unpack(blob)
+	if row.is_empty() or str(row.get("t", "")) != "offer":
+		_paste_note = "That paste is not an offer."
+		return ERR_INVALID_DATA
+	close()
+	var link: Paste = Paste.new()
+	var err: Error = link.join(blob)
+	_paste_note = link.note
+	if err != OK:
+		return err
+	_adopt_paste(link, false)
+	return OK
+
+func paste_seal(blob: String) -> Error:
+	if _web == null or _web.phase != "offer":
+		_paste_note = "Start an offer before pasting an answer."
+		return ERR_UNCONFIGURED
+	var err: Error = _web.seal(blob)
+	_paste_note = _web.note
+	return err
+
+func paste_text() -> String:
+	if _web == null:
+		return ""
+	return _web.text
+
+func paste_note() -> String:
+	if _web != null and _web.note != "":
+		return _web.note
+	return _paste_note
+
 func close() -> void:
-	if peer != null:
+	var web_peer: MultiplayerPeer = null
+	if _web != null:
+		web_peer = _web.peer
+		_web.shutdown()
+	_web = null
+	_paste_note = ""
+	if peer != null and peer != web_peer:
 		peer.close()
 	peer = null
 	role = ""
@@ -152,18 +204,23 @@ func close() -> void:
 	inbox.clear()
 	chat_lines.clear()
 	_hello_sent = false
+	_picked_faction = ""
 	_stop_beacon()
 	hush_listen()
 
 func pump() -> void:
 	_send_beacon()
+	if _web != null:
+		_web.poll()
+		if _web.note != "":
+			_paste_note = _web.note
 	if peer == null:
 		return
 	peer.poll()
 	while peer.get_available_packet_count() > 0:
 		inbox.append(peer.get_packet().get_string_from_utf8())
 	if role == "client" and not _hello_sent and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-		send({"k": "hello", "faction": faction})
+		send({"k": "hello", "faction": _wish_faction()})
 		_hello_sent = true
 
 func pulse(delta: float) -> void:
@@ -294,11 +351,28 @@ func send_start(path: String, host_faction: String, guest: String) -> void:
 	send({"k": "start", "map": map_path, "faction": faction, "guest": guest_faction})
 
 func pick_faction(id: String) -> void:
-	faction = known_faction(id)
+	var known: String = known_faction(id)
+	if role == "client":
+		_picked_faction = known
+		guest_faction = known
+		send({"k": "wish", "faction": known, "ready": guest_ready})
+		return
+	faction = known
 	if role == "host":
 		announce_room()
-	elif role == "client":
-		send({"k": "wish", "faction": faction, "ready": guest_ready})
+
+func lobby_line() -> String:
+	var guest_name: String = guest_faction if guest_joined else "waiting"
+	var host_state: String = "ready" if host_ready else "open"
+	var guest_state: String = "ready" if guest_ready else "open"
+	return "Host %s %s    Guest %s %s" % [faction, host_state, guest_name, guest_state]
+
+func _wish_faction() -> String:
+	if _picked_faction != "":
+		return _picked_faction
+	if role == "client" and guest_joined and guest_faction != "":
+		return guest_faction
+	return faction
 
 func pick_map(path: String) -> void:
 	if role != "host":
@@ -314,7 +388,7 @@ func set_ready(on: bool) -> void:
 		announce_room()
 	elif role == "client":
 		guest_ready = on
-		send({"k": "wish", "faction": faction, "ready": guest_ready})
+		send({"k": "wish", "faction": _wish_faction(), "ready": guest_ready})
 
 func say(text: String) -> void:
 	var line: String = text.strip_edges()
@@ -393,7 +467,12 @@ func ingest(raw: String) -> String:
 			announce_room()
 	elif kind == "room" and role == "client":
 		map_path = known_map(str(row.get("map", map_path)))
-		guest_faction = known_faction(str(row.get("guest", faction)))
+		guest_joined = true
+		var echoed: String = str(row.get("guest", ""))
+		if echoed != "":
+			guest_faction = known_faction(echoed)
+		elif _picked_faction != "":
+			guest_faction = _picked_faction
 		faction = known_faction(str(row.get("faction", "gtfc")))
 		host_ready = bool(row.get("host_ready", false))
 		guest_ready = bool(row.get("guest_ready", false))
@@ -945,6 +1024,12 @@ func _stop_beacon() -> void:
 	if _beacon != null:
 		_beacon.close()
 	_beacon = null
+
+func _adopt_paste(link: Paste, as_host: bool) -> void:
+	_web = link
+	peer = link.peer
+	role = "host" if as_host else "client"
+	started = false
 
 func _send_beacon() -> void:
 	if role != "host" or _beacon == null:

@@ -39,6 +39,8 @@ static var _queue: PackedStringArray = PackedStringArray()
 static var _at: int = 0
 static var _player_name: String = ""
 static var now_title: String = ""
+static var _shuffled: PackedStringArray = PackedStringArray()
+static var _spin: int = 0
 static var _said: Dictionary = {}
 static var _owner: Node
 static var _bark_index: Dictionary = {}
@@ -59,6 +61,7 @@ static var _voice_known: bool = false
 static var _voice_loading: bool = false
 static var _voice_gave_up: bool = false
 static var _manifest_left: int = 0
+static var _take_n: Dictionary = {}
 
 const Settings = preload("res://game/match_settings.gd")
 
@@ -78,12 +81,54 @@ static func play_menu(host: Node) -> void:
 	_buses()
 	_begin(host, "MenuMusic", _rels_for("menu"))
 
-static func play_faction(host: Node, faction: String) -> void:
+## Every map plays the same shuffled rotation. The faction argument is kept for callers.
+static func play_faction(host: Node, _faction: String) -> void:
 	_buses()
-	var id: String = faction
-	if id != "gtfc" and id != "nmrf" and id != "mvd" and id != "black_market":
-		id = "gtfc"
-	_begin(host, "FactionMusic", _rels_for(id))
+	_begin(host, "FactionMusic", _rotation_from_next())
+
+## Skips to the next song in the match rotation. The menu loop and the stings ignore it.
+static func skip(host: Node) -> bool:
+	if host == null or _queue.size() < 2 or _player_name != "FactionMusic":
+		return false
+	var sting: AudioStreamPlayer = host.get_node_or_null("StingMusic") as AudioStreamPlayer
+	if sting != null and sting.playing:
+		return false
+	var player: AudioStreamPlayer = host.get_node_or_null(_player_name) as AudioStreamPlayer
+	if player != null:
+		player.stop()
+		player.set_meta("started", false)
+	_at = (_at + 1) % _queue.size()
+	_play_current(host)
+	return true
+
+static func can_skip() -> bool:
+	return _queue.size() > 1 and _player_name == "FactionMusic"
+
+## The shuffled order is kept for the session, so the next match picks up where the last left off.
+static func _rotation_from_next() -> PackedStringArray:
+	if _shuffled.size() != _rels_for("rotation").size():
+		_shuffled = _shuffle(_rels_for("rotation"), "")
+	elif _spin >= _shuffled.size():
+		_shuffled = _shuffle(_rels_for("rotation"), _shuffled[_shuffled.size() - 1])
+		_spin = 0
+	var out: PackedStringArray = PackedStringArray()
+	for i: int in _shuffled.size():
+		out.append(_shuffled[(_spin + i) % _shuffled.size()])
+	return out
+
+static func _shuffle(rels: PackedStringArray, avoid_first: String) -> PackedStringArray:
+	_seed()
+	var out: PackedStringArray = rels.duplicate()
+	for i: int in range(out.size() - 1, 0, -1):
+		var j: int = _rng.randi() % (i + 1)
+		var held: String = out[i]
+		out[i] = out[j]
+		out[j] = held
+	if out.size() > 1 and out[0] == avoid_first:
+		var first: String = out[0]
+		out[0] = out[1]
+		out[1] = first
+	return out
 
 static func play_sting(host: Node, won: bool) -> void:
 	_queue = PackedStringArray()
@@ -104,6 +149,9 @@ static func titles_for(list_id: String) -> PackedStringArray:
 	for rel: String in _rels_for(list_id):
 		out.append(_title_of(rel))
 	return out
+
+static func is_retired(rel: String) -> bool:
+	return _rels_for("retired").has(rel)
 
 static func current_title() -> String:
 	return now_title
@@ -359,7 +407,11 @@ static func announce_key(host: Node, faction: String, key: String) -> void:
 	if host == null or key == "":
 		return
 	var id: String = faction
-	if id != "gtfc" and id != "nmrf" and id != "mvd":
+	## Black Market has no announcer/<lang>/black_market/ files. GTFC lines stand in.
+	if id == "black_market":
+		var own: String = _best("announcer", "black_market/%s.ogg" % key)
+		id = "black_market" if own != "" else "gtfc"
+	elif id != "gtfc" and id != "nmrf" and id != "mvd":
 		id = "gtfc"
 	var now: int = Time.get_ticks_msec()
 	var stamp: int = int(_said.get(key, 0))
@@ -434,8 +486,12 @@ static func weapon_kind(weapon: String) -> String:
 		return "weapon_cannon"
 	if weapon == "tube" or weapon == "mortar" or weapon == "torch" or weapon == "howl":
 		return "weapon_artillery"
-	if weapon == "lance":
+	if weapon == "lance" or weapon == "rocket" or weapon == "shaped_charge" or weapon == "warhead":
 		return "weapon_rocket"
+	if weapon == "missile" or weapon == "bomblet" or weapon == "swarm":
+		return "weapon_missile"
+	if weapon == "torpedo":
+		return "weapon_torpedo"
 	if weapon == "laser" or weapon == "welder" or weapon == "hook" or weapon == "camera":
 		return "weapon_laser"
 	if weapon == "dart":
@@ -526,12 +582,43 @@ static func on_shot(host: Node, unit: RTSUnit, _target: RTSUnit) -> void:
 	if unit == null:
 		return
 	var kind: String = weapon_kind(str(unit.get_meta("weapon", "")))
-	play_kind(host, kind, _heard_at(unit))
+	var at: Vector3 = _heard_at(unit)
+	play_kind(host, kind, at)
+	if kind == "weapon_torpedo":
+		play_kind(host, "water_splash", at)
 
 static func on_hit(host: Node, unit: RTSUnit, amount: float) -> void:
 	if unit == null or amount <= 0.0:
 		return
-	play_kind(host, impact_kind(amount), _heard_at(unit))
+	var at: Vector3 = _heard_at(unit)
+	play_kind(host, impact_kind(amount), at)
+	if _on_water(host, unit):
+		play_kind(host, "water_splash", at)
+
+static func on_death(host: Node, unit: RTSUnit) -> void:
+	if host == null or unit == null:
+		return
+	var role: String = str(unit.get_meta("role", ""))
+	var kind: String = "impact_medium"
+	if role == "armor" or role == "vehicle" or role == "air" or role == "drone" or role == "boat" or role == "artillery":
+		kind = "impact_large"
+	play_kind(host, kind, _heard_at(unit))
+
+static func on_defense(host: Node, building_id: String, at: Vector3) -> void:
+	play_kind(host, defense_kind(building_id), at)
+
+static func defense_kind(building_id: String) -> String:
+	if building_id == "slag_pillbox":
+		return "weapon_rifle"
+	if building_id == "flak_slag_mast":
+		return "weapon_flak"
+	if building_id == "spectrum_prism":
+		return "weapon_laser"
+	if building_id == "wave_force":
+		return "weapon_cannon"
+	if building_id == "defender_vx":
+		return "weapon_mg"
+	return "weapon_mg"
 
 static func on_spawn(host: Node, unit: RTSUnit) -> void:
 	if unit == null or unit.team != SMPointer.PLAYER:
@@ -568,7 +655,7 @@ static func on_line(host: Node, text: String) -> void:
 static func on_super(host: Node, key: String) -> void:
 	if key == "superweapon_ready":
 		play_kind(host, "superweapon_charge")
-	elif key == "superweapon_launched":
+	elif key == "superweapon_launched" or key == "enemy_superweapon_detected":
 		play_kind(host, "superweapon_launch")
 
 static func drive(host: Node) -> void:
@@ -753,14 +840,40 @@ static func _cash(host: Node, field: SMPointer) -> void:
 
 static func _collapse(host: Node) -> void:
 	var side: SMSide = host.get("side") as SMSide
-	if side == null or side.yard == null:
+	if side != null:
+		_watch_yard(host, side.yard, false)
+	var raider: SMRaider = host.get("raider") as SMRaider
+	if raider != null:
+		_watch_yard(host, raider.yard, true)
+
+static func _watch_yard(host: Node, yard: SMBuildYard, enemy: bool) -> void:
+	if yard == null:
 		return
-	for id: StringName in side.yard.finished:
-		var hp: float = float(side.yard.structure_hp.get(id, -1.0))
-		var prev: float = float(_hp_seen.get(id, hp))
-		_hp_seen[id] = hp
+	var yard_key: String = str(yard.get_instance_id())
+	for id: StringName in yard.finished:
+		var hp: float = float(yard.structure_hp.get(id, -1.0))
+		var key: String = "%s:%s" % [yard_key, str(id)]
+		var prev: float = float(_hp_seen.get(key, hp))
+		_hp_seen[key] = hp
 		if prev > 0.5 and hp <= 0.0:
-			play_kind(host, "building_collapse", side.yard.position_of(id))
+			var at: Vector3 = yard.position_of(id)
+			play_kind(host, "building_collapse", at)
+			if enemy:
+				play_kind(host, "impact_large", at)
+
+static func _on_water(host: Node, unit: RTSUnit) -> bool:
+	var role: String = str(unit.get_meta("role", ""))
+	var loco: String = str(unit.get_meta("locomotion", ""))
+	if role == "boat" or loco == "naval" or loco == "amphibious":
+		return true
+	if host == null:
+		return false
+	var field: SMPointer = host.get("field") as SMPointer
+	if field == null or field.domain == null:
+		return false
+	var at: Vector3 = unit.global_position if unit.is_inside_tree() else unit.position
+	var domain: int = field.domain.domain_at(at)
+	return domain == SMDomainGrid.Domain.SHALLOW or domain == SMDomainGrid.Domain.DEEP
 
 static func _compact_loops() -> void:
 	var players: Array[AudioStreamPlayer] = []
@@ -887,8 +1000,10 @@ static func clip_for(unit_id: String, event: String) -> AudioStream:
 	var found: PackedStringArray = _variants(unit_id, file_event)
 	if found.is_empty():
 		return null
-	var which: int = absi(("%s:%s" % [unit_id, event]).hash()) % found.size()
-	return _stream(found[which])
+	var key: String = "%s:%s" % [unit_id, file_event]
+	var which: int = int(_take_n.get(key, 0))
+	_take_n[key] = which + 1
+	return _stream(found[which % found.size()])
 
 static func page_base() -> String:
 	return _page_base()
@@ -968,12 +1083,17 @@ static func _play_current(host: Node) -> void:
 		return
 	var rel: String = _queue[_at]
 	now_title = _title_of(rel)
+	if _player_name == "FactionMusic":
+		var spot: int = _shuffled.find(rel)
+		if spot >= 0:
+			_spin = spot + 1
 	var player: AudioStreamPlayer = _ensure(host, _player_name)
 	player.bus = "Music"
-	_assign(player, rel, false)
+	player.process_mode = Node.PROCESS_MODE_ALWAYS
+	_assign(player, rel, _queue.size() == 1)
 	_show_title(host)
 	var nxt: String = _queue[(_at + 1) % _queue.size()]
-	if is_lazy(nxt):
+	if nxt != rel and is_lazy(nxt):
 		prefetch(host, nxt)
 
 static func _show_title(host: Node) -> void:
@@ -983,52 +1103,37 @@ static func _show_title(host: Node) -> void:
 	if label != null:
 		label.text = now_title
 
+## "menu" is Yangonite on a loop. "rotation" is the twelve user songs, shuffled per session
+## and shared by every map. "retired" is the generated menu and faction loops: never played
+## and never fetched. The victory and defeat stings are separate and stay.
 static func _rels_for(list_id: String) -> PackedStringArray:
-	var shared: PackedStringArray = PackedStringArray([
-		"music/user/poison.ogg",
-		"music/user/time.ogg",
-	])
-	if list_id == "shared":
-		return shared
-	var own: PackedStringArray = PackedStringArray()
 	match list_id:
 		"menu":
-			own = PackedStringArray([
-				"music/menu.ogg",
-				"music/user/changes.ogg",
-				"music/user/not-needed-anymore.ogg",
-			])
-		"gtfc":
-			own = PackedStringArray([
-				"music/gtfc.ogg",
+			return PackedStringArray(["music/user/yangonite.ogg"])
+		"rotation":
+			return PackedStringArray([
 				"music/user/yangonite.ogg",
 				"music/user/ready-to-rage-against-the-abnormalities.ogg",
-			])
-		"nmrf":
-			own = PackedStringArray([
-				"music/nmrf.ogg",
 				"music/user/supayarlat.ogg",
 				"music/user/past-cracks.ogg",
-			])
-		"mvd":
-			own = PackedStringArray([
-				"music/mvd.ogg",
 				"music/user/machinesfuture.ogg",
 				"music/user/humanfuture.ogg",
-			])
-		"black_market":
-			own = PackedStringArray([
-				"music/black_market.ogg",
 				"music/user/night.ogg",
 				"music/user/love-drunk.ogg",
+				"music/user/changes.ogg",
+				"music/user/not-needed-anymore.ogg",
+				"music/user/poison.ogg",
+				"music/user/time.ogg",
 			])
-		_:
-			own = PackedStringArray(["music/gtfc.ogg"])
-	if list_id == "menu":
-		return own
-	for rel: String in shared:
-		own.append(rel)
-	return own
+		"retired":
+			return PackedStringArray([
+				"music/menu.ogg",
+				"music/gtfc.ogg",
+				"music/nmrf.ogg",
+				"music/mvd.ogg",
+				"music/black_market.ogg",
+			])
+	return PackedStringArray()
 
 static func _title_of(rel: String) -> String:
 	match rel:
@@ -1130,14 +1235,41 @@ static func _stream(rel: String) -> AudioStream:
 		_cache[rel] = stream
 	return stream
 
+static func _voice_of(unit_id: String) -> String:
+	if unit_id == "fpv_kamikaze":
+		return "monsoon_spotter"
+	if unit_id == "printsmith":
+		return "militia"
+	if unit_id == "teak_technical":
+		return "bullion_truck"
+	if unit_id == "mekong_uav":
+		return "river_drone"
+	if unit_id == "spool_fpv":
+		return "hub_drone"
+	if unit_id == "swarm_hive":
+		return "relay_van"
+	if unit_id == "longtail_raider":
+		return "jade_skiff"
+	if unit_id == "plantation_bomber":
+		return "mangrove_skiff"
+	if unit_id == "kite_loiterer":
+		return "orlan10"
+	return unit_id
+
 static func _variants(unit_id: String, event: String) -> PackedStringArray:
+	var speaker: String = _voice_of(unit_id)
 	var found: PackedStringArray = PackedStringArray()
+	var english: PackedStringArray = PackedStringArray()
 	var n: int = 1
 	while n <= 8:
-		var rel: String = _best("barks", "%s_%s_%d.ogg" % [unit_id, event, n])
+		var rel: String = _best("barks", "%s_%s_%d.ogg" % [speaker, event, n])
 		if rel != "":
 			found.append(rel)
+			if rel.begins_with("barks/en/"):
+				english.append(rel)
 		n += 1
+	if _lang() == "en" and not english.is_empty():
+		return english
 	return found
 
 static func _lang() -> String:
@@ -1507,10 +1639,7 @@ static func _buses() -> void:
 static func _bus(bus_name: String, radio: bool) -> void:
 	if AudioServer.get_bus_index(bus_name) >= 0:
 		return
-	AudioServer.add_bus()
-	var idx: int = AudioServer.bus_count - 1
-	AudioServer.set_bus_name(idx, bus_name)
-	AudioServer.set_bus_send(idx, "Master")
+	var idx: int = Settings.append_bus(bus_name, "Master")
 	if not radio:
 		return
 	var high: AudioEffectHighPassFilter = AudioEffectHighPassFilter.new()

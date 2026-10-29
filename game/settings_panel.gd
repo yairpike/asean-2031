@@ -4,18 +4,22 @@ extends Control
 const Settings = preload("res://game/match_settings.gd")
 const Ground = preload("res://game/ground_view.gd")
 const Backdrop = preload("res://game/menu_backdrop.gd")
+const Glass = preload("res://game/glass.gd")
 
 var low_button: Button
 var high_button: Button
 var master_slider: HSlider
+var music_slider: HSlider
 var sfx_slider: HSlider
 var pan_slider: HSlider
 var edge_box: CheckButton
 var voice_value: Button
 var master_readout: Label
+var music_readout: Label
 var sfx_readout: Label
 var pan_readout: Label
 var master_value: Label
+var music_value: Label
 var sfx_value: Label
 var pan_value: Label
 var blurb: Label
@@ -23,6 +27,9 @@ var highlight: ColorRect
 var _syncing: bool = false
 var _rows: Array[Control] = []
 var _page: String = "video"
+## Set while the match Esc view hosts the panel: no backdrop, rail, title or Back row.
+var embedded: bool = false
+var on_close: Callable = Callable()
 
 static func attach(parent: Node) -> Control:
 	var script: GDScript = load("res://game/settings_panel.gd") as GDScript
@@ -55,15 +62,17 @@ func _ready() -> void:
 		blur.name = "SettingsBlur"
 		blur.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		blur.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var mat := ShaderMaterial.new()
-		mat.shader = load("res://game/shaders/menu_blur.gdshader") as Shader
-		blur.material = mat
+		blur.color = Color(0, 0, 0, 1)
+		blur.material = Glass.material(Color(0.03, 0.04, 0.06, 0.3), Glass.EDGE, 2.6)
 		add_child(blur)
 		move_child(blur, art.get_index() + 1)
 	var rail := ColorRect.new()
 	rail.name = "SettingsRail"
 	rail.color = Color(0.02, 0.024, 0.034, 0.88)
 	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if Glass.live():
+		rail.color = Color(0, 0, 0, 1)
+		rail.material = Glass.material(Color(0.03, 0.035, 0.05, 0.58))
 	add_child(rail)
 	highlight = ColorRect.new()
 	highlight.name = "SettingsHighlight"
@@ -95,27 +104,35 @@ func _ready() -> void:
 	add_child(low_button)
 	add_child(high_button)
 	master_readout = _caption("MasterLabel", "Master")
+	music_readout = _caption("MusicLabel", "Music")
 	sfx_readout = _caption("SfxLabel", "SFX")
 	pan_readout = _caption("PanLabel", "Pan speed")
 	add_child(master_readout)
+	add_child(music_readout)
 	add_child(sfx_readout)
 	add_child(pan_readout)
 	master_value = _caption("MasterValue", "100")
+	music_value = _caption("MusicValue", "55")
 	sfx_value = _caption("SfxValue", "100")
 	pan_value = _caption("PanValue", "1.0")
 	add_child(master_value)
+	add_child(music_value)
 	add_child(sfx_value)
 	add_child(pan_value)
 	master_slider = _slider("MasterVolume", 0.0, 1.0, 0.05)
+	music_slider = _slider("MusicVolume", 0.0, 1.0, 0.05)
 	sfx_slider = _slider("SfxVolume", 0.0, 1.0, 0.05)
 	pan_slider = _slider("PanSpeed", 0.4, 2.2, 0.1)
-	master_slider.set_meta("blurb", "Overall loudness, including music.")
+	master_slider.set_meta("blurb", "Overall loudness.")
+	music_slider.set_meta("blurb", "Menu and match songs. The default sits a little under full.")
 	sfx_slider.set_meta("blurb", "Menu ticks, weapons, and the radio.")
 	pan_slider.set_meta("blurb", "How fast the camera slides.")
 	master_slider.value_changed.connect(_on_master)
+	music_slider.value_changed.connect(_on_music)
 	sfx_slider.value_changed.connect(_on_sfx)
 	pan_slider.value_changed.connect(_on_pan)
 	add_child(master_slider)
+	add_child(music_slider)
 	add_child(sfx_slider)
 	add_child(pan_slider)
 	var voice_label: Label = _caption("VoiceLabel", "Voice language")
@@ -169,6 +186,7 @@ func _ready() -> void:
 	_watch(low_button)
 	_watch(high_button)
 	_watch(master_slider)
+	_watch(music_slider)
 	_watch(sfx_slider)
 	_watch(voice_value)
 	_watch(pan_slider)
@@ -190,6 +208,23 @@ func _ready() -> void:
 func _on_resized() -> void:
 	_layout(size)
 
+func embed(on: bool, closer: Callable = Callable()) -> void:
+	embedded = on
+	on_close = closer
+	for node_name: String in ["SettingsBackdrop", "SettingsDimmer", "SettingsBlur", "SettingsRail", "SettingsTitle", "SettingsClose"]:
+		var item: CanvasItem = get_node_or_null(node_name) as CanvasItem
+		if item != null:
+			item.visible = not on
+	if on:
+		set_anchors_preset(Control.PRESET_TOP_LEFT)
+	else:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		offset_left = 0.0
+		offset_top = 0.0
+		offset_right = 0.0
+		offset_bottom = 0.0
+	_layout(size if size.x > 32.0 else Vector2(1280, 720))
+
 func _page_tab(node_name: String, caption: String, page: String) -> void:
 	var button: Button = _choice(node_name, caption)
 	button.set_meta("page_id", page)
@@ -203,7 +238,7 @@ func _show_page(page: String) -> void:
 func _tag_pages() -> void:
 	var groups: Dictionary = {
 		"video": ["SectionGraphics", "QualityLabel", "GraphicsLow", "GraphicsHigh"],
-		"audio": ["SectionAudio", "MasterLabel", "MasterVolume", "MasterValue", "SfxLabel", "SfxVolume", "SfxValue", "VoiceLabel", "VoiceValue"],
+		"audio": ["SectionAudio", "MasterLabel", "MasterVolume", "MasterValue", "MusicLabel", "MusicVolume", "MusicValue", "SfxLabel", "SfxVolume", "SfxValue", "VoiceLabel", "VoiceValue"],
 		"controls": ["SectionControls", "EdgePan", "PanLabel", "PanSpeed", "PanValue"],
 		"gameplay": ["SectionGameplay", "DifficultyLabel", "SettingsDiffEasy", "SettingsDiffNormal", "SettingsDiffHard"],
 		"hud": ["SectionHud", "HudNote", "HudValue"],
@@ -217,7 +252,9 @@ func _tag_pages() -> void:
 
 func _layout(view: Vector2) -> void:
 	var narrow: bool = view.x < 900.0 or view.y > view.x + 4.0
-	var rail_w: float = view.x if narrow else view.x * 0.4
+	if embedded:
+		narrow = view.x < 520.0
+	var rail_w: float = view.x if narrow or embedded else view.x * 0.4
 	var rail: Control = get_node_or_null("SettingsRail") as Control
 	if rail != null:
 		rail.position = Vector2.ZERO
@@ -240,7 +277,7 @@ func _layout(view: Vector2) -> void:
 	if title != null:
 		title.position = Vector2(left, 24.0)
 		title.add_theme_font_size_override("font_size", 36 if not narrow else 28)
-	var tab_y: float = 84.0
+	var tab_y: float = 8.0 if embedded else 84.0
 	var tabs: PackedStringArray = PackedStringArray([
 		"SettingsTabVideo", "SettingsTabAudio", "SettingsTabControls", "SettingsTabGameplay", "SettingsTabHud",
 	])
@@ -248,6 +285,7 @@ func _layout(view: Vector2) -> void:
 		var tab: Control = get_node_or_null(tabs[i])
 		if tab == null:
 			continue
+		tab.modulate = Color(1, 1, 1, 1.0 if str(tab.get_meta("page_id", "")) == _page else 0.55)
 		tab.position = Vector2(left, tab_y + float(i) * 44.0)
 		tab.size = Vector2(nav_w, 36)
 		tab.custom_minimum_size = Vector2(nav_w, 36)
@@ -265,6 +303,7 @@ func _layout(view: Vector2) -> void:
 	_place_value(high_button, slider_x + 80.0, y - 44.0, 72.0)
 	y = _place_section("SectionAudio", content_x, y, content_w)
 	y = _place_slider(master_readout, master_slider, master_value, content_x, y, label_w, slider_x, slider_w, value_x)
+	y = _place_slider(music_readout, music_slider, music_value, content_x, y, label_w, slider_x, slider_w, value_x)
 	y = _place_slider(sfx_readout, sfx_slider, sfx_value, content_x, y, label_w, slider_x, slider_w, value_x)
 	y = _place_row(get_node_or_null("VoiceLabel"), content_x, y, maxf(96.0, value_x - content_x - 12.0))
 	_place_value(voice_value, value_x, y - 44.0, value_w)
@@ -287,7 +326,7 @@ func _layout(view: Vector2) -> void:
 		back.size = Vector2(88, 40)
 		back.custom_minimum_size = Vector2(88, 40)
 	if restore != null:
-		restore.position = Vector2(left + 100.0, foot)
+		restore.position = Vector2(left if embedded else left + 100.0, foot)
 		restore.size = Vector2(minf(200.0, rail_w - 140.0), 40)
 		restore.custom_minimum_size = Vector2(restore.size.x, 40)
 	if blurb != null:
@@ -427,6 +466,7 @@ func pull() -> void:
 	low_button.add_theme_color_override("font_color", Color(1, 1, 1, 1 if Settings.graphics == "low" else 0.45))
 	high_button.add_theme_color_override("font_color", Color(1, 1, 1, 1 if Settings.graphics == "high" else 0.45))
 	master_slider.value = Settings.master
+	music_slider.value = Settings.music
 	sfx_slider.value = Settings.sfx
 	pan_slider.value = Settings.pan
 	edge_box.button_pressed = Settings.edge
@@ -447,6 +487,13 @@ func _on_master(v: float) -> void:
 	if _syncing:
 		return
 	Settings.set_master(v)
+	_paint_readouts()
+	_apply()
+
+func _on_music(v: float) -> void:
+	if _syncing:
+		return
+	Settings.set_music(v)
 	_paint_readouts()
 	_apply()
 
@@ -511,6 +558,9 @@ func _on_edge(on: bool) -> void:
 	_apply()
 
 func _close() -> void:
+	if embedded and on_close.is_valid():
+		on_close.call()
+		return
 	visible = false
 	var host: Node = get_parent()
 	if host != null and host.has_method("settings_closed"):
@@ -529,9 +579,11 @@ func _restore() -> void:
 
 func _paint_readouts() -> void:
 	master_readout.text = "Master"
+	music_readout.text = "Music"
 	sfx_readout.text = "SFX"
 	pan_readout.text = "Pan speed"
 	master_value.text = "%d" % int(round(Settings.master * 100.0))
+	music_value.text = "%d" % int(round(Settings.music * 100.0))
 	sfx_value.text = "%d" % int(round(Settings.sfx * 100.0))
 	pan_value.text = "%.1f" % Settings.pan
 
