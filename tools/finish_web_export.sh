@@ -432,7 +432,25 @@ if [ -n "$MODEL_SRC" ]; then
     fi
     find "$TRIPO_SRC" -maxdepth 1 -type f -name '*.glb' -exec cp {} "$DEST/models/" \;
   fi
-  find "$DEST/models" -maxdepth 1 -type f \( -name '*.glb' -o -name '*.gltf' \) -printf '%f\n' | sort > "$DEST/models/index.txt"
+  # Rigged units (idle, walk, run, shoot, die, flinch, ability clips) are listed as rigged/<id>.glb.
+  RIGGED_SRC="${RIGGED_SRC:-$MODEL_SRC/rigged}"
+  if [ ! -d "$RIGGED_SRC" ] && [ -d "$ROOT/game/models/rigged" ]; then
+    RIGGED_SRC="$ROOT/game/models/rigged"
+  fi
+  if [ -d "$RIGGED_SRC" ]; then
+    mkdir -p "$DEST/models/rigged"
+    find "$RIGGED_SRC" -maxdepth 1 -type f -name '*.glb' -exec cp {} "$DEST/models/rigged/" \;
+  fi
+  {
+    find "$DEST/models" -maxdepth 1 -type f \( -name '*.glb' -o -name '*.gltf' \) -printf '%f\n'
+    if [ -d "$DEST/models/rigged" ]; then
+      find "$DEST/models/rigged" -maxdepth 1 -type f -name '*.glb' -printf 'rigged/%f\n'
+    fi
+  } | sort > "$DEST/models/index.txt"
+  if [ -d "$ROOT/game/models/rigged" ] && ! grep -qx "rigged/militia.glb" "$DEST/models/index.txt"; then
+    echo "finish_web_export: rigged models are missing from models/index.txt"
+    exit 1
+  fi
   : > "$DEST/models/.gdignore"
   if [ -f "$MODEL_SRC/CREDITS.md" ]; then
     cp "$MODEL_SRC/CREDITS.md" "$DEST/models/CREDITS.md"

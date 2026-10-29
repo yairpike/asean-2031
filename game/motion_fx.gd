@@ -243,3 +243,29 @@ static func step_debris(root: Node3D, delta: float) -> bool:
 		chunk.set_meta("vel", vel)
 		moving = moving or vel != Vector3.ZERO
 	return moving
+
+## A flat expanding ring on the ground, for an ability cast.
+static func ring(parent: Node3D, at: Vector3, radius: float, ink: Color) -> MeshInstance3D:
+	var mi: MeshInstance3D = MeshInstance3D.new()
+	mi.name = "CastRing"
+	var torus: TorusMesh = TorusMesh.new()
+	torus.inner_radius = radius * 0.86
+	torus.outer_radius = radius
+	torus.rings = 24
+	torus.ring_segments = 4
+	mi.mesh = torus
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.albedo_color = ink
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = at
+	mi.scale = Vector3(0.3, 0.2, 0.3)
+	parent.add_child(mi)
+	var tw: Tween = mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3(1.6, 0.2, 1.6), 0.6).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.6)
+	tw.tween_callback(mi.queue_free)
+	return mi

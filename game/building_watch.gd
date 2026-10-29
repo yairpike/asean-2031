@@ -3,6 +3,7 @@ extends Node
 ## Read-only on the yard.
 
 const BuildingFx = preload("res://game/building_fx.gd")
+const Power = preload("res://addons/rts_advanced/sm_power.gd")
 const PERIOD: float = 0.25
 
 var yard: SMBuildYard
@@ -26,6 +27,7 @@ func _process(delta: float) -> void:
 	if wait > 0.0 or yard == null or stage == null:
 		return
 	wait = PERIOD
+	var powered: bool = Power.online(yard)
 	for id: StringName in yard.structure_hp.keys():
 		var top: float = float(yard.structure_max.get(id, 0.0))
 		if top <= 0.0:
@@ -33,3 +35,4 @@ func _process(delta: float) -> void:
 		var node: Node3D = stage.get_node_or_null("Built_%s" % str(id)) as Node3D
 		if node != null:
 			BuildingFx.set_health(node, float(yard.structure_hp[id]) / top)
+			BuildingFx.set_state(node, powered, bool(yard.repairing.get(id, false)))

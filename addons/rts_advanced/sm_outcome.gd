@@ -155,9 +155,11 @@ func _hide(id: StringName) -> void:
 		node_name = "HubShell"
 	var node: Node = host.get_node_or_null(node_name)
 	if node is Node3D:
+		node.set_meta("destroyed", true)
 		(node as Node3D).visible = false
 	var built: Node = host.get_node_or_null("Built_%s" % str(id))
 	if built is Node3D:
+		built.set_meta("destroyed", true)
 		(built as Node3D).visible = false
 
 func finish(win: bool) -> void:

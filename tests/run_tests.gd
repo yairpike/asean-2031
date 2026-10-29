@@ -13,6 +13,8 @@ const Motion = preload("res://game/unit_motion.gd")
 const BuildingFx = preload("res://game/building_fx.gd")
 const BuildingWatch = preload("res://game/building_watch.gd")
 const WorldView = preload("res://game/world_view.gd")
+const Catalog = preload("res://game/model_catalog.gd")
+const Debris = preload("res://game/building_debris.gd")
 var H: Harness
 var duel_note: String = ""
 
@@ -99,6 +101,9 @@ func _run() -> void:
 	await H.section("test_lan", test_lan)
 	await H.section("test_lan_match", test_lan_match)
 	await H.section("test_unit_motion", test_unit_motion)
+	await H.section("test_unit_facing", test_unit_facing)
+	await H.section("test_weapon_sockets", test_weapon_sockets)
+	await H.section("test_building_materials", test_building_materials)
 	quit(H.finish())
 
 func _unit(team: int, at: Vector3, t: StringName = &"unit") -> RTSUnit:
@@ -5065,3 +5070,227 @@ func test_unit_motion() -> void:
 	var ruin: Node3D = stage.get_node_or_null("Ruin_Built_barracks") as Node3D
 	check(ruin != null and ruin.visible and not mi.visible, "hiding a structure leaves a collapsing ruin in its place")
 	stage.queue_free()
+
+const FACING_STATIC: PackedStringArray = ["amber_tank", "cyan_ifv", "channel_skiff", "cyan_gunship", "hub_drone", "sampan"]
+const COMPASS: PackedStringArray = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+
+## Walks one unit toward each compass point and returns the worst angle, in degrees, between the drawn forward and the move.
+func _facing_error(stage: Node3D, id: String, role: String) -> float:
+	var worst: float = 0.0
+	for i: int in COMPASS.size():
+		var u: RTSUnit = _motion_unit(stage, id, role, Vector3.ZERO, 0, true)
+		var ang: float = float(i) * PI / 4.0
+		var move: Vector3 = Vector3(sin(ang), 0.0, -cos(ang))
+		u.set_path(PackedVector3Array([move * 40.0]))
+		var frame: int = 0
+		while frame < 40:
+			u.advance(1.0 / 30.0)
+			Motion.pose(u, 1.0 / 30.0)
+			frame += 1
+		await process_frame
+		var body: Node3D = u.get_node("Body") as Node3D
+		var seen: Vector3 = Motion.rendered_forward(body)
+		worst = maxf(worst, rad_to_deg(absf(seen.signed_angle_to(move, Vector3.UP))))
+		u.free()
+	return worst
+
+func test_unit_facing() -> void:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var ids: PackedStringArray = PackedStringArray(Catalog.RIGGED_YAW.keys())
+	ids.sort()
+	for id: String in ids:
+		var err: float = await _facing_error(stage, id, "infantry")
+		check(err <= 15.0, "rigged %s faces its move vector in all 8 directions (worst %.1f deg)" % [id, err])
+	for id: String in FACING_STATIC:
+		var role: String = "air" if id == "cyan_gunship" or id == "hub_drone" else ("boat" if id == "sampan" or id == "channel_skiff" else "armor")
+		var err: float = await _facing_error(stage, id, role)
+		check(err <= 15.0, "%s faces its move vector in all 8 directions (worst %.1f deg)" % [id, err])
+	var probe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3.ZERO, 0, true)
+	var body: Node3D = probe.get_node("Body") as Node3D
+	check(bool(body.get_meta("model_rigged", false)) and is_equal_approx(float(body.get_meta("model_yaw", 0.0)), float(Catalog.RIGGED_YAW["militia"])), "the registry turns the rigged militia by its catalog yaw")
+	Motion.pose(probe, 1.0 / 30.0)
+	probe.set_path(PackedVector3Array([Vector3(30, 0, 0)]))
+	probe.advance(1.0 / 30.0)
+	Motion.pose(probe, 1.0 / 30.0)
+	var first: float = absf(wrapf(Motion.heading_of(probe) - probe.rotation.y, -PI, PI))
+	check(first > 0.5, "a hard turn is not snapped: the body still lags the path heading after one frame")
+	var turn: int = 0
+	while turn < 20:
+		probe.advance(1.0 / 30.0)
+		Motion.pose(probe, 1.0 / 30.0)
+		turn += 1
+	check(absf(wrapf(Motion.heading_of(probe) - probe.rotation.y, -PI, PI)) < 0.05, "the body finishes the turn onto the path heading")
+	probe.stop()
+	var foe: RTSUnit = _motion_unit(stage, "cyan_ifv", "armor", Vector3(0, 0, 8), 1, false)
+	probe.attack_range = 12.0
+	probe.attack_target = foe
+	turn = 0
+	while turn < 30:
+		Motion.pose(probe, 1.0 / 30.0)
+		turn += 1
+	var aim: float = Motion.yaw_to(probe.global_position, foe.global_position)
+	check(absf(wrapf(Motion.heading_of(probe) - aim, -PI, PI)) < 0.05, "a standing soldier turns to face its target")
+	var tank: RTSUnit = _motion_unit(stage, "amber_tank", "armor", Vector3(10, 0, 0), 0, true)
+	tank.attack_range = 30.0
+	tank.attack_target = foe
+	tank.set_path(PackedVector3Array([Vector3(10, 0, -30)]))
+	turn = 0
+	while turn < 45:
+		tank.advance(1.0 / 30.0)
+		Motion.pose(tank, 1.0 / 30.0)
+		turn += 1
+	var hull: Node3D = tank.get_node("Body") as Node3D
+	var turret: Node3D = hull.get_node("Turret") as Node3D
+	var turret_world: float = hull.global_rotation.y + turret.rotation.y
+	check(absf(wrapf(Motion.heading_of(tank) - tank.rotation.y, -PI, PI)) < 0.05 and absf(wrapf(turret_world - Motion.yaw_to(tank.global_position, foe.global_position), -PI, PI)) < 0.1, "a moving tank keeps its hull on the path and its turret on the target")
+	stage.queue_free()
+
+## The hand bone, read in the weapon's own frame, must not drift: the weapon is a rigid prop riding the hand.
+func _weapon_drift(id: String) -> Array:
+	var doc: GLTFDocument = GLTFDocument.new()
+	var state: GLTFState = GLTFState.new()
+	if doc.append_from_file(ProjectSettings.globalize_path("res://game/models/rigged/%s.glb" % id), state) != OK:
+		return [-1.0, 0]
+	var model: Node3D = doc.generate_scene(state) as Node3D
+	root.add_child(model)
+	var player: AnimationPlayer = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false) as Skeleton3D
+	var weapons: Array[MeshInstance3D] = []
+	for node: Node in model.find_children("Weapon*", "MeshInstance3D", true, false):
+		weapons.append(node as MeshInstance3D)
+	var worst: float = 0.0
+	var poses: int = 0
+	var start: Dictionary = {}
+	for clip: StringName in player.get_animation_list():
+		player.play(clip)
+		var length: float = player.get_animation(clip).length
+		for k: int in 4:
+			player.seek(length * float(k) / 4.0, true)
+			await process_frame
+			poses += 1
+			for w: MeshInstance3D in weapons:
+				var holder: BoneAttachment3D = w.get_parent() as BoneAttachment3D
+				if holder == null or w.skin != null:
+					worst = 999.0
+					continue
+				var hand: Vector3 = skel.global_transform * skel.get_bone_global_pose(skel.find_bone(holder.bone_name)).origin
+				var local: Vector3 = w.global_transform.affine_inverse() * hand
+				var scale: Vector3 = w.global_basis.get_scale()
+				var key: String = str(w.name)
+				if not start.has(key):
+					start[key] = [local, scale]
+				var was: Array = start[key]
+				worst = maxf(worst, maxf(local.distance_to(was[0] as Vector3), (scale - (was[1] as Vector3)).length()))
+	model.free()
+	return [worst, poses]
+
+func test_weapon_sockets() -> void:
+	var armed: PackedStringArray = ["militia", "clearance_trooper", "amber_scout", "charcoal_bike", "clearance_engineer", "emerald_cutter", "olive_ranger", "olive_sapper", "ruby_lancer", "ruby_mortar"]
+	for id: String in armed:
+		var got: Array = await _weapon_drift(id)
+		check(float(got[0]) >= 0.0 and float(got[0]) < 0.002 and int(got[1]) >= 20, "%s weapons stay rigid on their hand socket across every clip (%d poses, drift %.4f)" % [id, int(got[1]), float(got[0])])
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var rifle: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3.ZERO, 0, true)
+	var body: MeshInstance3D = rifle.get_node("Body") as MeshInstance3D
+	Motion.player_of(body)
+	var weapon: MeshInstance3D = body.find_child("Weapon", true, false) as MeshInstance3D
+	var muzzle: Node3D = Motion.muzzle_of(body)
+	check(weapon != null and weapon.get_parent() is BoneAttachment3D and (weapon.get_parent() as BoneAttachment3D).bone_name == "R_Hand" and muzzle != null, "the militia rifle rides the right hand socket with a muzzle at the barrel tip")
+	var ik: Node = body.find_child("OffHandIK", true, false)
+	check(ik is TwoBoneIK3D and str((ik as TwoBoneIK3D).get_end_bone_name(0)) == "L_Hand", "the two-handed rifle puts the left hand on its grip through IK")
+	Motion.pose(rifle, 1.0 / 30.0)
+	await process_frame
+	var rest: Vector3 = weapon.position
+	Motion.on_fired(rifle, null)
+	var flash: Node3D = stage.get_node_or_null("MuzzleFlash") as Node3D
+	check(flash != null and flash.global_position.distance_to(muzzle.global_position) < 0.01, "the muzzle flash starts at the barrel tip")
+	Motion.pose(rifle, 1.0 / 60.0)
+	var kicked: Vector3 = weapon.position - rest
+	var barrel: Vector3 = weapon.basis * (muzzle.position - weapon.get_aabb().get_center())
+	check(kicked.length() > 0.001 and kicked.normalized().dot(-barrel.normalized()) > 0.95, "recoil pushes the rifle straight back along its barrel")
+	var settle: int = 0
+	while settle < 20:
+		Motion.pose(rifle, 1.0 / 30.0)
+		settle += 1
+	check(weapon.position.distance_to(rest) < 0.0005, "the rifle settles back into the hand after recoil")
+	var shield_unit: RTSUnit = _motion_unit(stage, "clearance_trooper", "infantry", Vector3(4, 0, 0), 0, true)
+	var shield: MeshInstance3D = shield_unit.find_child("Shield", true, false) as MeshInstance3D
+	var ext: Vector3 = shield.get_aabb().size if shield != null else Vector3.ZERO
+	var dims: Array[float] = [ext.x, ext.y, ext.z]
+	dims.sort()
+	check(shield != null and shield.skin == null and (shield.get_parent() as BoneAttachment3D).bone_name == "L_Forearm" and dims[1] > 0.5 * dims[2] and dims[0] < 0.4 * dims[1], "the riot shield is a rigid forearm prop with full face proportions")
+	stage.queue_free()
+
+func test_building_materials() -> void:
+	var ids: Dictionary = {}
+	for faction: String in ["gtfc", "mvd", "nmrf"]:
+		for item: Variant in SMCatalog.faction(faction).get("buildings", []):
+			var id: String = str((item as Dictionary).get("id", ""))
+			ids[id] = true
+			ids["%s_%s" % [faction, id]] = false
+	var missing: Array[String] = []
+	for id: String in ids.keys():
+		var tripo: bool = FileAccess.file_exists(ProjectSettings.globalize_path("res://game/models/tripo/%s.glb" % id))
+		if not bool(ids[id]) and not tripo:
+			continue
+		var kinds: PackedStringArray = Catalog.materials_of(id)
+		var ok: bool = Catalog.MATERIALS.has(id) and kinds.size() >= 1 and kinds.size() <= 2
+		for kind: String in kinds:
+			ok = ok and Catalog.KINDS.has(kind)
+		if not ok:
+			missing.append(id)
+	check(missing.is_empty(), "every building and faction variant carries one or two catalog materials %s" % [missing])
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var hide: MeshInstance3D = WorldView.slab(stage, "Built_bamboo_hide", Vector3(-12, 2.3, 0), Vector3(2.2, 4.6, 2.2), Color.RED)
+	var barracks: MeshInstance3D = WorldView.slab(stage, "Built_barracks", Vector3(0, 2.3, 0), Vector3(2.2, 4.6, 2.2), Color.RED)
+	var factory: MeshInstance3D = WorldView.slab(stage, "Built_mvd_war_factory", Vector3(12, 2.3, 0), Vector3(2.2, 4.6, 2.2), Color.RED)
+	check(str(barracks.get_meta("model", "")) != "" and BuildingFx.materials_for(barracks)[0] == Catalog.BRICK, "the barracks mounts its model and reads brick from the catalog")
+	var ink: PackedColorArray = Debris.palette(barracks, "barracks")
+	var spread: float = ink[4].get_luminance() - ink[0].get_luminance()
+	var warm: bool = false
+	for c: Color in ink:
+		warm = warm or (c.r > c.b + 0.08)
+	check(ink.size() == 5 and spread > 0.15 and warm, "the barracks palette comes from its red brick texture, dark to light")
+	var fx: Node3D = barracks.get_node("BuildingFx") as Node3D
+	fx.set("phase", BuildingFx.Phase.STAND)
+	fx.call("_start_work")
+	check(fx.get_node_or_null("Working") != null, "a standing building runs a working loop")
+	BuildingFx.set_state(barracks, false, false)
+	check(not (fx.get_node("Working") as Node3D).visible, "low power stops the working loop")
+	await process_frame
+	for mi: MeshInstance3D in [hide, barracks, factory]:
+		mi.visible = false
+	var hide_ruin: Node3D = stage.get_node_or_null("Ruin_Built_bamboo_hide") as Node3D
+	var brick_ruin: Node3D = stage.get_node_or_null("Ruin_Built_barracks") as Node3D
+	var steel_ruin: Node3D = stage.get_node_or_null("Ruin_Built_mvd_war_factory") as Node3D
+	var chunk_root: Node = brick_ruin.get_node_or_null("Chunks") if brick_ruin != null else null
+	check(chunk_root != null and chunk_root.get_child_count() >= 8, "the barracks breaks into textured chunks of its own model")
+	var source_tris: int = 0
+	for node: Node in barracks.find_children("*", "MeshInstance3D", true, false):
+		var m: Mesh = (node as MeshInstance3D).mesh
+		if m != null and node.name != "ContactShadow":
+			for s: int in m.get_surface_count():
+				source_tris += m.surface_get_array_index_len(s) / 3 if m.surface_get_array_index_len(s) > 0 else m.surface_get_array_len(s) / 3
+	var chunk_tris: int = 0
+	if chunk_root != null:
+		for node: Node in chunk_root.get_children():
+			var m: Mesh = (node as MeshInstance3D).mesh
+			for s: int in m.get_surface_count():
+				chunk_tris += m.surface_get_array_len(s) / 3
+	check(source_tris > 0 and chunk_tris == source_tris, "the chunks keep every triangle of the model (%d of %d)" % [chunk_tris, source_tris])
+	check(hide_ruin != null and hide_ruin.find_child("Embers", true, false) != null, "bamboo and thatch throw burning embers")
+	check(brick_ruin != null and brick_ruin.find_child("Dust", true, false) != null and brick_ruin.find_child("Splinters", true, false) != null, "brick raises dust and the timber frame splinters")
+	check(steel_ruin != null and steel_ruin.find_child("Sparks", true, false) != null and steel_ruin.find_child("Glass", true, false) != null, "steel throws sparks and glass panels shatter")
+	var heap: MeshInstance3D = brick_ruin.get_node_or_null("RubbleMound") as MeshInstance3D if brick_ruin != null else null
+	check(heap != null and (heap.material_override as StandardMaterial3D).albedo_color.is_equal_approx(ink[1]), "the rubble mound is shaded from the same palette")
+	var piece_kinds: Dictionary = {}
+	var piece_root: Node = brick_ruin.get_node_or_null("Debris") if brick_ruin != null else null
+	if piece_root != null:
+		for node: Node in piece_root.get_children():
+			piece_kinds[str(node.get_meta("material", ""))] = true
+	check(piece_kinds.has(Catalog.BRICK) and not piece_kinds.has(Catalog.GLASS), "barracks debris pieces are brick and timber, not generic blocks")
+	stage.queue_free()
+
