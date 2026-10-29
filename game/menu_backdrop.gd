@@ -32,15 +32,18 @@ var _video_wait: Dictionary = {}
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip_contents = true
 	_headless = DisplayServer.get_name() == "headless"
 	_apply_art()
 	if not _headless:
 		for i: int in 2:
 			var player := VideoStreamPlayer.new()
 			player.name = "MenuVideo%d" % i
-			player.set_anchors_preset(Control.PRESET_FULL_RECT)
+			player.set_anchors_preset(Control.PRESET_TOP_LEFT)
 			player.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			player.expand = true
+			player.position = Vector2.ZERO
+			player.size = size
 			player.loop = true
 			player.volume_db = -80.0
 			player.visible = false
@@ -114,6 +117,7 @@ func _process(delta: float) -> void:
 		norm = Vector2(mouse.x / view.x, mouse.y / view.y) * 2.0 - Vector2.ONE
 	_aim = _aim.lerp(norm, minf(1.0, delta * 3.0))
 	_tick_video(delta)
+	_fit_videos()
 	queue_redraw()
 
 func _sync_video(fade: bool) -> void:
@@ -214,11 +218,32 @@ func _gradient() -> void:
 	draw_rect(Rect2(size.x * 0.55, size.y * 0.2, size.x * 0.45, size.y * 0.5), Color(0.05, 0.045, 0.04, 0.35))
 
 func _cover(tex: Texture2D) -> void:
-	var pulse: float = 1.0 + sin(_spin) * 0.018
-	var pad: float = 36.0 * pulse
-	var drift := Vector2(sin(_spin * 0.35) * 16.0, cos(_spin * 0.28) * 8.0)
-	var nudge := Vector2(_aim.x * 14.0, _aim.y * 8.0) + drift
-	draw_texture_rect(tex, Rect2(-pad + nudge.x, -pad + nudge.y, size.x + pad * 2.0, size.y + pad * 2.0), false)
+	var tex_size: Vector2 = tex.get_size()
+	if tex_size.x < 1.0 or tex_size.y < 1.0 or size.x < 1.0 or size.y < 1.0:
+		return
+	var pulse: float = 1.0 + sin(_spin) * 0.012
+	var scale: float = maxf(size.x / tex_size.x, size.y / tex_size.y) * pulse
+	var drawn: Vector2 = tex_size * scale
+	var drift := Vector2(sin(_spin * 0.35) * 12.0, cos(_spin * 0.28) * 6.0)
+	var nudge := Vector2(_aim.x * 10.0, _aim.y * 6.0) + drift
+	var origin: Vector2 = (size - drawn) * 0.5 + nudge
+	draw_texture_rect(tex, Rect2(origin, drawn), false)
+
+func _fit_videos() -> void:
+	for player: VideoStreamPlayer in _players:
+		if not player.visible:
+			continue
+		var frame: Texture2D = player.get_video_texture()
+		if frame == null:
+			continue
+		var tw: float = float(frame.get_width())
+		var th: float = float(frame.get_height())
+		if tw < 2.0 or th < 2.0 or size.x < 2.0 or size.y < 2.0:
+			continue
+		var scale: float = maxf(size.x / tw, size.y / th)
+		var drawn := Vector2(tw * scale, th * scale)
+		player.position = (size - drawn) * 0.5
+		player.size = drawn
 
 func _pull(file_name: String, slot: String) -> void:
 	if not OS.has_feature("web") or file_name.contains("..") or file_name.contains("\\"):

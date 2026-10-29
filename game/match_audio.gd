@@ -1507,10 +1507,7 @@ static func _buses() -> void:
 static func _bus(bus_name: String, radio: bool) -> void:
 	if AudioServer.get_bus_index(bus_name) >= 0:
 		return
-	AudioServer.add_bus()
-	var idx: int = AudioServer.bus_count - 1
-	AudioServer.set_bus_name(idx, bus_name)
-	AudioServer.set_bus_send(idx, "Master")
+	var idx: int = Settings.append_bus(bus_name, "Master")
 	if not radio:
 		return
 	var high: AudioEffectHighPassFilter = AudioEffectHighPassFilter.new()

@@ -172,6 +172,18 @@ static func sfx_bus_db() -> float:
 		return -80.0
 	return linear_to_db(sfx) - SFX_TRIM_DB
 
+## Append a bus in place. add_bus() on the web export reorders the sample
+## graph and disconnects Master from the speakers, so every runtime bus uses this.
+static func append_bus(bus_name: String, send_to: String = "Master") -> int:
+	var idx: int = AudioServer.get_bus_index(bus_name)
+	if idx >= 0:
+		return idx
+	var count: int = AudioServer.bus_count
+	AudioServer.bus_count = count + 1
+	AudioServer.set_bus_name(count, bus_name)
+	AudioServer.set_bus_send(count, send_to)
+	return count
+
 static func apply_audio() -> void:
 	ensure()
 	var db: float = -80.0
@@ -179,12 +191,7 @@ static func apply_audio() -> void:
 		db = linear_to_db(master)
 	AudioServer.set_bus_volume_db(0, db)
 	_limit_master()
-	var sfx_i: int = AudioServer.get_bus_index("SFX")
-	if sfx_i < 0:
-		AudioServer.add_bus()
-		sfx_i = AudioServer.bus_count - 1
-		AudioServer.set_bus_name(sfx_i, "SFX")
-		AudioServer.set_bus_send(sfx_i, "Master")
+	var sfx_i: int = append_bus("SFX", "Master")
 	AudioServer.set_bus_volume_db(sfx_i, sfx_bus_db())
 
 static func _limit_master() -> void:
