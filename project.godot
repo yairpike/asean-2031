@@ -5,6 +5,10 @@ config_version=5
 config/name="ASEAN 2031"
 run/main_scene="res://game/boot.tscn"
 config/features=PackedStringArray("4.7")
+boot_splash/bg_color=Color(0.0706, 0.0784, 0.0941, 1)
+boot_splash/image="res://brand/boot_splash.png"
+config/icon="res://brand/app_icon.png"
+config/windows_native_icon="res://brand/icon.ico"
 
 [autoload]
 

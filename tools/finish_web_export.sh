@@ -160,6 +160,10 @@ if ! grep -q 'serviceWorker.register("sw.js")' "$DEST/index.html"; then
   sed -i 's#</body>#<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script></body>#' "$DEST/index.html"
 fi
 cp "$ROOT/web/audio_unlock.js" "$DEST/audio_unlock.js"
+cp "$ROOT/web/favicon.ico" "$DEST/favicon.ico"
+if [ -f "$DEST/index.html" ] && ! grep -q 'href="favicon.ico"' "$DEST/index.html"; then
+  sed -i 's#</head>#<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48"></head>#' "$DEST/index.html"
+fi
 if [ -f "$DEST/index.html" ] && ! grep -q 'audio_unlock.js' "$DEST/index.html"; then
   python3 - "$DEST/index.html" << 'PY'
 import sys
@@ -452,15 +456,11 @@ if [ -n "$UI_SRC" ]; then
     echo "finish_web_export: ui source needs frames and icons"
     exit 1
   fi
-  mkdir -p "$DEST/ui/frames" "$DEST/ui/icons" "$DEST/ui/emblems"
+  mkdir -p "$DEST/ui/frames" "$DEST/ui/icons"
   find "$UI_SRC/frames" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/ui/frames/" \;
   find "$UI_SRC/icons" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/ui/icons/" \;
-  if [ -d "$UI_SRC/emblems" ]; then
-    find "$UI_SRC/emblems" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/ui/emblems/" \;
-  fi
   : > "$DEST/ui/frames/.gdignore"
   : > "$DEST/ui/icons/.gdignore"
-  : > "$DEST/ui/emblems/.gdignore"
 fi
 if ! grep -q "brotli" "$DEST/brotli_host.conf" || ! grep -q "wasm" "$DEST/brotli_host.conf"; then
   echo "finish_web_export: brotli host config is missing"
@@ -470,7 +470,7 @@ if ! grep -q "GODOT_THREADS_ENABLED = false" "$DEST/index.html"; then
   echo "finish_web_export: export is not single-threaded"
   exit 1
 fi
-for f in index.html index.wasm index.pck index.manifest.json sw.js manifest.webmanifest brotli_host.conf audio_unlock.js; do
+for f in index.html index.wasm index.pck index.manifest.json sw.js manifest.webmanifest brotli_host.conf audio_unlock.js favicon.ico; do
   if [ ! -f "$DEST/$f" ]; then
     echo "finish_web_export: missing $f"
     exit 1
