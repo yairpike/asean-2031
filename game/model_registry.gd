@@ -6,8 +6,12 @@ static func apply_unit(body: MeshInstance3D, id: String, primary: Color = Color.
 	if body == null or id == "":
 		return false
 	if _mount_unit(body, id, primary, accent):
+		if Catalog.RIGGED_YAW.has(id) and not bool(body.get_meta("model_rigged", false)):
+			_queue(body, id, primary, accent, "rigged")
 		return true
 	_queue(body, id, primary, accent, "unit")
+	if Catalog.RIGGED_YAW.has(id):
+		_queue(body, id, primary, accent, "rigged")
 	return false
 
 static func apply_structure(host: MeshInstance3D, id: String, primary: Color = Color.WHITE, accent: Color = Color.WHITE) -> bool:
@@ -21,11 +25,34 @@ static func apply_structure(host: MeshInstance3D, id: String, primary: Color = C
 static func _mount_unit(body: MeshInstance3D, id: String, primary: Color, accent: Color) -> bool:
 	if str(body.get_meta("model", "")) != "":
 		return true
-	var scene: Node3D = _scene(id)
+	var rigged: bool = true
+	var scene: Node3D = _scene(RIGGED + id)
+	if scene == null:
+		rigged = false
+		scene = _scene(id)
 	if scene == null:
 		return false
 	var footprint: AABB = _merged_aabb(body)
-	_mount(body, scene, footprint, false, id)
+	_mount(body, scene, footprint, false, id, _yaw_of(RIGGED + id if rigged else id))
+	body.set_meta("model_rigged", rigged)
+	_paint(body, primary, accent, id)
+	return true
+
+## A rigged copy that arrives after the static model swaps in place.
+static func _swap_rigged(body: MeshInstance3D, id: String, primary: Color, accent: Color) -> bool:
+	if bool(body.get_meta("model_rigged", false)):
+		return true
+	var scene: Node3D = _scene(RIGGED + id)
+	if scene == null:
+		return false
+	var old: Node = body.get_node_or_null("Model")
+	var footprint: AABB = _merged_aabb(body)
+	if old != null:
+		body.remove_child(old)
+		old.free()
+	body.set_meta("model", "")
+	_mount(body, scene, footprint, false, id, _yaw_of(RIGGED + id))
+	body.set_meta("model_rigged", true)
 	_paint(body, primary, accent, id)
 	return true
 
@@ -38,7 +65,8 @@ static func _mount_structure(host: MeshInstance3D, id: String, primary: Color, a
 	if scene == null:
 		return false
 	var footprint: AABB = host.mesh.get_aabb()
-	_mount(host, scene, footprint, true, id)
+	_mount(host, scene, footprint, true, id, _yaw_of(id))
+	host.set_meta("model_id", id)
 	_paint(host, primary, accent, id)
 	return true
 
@@ -78,34 +106,49 @@ static func model_id_for(node_name: String) -> String:
 		return name.trim_prefix("built_")
 	return name
 
-static var _docs: Dictionary = {}
-static var _states: Dictionary = {}
+static var _templates: Dictionary = {}
+static var _sources: Dictionary = {}
 
-static func _scene(id: String) -> Node3D:
-	var again: Node3D = _again(id)
+## Keys with this prefix name the rigged copy of a unit in game/models/rigged/. Structures never use it.
+const RIGGED: String = "rigged/"
+const Catalog = preload("res://game/model_catalog.gd")
+
+static func _scene(key: String) -> Node3D:
+	var again: Node3D = _again(key)
 	if again != null:
 		return again
-	return _load_scene(id)
+	return _load_scene(key)
 
-## One parsed glTF per id. Each unit gets its own mesh so freeing one does not drop a shared material.
+## Exports flatten Tripo files into models/, so a Tripo id counts as Tripo anywhere but the repo's stand-in folder.
+static func _yaw_of(key: String) -> float:
+	var path: String = str(_sources.get(key, ""))
+	var id: String = key.trim_prefix(RIGGED)
+	if not key.begins_with(RIGGED) and _tripo_id(id) and not path.get_base_dir().ends_with("game/models"):
+		path = "/tripo/" + path.get_file()
+	return Catalog.forward_yaw_deg(id, path)
+
+static func source_of(key: String) -> String:
+	return str(_sources.get(key, ""))
+
+## One parsed glTF per id, kept as an off-tree template. Each unit gets a duplicate; _paint then gives it its own meshes.
+## Re-running generate_scene on a kept GLTFState renames nodes and bones (R_Hand_2, ...), which unbinds sockets and clips.
 static func _again(id: String) -> Node3D:
-	if not _states.has(id):
+	var template: Node3D = _templates.get(id) as Node3D
+	if template == null or not is_instance_valid(template):
 		return null
-	var doc: GLTFDocument = _docs.get(id) as GLTFDocument
-	var state: GLTFState = _states.get(id) as GLTFState
-	if doc == null or state == null:
-		return null
-	var generated: Node = doc.generate_scene(state)
-	return generated as Node3D
+	return template.duplicate() as Node3D
 
-static func _keep(id: String, doc: GLTFDocument, state: GLTFState) -> void:
-	_docs[id] = doc
-	_states[id] = state
+static func _keep(id: String, scene: Node3D) -> void:
+	var old: Node3D = _templates.get(id) as Node3D
+	if old != null and is_instance_valid(old):
+		old.free()
+	_templates[id] = scene.duplicate() as Node3D
 
 static func _load_scene(id: String) -> Node3D:
 	var path: String = _path(id)
 	if path == "":
 		return null
+	_sources[id] = path
 	if path.begins_with("res://") and ResourceLoader.exists(path):
 		var packed: PackedScene = load(path) as PackedScene
 		if packed != null:
@@ -132,7 +175,7 @@ static func _from_buffer(id: String, bytes: PackedByteArray) -> Node3D:
 	var generated: Node = doc.generate_scene(state)
 	var scene: Node3D = generated as Node3D
 	if scene != null:
-		_keep(id, doc, state)
+		_keep(id, scene)
 	return scene
 
 static var _tripo_set: Dictionary = {}
@@ -235,6 +278,8 @@ static func _authored_size(_id: String) -> Vector3:
 	return Vector3.ZERO
 
 static func _cache_file(id: String) -> String:
+	if id.begins_with(RIGGED):
+		return "user://models/%s.glb" % id
 	if _tripo_id(id):
 		return "user://models/tripo/%s.glb" % id
 	return "user://models/%s.glb" % id
@@ -243,11 +288,14 @@ static func _cached(id: String) -> String:
 	var path: String = _cache_file(id)
 	if FileAccess.file_exists(path):
 		return path
-	if not _tripo_id(id) and FileAccess.file_exists("user://models/%s.gltf" % id):
+	if not id.begins_with(RIGGED) and not _tripo_id(id) and FileAccess.file_exists("user://models/%s.gltf" % id):
 		return "user://models/%s.gltf" % id
 	return ""
 
-static func _path(id: String) -> String:
+static func _path(key: String) -> String:
+	if key.begins_with(RIGGED):
+		return _rigged_path(key.trim_prefix(RIGGED))
+	var id: String = key
 	if id == "" or id.contains("..") or id.contains("/") or id.contains("\\"):
 		return ""
 	var packed_try: PackedStringArray = PackedStringArray()
@@ -278,6 +326,20 @@ static func _path(id: String) -> String:
 			return gltf_path
 	return ""
 
+static func _rigged_path(id: String) -> String:
+	if id == "" or id.contains("..") or id.contains("/") or id.contains("\\") or not Catalog.RIGGED_YAW.has(id):
+		return ""
+	var tries: PackedStringArray = PackedStringArray()
+	tries.append("res://game/models/rigged/%s.glb" % id)
+	tries.append(_cache_file(RIGGED + id))
+	tries.append(ProjectSettings.globalize_path("res://").path_join("game/models/rigged/%s.glb" % id))
+	tries.append(ProjectSettings.globalize_path("res://").path_join("build/web/models/rigged/%s.glb" % id))
+	tries.append(OS.get_executable_path().get_base_dir().path_join("models/rigged/%s.glb" % id))
+	for path: String in tries:
+		if FileAccess.file_exists(path):
+			return path
+	return ""
+
 static var _index: PackedStringArray = PackedStringArray()
 static var _index_read: bool = false
 static var _inflight: Dictionary = {}
@@ -289,17 +351,24 @@ static func _queue(body: MeshInstance3D, id: String, primary: Color, accent: Col
 	body.set_meta("model_id", id)
 	body.set_meta("model_primary", primary)
 	body.set_meta("model_accent", accent)
-	body.set_meta("model_kind", kind)
+	var key: String = id
+	if kind == "rigged":
+		body.set_meta("model_rigged_wait", true)
+		key = RIGGED + id
+	else:
+		body.set_meta("model_kind", kind)
 	if not _waiting.has(body):
 		_waiting.append(body)
-	if not body.is_inside_tree() or not _index_read or not _index.has(id):
+	if not body.is_inside_tree() or not _index_read or not _index.has(key):
 		return
 	var host: Node = body.get_tree().current_scene
 	if host == null:
 		host = body
-	_fetch(host, id)
+	_fetch(host, key)
 
-static func _redress(id: String) -> void:
+static func _redress(key: String) -> void:
+	var rigged: bool = key.begins_with(RIGGED)
+	var id: String = key.trim_prefix(RIGGED)
 	var still: Array[MeshInstance3D] = []
 	for body: MeshInstance3D in _waiting:
 		if not is_instance_valid(body):
@@ -309,12 +378,15 @@ static func _redress(id: String) -> void:
 			continue
 		var primary: Color = body.get_meta("model_primary", Color.WHITE)
 		var accent: Color = body.get_meta("model_accent", Color.WHITE)
-		var ok: bool = false
-		if str(body.get_meta("model_kind", "unit")) == "structure":
-			ok = _mount_structure(body, id, primary, accent)
-		else:
-			ok = _mount_unit(body, id, primary, accent)
-		if not ok:
+		if rigged and bool(body.get_meta("model_rigged_wait", false)):
+			if _swap_rigged(body, id, primary, accent):
+				body.set_meta("model_rigged_wait", false)
+		elif not rigged and str(body.get_meta("model", "")) == "":
+			if str(body.get_meta("model_kind", "unit")) == "structure":
+				_mount_structure(body, id, primary, accent)
+			else:
+				_mount_unit(body, id, primary, accent)
+		if str(body.get_meta("model", "")) == "" or bool(body.get_meta("model_rigged_wait", false)):
 			still.append(body)
 	_waiting = still
 
@@ -379,10 +451,18 @@ static func _fetch_waiting(owner: Node) -> void:
 		if not is_instance_valid(body):
 			continue
 		var id: String = str(body.get_meta("model_id", ""))
-		if id == "" or seen.has(id) or not _index.has(id):
+		if id == "":
 			continue
-		seen[id] = true
-		_fetch(owner, id)
+		var keys: PackedStringArray = PackedStringArray()
+		if str(body.get_meta("model", "")) == "":
+			keys.append(id)
+		if bool(body.get_meta("model_rigged_wait", false)):
+			keys.append(RIGGED + id)
+		for key: String in keys:
+			if seen.has(key) or not _index.has(key):
+				continue
+			seen[key] = true
+			_fetch(owner, key)
 
 static func _fetch(owner: Node, id: String) -> void:
 	if owner == null or _inflight.has(id) or id.contains(".."):
@@ -424,7 +504,7 @@ static func _from_gltf(id: String, path: String) -> Node3D:
 	var generated: Node = doc.generate_scene(state)
 	var scene: Node3D = generated as Node3D
 	if scene != null:
-		_keep(id, doc, state)
+		_keep(id, scene)
 	return scene
 
 static func _paint(root: Node3D, primary: Color, accent: Color, id: String) -> void:
@@ -493,9 +573,17 @@ static func _copy_mat(src: Material) -> StandardMaterial3D:
 	mat.texture_filter = base.texture_filter
 	return mat
 
-static func _mount(body: MeshInstance3D, scene: Node3D, footprint: AABB, fill: bool, id: String) -> void:
+## `yaw_deg` turns the model's authored forward onto -Z inside the Model node, so fitting sees the turned bounds.
+static func _mount(body: MeshInstance3D, scene: Node3D, footprint: AABB, fill: bool, id: String, yaw_deg: float = 0.0) -> void:
+	if absf(yaw_deg) > 0.01:
+		var holder: Node3D = Node3D.new()
+		scene.name = "Facing"
+		scene.rotation.y = deg_to_rad(yaw_deg)
+		holder.add_child(scene)
+		scene = holder
 	scene.name = "Model"
 	body.add_child(scene)
+	body.set_meta("model_yaw", yaw_deg)
 	_fit(scene, footprint, fill, _authored_size(id))
 	_hoist(body, scene, "Turret")
 	_hoist(body, scene, "Rotor")

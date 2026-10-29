@@ -6,6 +6,7 @@ const METAL: Color = Color(0.22, 0.23, 0.26)
 const RUBBER: Color = Color(0.12, 0.12, 0.13)
 const GLASS: Color = Color(0.55, 0.75, 0.85)
 const Models = preload("res://game/model_registry.gd")
+const Motion = preload("res://game/unit_motion.gd")
 
 static var _ink: StandardMaterial3D
 static var _foam: StandardMaterial3D
@@ -55,17 +56,7 @@ static func animate(u: RTSUnit, delta: float) -> void:
 	var body: MeshInstance3D = u.get_node_or_null("Body") as MeshInstance3D
 	if body == null:
 		return
-	var turret: MeshInstance3D = body.get_node_or_null("Turret") as MeshInstance3D
-	if turret != null:
-		var yaw: float = 0.0
-		var target: RTSUnit = u.attack_target
-		if target != null and is_instance_valid(target) and target.is_alive():
-			var dir: Vector3 = target.global_position - u.global_position
-			yaw = wrapf(atan2(-dir.x, -dir.z) - u.rotation.y, -PI, PI)
-		turret.rotation.y = yaw
-	var rotor: MeshInstance3D = body.get_node_or_null("Rotor") as MeshInstance3D
-	if rotor != null:
-		rotor.rotate_y(delta * 14.0)
+	Motion.pose(u, delta)
 	var wake: MeshInstance3D = body.get_node_or_null("Wake") as MeshInstance3D
 	if wake != null:
 		wake.visible = u.is_moving()
