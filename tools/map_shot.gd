@@ -65,7 +65,7 @@ func _raise_bases(scene: Node3D) -> void:
 		hud.layout_for(root.get_visible_rect().size)
 
 func _top_down(scene: Node3D) -> void:
-	var grid: SMDomainGrid = scene.get("grid") as SMDomainGrid
+	var grid: SMDomainGrid = _grid_of(scene)
 	if grid == null:
 		return
 	for layer: Node in scene.find_children("*", "CanvasLayer", true, false):
@@ -101,7 +101,7 @@ func _gameplay(scene: Node3D) -> void:
 		cam.apply()
 
 func _town(scene: Node3D) -> void:
-	var grid: SMDomainGrid = scene.get("grid") as SMDomainGrid
+	var grid: SMDomainGrid = _grid_of(scene)
 	var cam: RTSCamera = scene.find_child("Camera", true, false) as RTSCamera
 	var at: PackedStringArray = str(_args["town"]).split(",")
 	if grid == null or cam == null or at.size() < 2:
@@ -112,6 +112,12 @@ func _town(scene: Node3D) -> void:
 	cam.focus = grid.cell_center(Vector2i(int(at[0]), int(at[1])))
 	cam.distance = 34.0
 	cam.apply()
+
+func _grid_of(scene: Node3D) -> SMDomainGrid:
+	var grid: SMDomainGrid = scene.get("grid") as SMDomainGrid
+	if grid == null and scene.get("sim") is SMMatch:
+		grid = (scene.get("sim") as SMMatch).grid
+	return grid
 
 func _save(path: String) -> void:
 	var image: Image = root.get_texture().get_image()

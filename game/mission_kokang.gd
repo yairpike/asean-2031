@@ -62,7 +62,7 @@ func _world() -> void:
 	moon.rotation_degrees = Vector3(-35, 40, 0)
 	moon.light_color = Color(0.7, 0.75, 0.9)
 	add_child(moon)
-	Ground.dress(self, grid, "kokang", null, BASE_CLEAR)
+	Ground.dress(self, grid, "kokang", null, BASE_CLEAR, SMMapPlan.dressing("kokang"))
 	_feature("Scaffold", "scaffold_yard", Vector3(2.0, 0.0, 0.0), Vector3(6.0, 4.5, 6.0), Color(0.72, 0.12, 0.18), "scaffold")
 	_feature("RubyNode", "rock_set", Vector3(6.0, 0.0, 2.0), Vector3(2.4, 1.4, 2.4), Color(0.78, 0.1, 0.22), "ruby")
 	_feature("RareNode", "rock_set", Vector3(-6.0, 0.0, 4.0), Vector3(2.4, 1.4, 2.4), Color(0.42, 0.62, 0.3), "rare")

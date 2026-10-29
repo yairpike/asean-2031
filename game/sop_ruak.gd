@@ -81,11 +81,11 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, 25, 0)
 	add_child(sun)
-	Ground.dress(self, grid, "sop")
+	Ground.dress(self, grid, "sop", null, Rect2i(), SMMapPlan.dressing("sop_ruak"))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-100.0, -100.0, 200.0, 200.0)
-	cam.distance = 50.0
+	cam.distance = 32.0
 	cam.zoom_max = 90.0
 	cam.edge_pan_px = 20.0
 	cam.focus = Vector3(-36, 0, 16)

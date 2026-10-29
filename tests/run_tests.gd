@@ -112,6 +112,7 @@ func _run() -> void:
 	await H.section("test_hud_pause", test_hud_pause)
 	await H.section("test_map_symmetry", test_map_symmetry)
 	await H.section("test_model_scale", test_model_scale)
+	await H.section("test_street_towns", test_street_towns)
 	quit(H.finish())
 
 func test_scripts() -> void:
@@ -245,6 +246,130 @@ func _base_plots(grid: SMDomainGrid, plan: SMMapPlan, seat: int) -> int:
 		if base.plots.has(StringName("b%d" % i)):
 			placed += 1
 	return placed if base.overlaps() == 0 else -1
+
+func test_street_towns() -> void:
+	for map_id: String in PLANNED_MAPS:
+		var plan: SMMapPlan = SMMapPlan.of(map_id)
+		var grid: SMDomainGrid = plan.grid()
+		check(not plan.towns.is_empty() and _lots_twinned(plan), "%s towns are twinned lot for lot, model and facing included" % map_id)
+		check(_lots_squared(plan, grid), "%s every lot squares to 90 degrees and fronts a street of its own town" % map_id)
+		var clear: bool = true
+		var spots: Array[Vector2i] = plan.starts.duplicate()
+		for row: Dictionary in plan.nodes + plan.sites:
+			spots.append(row["cell"] as Vector2i)
+		for lot: Dictionary in plan.lots:
+			var r: Rect2i = lot["rect"] as Rect2i
+			for p: Rect2i in plan.plateaus:
+				clear = clear and not p.intersects(r)
+			for spot: Vector2i in spots:
+				clear = clear and not r.grow(1).has_point(spot)
+		for tree: Dictionary in plan.groves:
+			for p: Rect2i in plan.plateaus:
+				clear = clear and not p.has_point(tree["cell"] as Vector2i)
+		check(clear, "%s towns and orchards stay off plateaus, starts, nodes and tech sites" % map_id)
+		var held: bool = true
+		for lot: Dictionary in plan.lots:
+			var r: Rect2i = lot["rect"] as Rect2i
+			for y: int in range(r.position.y, r.end.y):
+				for x: int in range(r.position.x, r.end.x):
+					var c := Vector2i(x, y)
+					if grid.domain_at_cell(c) == SMDomainGrid.Domain.LAND and not grid.holding(c):
+						held = false
+		for r: Rect2i in plan.streets:
+			for y: int in range(r.position.y, r.end.y):
+				for x: int in range(r.position.x, r.end.x):
+					if grid.in_bounds(Vector2i(x, y)) and grid.holding(Vector2i(x, y)):
+						held = false
+		check(held, "%s town blocks block ground movement and every street stays open" % map_id)
+		var rows_ok: bool = true
+		var twins: Dictionary = {}
+		for tree: Dictionary in plan.groves:
+			twins[tree["cell"]] = true
+		for tree: Dictionary in plan.groves:
+			rows_ok = rows_ok and twins.has(plan.twin_cell(tree["cell"] as Vector2i))
+		for r: Rect2i in plan.orchards:
+			var lines: Dictionary = {}
+			for tree: Dictionary in plan.groves:
+				if r.has_point(tree["cell"] as Vector2i):
+					lines[(tree["cell"] as Vector2i).y] = int(lines.get((tree["cell"] as Vector2i).y, 0)) + 1
+			rows_ok = rows_ok and lines.size() >= 2
+			for n: Variant in lines.values():
+				rows_ok = rows_ok and int(n) == r.size.x
+		check(rows_ok, "%s orchards are planted in full straight rows on both sides" % map_id)
+	var places_ok: bool = true
+	var named: Array[String] = []
+	for map_id: String in PLANNED_MAPS:
+		for town: Dictionary in SMMapPlan.of(map_id).towns:
+			named.append(str(town["place"]))
+	var missions: PackedStringArray = DirAccess.get_files_at("res://data/maps/missions")
+	for file: String in missions:
+		var dressing: SMMapPlan = SMMapPlan.dressing(file.get_basename())
+		for town: Dictionary in dressing.towns:
+			named.append(str(town["place"]))
+	for place: String in named:
+		var path: String = "res://data/places/%s.json" % place
+		var ref: Variant = JSON.parse_string(FileAccess.get_file_as_string(path)) if FileAccess.file_exists(path) else null
+		places_ok = places_ok and ref is Dictionary and str((ref as Dictionary).get("license", "")).contains("OpenStreetMap") and (ref as Dictionary).has("stats")
+	check(named.size() >= 20 and places_ok, "every town names a real place with an OpenStreetMap street reference (%d towns)" % named.size())
+	var shared: PackedStringArray = PackedStringArray()
+	var dress_ok: bool = missions.size() >= 15
+	for file: String in missions:
+		var id: String = file.get_basename()
+		var dressing: SMMapPlan = SMMapPlan.dressing(id)
+		dress_ok = dress_ok and dressing != null and not dressing.lots.is_empty() and _lots_squared(dressing, null)
+		for town: Dictionary in dressing.towns:
+			dress_ok = dress_ok and not bool(town["solid"])
+		if id != "kokang" and id != "phillips_channel" and id != "sop_ruak":
+			shared.append(id)
+			for lot: Dictionary in dressing.lots:
+				var r: Rect2i = lot["rect"] as Rect2i
+				dress_ok = dress_ok and Rect2i(0, 0, 36, 24).encloses(r) and not r.intersects(Rect2i(5, 2, 18, 18)) and not r.intersects(Rect2i(9, 6, 19, 13))
+	check(dress_ok and shared.size() >= 12, "every campaign mission dresses a squared street town outside its base and action ground")
+	var host := Node3D.new()
+	root.add_child(host)
+	var plan: SMMapPlan = SMMapPlan.of("burma_road")
+	preload("res://game/ground_view.gd").dress(host, plan.grid(), "burma", plan)
+	var drawn: int = 0
+	var square: bool = true
+	for child: Node in host.get_children():
+		if child is MultiMeshInstance3D and str(child.name).begins_with("Town_"):
+			var mm: MultiMesh = (child as MultiMeshInstance3D).multimesh
+			for i: int in mm.instance_count:
+				drawn += 1
+				var ahead: Vector3 = mm.get_instance_transform(i).basis.z
+				square = square and (absf(ahead.x) < 0.001 or absf(ahead.z) < 0.001)
+	check(drawn == plan.lots.size() and square, "burma road draws every lot as a house squared to the street grid (%d)" % drawn)
+	check(host.get_node_or_null("Houses") == null and host.get_node_or_null("Orchard_rubber_tree") != null, "planned maps draw no loose houses, and orchards draw in rows")
+	host.free()
+
+func _lots_twinned(plan: SMMapPlan) -> bool:
+	var seen: Dictionary = {}
+	for lot: Dictionary in plan.lots:
+		seen["%s|%s|%d" % [lot["id"], lot["rect"], roundi(float(lot["yaw"]))]] = int(lot["side"])
+	for lot: Dictionary in plan.lots:
+		var r: Rect2i = plan.twin_rect(lot["rect"] as Rect2i)
+		var yaw: float = fposmod(float(lot["yaw"]) + 180.0, 360.0) if plan.symmetry == "rot180" else fposmod(360.0 - float(lot["yaw"]), 360.0)
+		var key: String = "%s|%s|%d" % [lot["id"], r, roundi(yaw)]
+		if not seen.has(key) or int(seen[key]) == int(lot["side"]):
+			return false
+	return true
+
+func _lots_squared(plan: SMMapPlan, grid: SMDomainGrid) -> bool:
+	var taken: Dictionary = {}
+	for lot: Dictionary in plan.lots:
+		var r: Rect2i = lot["rect"] as Rect2i
+		var yaw: float = float(lot["yaw"])
+		var town: Rect2i = plan.towns[int(lot["town"])]["rect"] as Rect2i
+		if absf(fposmod(yaw, 90.0)) > 0.001 or not town.encloses(r) or not town.has_point(lot["street"] as Vector2i) or not plan.on_street(lot["street"] as Vector2i):
+			return false
+		if grid != null and not Rect2i(0, 0, grid.cols, grid.rows).encloses(r):
+			return false
+		for y: int in range(r.position.y, r.end.y):
+			for x: int in range(r.position.x, r.end.x):
+				if taken.has(Vector2i(x, y)) or plan.on_street(Vector2i(x, y)):
+					return false
+				taken[Vector2i(x, y)] = true
+	return true
 
 func test_model_scale() -> void:
 	const Forms = preload("res://game/unit_meshes.gd")

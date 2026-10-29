@@ -74,7 +74,7 @@ func _world() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-42, 20, 0)
 	add_child(sun)
-	Ground.dress(self, grid, "mission", null, BASE_CLEAR)
+	Ground.dress(self, grid, "mission", null, BASE_CLEAR, SMMapPlan.dressing(mission_id))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
 	cam.bounds = Rect2(-76, -52, 152, 104)
