@@ -497,6 +497,57 @@ func test_camera() -> void:
 	cam.pan(Vector2(0, 1), 0.1)
 	check(cam.focus.z < 0.0, "pan up moves focus forward (-z)")
 	cam.free()
+	var ground: GDScript = load("res://game/ground_view.gd") as GDScript
+	var eye: Vector3 = Vector3(0.0, 8.5, 8.5)
+	var aim: Vector3 = Vector3.ZERO
+	var inside: float = float(ground.call("view_fade", Vector3(0.0, 0.0, 8.5), 12.0, 3.0, eye, aim))
+	check(inside > 0.85, "a teak crown around the low camera fades out")
+	var beside: float = float(ground.call("view_fade", Vector3(20.0, 0.0, 0.0), 12.0, 3.0, eye, aim))
+	check(beside < 0.05, "a teak off the view ray stays solid")
+	var above: float = float(ground.call("view_fade", Vector3.ZERO, 12.0, 3.0, Vector3(0.0, 20.0, 20.0), aim))
+	check(above < 0.05, "a camera above the canopy leaves the teak in place")
+	var short: float = float(ground.call("view_fade", Vector3(0.0, 0.0, 8.5), 2.4, 1.0, eye, aim))
+	check(short < 0.05, "short props under the camera stay visible")
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var box: BoxMesh = BoxMesh.new()
+	box.size = Vector3(6.0, 12.0, 6.0)
+	var mm: MultiMesh = MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = box
+	mm.instance_count = 2
+	var near_xf: Transform3D = Transform3D(Basis.IDENTITY, Vector3(0.0, 6.0, 8.5))
+	var far_xf: Transform3D = Transform3D(Basis.IDENTITY, Vector3(30.0, 6.0, 0.0))
+	mm.set_instance_transform(0, near_xf)
+	mm.set_instance_transform(1, far_xf)
+	var spots: Array[Transform3D] = [near_xf, far_xf]
+	var trees: MultiMeshInstance3D = MultiMeshInstance3D.new()
+	trees.name = "JungleTrees"
+	trees.multimesh = mm
+	trees.set_meta("all_spots", spots)
+	trees.set_meta("shown", spots)
+	host.add_child(trees)
+	var low_cam: RTSCamera = RTSCamera.new()
+	host.add_child(low_cam)
+	low_cam.distance = low_cam.zoom_min
+	low_cam.focus_on(Vector3.ZERO)
+	ground.call("fade_occluders", host, low_cam)
+	var fades: PackedFloat32Array = trees.get_meta("canopy_fade") as PackedFloat32Array
+	check(fades.size() == 2 and fades[0] > 0.85, "the teak the camera sits in is hidden")
+	check(fades[1] < 0.05, "a teak away from the camera keeps its scale")
+	var mark: Node3D = Node3D.new()
+	mark.name = "Scenery_teak"
+	var body: MeshInstance3D = MeshInstance3D.new()
+	var tall: BoxMesh = BoxMesh.new()
+	tall.size = Vector3(6.0, 12.0, 6.0)
+	body.mesh = tall
+	body.position = Vector3(0.0, 6.0, 8.5)
+	mark.add_child(body)
+	host.add_child(mark)
+	ground.call("fade_occluders", host, low_cam)
+	check(not mark.visible, "a tall prop the camera sits inside is hidden")
+	host.free()
 
 func test_bindings() -> void:
 	RTSBindings.install()

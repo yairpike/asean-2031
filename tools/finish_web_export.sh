@@ -160,9 +160,11 @@ if ! grep -q 'serviceWorker.register("sw.js")' "$DEST/index.html"; then
   sed -i 's#</body>#<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script></body>#' "$DEST/index.html"
 fi
 cp "$ROOT/web/audio_unlock.js" "$DEST/audio_unlock.js"
-cp "$ROOT/web/favicon.ico" "$DEST/favicon.ico"
-if [ -f "$DEST/index.html" ] && ! grep -q 'href="favicon.ico"' "$DEST/index.html"; then
-  sed -i 's#</head>#<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48"></head>#' "$DEST/index.html"
+if [ -f "$ROOT/web/favicon.ico" ]; then
+  cp "$ROOT/web/favicon.ico" "$DEST/favicon.ico"
+  if [ -f "$DEST/index.html" ] && ! grep -q 'href="favicon.ico"' "$DEST/index.html"; then
+    sed -i 's#</head>#<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48"></head>#' "$DEST/index.html"
+  fi
 fi
 if [ -f "$DEST/index.html" ] && ! grep -q 'audio_unlock.js' "$DEST/index.html"; then
   python3 - "$DEST/index.html" << 'PY'
@@ -494,7 +496,7 @@ if ! grep -q "GODOT_THREADS_ENABLED = false" "$DEST/index.html"; then
   echo "finish_web_export: export is not single-threaded"
   exit 1
 fi
-for f in index.html index.wasm index.pck index.manifest.json sw.js manifest.webmanifest brotli_host.conf audio_unlock.js favicon.ico; do
+for f in index.html index.wasm index.pck index.manifest.json sw.js manifest.webmanifest brotli_host.conf audio_unlock.js; do
   if [ ! -f "$DEST/$f" ]; then
     echo "finish_web_export: missing $f"
     exit 1

@@ -9,6 +9,7 @@ const Art = preload("res://game/served_art.gd")
 const Env = preload("res://game/env_dress.gd")
 const RAIN_CAP: int = 24
 const TREE_REACH: float = 80.0
+const CANOPY_MIN: float = 5.0
 
 const GRASS: Color = Color(0.3, 0.46, 0.22)
 const MUD: Color = Color(0.38, 0.29, 0.18)
@@ -351,10 +352,12 @@ static func _multi(host: Node3D, node_name: String, mesh: Mesh, spots: Array[Tra
 		return
 	var mm: MultiMesh = MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = mesh
+	mm.use_colors = true
+	mm.mesh = _fade_mesh(mesh)
 	mm.instance_count = spots.size()
 	for i: int in spots.size():
 		mm.set_instance_transform(i, spots[i])
+		mm.set_instance_color(i, Color(1.0, 1.0, 1.0, 1.0))
 	var node: MultiMeshInstance3D = MultiMeshInstance3D.new()
 	node.set_meta("all_spots", spots)
 	node.name = node_name
@@ -707,15 +710,163 @@ static func cull_props(host: Node3D, cam: RTSCamera) -> void:
 	var now: int = Time.get_ticks_msec()
 	var moved: bool = Vector2(focus.x - _cull_at.x, focus.z - _cull_at.z).length() > 6.0
 	var flipped: bool = low != _cull_low
-	if not flipped and not low and not moved and now - _cull_ms < 300:
+	if flipped or low or moved or now - _cull_ms >= 300:
+		_cull_ms = now
+		_cull_at = focus
+		_cull_low = low
+		_cull_named(host, "JungleTrees", focus, low)
+		_cull_named(host, "Palms", focus, low)
+		_cull_named(host, "Houses", focus, low)
+		_cull_named(host, "Stilts", focus, low)
+	if cam != null and not low:
+		fade_occluders(host, cam)
+
+## 0 is solid. 1 hides a tall prop whose crown crosses the segment from the camera to the ground.
+## A camera sitting above the crown leaves the prop alone. Short props stay put.
+static func view_fade(origin: Vector3, height: float, radius: float, eye: Vector3, aim: Vector3) -> float:
+	if height < CANOPY_MIN:
+		return 0.0
+	if eye.y >= origin.y + height + 1.25:
+		return 0.0
+	var a: Vector2 = Vector2(eye.x, eye.z)
+	var b: Vector2 = Vector2(aim.x, aim.z)
+	var p: Vector2 = Vector2(origin.x, origin.z)
+	var ab: Vector2 = b - a
+	var denom: float = ab.length_squared()
+	var t: float = 0.0
+	if denom > 0.01:
+		t = clampf((p - a).dot(ab) / denom, 0.0, 1.0)
+	var closest: Vector2 = a + ab * t
+	var dist: float = p.distance_to(closest)
+	var reach: float = maxf(radius, 1.2)
+	if dist >= reach:
+		return 0.0
+	var ray_y: float = lerpf(eye.y, aim.y, t)
+	var top: float = origin.y + height
+	if ray_y > top + 0.35:
+		return 0.0
+	var radial: float = clampf(1.0 - dist / reach, 0.0, 1.0)
+	var climb: float = clampf((top + 0.35 - ray_y) / 3.0, 0.0, 1.0)
+	return radial * radial * climb
+
+static func fade_occluders(host: Node3D, cam: RTSCamera) -> void:
+	if host == null or cam == null:
 		return
-	_cull_ms = now
-	_cull_at = focus
-	_cull_low = low
-	_cull_named(host, "JungleTrees", focus, low)
-	_cull_named(host, "Palms", focus, low)
-	_cull_named(host, "Houses", focus, low)
-	_cull_named(host, "Stilts", focus, low)
+	var eye: Vector3 = cam.global_position
+	var aim: Vector3 = cam.focus
+	for node_name: String in ["JungleTrees", "Palms", "Houses", "Stilts"]:
+		_fade_multi(host.get_node_or_null(node_name) as MultiMeshInstance3D, eye, aim)
+	for child: Node in host.get_children():
+		var node: Node3D = child as Node3D
+		if node == null:
+			continue
+		var label: String = String(node.name)
+		if label.begins_with("Landmark_") or label.begins_with("Scenery_"):
+			_fade_placed(node, eye, aim)
+
+static func _fade_mesh(mesh: Mesh) -> Mesh:
+	var copy: Mesh = mesh.duplicate(true) as Mesh
+	if copy == null:
+		return mesh
+	for surface: int in copy.get_surface_count():
+		var mat: Material = copy.surface_get_material(surface)
+		if mat is StandardMaterial3D:
+			var ink: StandardMaterial3D = (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+			ink.vertex_color_use_as_albedo = true
+			ink.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+			copy.surface_set_material(surface, ink)
+	return copy
+
+static func _fade_multi(node: MultiMeshInstance3D, eye: Vector3, aim: Vector3) -> void:
+	if node == null or node.multimesh == null or node.multimesh.mesh == null:
+		return
+	var mm: MultiMesh = node.multimesh
+	var shown: Array = node.get_meta("shown", [])
+	if shown.is_empty():
+		shown = node.get_meta("all_spots", [])
+	if shown.is_empty():
+		return
+	var aabb: AABB = mm.mesh.get_aabb()
+	var count: int = mini(mm.instance_count, shown.size())
+	var fades: PackedFloat32Array = PackedFloat32Array()
+	fades.resize(count)
+	for i: int in count:
+		var base: Transform3D = shown[i] as Transform3D
+		var sc: Vector3 = base.basis.get_scale()
+		var base_y: float = base.origin.y + aabb.position.y * sc.y
+		var height: float = aabb.size.y * sc.y
+		var radius: float = maxf(aabb.size.x * sc.x, aabb.size.z * sc.z) * 0.5
+		var fade: float = view_fade(Vector3(base.origin.x, base_y, base.origin.z), height, radius, eye, aim)
+		fades[i] = fade
+		var keep: float = 1.0 - fade
+		if keep < 0.04:
+			keep = 0.001
+		mm.set_instance_transform(i, Transform3D(base.basis.scaled(Vector3(keep, keep, keep)), base.origin))
+		if mm.use_colors:
+			mm.set_instance_color(i, Color(1.0, 1.0, 1.0, keep))
+	node.set_meta("canopy_fade", fades)
+
+static func _fade_placed(node: Node3D, eye: Vector3, aim: Vector3) -> void:
+	var bounds: Vector3 = _canopy_bounds(node)
+	var fade: float = view_fade(Vector3(node.global_position.x, bounds.z, node.global_position.z), bounds.y, bounds.x, eye, aim)
+	if fade >= 0.95:
+		if node.visible:
+			node.visible = false
+			node.set_meta("canopy_hold", true)
+		return
+	if node.has_meta("canopy_hold") and bool(node.get_meta("canopy_hold")):
+		node.visible = true
+		node.set_meta("canopy_hold", false)
+	var meshes: Array[Node] = node.find_children("*", "MeshInstance3D", true, false)
+	if node is MeshInstance3D:
+		meshes.append(node)
+	for item: Node in meshes:
+		var mi: MeshInstance3D = item as MeshInstance3D
+		if mi != null:
+			mi.transparency = fade
+
+static func _canopy_bounds(node: Node3D) -> Vector3:
+	if node.has_meta("canopy_bounds"):
+		return node.get_meta("canopy_bounds") as Vector3
+	var top: float = node.global_position.y
+	var bottom: float = node.global_position.y
+	var radius: float = 0.0
+	var found: bool = false
+	var meshes: Array[Node] = node.find_children("*", "MeshInstance3D", true, false)
+	if node is MeshInstance3D:
+		meshes.append(node)
+	for item: Node in meshes:
+		var mi: MeshInstance3D = item as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		var xf: Transform3D = mi.global_transform
+		for corner: Vector3 in _aabb_corners(mi.mesh.get_aabb()):
+			var world: Vector3 = xf * corner
+			if not found:
+				top = world.y
+				bottom = world.y
+				found = true
+			else:
+				top = maxf(top, world.y)
+				bottom = minf(bottom, world.y)
+			radius = maxf(radius, Vector2(world.x - node.global_position.x, world.z - node.global_position.z).length())
+	var bounds: Vector3 = Vector3(radius, maxf(0.0, top - bottom), bottom)
+	node.set_meta("canopy_bounds", bounds)
+	return bounds
+
+static func _aabb_corners(aabb: AABB) -> Array[Vector3]:
+	var p: Vector3 = aabb.position
+	var s: Vector3 = aabb.size
+	var out: Array[Vector3] = []
+	out.append(p)
+	out.append(p + Vector3(s.x, 0.0, 0.0))
+	out.append(p + Vector3(0.0, s.y, 0.0))
+	out.append(p + Vector3(0.0, 0.0, s.z))
+	out.append(p + Vector3(s.x, s.y, 0.0))
+	out.append(p + Vector3(s.x, 0.0, s.z))
+	out.append(p + Vector3(0.0, s.y, s.z))
+	out.append(p + s)
+	return out
 
 static func _cull_named(host: Node3D, node_name: String, focus: Vector3, hide: bool) -> void:
 	var node: MultiMeshInstance3D = host.get_node_or_null(node_name) as MultiMeshInstance3D
@@ -736,5 +887,8 @@ static func _cull_named(host: Node3D, node_name: String, focus: Vector3, hide: b
 		if Vector2(xf.origin.x - focus.x, xf.origin.z - focus.z).length() <= TREE_REACH:
 			keep.append(xf)
 	node.multimesh.instance_count = keep.size()
+	node.set_meta("shown", keep)
 	for i: int in keep.size():
 		node.multimesh.set_instance_transform(i, keep[i])
+		if node.multimesh.use_colors:
+			node.multimesh.set_instance_color(i, Color(1.0, 1.0, 1.0, 1.0))
