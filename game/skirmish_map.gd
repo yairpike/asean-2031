@@ -31,7 +31,7 @@ func _ready() -> void:
 	var rally: Vector3 = grid.cell_center(_player_cells()[0])
 	side.prepare(self, status, grid, rally, roster.economy)
 	if side.yard.style != SMBuildYard.Style.INTERNAL:
-		side.yard.radius = maxf(side.yard.radius, 34.0)
+		side.yard.radius = maxf(side.yard.radius, 48.0)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, _map_name(), rally, Callable(self, "fire_ability"), grid, cam)

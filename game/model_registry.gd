@@ -33,7 +33,7 @@ static func _mount_unit(body: MeshInstance3D, id: String, primary: Color, accent
 	if scene == null:
 		return false
 	var footprint: AABB = _merged_aabb(body)
-	_mount(body, scene, footprint, false, id, _yaw_of(RIGGED + id if rigged else id))
+	_mount(body, scene, footprint, false, id, _yaw_of(RIGGED + id if rigged else id), Scale.unit_target(id))
 	body.set_meta("model_rigged", rigged)
 	_paint(body, primary, accent, id)
 	return true
@@ -51,7 +51,7 @@ static func _swap_rigged(body: MeshInstance3D, id: String, primary: Color, accen
 		body.remove_child(old)
 		old.free()
 	body.set_meta("model", "")
-	_mount(body, scene, footprint, false, id, _yaw_of(RIGGED + id))
+	_mount(body, scene, footprint, false, id, _yaw_of(RIGGED + id), Scale.unit_target(id))
 	body.set_meta("model_rigged", true)
 	_paint(body, primary, accent, id)
 	return true
@@ -65,7 +65,10 @@ static func _mount_structure(host: MeshInstance3D, id: String, primary: Color, a
 	if scene == null:
 		return false
 	var footprint: AABB = host.mesh.get_aabb()
-	_mount(host, scene, footprint, true, id, _yaw_of(id))
+	var plot: Vector2 = host.get_meta("footprint_m", Vector2.ZERO) as Vector2
+	if plot != Vector2.ZERO:
+		footprint = AABB(Vector3(-plot.x * 0.5, footprint.position.y, -plot.y * 0.5), Vector3(plot.x, footprint.size.y, plot.y))
+	_mount(host, scene, footprint, true, id, _yaw_of(id), {}, plot)
 	host.set_meta("model_id", id)
 	_paint(host, primary, accent, id)
 	return true
@@ -113,6 +116,7 @@ static var _sources: Dictionary = {}
 ## Keys with this prefix name the rigged copy of a unit in game/models/rigged/. Structures never use it.
 const RIGGED: String = "rigged/"
 const Catalog = preload("res://game/model_catalog.gd")
+const Scale = preload("res://game/model_scale.gd")
 
 static func _scene(key: String) -> Node3D:
 	var again: Node3D = _again(key)
@@ -643,7 +647,7 @@ static func _copy_mat(src: Material) -> StandardMaterial3D:
 	return mat
 
 ## `yaw_deg` turns the model's authored forward onto -Z inside the Model node, so fitting sees the turned bounds.
-static func _mount(body: MeshInstance3D, scene: Node3D, footprint: AABB, fill: bool, id: String, yaw_deg: float = 0.0) -> void:
+static func _mount(body: MeshInstance3D, scene: Node3D, footprint: AABB, fill: bool, id: String, yaw_deg: float = 0.0, target: Dictionary = {}, plot: Vector2 = Vector2.ZERO) -> void:
 	if absf(yaw_deg) > 0.01:
 		var holder: Node3D = Node3D.new()
 		scene.name = "Facing"
@@ -653,7 +657,10 @@ static func _mount(body: MeshInstance3D, scene: Node3D, footprint: AABB, fill: b
 	scene.name = "Model"
 	body.add_child(scene)
 	body.set_meta("model_yaw", yaw_deg)
-	_fit(scene, footprint, fill, _authored_size(id))
+	if not target.is_empty() or plot != Vector2.ZERO:
+		_fit_chart(scene, footprint, target, plot)
+	else:
+		_fit(scene, footprint, fill, _authored_size(id))
 	_hoist(body, scene, "Turret")
 	_hoist(body, scene, "Rotor")
 	_hoist(body, scene, "Wake")
@@ -706,6 +713,22 @@ static func _fit(model: Node3D, footprint: AABB, fill: bool, authored: Vector3) 
 	model.scale = Vector3.ONE * scale
 	var fitted: AABB = _merged_aabb(model)
 	model.position += Vector3(
+		footprint.get_center().x - fitted.get_center().x,
+		footprint.position.y - fitted.position.y,
+		footprint.get_center().z - fitted.get_center().z
+	)
+
+## Chart scale: a unit reaches its class height or length, a building fills its plot. Base on the ground, centred on the plot.
+static func _fit_chart(model: Node3D, footprint: AABB, target: Dictionary, plot: Vector2) -> void:
+	var bounds: AABB = _merged_aabb(model)
+	if bounds.size.length() < 0.001:
+		return
+	var scale: float = Scale.footprint_scale(bounds.size, plot) if plot != Vector2.ZERO else Scale.scale_for(bounds.size, target)
+	if scale <= 0.0 or is_inf(scale) or is_nan(scale):
+		return
+	model.scale = Vector3.ONE * scale
+	var fitted: AABB = Transform3D(Basis.from_scale(model.scale), Vector3.ZERO) * bounds
+	model.position = Vector3(
 		footprint.get_center().x - fitted.get_center().x,
 		footprint.position.y - fitted.position.y,
 		footprint.get_center().z - fitted.get_center().z

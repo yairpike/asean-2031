@@ -118,7 +118,7 @@ func _press(field: SMPointer, units: Array[RTSUnit], yards: Array[SMBuildYard], 
 			if id == &"":
 				continue
 			var pos: Vector3 = yard.position_of(id)
-			var dist: float = Vector2(u.global_position.x, u.global_position.z).distance_to(Vector2(pos.x, pos.z))
+			var dist: float = Vector2(u.global_position.x, u.global_position.z).distance_to(Vector2(pos.x, pos.z)) - yard.reach_of(id)
 			if dist < best_d:
 				best_d = dist
 				best_yard = yard
