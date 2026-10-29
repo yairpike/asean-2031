@@ -239,6 +239,8 @@ static func dress_spawn(u: RTSUnit, team: int, label: String) -> void:
 	var band: TorusMesh = TorusMesh.new()
 	band.inner_radius = 0.97
 	band.outer_radius = 1.0
+	band.rings = 48
+	band.ring_segments = 4
 	reach.mesh = band
 	reach.position = Vector3(0.0, 0.06, 0.0)
 	reach.visible = false

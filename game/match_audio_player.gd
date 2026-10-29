@@ -9,6 +9,7 @@ var _stung: bool = false
 var _open: bool = false
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	if OS.has_feature("web"):
 		_fetch_list()
 
@@ -39,6 +40,9 @@ func _process(_delta: float) -> void:
 	Clips.pump()
 	var host: Node = get_parent()
 	if host == null:
+		return
+	if get_tree().paused:
+		Clips.tick(host)
 		return
 	Clips.drive(host)
 	if not _started:
@@ -90,4 +94,5 @@ func _got_list(result: int, code: int, _headers: PackedStringArray, body: Packed
 		if rel == "" or Clips.is_lazy(rel):
 			continue
 		Clips.remember(rel)
-		Clips.prefetch(self, rel)
+		if not Clips.is_retired(rel):
+			Clips.prefetch(self, rel)

@@ -39,6 +39,8 @@ static var _queue: PackedStringArray = PackedStringArray()
 static var _at: int = 0
 static var _player_name: String = ""
 static var now_title: String = ""
+static var _shuffled: PackedStringArray = PackedStringArray()
+static var _spin: int = 0
 static var _said: Dictionary = {}
 static var _owner: Node
 static var _bark_index: Dictionary = {}
@@ -78,12 +80,54 @@ static func play_menu(host: Node) -> void:
 	_buses()
 	_begin(host, "MenuMusic", _rels_for("menu"))
 
-static func play_faction(host: Node, faction: String) -> void:
+## Every map plays the same shuffled rotation. The faction argument is kept for callers.
+static func play_faction(host: Node, _faction: String) -> void:
 	_buses()
-	var id: String = faction
-	if id != "gtfc" and id != "nmrf" and id != "mvd" and id != "black_market":
-		id = "gtfc"
-	_begin(host, "FactionMusic", _rels_for(id))
+	_begin(host, "FactionMusic", _rotation_from_next())
+
+## Skips to the next song in the match rotation. The menu loop and the stings ignore it.
+static func skip(host: Node) -> bool:
+	if host == null or _queue.size() < 2 or _player_name != "FactionMusic":
+		return false
+	var sting: AudioStreamPlayer = host.get_node_or_null("StingMusic") as AudioStreamPlayer
+	if sting != null and sting.playing:
+		return false
+	var player: AudioStreamPlayer = host.get_node_or_null(_player_name) as AudioStreamPlayer
+	if player != null:
+		player.stop()
+		player.set_meta("started", false)
+	_at = (_at + 1) % _queue.size()
+	_play_current(host)
+	return true
+
+static func can_skip() -> bool:
+	return _queue.size() > 1 and _player_name == "FactionMusic"
+
+## The shuffled order is kept for the session, so the next match picks up where the last left off.
+static func _rotation_from_next() -> PackedStringArray:
+	if _shuffled.size() != _rels_for("rotation").size():
+		_shuffled = _shuffle(_rels_for("rotation"), "")
+	elif _spin >= _shuffled.size():
+		_shuffled = _shuffle(_rels_for("rotation"), _shuffled[_shuffled.size() - 1])
+		_spin = 0
+	var out: PackedStringArray = PackedStringArray()
+	for i: int in _shuffled.size():
+		out.append(_shuffled[(_spin + i) % _shuffled.size()])
+	return out
+
+static func _shuffle(rels: PackedStringArray, avoid_first: String) -> PackedStringArray:
+	_seed()
+	var out: PackedStringArray = rels.duplicate()
+	for i: int in range(out.size() - 1, 0, -1):
+		var j: int = _rng.randi() % (i + 1)
+		var held: String = out[i]
+		out[i] = out[j]
+		out[j] = held
+	if out.size() > 1 and out[0] == avoid_first:
+		var first: String = out[0]
+		out[0] = out[1]
+		out[1] = first
+	return out
 
 static func play_sting(host: Node, won: bool) -> void:
 	_queue = PackedStringArray()
@@ -104,6 +148,9 @@ static func titles_for(list_id: String) -> PackedStringArray:
 	for rel: String in _rels_for(list_id):
 		out.append(_title_of(rel))
 	return out
+
+static func is_retired(rel: String) -> bool:
+	return _rels_for("retired").has(rel)
 
 static func current_title() -> String:
 	return now_title
@@ -968,12 +1015,17 @@ static func _play_current(host: Node) -> void:
 		return
 	var rel: String = _queue[_at]
 	now_title = _title_of(rel)
+	if _player_name == "FactionMusic":
+		var spot: int = _shuffled.find(rel)
+		if spot >= 0:
+			_spin = spot + 1
 	var player: AudioStreamPlayer = _ensure(host, _player_name)
 	player.bus = "Music"
-	_assign(player, rel, false)
+	player.process_mode = Node.PROCESS_MODE_ALWAYS
+	_assign(player, rel, _queue.size() == 1)
 	_show_title(host)
 	var nxt: String = _queue[(_at + 1) % _queue.size()]
-	if is_lazy(nxt):
+	if nxt != rel and is_lazy(nxt):
 		prefetch(host, nxt)
 
 static func _show_title(host: Node) -> void:
@@ -983,52 +1035,37 @@ static func _show_title(host: Node) -> void:
 	if label != null:
 		label.text = now_title
 
+## "menu" is Yangonite on a loop. "rotation" is the twelve user songs, shuffled per session
+## and shared by every map. "retired" is the generated menu and faction loops: never played
+## and never fetched. The victory and defeat stings are separate and stay.
 static func _rels_for(list_id: String) -> PackedStringArray:
-	var shared: PackedStringArray = PackedStringArray([
-		"music/user/poison.ogg",
-		"music/user/time.ogg",
-	])
-	if list_id == "shared":
-		return shared
-	var own: PackedStringArray = PackedStringArray()
 	match list_id:
 		"menu":
-			own = PackedStringArray([
-				"music/menu.ogg",
-				"music/user/changes.ogg",
-				"music/user/not-needed-anymore.ogg",
-			])
-		"gtfc":
-			own = PackedStringArray([
-				"music/gtfc.ogg",
+			return PackedStringArray(["music/user/yangonite.ogg"])
+		"rotation":
+			return PackedStringArray([
 				"music/user/yangonite.ogg",
 				"music/user/ready-to-rage-against-the-abnormalities.ogg",
-			])
-		"nmrf":
-			own = PackedStringArray([
-				"music/nmrf.ogg",
 				"music/user/supayarlat.ogg",
 				"music/user/past-cracks.ogg",
-			])
-		"mvd":
-			own = PackedStringArray([
-				"music/mvd.ogg",
 				"music/user/machinesfuture.ogg",
 				"music/user/humanfuture.ogg",
-			])
-		"black_market":
-			own = PackedStringArray([
-				"music/black_market.ogg",
 				"music/user/night.ogg",
 				"music/user/love-drunk.ogg",
+				"music/user/changes.ogg",
+				"music/user/not-needed-anymore.ogg",
+				"music/user/poison.ogg",
+				"music/user/time.ogg",
 			])
-		_:
-			own = PackedStringArray(["music/gtfc.ogg"])
-	if list_id == "menu":
-		return own
-	for rel: String in shared:
-		own.append(rel)
-	return own
+		"retired":
+			return PackedStringArray([
+				"music/menu.ogg",
+				"music/gtfc.ogg",
+				"music/nmrf.ogg",
+				"music/mvd.ogg",
+				"music/black_market.ogg",
+			])
+	return PackedStringArray()
 
 static func _title_of(rel: String) -> String:
 	match rel:
