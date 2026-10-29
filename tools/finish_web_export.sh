@@ -5,7 +5,7 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="$ROOT/build/web"
 # Optional trees. Set AUDIO_SRC, CAMEO_SRC, and MENU_SRC in the environment, or pass
-# --audio DIR, --cameos DIR, and --menu DIR. Without them, folders already
+# --audio DIR, --cameos DIR, --menu DIR, and --briefings DIR. Without them, folders already
 # next to the export are left in place.
 if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
   DEST="$1"
@@ -61,6 +61,14 @@ while [ $# -gt 0 ]; do
       VIDEO_SRC="$2"
       shift 2
       ;;
+    --briefings)
+      if [ $# -lt 2 ]; then
+        echo "finish_web_export: --briefings needs a directory"
+        exit 1
+      fi
+      BRIEFINGS_SRC="$2"
+      shift 2
+      ;;
     --models)
       if [ $# -lt 2 ]; then
         echo "finish_web_export: --models needs a directory"
@@ -90,6 +98,7 @@ TERRAIN_SRC="${TERRAIN_SRC:-}"
 UI_SRC="${UI_SRC:-}"
 VIDEO_SRC="${VIDEO_SRC:-}"
 MODEL_SRC="${MODEL_SRC:-}"
+BRIEFINGS_SRC="${BRIEFINGS_SRC:-}"
 TRIPO_SRC="${TRIPO_SRC:-}"
 # Keep the project worker. Godot's exported worker reloads every open client
 # when it receives "update", which boots a match back to the menu.
@@ -487,6 +496,15 @@ if [ -d "$ROOT/game/models/env" ]; then
   find "$ROOT/game/models/env" -maxdepth 1 -type f -name '*.glb' -exec cp {} "$DEST/models/env/" \;
   find "$DEST/models/env" -maxdepth 1 -type f -name '*.glb' -printf '%f\n' | sort > "$DEST/models/env/index.txt"
   : > "$DEST/models/env/.gdignore"
+fi
+if [ -n "$BRIEFINGS_SRC" ]; then
+  if [ ! -d "$BRIEFINGS_SRC" ]; then
+    echo "finish_web_export: briefings source is not a directory"
+    exit 1
+  fi
+  mkdir -p "$DEST/briefings"
+  find "$BRIEFINGS_SRC" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/briefings/" \;
+  : > "$DEST/briefings/.gdignore"
 fi
 if [ -n "$TERRAIN_SRC" ]; then
   if [ ! -d "$TERRAIN_SRC" ]; then

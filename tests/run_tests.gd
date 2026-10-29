@@ -1736,14 +1736,26 @@ func _campaign_hud(scene: Node, id: String) -> bool:
 	mm.sample()
 	var field: SMPointer = scene.get("field") as SMPointer
 	var cam: RTSCamera = scene.get_node_or_null("Camera") as RTSCamera
-	var built: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
-	var trained: Button = scene.find_child("Train_militia", true, false) as Button
+	var faction: String = SMCampaign.player_faction(id)
+	var faction_name: String = "GTFC"
+	var train_id: String = "Train_militia"
+	var build_id: String = "Build_scaffold_yard"
+	if faction == "nmrf":
+		faction_name = "NMRF"
+		train_id = "Train_river_rifle"
+		build_id = "MovePacker"
+	elif faction == "mvd":
+		faction_name = "MVD"
+		train_id = "Train_clearance_trooper"
+		build_id = "Build_command_hub"
+	var built: Button = scene.find_child(build_id, true, false) as Button
+	var trained: Button = scene.find_child(train_id, true, false) as Button
 	var ability: Button = scene.find_child("AbilityButton", true, false) as Button
 	if field == null or cam == null or built == null or trained == null or ability == null or ability.text != "Ability (F)":
 		return false
 	if scene.find_child("GroupBuildings", true, false) == null or scene.find_child("GroupUnits", true, false) == null or scene.find_child("GroupAbility", true, false) == null:
 		return false
-	if _hud_text(scene, "HudFaction") != "GTFC" or _hud_text(scene, "HudCredits") != "Credits 50000":
+	if _hud_text(scene, "HudFaction") != faction_name or _hud_text(scene, "HudCredits") != "Credits 50000":
 		return false
 	if not _hud_text(scene, "HudPower").begins_with("⚡ ") or _hud_text(scene, "HudMap") != SMCampaign.title_of(id):
 		return false
@@ -2942,7 +2954,11 @@ func test_lan() -> void:
 	var note: Label = boot.find_child("MultiplayerNote", true, false) as Label
 	var found: ItemList = boot.find_child("LanFound", true, false) as ItemList
 	check(host != null and host.is_visible_in_tree() and join != null and join.is_visible_in_tree() and addr != null and addr.is_visible_in_tree() and found != null and found.is_visible_in_tree() and note != null and note.is_visible_in_tree() and not note.text.contains("not in this build"), "the multiplayer tab hosts and joins a LAN game")
-	check(Lan.show_controls() and Lan.lan_note(true) == "LAN play needs the desktop build.", "the web build hides LAN and says it needs desktop")
+	check(Lan.show_controls() and Lan.lan_note(true) == "Copy the offer into the other browser, then paste its answer back. No account.", "the web build tells you to copy an offer and paste the answer")
+	var offer: Button = boot.find_child("PasteOffer", true, false) as Button
+	var paste_join: Button = boot.find_child("PasteJoin", true, false) as Button
+	var paste_seal: Button = boot.find_child("PasteSeal", true, false) as Button
+	check(offer != null and paste_join != null and paste_seal != null and not offer.is_visible_in_tree(), "browser paste controls stay off the desktop menu")
 	host.pressed.emit()
 	var status: Label = boot.find_child("LanStatus", true, false) as Label
 	check(status != null and status.text.contains("Waiting") and status.text.contains("47931"), "hosting opens a LAN port")
@@ -3129,6 +3145,8 @@ func test_lan_match() -> void:
 	Lan.drop_after = 15.0
 
 func test_sm_story() -> void:
+	check(SMCampaign.player_faction("kokang") == "gtfc" and SMCampaign.player_faction("ghosts_of_patani") == "nmrf" and SMCampaign.player_faction("plain_of_jars") == "mvd", "each act plays its own faction")
+	check(SMCampaign.enemy_faction("andaman") == "nmrf" and SMCampaign.enemy_faction("tonle_sap") == "nmrf" and SMCampaign.enemy_faction("keng_tung") == "gtfc" and SMCampaign.enemy_faction("operation_1027") == "black_market", "enemies match the briefing")
 	for id: String in SMCampaign.ids():
 		SMCampaign.selected = id
 		var path: String = "res://game/mission_kokang.tscn" if id == "kokang" else "res://game/campaign_mission.tscn"
@@ -3148,6 +3166,11 @@ func test_sm_story() -> void:
 		check(story_now.reinforcements >= 2, "%s fields a second beat" % id)
 		if id == "kokang":
 			check(_duty_units(field_now, "recon").size() >= 2, "kokang posts Orlan recon over the pits")
+			var still: TextureRect = scene.find_child("BriefingStill", true, false) as TextureRect
+			check(still != null and still.texture != null and still.visible, "kokang shows the briefing still")
+		if id == "ghosts_of_patani" or id == "fog_over_pakbeng":
+			var mission_still: TextureRect = scene.find_child("BriefingStill", true, false) as TextureRect
+			check(mission_still != null and mission_still.texture != null and mission_still.visible, "%s shows the briefing still" % id)
 		if id == "tachileik":
 			check(story_now.has_caravan(), "tachileik fields the jade caravan")
 		if id == "shwe_kokko":
@@ -3233,13 +3256,13 @@ func _meet_story(scene: Node, id: String) -> void:
 		story.tick(0.1)
 	elif id == "archipelago_rising":
 		_kill_duty(field, "clear")
-		_park(field, "channel_skiff", story.shallow_pad)
+		_park(field, "sampan", story.shallow_pad)
 		story.tick(0.1)
 	elif id == "ghosts_of_patani":
 		_wipe(field.units_of(1))
 		story.tick(0.1)
 	elif id == "plain_of_jars":
-		var tube: RTSUnit = _kind_unit(field, "monsoon_tube")
+		var tube: RTSUnit = _beam_tube(field)
 		var foe: RTSUnit = _duty_units(field, "phantom")[0]
 		foe.max_hp = 100000.0
 		foe.hp = 100000.0
@@ -3454,6 +3477,8 @@ func _order_crossing(field: SMPointer) -> void:
 func _script_orders(scene: Node, id: String) -> void:
 	var field: SMPointer = scene.get("field") as SMPointer
 	var story: SMStory = scene.get("story") as SMStory
+	if id != "plain_of_jars":
+		_favor_script(field)
 	if id == "kokang":
 		_fight_enemies(scene, field, 160)
 		var build: Button = scene.find_child("Build_scaffold_yard", true, false) as Button
@@ -3469,6 +3494,7 @@ func _script_orders(scene: Node, id: String) -> void:
 		return
 	if id == "plain_of_jars":
 		_beam_once(scene, field)
+		_favor_script(field)
 		_fight_enemies(scene, field, 160)
 		return
 	if id == "black_haze" or id == "fog_over_pakbeng" or id == "tachileik" or id == "shwe_kokko" or id == "kilometer_watch":
@@ -3483,7 +3509,7 @@ func _script_orders(scene: Node, id: String) -> void:
 		return
 	if id == "archipelago_rising":
 		_fight_enemies(scene, field, 200)
-		_march(scene, field, story.shallow_pad, "channel_skiff")
+		_march(scene, field, story.shallow_pad, "sampan")
 		_sim_until_done(scene, 40, 0.5)
 		return
 	if id == "tonle_sap":
@@ -3516,8 +3542,14 @@ func _thawed_column(field: SMPointer) -> bool:
 			return true
 	return false
 
+func _beam_tube(field: SMPointer) -> RTSUnit:
+	var tube: RTSUnit = _kind_unit(field, "siege_tube")
+	if tube == null:
+		tube = _kind_unit(field, "monsoon_tube")
+	return tube
+
 func _beam_once(scene: Node, field: SMPointer) -> void:
-	var tube: RTSUnit = _kind_unit(field, "monsoon_tube")
+	var tube: RTSUnit = _beam_tube(field)
 	if tube == null or not tube.is_alive():
 		return
 	var wait: int = 0
@@ -3702,7 +3734,7 @@ func test_sm_guide() -> void:
 	check(SMTone.peak(ui) > 1000 and SMTone.peak(shot) > 1000 and shot.data.size() > ui.data.size(), "procedural cues are audible and the attack cue is longer")
 	var clips: GDScript = load("res://game/match_audio.gd") as GDScript
 	check(clips.call("cue_clip", "") == null and clips.call("cue_clip", "../shot") == null and clips.call("cue_clip", "a/b") == null, "a cue id cannot leave the sfx folder")
-	check(clips.call("weapon_kind", "rifle") == "weapon_rifle" and clips.call("weapon_kind", "cannon") == "weapon_cannon" and clips.call("weapon_kind", "tube") == "weapon_artillery" and clips.call("weapon_kind", "lance") == "weapon_rocket", "weapon types map onto rifle, cannon, artillery, and rocket cues")
+	check(clips.call("weapon_kind", "rifle") == "weapon_rifle" and clips.call("weapon_kind", "cannon") == "weapon_cannon" and clips.call("weapon_kind", "tube") == "weapon_artillery" and clips.call("weapon_kind", "lance") == "weapon_rocket" and clips.call("weapon_kind", "missile") == "weapon_missile" and clips.call("weapon_kind", "bomblet") == "weapon_missile" and clips.call("weapon_kind", "torpedo") == "weapon_torpedo" and clips.call("weapon_kind", "shaped_charge") == "weapon_rocket" and clips.call("weapon_kind", "warhead") == "weapon_rocket" and clips.call("weapon_kind", "swarm") == "weapon_missile", "weapon types map onto rifle, cannon, artillery, rocket, missile, and torpedo cues")
 	check(clips.call("impact_kind", 4.0) == "impact_small" and clips.call("impact_kind", 12.0) == "impact_medium" and clips.call("impact_kind", 24.0) == "impact_large", "hits pick a small, medium, or large impact")
 	check(clips.call("move_kind", "armor", "ground", "amber_tank") == "move_tank_treads" and clips.call("move_kind", "drone", "amphibious", "river_drone") == "move_hover" and clips.call("move_kind", "air", "air", "gunship") == "move_helicopter" and clips.call("move_kind", "air", "air", "su30") == "", "treads, hover, and rotors loop, and jets do not")
 	check(clips.call("ability_kind", "Ballistic Riot Shield") == "ability_shield" and clips.call("ability_kind", "Blackout EMP") == "ability_emp" and clips.call("ability_kind", "Black-Hole Armor") == "ability_black_hole" and clips.call("ability_kind", "S.H.R.I.N.K. Ray") == "weapon_shrink_ray" and clips.call("ability_kind", "Slag Molotov") == "ability_generic", "abilities pick shield, EMP, black hole, shrink, or a generic cue")
@@ -3988,12 +4020,19 @@ func test_sm_bark() -> void:
 	for unit_id: String in voiced:
 		for event_name: String in events:
 			var found: PackedStringArray = clips.call("_variants", unit_id, event_name) as PackedStringArray
-			if found.size() < 2 or clips.call("_stream", found[0]) == null or clips.call("_stream", found[1]) == null:
+			if found.is_empty() or clips.call("_stream", found[0]) == null:
 				barks_ok = false
+			var english: bool = false
 			for rel: String in found:
-				if rel.contains("_retired") or rel.split("/").size() < 3:
+				if rel.begins_with("barks/en/"):
+					english = true
+				if clips.call("_stream", rel) == null or rel.contains("_retired") or rel.split("/").size() < 3:
 					barks_ok = false
-	check(barks_ok, "the nine shipped units decode both bark takes")
+			if english:
+				for rel: String in found:
+					if not rel.begins_with("barks/en/"):
+						barks_ok = false
+	check(barks_ok, "the nine shipped units decode a take, and English stays English")
 	check(clips.call("clip_for", "militia", "select") != null, "a shipped bark is chosen for playback")
 	check(Settings.voice_folder("english") == "en" and Settings.voice_folder("burmese") == "my" and Settings.voice_folder("mandarin") == "zh" and Settings.voice_folder("thai") == "th" and Settings.voice_folder("malay") == "ms", "voice settings map onto en my zh th ms")
 	var wanted: PackedStringArray = clips.call("_wanted_langs") as PackedStringArray

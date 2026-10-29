@@ -94,11 +94,12 @@ static func body_wash(primary: Color) -> Color:
 static func warm(owner: Node) -> void:
 	if owner == null or not OS.has_feature("web"):
 		return
+	var host: Node = _request_owner(owner)
 	var listed: String = _index_text()
 	if listed != "":
-		_arm_index(owner, listed)
+		_arm_index(host, listed)
 		return
-	_pull_index(owner)
+	_pull_index(host)
 
 static func model_id_for(node_name: String) -> String:
 	var name: String = node_name.to_lower()
@@ -357,14 +358,48 @@ static func _queue(body: MeshInstance3D, id: String, primary: Color, accent: Col
 		key = RIGGED + id
 	else:
 		body.set_meta("model_kind", kind)
+		if not _index_read or _index.has(id):
+			_hold_standin(body)
+		else:
+			_release_standin(body)
 	if not _waiting.has(body):
 		_waiting.append(body)
 	if not body.is_inside_tree() or not _index_read or not _index.has(key):
 		return
-	var host: Node = body.get_tree().current_scene
-	if host == null:
-		host = body
+	var host: Node = _request_owner(body)
 	_fetch(host, key)
+
+## The procedural mesh stays hidden while a GLB for this id is still on the way.
+static func _hold_standin(body: MeshInstance3D) -> void:
+	if body == null or str(body.get_meta("model", "")) != "":
+		return
+	body.set_meta("standin_held", true)
+	body.visible = false
+
+static func _release_standin(body: MeshInstance3D) -> void:
+	if body == null or not is_instance_valid(body):
+		return
+	if not bool(body.get_meta("standin_held", false)):
+		return
+	body.visible = true
+	body.set_meta("standin_held", false)
+
+static func _release_unlisted() -> void:
+	var still: Array[MeshInstance3D] = []
+	for body: MeshInstance3D in _waiting:
+		if not is_instance_valid(body):
+			continue
+		var id: String = str(body.get_meta("model_id", ""))
+		if str(body.get_meta("model", "")) != "":
+			body.visible = true
+			if bool(body.get_meta("model_rigged_wait", false)):
+				still.append(body)
+			continue
+		if id != "" and not _index.has(id):
+			_release_standin(body)
+			continue
+		still.append(body)
+	_waiting = still
 
 static func _redress(key: String) -> void:
 	var rigged: bool = key.begins_with(RIGGED)
@@ -399,16 +434,30 @@ static func _arm_index(owner: Node, text: String) -> void:
 		if name.ends_with(".glb") or name.ends_with(".gltf"):
 			var id: String = name.get_basename()
 			_index.append(id)
+	_prefetch_listed(owner)
+	_release_unlisted()
 	_fetch_waiting(owner)
+
+static func _prefetch_listed(owner: Node) -> void:
+	if owner == null:
+		return
+	for id: String in _index:
+		_fetch(owner, id)
+
+static func _request_owner(owner: Node) -> Node:
+	if owner != null and owner.get_tree() != null and owner.get_tree().root != null:
+		return owner.get_tree().root
+	return owner
 
 static func _pull_index(owner: Node) -> void:
 	if owner == null or _index_read:
 		return
+	var host: Node = _request_owner(owner)
 	var http := HTTPRequest.new()
 	http.timeout = 20.0
 	http.accept_gzip = false
-	owner.add_child(http)
-	http.request_completed.connect(_got_index.bind(http, owner))
+	host.add_child(http)
+	http.request_completed.connect(_got_index.bind(http, host))
 	var err: Error = http.request(_page() + "models/index.txt")
 	if err != OK:
 		http.queue_free()
@@ -417,6 +466,9 @@ static func _got_index(result: int, code: int, _headers: PackedStringArray, body
 	if is_instance_valid(http):
 		http.queue_free()
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or body.is_empty():
+		if not _index_read:
+			_index_read = true
+			_release_unlisted()
 		return
 	_arm_index(owner, body.get_string_from_utf8())
 
@@ -471,30 +523,47 @@ static func _fetch(owner: Node, id: String) -> void:
 		_redress(id)
 		return
 	_inflight[id] = true
+	var host: Node = _request_owner(owner)
 	var http := HTTPRequest.new()
 	http.timeout = 60.0
 	http.accept_gzip = false
-	owner.add_child(http)
+	host.add_child(http)
 	http.request_completed.connect(_got_model.bind(http, id))
 	var err: Error = http.request("%smodels/%s.glb" % [_page(), id])
 	if err != OK:
 		_inflight.erase(id)
 		http.queue_free()
+		_give_up(id)
 
 static func _got_model(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest, id: String) -> void:
 	if is_instance_valid(http):
 		http.queue_free()
 	_inflight.erase(id)
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or body.is_empty():
+		_give_up(id)
 		return
 	var cache_path: String = _cache_file(id)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(cache_path.get_base_dir()))
 	var file := FileAccess.open(cache_path, FileAccess.WRITE)
 	if file == null:
+		_give_up(id)
 		return
 	file.store_buffer(body)
 	file.close()
 	_redress(id)
+
+static func _give_up(id: String) -> void:
+	var bare: String = id.trim_prefix(RIGGED)
+	var rigged: bool = id.begins_with(RIGGED)
+	for body: MeshInstance3D in _waiting:
+		if not is_instance_valid(body):
+			continue
+		if str(body.get_meta("model_id", "")) != bare:
+			continue
+		if rigged:
+			body.set_meta("model_rigged_wait", false)
+		elif str(body.get_meta("model", "")) == "":
+			_release_standin(body)
 
 static func _from_gltf(id: String, path: String) -> Node3D:
 	var doc: GLTFDocument = GLTFDocument.new()
@@ -601,6 +670,8 @@ static func _mount(body: MeshInstance3D, scene: Node3D, footprint: AABB, fill: b
 	body.mesh = null
 	body.material_override = null
 	body.set_meta("model", scene.name)
+	body.visible = true
+	body.set_meta("standin_held", false)
 
 static func _hoist(body: MeshInstance3D, scene: Node3D, node_name: String) -> void:
 	var found: Node3D = scene.find_child(node_name, true, false) as Node3D

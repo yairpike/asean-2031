@@ -2,6 +2,7 @@ extends Node3D
 
 const Fx = preload("res://game/fx_view.gd")
 const Ground = preload("res://game/ground_view.gd")
+const Served = preload("res://game/served_art.gd")
 ## GTFC night raid. Scaffold, ruby night shift, one rare-earth node. Text briefing.
 
 var mission: SMMission = SMMission.new()
@@ -22,6 +23,8 @@ func _ready() -> void:
 	grid = SMDomainGrid.new(28, 18, 2.0, Vector3(-28.0, 0.0, -18.0))
 	_world()
 	_ui()
+	SMFront.faction_id = "gtfc"
+	preload("res://game/model_registry.gd").look_faction = SMCampaign.enemy_faction("kokang")
 	roster.setup("gtfc")
 	var rally: Vector3 = Vector3(-6.0, 0.0, -4.0)
 	side.prepare(self, status, grid, rally, roster.economy, "gtfc")
@@ -78,6 +81,17 @@ func _ui() -> void:
 	brief.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	brief.text = briefing_text
 	layer.add_child(brief)
+	var still: TextureRect = TextureRect.new()
+	still.name = "BriefingStill"
+	still.position = Vector2(980, 108)
+	still.size = Vector2(260, 146)
+	still.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	still.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	still.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tex: Texture2D = Served.texture(SMCampaign.still_of("kokang"))
+	still.texture = tex
+	still.visible = tex != null
+	layer.add_child(still)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.position = Vector2(220, 230)
 	row.add_theme_constant_override("separation", 8)
@@ -109,7 +123,7 @@ func _ui() -> void:
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
-	field.bind(self, cam)
+	field.bind_faction(self, cam, "gtfc")
 	field.use_open(28, 18, 2.0, Vector3(-28.0, 0.0, -18.0))
 	field.attach_box(ui_layer)
 	var kinds: Array[StringName] = SMPointer.GTFC_KINDS

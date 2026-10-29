@@ -122,7 +122,7 @@ static func _glass_button(button: Button) -> void:
 static func _skip_button(node_name: String) -> Button:
 	var skip: Button = Button.new()
 	skip.name = node_name
-	skip.text = "Skip ▸▸  N"
+	skip.text = "Skip >>  N"
 	skip.tooltip_text = "Skip to the next song (N)"
 	skip.focus_mode = Control.FOCUS_NONE
 	skip.custom_minimum_size = Vector2(96, 30)
@@ -276,7 +276,7 @@ func _wire_hud_skip() -> void:
 	var skip: Button = line.get_parent().get_node_or_null("HudSkip") as Button
 	if skip == null:
 		skip = _skip_button("HudSkip")
-		skip.text = "▸▸"
+		skip.text = ">>"
 		skip.custom_minimum_size = Vector2(34, 22)
 		skip.add_theme_font_size_override("font_size", 12)
 		skip.pressed.connect(skip_song)

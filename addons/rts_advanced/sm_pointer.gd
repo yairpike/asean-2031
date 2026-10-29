@@ -16,6 +16,8 @@ const NMRF_KINDS: Array[StringName] = [&"river_rifle", &"sampan", &"emerald_gunb
 
 var teams: RTSTeams = RTSTeams.new()
 var faction_id: String = "gtfc"
+## Set before spawn so one enemy can wear a different faction than the mission default.
+var next_look: String = ""
 var primary_color: Color = Color(0.72, 0.12, 0.18)
 var accent_color: Color = Color(0.88, 0.62, 0.12)
 var nav: RTSGridNav
@@ -162,6 +164,9 @@ func spawn(team: int, at: Vector3, kind: StringName, lead: bool = true) -> RTSUn
 	u.attack_range = 8.0
 	u.attack_interval = 0.8
 	u.position = at
+	if next_look != "":
+		u.set_meta("look", next_look)
+		next_look = ""
 	_apply_catalog(u, kind)
 	var row: Dictionary = _unit_row(kind)
 	var role: String = "infantry" if row.is_empty() else str(row.get("role", ""))
@@ -280,8 +285,9 @@ func category_of(kind: StringName) -> String:
 
 func _unit_row(kind: StringName) -> Dictionary:
 	var lists: Array[String] = [faction_id]
-	if faction_id != "black_market":
-		lists.append("black_market")
+	for extra: String in ["black_market", "gtfc", "nmrf", "mvd"]:
+		if not lists.has(extra):
+			lists.append(extra)
 	for faction: String in lists:
 		var units: Array[Dictionary] = SMCatalog.units_of(SMCatalog.faction(faction))
 		for unit: Dictionary in units:

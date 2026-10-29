@@ -18,6 +18,7 @@ var faction_submenu: Control
 var backdrop: Control
 var multi_note: Label
 var lan_panel: Control
+var paste_panel: Control
 var map_cards: Array[Button] = []
 var faction_cards: Array[Button] = []
 var tab_buttons: Array[Button] = []
@@ -141,10 +142,6 @@ func _ready() -> void:
 	multi.theme_type_variation = "HeaderButton"
 	multi.set_meta("nav", true)
 	multi.add_theme_font_size_override("font_size", 22)
-	if OS.has_feature("web"):
-		multi.text = "Multiplayer (LAN) - desktop app only"
-		multi.add_theme_font_size_override("font_size", 18)
-		multi.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	multi.pressed.connect(_show_tab.bind("multi"))
 	add_child(multi)
 	tab_buttons.append(multi)
@@ -183,6 +180,7 @@ func _ready() -> void:
 	multi_note.add_theme_color_override("font_color", Color(1, 1, 1))
 	add_child(multi_note)
 	_lan_panel()
+	_paste_panel()
 	set_process_unhandled_input(true)
 	SMSave.pull_web()
 	preload("res://game/settings_panel.gd").attach(self)
@@ -191,6 +189,7 @@ func _ready() -> void:
 	mark_difficulty()
 	preload("res://game/match_audio.gd").arm(self, "menu")
 	_loading_plate()
+	preload("res://game/model_registry.gd").warm(self)
 	_menu_fade()
 	_detail_card()
 	_offer_training()
@@ -288,6 +287,182 @@ func _lan_panel() -> void:
 	send.pressed.connect(_lan_say)
 	lan_panel.add_child(send)
 
+func _paste_panel() -> void:
+	paste_panel = Control.new()
+	paste_panel.name = "PastePanel"
+	paste_panel.visible = false
+	paste_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(paste_panel)
+	var offer: Button = Button.new()
+	offer.name = "PasteOffer"
+	offer.text = "Copy offer"
+	offer.position = Vector2(0.0, 0.0)
+	offer.custom_minimum_size = Vector2(160.0, 36.0)
+	offer.pressed.connect(_paste_offer)
+	paste_panel.add_child(offer)
+	var copy: Button = Button.new()
+	copy.name = "PasteCopy"
+	copy.text = "Copy again"
+	copy.position = Vector2(176.0, 0.0)
+	copy.custom_minimum_size = Vector2(160.0, 36.0)
+	copy.pressed.connect(_paste_copy)
+	paste_panel.add_child(copy)
+	var blob: TextEdit = TextEdit.new()
+	blob.name = "PasteBlob"
+	blob.placeholder_text = "Paste the other browser's offer or answer"
+	blob.position = Vector2(0.0, 48.0)
+	blob.size = Vector2(420.0, 96.0)
+	blob.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	paste_panel.add_child(blob)
+	var join: Button = Button.new()
+	join.name = "PasteJoin"
+	join.text = "Join offer"
+	join.position = Vector2(0.0, 156.0)
+	join.custom_minimum_size = Vector2(160.0, 36.0)
+	join.pressed.connect(_paste_join)
+	paste_panel.add_child(join)
+	var seal: Button = Button.new()
+	seal.name = "PasteSeal"
+	seal.text = "Seal answer"
+	seal.position = Vector2(176.0, 156.0)
+	seal.custom_minimum_size = Vector2(160.0, 36.0)
+	seal.pressed.connect(_paste_seal)
+	paste_panel.add_child(seal)
+	var status: Label = Label.new()
+	status.name = "PasteStatus"
+	status.text = Lan.lan_note(true)
+	status.position = Vector2(0.0, 204.0)
+	status.size = Vector2(420.0, 64.0)
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	paste_panel.add_child(status)
+	var lobby: Label = Label.new()
+	lobby.name = "PasteLobby"
+	lobby.position = Vector2(0.0, 276.0)
+	lobby.size = Vector2(420.0, 36.0)
+	lobby.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lobby.text = "Pick a faction and a map, then ready up."
+	paste_panel.add_child(lobby)
+	_paste_choice("PasteFaction_gtfc", "GTFC", Vector2(0.0, 316.0), _lan_faction.bind("gtfc"))
+	_paste_choice("PasteFaction_nmrf", "NMRF", Vector2(88.0, 316.0), _lan_faction.bind("nmrf"))
+	_paste_choice("PasteFaction_mvd", "MVD", Vector2(176.0, 316.0), _lan_faction.bind("mvd"))
+	_paste_choice("PasteFaction_black_market", "Market", Vector2(264.0, 316.0), _lan_faction.bind("black_market"))
+	var ready: Button = Button.new()
+	ready.name = "PasteReady"
+	ready.text = "Ready"
+	ready.position = Vector2(0.0, 360.0)
+	ready.custom_minimum_size = Vector2(120.0, 32.0)
+	ready.pressed.connect(_lan_ready)
+	paste_panel.add_child(ready)
+	var count: Label = Label.new()
+	count.name = "PasteCount"
+	count.position = Vector2(136.0, 364.0)
+	count.size = Vector2(280.0, 24.0)
+	count.text = ""
+	paste_panel.add_child(count)
+	var chat: Label = Label.new()
+	chat.name = "PasteChat"
+	chat.position = Vector2(0.0, 400.0)
+	chat.size = Vector2(420.0, 48.0)
+	chat.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	chat.text = ""
+	paste_panel.add_child(chat)
+	var entry: LineEdit = LineEdit.new()
+	entry.name = "PasteChatLine"
+	entry.placeholder_text = "Chat"
+	entry.position = Vector2(0.0, 456.0)
+	entry.size = Vector2(300.0, 32.0)
+	paste_panel.add_child(entry)
+	var send: Button = Button.new()
+	send.name = "PasteChatSend"
+	send.text = "Send"
+	send.position = Vector2(308.0, 456.0)
+	send.custom_minimum_size = Vector2(80.0, 32.0)
+	send.pressed.connect(_paste_say)
+	paste_panel.add_child(send)
+
+func _paste_choice(node_name: String, caption: String, at: Vector2, fn: Callable) -> void:
+	var b: Button = Button.new()
+	b.name = node_name
+	b.text = caption
+	b.position = at
+	b.custom_minimum_size = Vector2(84.0, 32.0)
+	b.clip_text = true
+	b.pressed.connect(fn)
+	paste_panel.add_child(b)
+
+func _paste_blob() -> String:
+	var blob: TextEdit = find_child("PasteBlob", true, false) as TextEdit
+	if blob == null:
+		return ""
+	return blob.text.strip_edges()
+
+func _paste_offer() -> void:
+	var err: Error = Lan.paste_host()
+	if err == OK:
+		Lan.faction = SMFront.faction_id
+		if selected_map != "":
+			Lan.map_path = selected_map
+		_paste_copy()
+	_paint_paste()
+	_paint_lobby()
+
+func _paste_copy() -> void:
+	var text: String = Lan.paste_text()
+	if text == "":
+		_paint_paste()
+		return
+	DisplayServer.clipboard_set(text)
+	var blob: TextEdit = find_child("PasteBlob", true, false) as TextEdit
+	if blob != null:
+		blob.text = text
+	_paint_paste()
+
+func _paste_join() -> void:
+	var err: Error = Lan.paste_join(_paste_blob())
+	if err == OK:
+		Lan.faction = SMFront.faction_id
+	_paint_paste()
+	_paint_lobby()
+
+func _paste_seal() -> void:
+	Lan.paste_seal(_paste_blob())
+	_paint_paste()
+	_paint_lobby()
+
+func _paste_say() -> void:
+	var entry: LineEdit = find_child("PasteChatLine", true, false) as LineEdit
+	if entry == null or Lan.role == "":
+		return
+	Lan.seat().say(entry.text)
+	entry.text = ""
+	_paint_lobby()
+
+func _paint_paste() -> void:
+	var status: Label = find_child("PasteStatus", true, false) as Label
+	if status == null:
+		return
+	var note: String = Lan.paste_note()
+	if note == "":
+		note = Lan.lan_note(true)
+	if Lan.paste_text() != "":
+		note = "%s  Offer is ready to copy." % note
+	status.text = note
+
+func _paste_poll(delta: float) -> void:
+	_paint_paste()
+	if Lan.role == "":
+		return
+	Lan.pump()
+	var raw: String = Lan.take()
+	while raw != "":
+		_lan_packet(raw)
+		raw = Lan.take()
+	if Lan.seat().tick_lobby(delta) == "start":
+		SMFront.faction_id = Lan.faction
+		_open(Lan.map_path)
+		return
+	_paint_lobby()
+
 func _host_lan() -> void:
 	var err: Error = Lan.open_host()
 	var status: Label = find_child("LanStatus", true, false) as Label
@@ -351,6 +526,7 @@ func _fill_lan() -> void:
 
 func _lan_poll(delta: float) -> void:
 	if not Lan.show_controls():
+		_paste_poll(delta)
 		return
 	if lan_panel != null and lan_panel.visible and Lan.role != "host":
 		Lan.listen()
@@ -432,6 +608,15 @@ func _paint_lobby() -> void:
 		chat.text = lines
 	if count != null:
 		count.text = "Starting in %d." % Lan.seat().count_shown if Lan.seat().counting else ""
+	var paste_lobby: Label = find_child("PasteLobby", true, false) as Label
+	var paste_chat: Label = find_child("PasteChat", true, false) as Label
+	var paste_count: Label = find_child("PasteCount", true, false) as Label
+	if paste_lobby != null and lobby != null:
+		paste_lobby.text = lobby.text
+	if paste_chat != null and chat != null:
+		paste_chat.text = chat.text
+	if paste_count != null and count != null:
+		paste_count.text = count.text
 
 func _skirmish() -> void:
 	_card(skirmish_panel, "CardPhillips", "Phillips Channel", "Water", "res://game/phillips_channel.tscn", Vector2(48, 16))
@@ -785,6 +970,8 @@ func _show_tab(which: String) -> void:
 		multi_note.visible = which == "multi"
 	if lan_panel != null:
 		lan_panel.visible = which == "multi" and Lan.show_controls()
+	if paste_panel != null:
+		paste_panel.visible = which == "multi" and not Lan.show_controls()
 	if which == "skirmish" or which == "multi":
 		_set_submenu(false)
 	elif which == "campaign" or which == "faction":
@@ -1019,7 +1206,7 @@ func _hide_menu_chrome() -> void:
 func _chrome_names() -> PackedStringArray:
 	return PackedStringArray([
 		"GameTitle", "TitleRule", "VersionMark", "NowPlaying", "ControlBar",
-		"MultiplayerNote", "FactionSubmenu", "LanPanel", "PanelSkirmish",
+		"MultiplayerNote", "FactionSubmenu", "LanPanel", "PastePanel", "PanelSkirmish",
 		"PanelCampaign", "PanelFaction", "QuitButton", "MenuBack",
 	])
 
@@ -1103,6 +1290,7 @@ func _start_mission(mission_id: String) -> void:
 	_open("res://game/campaign_mission.tscn")
 
 func _open(path: String) -> void:
+	preload("res://game/model_registry.gd").warm(self)
 	var loading: Control = find_child("LoadingPlate", true, false) as Control
 	if loading != null:
 		loading.visible = true
@@ -1308,7 +1496,7 @@ func _layout_menu(size: Vector2) -> void:
 		faction_end = _seat_factions(left, y, plate_w, narrow or plate_w < 520.0)
 		y = faction_end
 	y = _seat(find_child("TabSkirmish", true, false) as Control, left, y, plate_w, row_h)
-	var multi_h: float = 72.0 if OS.has_feature("web") else row_h
+	var multi_h: float = row_h
 	y = _seat(find_child("TabMultiplayer", true, false) as Control, left, y, plate_w, multi_h)
 	y = _seat(find_child("SettingsButton", true, false) as Control, left, y, plate_w, row_h)
 	y = _seat(find_child("CreditsButton", true, false) as Control, left, y, plate_w, row_h)
@@ -1323,6 +1511,9 @@ func _layout_menu(size: Vector2) -> void:
 	if lan_panel != null:
 		lan_panel.position = multi_note.position + Vector2(0.0, 80.0)
 		lan_panel.size = Vector2(plate_w if narrow else 440.0, 530.0)
+	if paste_panel != null:
+		paste_panel.position = multi_note.position + Vector2(0.0, 80.0)
+		paste_panel.size = Vector2(plate_w if narrow else 440.0, 560.0)
 	var content_y: float = 0.0
 	var content_x: float = 0.0
 	var content_w: float = size.x
@@ -1695,7 +1886,10 @@ func _paint_detail() -> void:
 		if players != null:
 			players.visible = false
 		if preview != null:
-			preview.visible = false
+			var rel: String = SMCampaign.still_of(mission_id)
+			var tex: Texture2D = preload("res://game/served_art.gd").texture(rel) if rel != "" else null
+			preview.texture = tex
+			preview.visible = tex != null
 		return
 	title.text = ""
 	body.text = ""

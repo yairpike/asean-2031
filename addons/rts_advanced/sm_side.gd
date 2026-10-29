@@ -7,6 +7,7 @@ const Power = preload("res://addons/rts_advanced/sm_power.gd")
 signal slab_made(host: Node3D, node_name: String, pos: Vector3, size: Vector3, color: Color)
 signal line_voiced(text: String)
 signal super_launched
+signal defense_fired(building_id: StringName, at: Vector3)
 
 var faction_id: String = "gtfc"
 var yard: SMBuildYard = SMBuildYard.new()

@@ -86,7 +86,7 @@ func show_controls() -> bool:
 
 func lan_note(web: bool) -> String:
 	if web:
-		return "LAN play needs the desktop build."
+		return "Copy the offer into the other browser, then paste its answer back. No account."
 	return "Host a 1v1 on this LAN, or join one. Each player brings a faction and a base."
 
 func holding() -> bool:

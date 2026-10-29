@@ -2,6 +2,7 @@ extends Node3D
 
 const Fx = preload("res://game/fx_view.gd")
 const Ground = preload("res://game/ground_view.gd")
+const Served = preload("res://game/served_art.gd")
 ## One solo text briefing. The objective button runs the sim system for that mission.
 
 var campaign: SMCampaign = SMCampaign.new()
@@ -25,10 +26,12 @@ func _ready() -> void:
 	grid = SMDomainGrid.new(36, 24, 2.0, Vector3(-36.0, 0.0, -24.0))
 	_world()
 	_ui()
-	preload("res://game/model_registry.gd").look_faction = _enemy_faction(mission_id)
-	roster.setup("gtfc")
+	var faction: String = SMCampaign.player_faction(mission_id)
+	SMFront.faction_id = faction
+	preload("res://game/model_registry.gd").look_faction = SMCampaign.enemy_faction(mission_id)
+	roster.setup(faction)
 	var rally: Vector3 = Vector3(-6.0, 0.0, -2.0)
-	side.prepare(self, status, grid, rally, roster.economy, "gtfc")
+	side.prepare(self, status, grid, rally, roster.economy, faction)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, SMCampaign.title_of(mission_id), rally, Callable(self, "fire_secondary"), grid, cam)
@@ -99,6 +102,7 @@ func _ui() -> void:
 	brief.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	brief.text = briefing_text
 	ui_layer.add_child(brief)
+	_still(ui_layer)
 	var goal: Button = Button.new()
 	goal.name = "ObjectiveButton"
 	goal.text = "Complete objective"
@@ -128,23 +132,30 @@ func _ui() -> void:
 	status.add_theme_color_override("font_color", Color(0.98, 0.9, 0.55))
 	ui_layer.add_child(status)
 
-func _enemy_faction(id: String) -> String:
-	if id == "ghosts_of_patani" or id == "kilometer_watch" or id == "black_haze" or id == "archipelago_rising" or id == "wrath_of_the_garuda":
-		return "gtfc"
-	if id == "fog_over_pakbeng" or id == "keng_tung" or id == "plain_of_jars" or id == "tonle_sap" or id == "shattered_monsoon":
-		return "mvd"
-	if id == "operation_1027":
-		return "black_market"
-	return "nmrf"
+func _still(layer: CanvasLayer) -> void:
+	var still: TextureRect = TextureRect.new()
+	still.name = "BriefingStill"
+	still.position = Vector2(980, 108)
+	still.size = Vector2(260, 146)
+	still.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	still.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	still.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rel: String = SMCampaign.still_of(mission_id)
+	var tex: Texture2D = Served.texture(rel) if rel != "" else null
+	still.texture = tex
+	still.visible = tex != null
+	layer.add_child(still)
 
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
-	field.bind(self, cam)
+	field.bind_faction(self, cam, side.faction_id)
 	field.use_open(36, 24, 2.0, Vector3(-36.0, 0.0, -24.0))
 	field.attach_box(ui_layer)
-	var kinds: Array[StringName] = [&"militia", &"ruby_lancer", &"amber_tank"]
+	var kinds: Array[StringName] = SMCampaign.company_of(side.faction_id)
 	for i: int in kinds.size():
 		field.spawn(SMPointer.PLAYER, Vector3(-6.0 + float(i) * 2.4, 0.0, -2.0), kinds[i])
+	if mission_id == "shattered_monsoon":
+		field.next_look = "nmrf"
 	field.spawn(SMPointer.ENEMY, Vector3(6.0, 0.0, 3.0), &"raider")
 	preload("res://game/match_settings.gd").apply_story(story)
 	story.bind_mission(self, mission_id, field, side, roster, ui_layer, grid)
@@ -153,7 +164,7 @@ func _arm_units() -> void:
 func _say(text: String) -> void:
 	if status != null:
 		status.text = text
-	(load("res://game/match_audio.gd") as GDScript).call("announce_line", self, SMFront.current(), text)
+	(load("res://game/match_audio.gd") as GDScript).call("announce_line", self, side.faction_id, text)
 
 func _slab(node_name: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	var mi: MeshInstance3D = MeshInstance3D.new()
