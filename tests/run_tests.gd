@@ -5506,6 +5506,10 @@ func test_weapon_sockets() -> void:
 		var aim: Vector3 = await _barrel_aim(id)
 		var mounted: bool = id in ["packer", "wharf_gun"]
 		check(absf(aim.x) <= (22.0 if mounted else 8.0) and absf(aim.y) <= (25.0 if mounted else 15.0) and aim.z > 0.15, "%s fires with its barrel near level and on the target (pitch %.1f deg, yaw %.1f deg, tip %.2f m ahead)" % [id, aim.x, aim.y, aim.z])
+	for id: String in armed:
+		var gap: Vector2 = await _grip_gap(id)
+		if gap.y > 0.0:
+			check(gap.x < 0.05, "%s keeps its off hand on the weapon grip while firing (worst %.3f m over %d poses)" % [id, gap.x, int(gap.y)])
 	var stage: Node3D = Node3D.new()
 	root.add_child(stage)
 	var rifle: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3.ZERO, 0, true)
@@ -5515,7 +5519,7 @@ func test_weapon_sockets() -> void:
 	var muzzle: Node3D = Motion.muzzle_of(body)
 	check(weapon != null and weapon.get_parent() is BoneAttachment3D and (weapon.get_parent() as BoneAttachment3D).bone_name == "R_Hand" and muzzle != null, "the militia rifle rides the right hand socket with a muzzle at the barrel tip")
 	var ik: Node = body.find_child("OffHandIK", true, false)
-	check(ik is TwoBoneIK3D and str((ik as TwoBoneIK3D).get_end_bone_name(0)) == "L_Hand", "the two-handed rifle puts the left hand on its grip through IK")
+	check(ik is OffHandIK and (ik as OffHandIK).get_skeleton().get_bone_name((ik as OffHandIK).hand) == "L_Hand", "the two-handed rifle puts the left hand on its grip through IK")
 	Motion.pose(rifle, 1.0 / 30.0)
 	await process_frame
 	var rest: Vector3 = weapon.position
@@ -5555,9 +5559,47 @@ func test_weapon_sockets() -> void:
 	for f: int in 30:
 		Motion.pose(slinger, 1.0 / 30.0)
 		await process_frame
-	var sling_ik: TwoBoneIK3D = sling_body.find_child("OffHandIK", true, false) as TwoBoneIK3D
+	var sling_ik: OffHandIK = sling_body.find_child("OffHandIK", true, false) as OffHandIK
 	check(slung.global_position.distance_to(sling.global_position) > 0.2 and sling_ik != null and sling_ik.influence > 0.95, "to fire, the river rifle draws the rifle into both hands")
 	stage.queue_free()
+
+## Worst distance between the off hand and the weapon's Grip socket across the shoot clip, measured on the posed
+## skeleton after the modifiers ran, and the number of poses sampled (0 when the unit has no off-hand IK).
+func _grip_gap(id: String) -> Vector2:
+	var stage: Node3D = Node3D.new()
+	root.add_child(stage)
+	var u: RTSUnit = _motion_unit(stage, id, "infantry", Vector3.ZERO, 0, true)
+	var foe: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3(0, 0, -6), 1, false)
+	var body: MeshInstance3D = u.get_node("Body") as MeshInstance3D
+	var player: AnimationPlayer = Motion.player_of(body)
+	var ik: OffHandIK = body.find_child("OffHandIK", true, false) as OffHandIK
+	if ik == null or player == null:
+		stage.queue_free()
+		return Vector2.ZERO
+	var skel: Skeleton3D = ik.get_skeleton()
+	var gaps: Array[float] = []
+	var measure: Callable = func() -> void:
+		gaps.append((skel.global_transform * skel.get_bone_global_pose(ik.hand).origin).distance_to(ik.target.global_position))
+	u.attack_range = 12.0
+	u.attack_target = foe
+	for f: int in 30:
+		Motion.pose(u, 1.0 / 30.0)
+	var length: float = player.get_animation(player.current_animation).length
+	var worst: float = 0.0
+	var sampled: int = 0
+	skel.skeleton_updated.connect(measure)
+	for k: int in 16:
+		player.seek(length * float(k) / 16.0, true)
+		Motion.pose(u, 0.0)
+		gaps.clear()
+		await process_frame
+		await process_frame
+		if not gaps.is_empty():
+			worst = maxf(worst, gaps[gaps.size() - 1])
+			sampled += 1
+	skel.skeleton_updated.disconnect(measure)
+	stage.queue_free()
+	return Vector2(worst, float(sampled))
 
 ## Barrel pitch and yaw off the target in degrees, and how far the muzzle sits toward the target, averaged over the
 ## whole shoot clip. The build points the Muzzle socket's -Z along the barrel, which arrives in glTF as -Y.

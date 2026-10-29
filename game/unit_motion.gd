@@ -380,15 +380,9 @@ static func _rig_sockets(body: Node3D) -> void:
 			continue
 		if _carries_shield(body, side):
 			continue
-		var ik: TwoBoneIK3D = TwoBoneIK3D.new()
-		ik.name = "OffHandIK"
-		ik.setting_count = 1
-		ik.set_root_bone_name(0, "%s_Upperarm" % side)
-		ik.set_middle_bone_name(0, "%s_Forearm" % side)
-		ik.set_end_bone_name(0, "%s_Hand" % side)
-		skel.add_child(ik)
-		ik.set_target_node(0, ik.get_path_to(grip))
-		ik.influence = 0.0
+		var ik: OffHandIK = OffHandIK.make(skel, side, grip)
+		if ik == null:
+			continue
 		body.set_meta("anim_ik", ik)
 		return
 
