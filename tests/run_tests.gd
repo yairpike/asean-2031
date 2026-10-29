@@ -5432,9 +5432,10 @@ func test_weapon_sockets() -> void:
 	for id: String in armed:
 		var got: Array = await _weapon_drift(id)
 		check(float(got[0]) >= 0.0 and float(got[0]) < 0.002 and int(got[1]) >= 20, "%s weapons stay rigid on their socket across every clip (%d poses, drift %.4f)" % [id, int(got[1]), float(got[0])])
-	for id: String in ["militia", "olive_ranger", "river_rifle", "crimson_sapper", "packer_escort", "relay_van", "packer", "wharf_gun"]:
+	for id: String in armed:
 		var aim: Vector3 = await _barrel_aim(id)
-		check(absf(aim.x) <= 22.0 and absf(aim.y) <= 25.0 and aim.z > 0.15, "%s fires with its barrel near level and on the target (pitch %.1f deg, yaw %.1f deg, tip %.2f m ahead)" % [id, aim.x, aim.y, aim.z])
+		var mounted: bool = id in ["packer", "wharf_gun"]
+		check(absf(aim.x) <= (22.0 if mounted else 8.0) and absf(aim.y) <= (25.0 if mounted else 15.0) and aim.z > 0.15, "%s fires with its barrel near level and on the target (pitch %.1f deg, yaw %.1f deg, tip %.2f m ahead)" % [id, aim.x, aim.y, aim.z])
 	var stage: Node3D = Node3D.new()
 	root.add_child(stage)
 	var rifle: RTSUnit = _motion_unit(stage, "militia", "infantry", Vector3.ZERO, 0, true)
@@ -5489,7 +5490,7 @@ func test_weapon_sockets() -> void:
 	stage.queue_free()
 
 ## Barrel pitch and yaw off the target in degrees, and how far the muzzle sits toward the target, averaged over the
-## whole shoot clip.
+## whole shoot clip. The build points the Muzzle socket's -Z along the barrel, which arrives in glTF as -Y.
 func _barrel_aim(id: String) -> Vector3:
 	var stage: Node3D = Node3D.new()
 	root.add_child(stage)
@@ -5515,7 +5516,7 @@ func _barrel_aim(id: String) -> Vector3:
 		player.seek(length * float(k) / 16.0, true)
 		Motion.pose(u, 0.0)
 		await process_frame
-		var barrel: Vector3 = (muzzle.global_position - weapon.global_transform * weapon.get_aabb().get_center()).normalized()
+		var barrel: Vector3 = -muzzle.global_basis.y.normalized()
 		pitch += rad_to_deg(asin(clampf(barrel.y, -1.0, 1.0))) / 16.0
 		yaw += rad_to_deg(Vector3(barrel.x, 0.0, barrel.z).signed_angle_to(Vector3.FORWARD, Vector3.UP)) / 16.0
 		ahead += (muzzle.global_position - u.global_position).dot(Vector3.FORWARD) / 16.0

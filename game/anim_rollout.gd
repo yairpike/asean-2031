@@ -441,8 +441,9 @@ func _begin_close(a: Dictionary) -> void:
 	title.text = "Firing close-up · %s" % id.replace("_", " ")
 	caption.text = "rigid weapon on the hand socket · flash and recoil at the muzzle · half speed"
 	var tall: float = _height_of(close_unit)
-	var k: float = 1.0 if tall > 1.2 and tall < 2.4 else clampf(tall / 1.75, 0.5, 2.5)
-	_aim(origin + Vector3(0.45, 0.85, 0) * k, Vector3(0.3, 0.22, 1.0), 3.1 * k)
+	var k: float = 1.0 if tall > 1.2 and tall < 2.0 else clampf(tall / 1.75, 0.5, 2.5)
+	var lift: float = maxf(0.85 * k, 0.55 * tall) if tall >= 2.0 else 0.85 * k
+	_aim(origin + Vector3(0.45 * k, lift, 0), Vector3(0.3, 0.22, 1.0), 3.1 * k * (1.15 if tall >= 2.0 else 1.0))
 
 func _height_of(u: Node3D) -> float:
 	var top: float = 0.0
