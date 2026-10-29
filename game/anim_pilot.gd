@@ -5,7 +5,7 @@ extends Node3D
 const Forms = preload("res://game/unit_meshes.gd")
 const Motion = preload("res://game/unit_motion.gd")
 const BuildingFx = preload("res://game/building_fx.gd")
-const Models = preload("res://game/model_registry.gd")
+const World = preload("res://game/world_view.gd")
 
 const LENGTH: float = 41.0
 const GTFC_RED: Color = Color("#B81E2D")
@@ -111,19 +111,6 @@ func _dress_stage() -> void:
 	road.position = Vector3(3, 0.01, 0)
 	add_child(road)
 
-## Same mount and BuildingFx hook as World.slab, on a full-size footprint so the model keeps its proportions.
-func _structure(id: String, at: Vector3, footprint: Vector3) -> MeshInstance3D:
-	var mi: MeshInstance3D = MeshInstance3D.new()
-	mi.name = "Built_%s" % id
-	var box: BoxMesh = BoxMesh.new()
-	box.size = footprint
-	mi.mesh = box
-	mi.position = at + Vector3(0, footprint.y * 0.5, 0)
-	Models.apply_structure(mi, id, GTFC_RED, GTFC_AMBER)
-	add_child(mi)
-	BuildingFx.attach(mi)
-	return mi
-
 func _spawn(kind: StringName, role: String, loco: String, at: Vector3, team: int, primary: Color, trim: Color) -> RTSUnit:
 	var u: RTSUnit = RTSUnit.new()
 	u.name = "%s_%d" % [kind, units.size()]
@@ -202,9 +189,9 @@ func _script(delta: float) -> void:
 		tank.attack_target = null
 		tank.take_damage(99999.0)
 	if _at(26.0, delta):
-		_glide(Vector3(16, 2.0, 0), 20.0, 1.4)
+		_glide(Vector3(16, 1.0, 0), 9.0, 1.4)
 	if _at(27.4, delta):
-		barracks = _structure("barracks", Vector3(16, 0, 0), Vector3(8.0, 6.0, 8.0))
+		barracks = World.slab(self, "Built_barracks", SMPointer.building_at(Vector3(16, 0, 0)), SMPointer.BUILDING_SIZE, GTFC_AMBER)
 	if _at(31.6, delta):
 		BuildingFx.set_health(barracks, 0.55)
 	if _at(33.0, delta):
