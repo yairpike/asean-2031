@@ -166,6 +166,26 @@ if [ -f "$ROOT/web/favicon.ico" ]; then
     sed -i 's#</head>#<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48"></head>#' "$DEST/index.html"
   fi
 fi
+# The page that shipped at 97433c3 uses these exact files: index.icon.png as the tab icon,
+# the apple touch icon, and the three PWA sizes named in the manifest.
+if [ -f "$ROOT/brand/favicon.png" ]; then
+  cp "$ROOT/brand/favicon.png" "$DEST/index.icon.png"
+fi
+if [ -f "$ROOT/brand/apple_touch_icon.png" ]; then
+  cp "$ROOT/brand/apple_touch_icon.png" "$DEST/index.apple-touch-icon.png"
+fi
+if [ -f "$ROOT/brand/pwa_144.png" ]; then
+  cp "$ROOT/brand/pwa_144.png" "$DEST/index.144x144.png"
+fi
+if [ -f "$ROOT/brand/pwa_180.png" ]; then
+  cp "$ROOT/brand/pwa_180.png" "$DEST/index.180x180.png"
+fi
+if [ -f "$ROOT/brand/pwa_512.png" ]; then
+  cp "$ROOT/brand/pwa_512.png" "$DEST/index.512x512.png"
+fi
+if [ -f "$DEST/index.html" ] && ! grep -q 'href="index.icon.png"' "$DEST/index.html"; then
+  sed -i 's#</head>#<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png"></head>#' "$DEST/index.html"
+fi
 if [ -f "$DEST/index.html" ] && ! grep -q 'audio_unlock.js' "$DEST/index.html"; then
   python3 - "$DEST/index.html" << 'PY'
 import sys
