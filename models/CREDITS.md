@@ -1,6 +1,8 @@
 # Model credits
 
-Every model in this folder is a stand-in built from CC0 (public domain) packs. CC0 needs no attribution; these credits are a courtesy and a record of where each file came from.
+The files directly in this folder are stand-ins built from CC0 (public domain) packs. CC0 needs no attribution; these credits are a courtesy and a record of where each file came from.
+
+Every id in `res://data/tripo_ids.txt` has a Tripo file in `models/tripo/`. Those are used instead of the CC0 stand-in of the same id. They are not CC0. See the Tripo pilot note for the generation record. The CC0 rows below remain the fallback when a Tripo file is absent.
 
 Licence: [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)
 
