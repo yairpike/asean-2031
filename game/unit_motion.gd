@@ -301,6 +301,7 @@ static func _weapon(body: MeshInstance3D, delta: float, key: String) -> void:
 		var axis: Vector3 = muzzle.position - grip
 		var back: Vector3 = weapon.basis * (-axis.normalized()) * axis.length() * 0.12
 		weapon.position = rest + back * _ease_kick(kick)
+	_brace_shields(body, delta, key)
 	var ik: SkeletonModifier3D = null
 	if body.has_meta("anim_ik") and is_instance_valid(body.get_meta("anim_ik")):
 		ik = body.get_meta("anim_ik") as SkeletonModifier3D
@@ -347,6 +348,8 @@ static func _rig_sockets(body: Node3D) -> void:
 		var side: String = "L" if str((holder as BoneAttachment3D).bone_name).begins_with("R") else "R"
 		if skel.find_bone("%s_Upperarm" % side) < 0 or skel.find_bone("%s_Hand" % side) < 0:
 			continue
+		if _carries_shield(body, side):
+			continue
 		var ik: TwoBoneIK3D = TwoBoneIK3D.new()
 		ik.name = "OffHandIK"
 		ik.setting_count = 1
@@ -358,6 +361,65 @@ static func _rig_sockets(body: Node3D) -> void:
 		ik.influence = 0.0
 		body.set_meta("anim_ik", ik)
 		return
+
+## Firing clips raise the shield forearm, which would lay the shield flat overhead. While firing, the shield keeps
+## the place and facing it has beside the standing body, lowered by however far the hips drop.
+static func _brace_shields(body: MeshInstance3D, delta: float, key: String) -> void:
+	var model: Node = body.get_node_or_null("Model")
+	if model == null:
+		return
+	if not body.has_meta("anim_shields"):
+		body.set_meta("anim_shields", model.find_children("Shield*", "MeshInstance3D", true, false))
+	var shields: Array = body.get_meta("anim_shields")
+	if shields.is_empty():
+		return
+	var hip: float = _hip_height(body)
+	for node: Variant in shields:
+		var shield: MeshInstance3D = node as MeshInstance3D
+		if shield == null or not is_instance_valid(shield) or not shield.is_inside_tree():
+			continue
+		if not shield.has_meta("anim_rest_xf"):
+			shield.set_meta("anim_rest_xf", shield.transform)
+		var rest: Transform3D = shield.get_meta("anim_rest_xf")
+		shield.transform = rest
+		var centre: Vector3 = shield.get_aabb().get_center()
+		if key != "shoot" and key != "die" and not shield.has_meta("anim_stand"):
+			shield.set_meta("anim_stand", body.global_transform.affine_inverse() * shield.global_transform)
+			shield.set_meta("anim_stand_hip", hip)
+		var w: float = move_toward(float(shield.get_meta("anim_brace", 0.0)), 1.0 if key == "shoot" else 0.0, delta * 4.0)
+		shield.set_meta("anim_brace", w)
+		if w <= 0.0 or not shield.has_meta("anim_stand"):
+			continue
+		var stand: Transform3D = body.global_transform * (shield.get_meta("anim_stand") as Transform3D)
+		stand.origin += Vector3.UP * (hip - float(shield.get_meta("anim_stand_hip")))
+		var now: Transform3D = shield.global_transform
+		var pin: Vector3 = (now * centre).lerp(stand * centre, w)
+		var turned: Transform3D = now.interpolate_with(stand, w)
+		turned.origin += pin - turned * centre
+		shield.global_transform = turned
+
+## World height of the hips (the thighs' midpoint) above the body, or 0 for models without thighs.
+static func _hip_height(body: Node3D) -> float:
+	var skel: Skeleton3D = body.find_child("Skeleton3D", true, false) as Skeleton3D
+	if skel == null:
+		return 0.0
+	var a: int = skel.find_bone("L_Thigh")
+	var b: int = skel.find_bone("R_Thigh")
+	if a < 0 or b < 0:
+		return 0.0
+	var mid: Vector3 = (skel.get_bone_global_pose(a).origin + skel.get_bone_global_pose(b).origin) * 0.5
+	return (skel.global_transform * mid).y - body.global_position.y
+
+## A shield arm keeps the shield up front instead of reaching for the weapon grip.
+static func _carries_shield(body: Node3D, side: String) -> bool:
+	var model: Node = body.get_node_or_null("Model")
+	if model == null:
+		return false
+	for node: Node in model.find_children("Shield*", "MeshInstance3D", true, false):
+		var holder: Node = node.get_parent()
+		if holder is BoneAttachment3D and str((holder as BoneAttachment3D).bone_name).begins_with(side):
+			return true
+	return false
 
 static func _hull(u: RTSUnit, body: MeshInstance3D, delta: float) -> void:
 	var form: String = str(body.get_meta("form", ""))

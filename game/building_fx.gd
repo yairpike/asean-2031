@@ -112,9 +112,9 @@ func _start_raise() -> void:
 	cage = _scaffold(box)
 	cage.name = "Scaffold_%s" % target.name
 	stage.add_child(cage)
-	cage.transform = rest
+	cage.transform = rest.translated_local(Vector3(0, box.position.y, 0))
 	cage.scale = Vector3(1.0, 0.01, 1.0)
-	FX.dust(stage, rest.origin + Vector3(0, 0.1, 0), maxf(box.size.x, box.size.z) * 0.6, 20)
+	FX.dust(stage, rest.origin + Vector3(0, box.position.y + 0.1, 0), maxf(box.size.x, box.size.z) * 0.6, 20)
 
 func _apply_rise(k: float) -> void:
 	var h: float = box.size.y
@@ -147,14 +147,14 @@ func _step_raise() -> void:
 		if cage != null:
 			cage.queue_free()
 			cage = null
-		FX.dust(_stage(), rest.origin + Vector3(0, 0.1, 0), maxf(box.size.x, box.size.z) * 0.7, 26)
+		FX.dust(_stage(), rest.origin + Vector3(0, box.position.y + 0.1, 0), maxf(box.size.x, box.size.z) * 0.7, 26)
 		phase = Phase.STAND
 		age = 0.0
 		_start_work()
 
 func show_health(fraction: float) -> void:
 	health = clampf(fraction, 0.0, 1.0)
-	var roof: Vector3 = Vector3(box.get_center().x, box.end.y * 0.85, box.get_center().z)
+	var roof: Vector3 = Vector3(box.get_center().x, box.position.y + box.size.y * 0.85, box.get_center().z)
 	var span: float = clampf(maxf(box.size.x, box.size.z) * 0.22, 0.8, 3.0)
 	if health < SMOKE_AT and smoke_fx == null:
 		smoke_fx = FX.smoke(self, roof + Vector3(box.size.x * 0.18, 0, 0), span, 18)
@@ -217,11 +217,11 @@ func collapse() -> void:
 			held.add_child(mi)
 		Debris.launch(chunks, box, r)
 		proxy.visible = false
-	FX.blast(husk, Vector3(0, box.size.y * 0.5, 0), clampf(span * 0.28, 1.0, 3.0))
-	FX.smoke(husk, Vector3(0, box.size.y * 0.4, 0), clampf(span * 0.3, 1.0, 3.0), 22).emitting = true
+	FX.blast(husk, Vector3(0, box.position.y + box.size.y * 0.5, 0), clampf(span * 0.28, 1.0, 3.0))
+	FX.smoke(husk, Vector3(0, box.position.y + box.size.y * 0.4, 0), clampf(span * 0.3, 1.0, 3.0), 22).emitting = true
 	Debris.effects(husk, materials, ink, box)
 	if not materials.has(Catalog.BAMBOO):
-		FX.fire(husk, Vector3(0, box.size.y * 0.25, 0), clampf(span * 0.25, 0.8, 2.4), 18).emitting = true
+		FX.fire(husk, Vector3(0, box.position.y + box.size.y * 0.25, 0), clampf(span * 0.25, 0.8, 2.4), 18).emitting = true
 	debris = Debris.pieces(husk, materials, ink, box, 18)
 	heap = Debris.mound(husk, box, ink)
 	var coat: StandardMaterial3D = FX.char_coat(0.0)
@@ -266,7 +266,7 @@ func show_state(p_powered: bool, p_repairing: bool) -> void:
 		for node: Node in work.find_children("*", "CPUParticles3D", true, false):
 			(node as CPUParticles3D).emitting = powered
 	if repairing and repair_fx == null and phase == Phase.STAND:
-		repair_fx = Debris.sparks(self, Vector3(box.get_center().x, box.end.y * 0.7, box.end.z * 0.9), 0.6)
+		repair_fx = Debris.sparks(self, Vector3(box.get_center().x, box.position.y + box.size.y * 0.7, box.end.z * 0.9), 0.6)
 		repair_fx.one_shot = false
 		repair_fx.amount = 16
 	if repair_fx != null:
@@ -340,7 +340,7 @@ func _scaffold(b: AABB) -> Node3D:
 	var x1: float = b.end.x + pad
 	var z0: float = b.position.z - pad
 	var z1: float = b.end.z + pad
-	var top: float = b.end.y + 0.3
+	var top: float = b.size.y + 0.3
 	var bar: float = clampf(maxf(b.size.x, b.size.z) * 0.012, 0.05, 0.16)
 	var cols: int = 4
 	for i: int in cols + 1:

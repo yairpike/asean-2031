@@ -306,21 +306,21 @@ static func pieces(parent: Node3D, kinds: PackedStringArray, ink: PackedColorArr
 		var out: float = r.randf_range(0.3, 1.0) * span * (1.4 if kind == Catalog.GLASS else 1.0)
 		mi.set_meta("vel", Vector3(cos(ang) * out, r.randf_range(2.5, 6.5), sin(ang) * out))
 		mi.set_meta("spin", Vector3(r.randf_range(-7, 7), r.randf_range(-7, 7), r.randf_range(-7, 7)))
-		mi.position = Vector3(r.randf_range(-0.3, 0.3) * box.size.x, r.randf_range(0.2, 0.8) * box.size.y, r.randf_range(-0.3, 0.3) * box.size.z) + Vector3(box.get_center().x, 0, box.get_center().z)
+		mi.position = Vector3(r.randf_range(-0.3, 0.3) * box.size.x, r.randf_range(0.2, 0.8) * box.size.y, r.randf_range(-0.3, 0.3) * box.size.z) + Vector3(box.get_center().x, box.position.y, box.get_center().z)
 		root.add_child(mi)
 	return root
 
 ## The effect each material throws off as it fails.
 static func effects(parent: Node3D, kinds: PackedStringArray, ink: PackedColorArray, box: AABB) -> void:
 	var span: float = maxf(box.size.x, box.size.z)
-	var mid: Vector3 = Vector3(box.get_center().x, box.size.y * 0.45, box.get_center().z)
+	var mid: Vector3 = Vector3(box.get_center().x, box.position.y + box.size.y * 0.45, box.get_center().z)
 	var seen: Dictionary = {}
 	for kind: String in kinds:
 		if seen.has(kind):
 			continue
 		seen[kind] = true
 		if kind == Catalog.BRICK or kind == Catalog.CONCRETE or kind == Catalog.STONE:
-			var dust: CPUParticles3D = FX.dust(parent, Vector3(mid.x, 0.3, mid.z), span * 1.1, 40)
+			var dust: CPUParticles3D = FX.dust(parent, Vector3(mid.x, box.position.y + 0.3, mid.z), span * 1.1, 40)
 			var light: Color = ink[ink.size() - 1] if not ink.is_empty() else Color(0.6, 0.55, 0.45)
 			dust.color_ramp = FX._ramp([Color(light.r, light.g, light.b, 0.0), Color(light.r, light.g, light.b, 0.75), Color(light.r, light.g, light.b, 0.0)])
 			dust.lifetime = 2.6
@@ -328,7 +328,7 @@ static func effects(parent: Node3D, kinds: PackedStringArray, ink: PackedColorAr
 			splinters(parent, mid, span, ink)
 		elif kind == Catalog.BAMBOO:
 			embers(parent, mid, span)
-			FX.fire(parent, Vector3(mid.x, box.size.y * 0.2, mid.z), clampf(span * 0.35, 0.8, 3.0), 26).emitting = true
+			FX.fire(parent, Vector3(mid.x, box.position.y + box.size.y * 0.2, mid.z), clampf(span * 0.35, 0.8, 3.0), 26).emitting = true
 		elif kind == Catalog.STEEL:
 			sparks(parent, mid, span)
 		elif kind == Catalog.GLASS:
@@ -446,7 +446,7 @@ static func mound(parent: Node3D, box: AABB, ink: PackedColorArray) -> MeshInsta
 	mat.albedo_color = ink[1] if ink.size() > 1 else Color(0.3, 0.27, 0.24)
 	mat.roughness = 1.0
 	mi.material_override = mat
-	mi.position = Vector3(box.get_center().x, 0.0, box.get_center().z)
+	mi.position = Vector3(box.get_center().x, box.position.y, box.get_center().z)
 	mi.scale = Vector3(box.size.x * 1.15, 0.01, box.size.z * 1.15)
 	mi.set_meta("height", box.size.y * 0.28)
 	parent.add_child(mi)
