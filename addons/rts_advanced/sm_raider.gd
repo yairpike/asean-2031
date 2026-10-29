@@ -385,6 +385,7 @@ func _plot(id: StringName) -> Vector3:
 	if plan == null or plan.grid != field.domain:
 		plan = SMBasePlan.new(field.domain, yard.center, yard.radius)
 		plan.plot(&"enemy_yard", "yard")
+		plan.keep_nets(plan_goods, plan_tech)
 	plan.center = yard.center
 	plan.radius = yard.radius
 	var role: String = str(yard.building_role.get(id, ""))

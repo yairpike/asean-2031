@@ -8,6 +8,7 @@ const Ground = preload("res://game/ground_view.gd")
 @export var map_id: String = "burma_road"
 
 var grid: SMDomainGrid
+var plan: SMMapPlan
 var sim: SMMatch = SMMatch.new()
 var field: SMPointer = SMPointer.new()
 var raider: SMRaider = SMRaider.new()
@@ -21,6 +22,7 @@ var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	preload("res://game/sim_presenter.gd").follow(self)
+	plan = SMMapPlan.of(map_id)
 	grid = _grid_for(map_id)
 	sim.place_sites(map_id, grid)
 	roster.setup(SMFront.current())
@@ -28,10 +30,11 @@ func _ready() -> void:
 	_prepare_ability()
 	_world()
 	_ui()
-	var rally: Vector3 = grid.cell_center(_player_cells()[0])
+	var rally: Vector3 = grid.cell_center(_yard_cell())
 	side.prepare(self, status, grid, rally, roster.economy)
 	if side.yard.style != SMBuildYard.Style.INTERNAL:
 		side.yard.radius = maxf(side.yard.radius, 48.0)
+	side.plan.keep_nets(sim.goods, sim.tech)
 	_arm_units()
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	hud.mount(ui_layer, field, roster, side, _map_name(), rally, Callable(self, "fire_ability"), grid, cam)
@@ -40,7 +43,7 @@ func _ready() -> void:
 	outcome.mount(self, ui_layer)
 	sight.bind(grid)
 	hud.use_sight(sight)
-	SMSight.update_match(sight, field, self, sim.tech, raider)
+	SMSight.update_match(sight, field, self, sim.tech, raider, side.yard)
 	preload("res://game/match_settings.gd").apply_scene(self)
 
 func train_unit() -> String:
@@ -49,7 +52,7 @@ func train_unit() -> String:
 	var done: StringName = roster.train_and_finish(SMFront.train_kind())
 	if done == &"":
 		return ""
-	var at: Vector3 = grid.cell_center(_player_cells()[0]) + Vector3(6.0, 0.0, 0.0)
+	var at: Vector3 = grid.cell_center(_player_cells()[0]) + Vector3(2.0, 0.0, 0.0)
 	var u: RTSUnit = field.spawn(SMPointer.PLAYER, at, done)
 	var label: String = field.name_of(u)
 	_say(label)
@@ -65,12 +68,14 @@ func fire_ability() -> bool:
 func _prepare_ability() -> void:
 	sim.abilities = SMAbilities.new()
 	sim.yard = SMBuildYard.new()
-	sim.yard.center = grid.cell_center(_player_cells()[0])
+	sim.yard.center = grid.cell_center(_yard_cell())
 	sim.abilities.add_unit(10, sim.yard.center, SMAbilities.TOGGLE, 2.0, 0.6)
 	sim.abilities.add_unit(11, sim.yard.center + Vector3(2.0, 0.0, 0.0), SMAbilities.SMART, 3.0, 0.6)
 	sim.abilities.add_unit(12, sim.yard.center + Vector3(8.0, 0.0, 0.0), SMAbilities.SMART, 3.0, 0.6)
 
 func _grid_for(id: String) -> SMDomainGrid:
+	if plan != null:
+		return plan.grid()
 	if id == "showcase":
 		return SMDomainGrid.showcase_layout()
 	if id == "ten_degree_atolls":
@@ -82,6 +87,8 @@ func _grid_for(id: String) -> SMDomainGrid:
 	return SMDomainGrid.burma_road_layout()
 
 func _player_cells() -> Array[Vector2i]:
+	if plan != null:
+		return plan.spawn_cells(0, 6)
 	var cells: Array[Vector2i] = []
 	if map_id == "showcase":
 		cells = [Vector2i(8, 40), Vector2i(10, 40), Vector2i(12, 40), Vector2i(8, 43), Vector2i(10, 43), Vector2i(12, 43)]
@@ -95,12 +102,25 @@ func _player_cells() -> Array[Vector2i]:
 		cells = [Vector2i(3, 13), Vector2i(5, 13), Vector2i(7, 13), Vector2i(3, 16), Vector2i(5, 16), Vector2i(7, 16)]
 	return _shift_cells(cells)
 
+## Construction yard cell. Planned maps put it on the start; spawns stand beside it.
+func _yard_cell() -> Vector2i:
+	if plan != null:
+		return plan.start(0)
+	return _player_cells()[0]
+
+func _enemy_yard_cell() -> Vector2i:
+	if plan != null:
+		return plan.start(plan.starts.size() / 2)
+	return _enemy_cells()[0]
+
 func _plan_name() -> String:
-	if map_id == "burma_road":
-		return "Tran"
+	if plan != null:
+		return plan.bot("name", "Bo Mya")
 	return "Bo Mya"
 
 func _plan_a() -> StringName:
+	if plan != null:
+		return StringName(plan.bot("plan_a"))
 	if map_id == "ten_degree_atolls":
 		return &"isle_d"
 	if map_id == "mekong_delta":
@@ -110,6 +130,8 @@ func _plan_a() -> StringName:
 	return &"ruby_d"
 
 func _plan_b() -> StringName:
+	if plan != null:
+		return StringName(plan.bot("plan_b"))
 	if map_id == "ten_degree_atolls":
 		return &"isle_e"
 	if map_id == "mekong_delta":
@@ -119,6 +141,8 @@ func _plan_b() -> StringName:
 	return &"jade_b"
 
 func _plan_site() -> StringName:
+	if plan != null:
+		return StringName(plan.bot("site"))
 	if map_id == "ten_degree_atolls":
 		return &"radar_b"
 	if map_id == "mekong_delta":
@@ -159,6 +183,8 @@ func _seat(team: int, color: Color, ally_of: int, cell: Vector2i, caption: Strin
 	add_child(tag)
 
 func _enemy_cells() -> Array[Vector2i]:
+	if plan != null:
+		return plan.spawn_cells(plan.starts.size() / 2, 3)
 	var cells: Array[Vector2i] = []
 	if map_id == "showcase":
 		cells = [Vector2i(58, 8), Vector2i(60, 8), Vector2i(62, 8)]
@@ -173,6 +199,8 @@ func _enemy_cells() -> Array[Vector2i]:
 	return _shift_cells(cells)
 
 func _move_cell() -> Vector2i:
+	if plan != null:
+		return plan.spawn_cells(0, 9)[8]
 	var cell := Vector2i(10, 20)
 	if map_id == "showcase":
 		cell = Vector2i(12, 40)
@@ -217,15 +245,16 @@ func _world() -> void:
 	cam.name = "Camera"
 	var span: Vector2 = Vector2(float(grid.cols) * grid.cell_size, float(grid.rows) * grid.cell_size)
 	cam.bounds = Rect2(grid.origin.x - 8.0, grid.origin.z - 8.0, span.x + 16.0, span.y + 16.0)
-	cam.distance = 42.0 if map_id == "showcase" else (32.0 if map_id == "chiang_rai" else 28.0)
+	cam.distance = 60.0 if map_id == "showcase" else (56.0 if map_id == "chiang_rai" else 52.0)
+	cam.zoom_max = 90.0
 	cam.edge_pan_px = 20.0
-	cam.focus = grid.cell_center(_player_cells()[0])
+	cam.focus = grid.cell_center(_yard_cell())
 	add_child(cam)
 	cam.current = true
 	sim.paint_sites(self)
 
 func _burma_world() -> void:
-	Ground.dress(self, grid, "burma")
+	Ground.dress(self, grid, "burma", plan)
 
 func _atoll_world() -> void:
 	Ground.dress(self, grid, "atolls")
@@ -291,7 +320,7 @@ func _arm_units() -> void:
 	field.spawn_support(grid.cell_center(cells[0]) + Vector3(0.0, 0.0, 4.0))
 	for cell: Vector2i in _enemy_cells():
 		field.spawn(SMPointer.ENEMY, grid.cell_center(cell), &"raider")
-	raider.attach(field, grid.cell_center(_enemy_cells()[0]))
+	raider.attach(field, grid.cell_center(_enemy_yard_cell()))
 	raider.bind_plan(sim.goods, sim.tech, _plan_a(), _plan_b(), _plan_site(), _plan_name())
 	preload("res://game/match_settings.gd").apply_raider(raider)
 	_extra_sides()
@@ -341,7 +370,7 @@ func _process(delta: float) -> void:
 	field.place_beacon(field.enemy_anchor())
 	tick_world(delta)
 	sight.advance_weather(delta)
-	SMSight.update_match(sight, field, self, sim.tech, raider)
+	SMSight.update_match(sight, field, self, sim.tech, raider, side.yard)
 	Fx.drive(self, field, sim.goods, sim.ew)
 	hud.refresh()
 	var players: Array[SMBuildYard] = [side.yard, sim.yard]

@@ -92,6 +92,8 @@ func holding(c: Vector2i) -> bool:
 
 ## Extra cells added on every side when the skirmish fields grew.
 static func pad_of(map_id: String) -> Vector2i:
+	if SMMapPlan.exists(map_id):
+		return Vector2i.ZERO
 	if map_id == "phillips":
 		return Vector2i(8, 5)
 	if map_id == "sop_ruak":
@@ -151,15 +153,10 @@ static func _deep_block(g: SMDomainGrid, x: int, y: int) -> void:
 	g.set_domain(Vector2i(x, y + 1), Domain.DEEP)
 	g.set_domain(Vector2i(x + 1, y + 1), Domain.DEEP)
 
-## Burma Road: highland cliffs with one land road cut through the wall.
+## Burma Road: two highland plateaus, a cliff massif with a pass split by the Sule landmark, and lanes round both ends.
+## Half-turn symmetric, from res://data/maps/burma_road.json.
 static func burma_road_layout() -> SMDomainGrid:
-	var p: Vector2i = pad_of("burma_road")
-	var g: SMDomainGrid = SMDomainGrid.new(56, 40, 4.0, Vector3(-112.0, 0.0, -80.0))
-	g.fill_rect(Rect2i(0, 0, 12 + p.x, 8 + p.y), Domain.CLIFF)
-	g.fill_rect(Rect2i(28 + p.x, 20 + p.y, g.cols - (28 + p.x), g.rows - (20 + p.y)), Domain.CLIFF)
-	g.fill_rect(Rect2i(16 + p.x, 0, 8, g.rows), Domain.CLIFF)
-	g.fill_rect(Rect2i(16 + p.x, 12 + p.y, 8, 4), Domain.LAND)
-	return g
+	return SMMapPlan.of("burma_road").grid()
 
 ## Ten Degree Atolls: land islands in deep water, joined by shallow shoals.
 static func ten_degree_atolls_layout() -> SMDomainGrid:

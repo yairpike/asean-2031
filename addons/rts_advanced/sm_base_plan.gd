@@ -12,6 +12,7 @@ var grid: SMDomainGrid
 var center: Vector3 = Vector3.ZERO
 var radius: float = 48.0
 var plots: Dictionary[StringName, Rect2i] = {}
+var keep: Array[Vector2i] = []
 
 static func chart() -> Dictionary:
 	if _chart.is_empty() and FileAccess.file_exists(CHART):
@@ -72,6 +73,17 @@ func plot(id: StringName, role: String, wet: bool = false) -> Vector3:
 func release(id: StringName) -> void:
 	plots.erase(id)
 
+## Resource nodes and tech sites stay outside every plot and its gap.
+func keep_nets(goods: SMCommodityNet, tech: SMTechNet) -> void:
+	if grid == null:
+		return
+	if goods != null:
+		for node: Dictionary in goods.nodes:
+			keep.append(grid.cell_at(node.get("pos", Vector3.ZERO) as Vector3))
+	if tech != null:
+		for site: Dictionary in tech.sites:
+			keep.append(grid.cell_at(site.get("pos", Vector3.ZERO) as Vector3))
+
 func rect_center(rect: Rect2i) -> Vector3:
 	if grid == null:
 		return center
@@ -117,6 +129,9 @@ func _fits(rect: Rect2i, wet: bool) -> bool:
 	var gap: Rect2i = rect.grow(1)
 	for other: Rect2i in plots.values():
 		if gap.intersects(other):
+			return false
+	for spot: Vector2i in keep:
+		if gap.has_point(spot):
 			return false
 	for y: int in range(rect.position.y, rect.end.y):
 		for x: int in range(rect.position.x, rect.end.x):

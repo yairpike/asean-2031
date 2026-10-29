@@ -25,10 +25,13 @@ static var _water_ink: ShaderMaterial
 static var _rain_ink: ShaderMaterial
 static var _site_ink: StandardMaterial3D
 static var _prop_cache: Dictionary = {}
+static var _plan: SMMapPlan
 
-static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
+## A map plan draws its own roads and keeps scenery to cliffs and the margins, off plateaus, lanes and resources.
+static func dress(host: Node3D, grid: SMDomainGrid, profile: String, plan: SMMapPlan = null) -> void:
 	if host == null or grid == null:
 		return
+	_plan = plan
 	var land_stem: String = "sand" if profile == "atolls" else "grass"
 	var land: SurfaceTool = _begin(_ground(land_stem, profile != "atolls"))
 	var mud: SurfaceTool = _begin(_ground("mud", false))
@@ -45,8 +48,8 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	var houses: Array[Transform3D] = []
 	var stilts: Array[Transform3D] = []
 	var campaign: bool = profile == "kokang" or profile == "mission"
-	var tree_cap: int = 28 if campaign else (16 if grid.cols < 24 else 64)
-	var palm_cap: int = 16 if campaign else (10 if grid.cols < 24 else 36)
+	var tree_cap: int = 28 if campaign else (16 if grid.cols < 24 else (160 if plan != null else 64))
+	var palm_cap: int = 16 if campaign else (10 if grid.cols < 24 else (60 if plan != null else 36))
 	var house_cap: int = 8 if campaign else (6 if grid.cols < 24 else 14)
 	var land_n: int = 0
 	var mud_n: int = 0
@@ -70,7 +73,7 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 			var high: float = 1.55 if domain == SMDomainGrid.Domain.CLIFF else 0.22
 			var bank: bool = _bank(grid, cell)
 			var track: bool = domain == SMDomainGrid.Domain.LAND and _track(profile, cell)
-			var cut: bool = profile == "burma" and _burma_cut(cell)
+			var cut: bool = profile == "burma" and _plan == null and _burma_cut(cell)
 			var tint: Color = _tint(profile, cell, domain, bank, track or cut)
 			var kind: String = _kind(profile, tint, track, cut)
 			var shade: float = _vary(cell)
@@ -96,6 +99,9 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 				sand_fade_n += 1
 			if fade_kind.contains("road"):
 				road_fade_n += 1
+			if _plan != null:
+				_scatter(grid, cell, domain, high, bank, trees, palms, houses)
+				continue
 			if domain != SMDomainGrid.Domain.LAND or _busy(profile, cell) or cut:
 				continue
 			var roll: int = _hash(x, y)
@@ -136,11 +142,46 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	_tag_prop(host, "Stilts", "mekong_stilt_house" if profile == "mekong" or profile == "atolls" else "shan_stilt_house")
 	host.set_meta("env_profile", profile)
 	host.set_meta("env_grid", grid)
-	Env.pull_web(host, Env.wanted(profile))
+	host.set_meta("map_plan", "" if plan == null else plan.id)
+	Env.pull_web(host, Env.wanted(profile, plan))
 	_markers(host, profile)
 	_ocean_skirt(host, grid)
 	_sky(host)
 	Env.stamp(host, grid, profile)
+	_plan = null
+
+## Planned maps: forest on cliffs, a fringe of trees along cliff feet and the margin, houses only out at the margin.
+static func _scatter(grid: SMDomainGrid, cell: Vector2i, domain: int, high: float, bank: bool, trees: Array[Transform3D], palms: Array[Transform3D], houses: Array[Transform3D]) -> void:
+	if domain != SMDomainGrid.Domain.LAND and domain != SMDomainGrid.Domain.CLIFF:
+		return
+	if grid.holding(cell) or not _plan.clear_of_props(cell):
+		return
+	var key: Vector2i = _plan.canon(cell)
+	var roll: int = _hash(key.x, key.y)
+	if domain == SMDomainGrid.Domain.CLIFF:
+		if roll % 5 == 0:
+			palms.append(_xf(grid, cell, high, roll))
+		elif roll % 3 == 0:
+			trees.append(_xf(grid, cell, high, roll))
+		return
+	var margin: int = mini(mini(cell.x, cell.y), mini(grid.cols - 1 - cell.x, grid.rows - 1 - cell.y))
+	var foot: bool = _near_cliff(grid, cell)
+	if not foot and margin > 4:
+		return
+	if margin <= 4 and not foot and roll % 31 == 4:
+		houses.append(_xf(grid, cell, high, roll))
+	elif bank and roll % 4 == 0:
+		palms.append(_xf(grid, cell, high, roll))
+	elif roll % 4 == 1:
+		trees.append(_xf(grid, cell, high, roll))
+
+static func _near_cliff(grid: SMDomainGrid, cell: Vector2i) -> bool:
+	for dy: int in range(-1, 2):
+		for dx: int in range(-1, 2):
+			var next: Vector2i = cell + Vector2i(dx, dy)
+			if grid.in_bounds(next) and grid.domain_at_cell(next) == SMDomainGrid.Domain.CLIFF:
+				return true
+	return false
 
 static func _ocean_skirt(host: Node3D, grid: SMDomainGrid) -> void:
 	if host.get_node_or_null("OceanSkirt") != null:
@@ -269,6 +310,11 @@ static func _touches_water(grid: SMDomainGrid, cell: Vector2i, sx: int, sz: int)
 	return false
 
 static func _track(profile: String, cell: Vector2i) -> bool:
+	if _plan != null:
+		for r: Rect2i in _plan.roads:
+			if r.has_point(cell):
+				return true
+		return false
 	if profile == "chiang":
 		var ford: Vector2i = SMDomainGrid.pad_of("chiang_rai")
 		var x0: int = 26 + ford.x
@@ -391,7 +437,7 @@ static func _kind_at(profile: String, grid: SMDomainGrid, cell: Vector2i) -> Str
 		return "water"
 	var bank: bool = _bank(grid, cell)
 	var track: bool = domain == SMDomainGrid.Domain.LAND and _track(profile, cell)
-	var cut: bool = profile == "burma" and _burma_cut(cell)
+	var cut: bool = profile == "burma" and _plan == null and _burma_cut(cell)
 	var tint: Color = _tint(profile, cell, domain, bank, track or cut)
 	return _kind(profile, tint, track, cut)
 

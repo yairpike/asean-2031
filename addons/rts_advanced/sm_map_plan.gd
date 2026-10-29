@@ -8,6 +8,7 @@ extends RefCounted
 const DIR: String = "res://data/maps/%s.json"
 
 static var _cache: Dictionary = {}
+static var _found: Dictionary = {}
 
 var id: String = ""
 var cols: int = 0
@@ -26,7 +27,9 @@ var props: Array[Dictionary] = []
 var landmark: Dictionary = {}
 
 static func exists(map_id: String) -> bool:
-	return map_id != "" and not map_id.contains("/") and FileAccess.file_exists(DIR % map_id)
+	if not _found.has(map_id):
+		_found[map_id] = map_id != "" and not map_id.contains("/") and FileAccess.file_exists(DIR % map_id)
+	return bool(_found[map_id])
 
 static func of(map_id: String) -> SMMapPlan:
 	if _cache.has(map_id):
@@ -167,6 +170,62 @@ func _rect(raw: Variant) -> Rect2i:
 		var a: Array = raw as Array
 		return Rect2i(int(a[0]), int(a[1]), int(a[2]), int(a[3]))
 	return Rect2i()
+
+static func goods_kind(name: StringName) -> StringName:
+	if name == &"rare":
+		return SMCommodityNet.KIND_RARE
+	if name == &"ruby":
+		return SMCommodityNet.KIND_RUBY
+	if name == &"jade":
+		return SMCommodityNet.KIND_JADE
+	if name == &"bullion":
+		return SMCommodityNet.KIND_BULLION
+	return SMCommodityNet.KIND_SLAG
+
+static func site_kind(name: StringName) -> StringName:
+	if name == &"cyber":
+		return SMTechNet.CYBER
+	if name == &"bazaar":
+		return SMTechNet.BAZAAR
+	if name == &"clinic":
+		return SMTechNet.CLINIC
+	if name == &"salvage":
+		return SMTechNet.SALVAGE
+	if name == &"derrick":
+		return SMTechNet.DERRICK
+	if name == &"bridge":
+		return SMTechNet.BRIDGE
+	if name == &"garrison":
+		return SMTechNet.GARRISON
+	return SMTechNet.RADAR
+
+## Cells kept free of scattered scenery: plateaus, roads, holds and a ring round every start, node and site.
+func clear_of_props(c: Vector2i) -> bool:
+	for r: Rect2i in plateaus:
+		if r.grow(1).has_point(c):
+			return false
+	for r: Rect2i in roads:
+		if r.grow(1).has_point(c):
+			return false
+	for r: Rect2i in holds:
+		if r.grow(1).has_point(c):
+			return false
+	var spots: Array[Vector2i] = starts.duplicate()
+	for row: Dictionary in nodes:
+		spots.append(row["cell"] as Vector2i)
+	for row: Dictionary in sites:
+		spots.append(row["cell"] as Vector2i)
+	for spot: Vector2i in spots:
+		if absi(spot.x - c.x) <= 3 and absi(spot.y - c.y) <= 3:
+			return false
+	return true
+
+## The same roll for a cell and its twin, so scatter is symmetric too.
+func canon(c: Vector2i) -> Vector2i:
+	var t: Vector2i = twin_cell(c)
+	if t.y < c.y or (t.y == c.y and t.x < c.x):
+		return t
+	return c
 
 static func _domain(name: String) -> int:
 	if name == "shallow":

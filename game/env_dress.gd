@@ -67,6 +67,10 @@ static func stamp(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	if profile == "showcase":
 		_showcase(host, grid)
 		return
+	var plan_id: String = str(host.get_meta("map_plan", ""))
+	if plan_id != "":
+		_stamp_plan(host, grid, SMMapPlan.of(plan_id), _neon(profile))
+		return
 	if profile == "atolls":
 		_place(host, grid, "karst_sea_stack", Vector2i(4, 6), false, false)
 		_place(host, grid, "jetty", Vector2i(16, 24), false, false)
@@ -116,6 +120,35 @@ static func _showcase(host: Node3D, grid: SMDomainGrid) -> void:
 	_place(host, grid, "banyan_tree", Vector2i(22, 40), false, false)
 	_place(host, grid, "bamboo_clump", Vector2i(40, 42), false, false)
 	_place(host, grid, "lao_sim", Vector2i(50, 40), false, neon)
+
+## The plan already holds the landmark rect, so nothing is held here. Props are decoration and never block.
+static func _stamp_plan(host: Node3D, grid: SMDomainGrid, plan: SMMapPlan, neon: bool) -> void:
+	if plan == null:
+		return
+	var mark: String = str(plan.landmark.get("id", ""))
+	if mark != "":
+		var rect: Rect2i = plan.landmark.get("rect", Rect2i()) as Rect2i
+		_put(host, grid, mark, "Landmark_%s" % mark, plan.rect_center(rect), 0.0, neon)
+	for i: int in plan.props.size():
+		var row: Dictionary = plan.props[i]
+		var id: String = str(row["id"])
+		_put(host, grid, id, "Scenery_%s_%d" % [id, i], plan.cell_center(row["cell"] as Vector2i), float(row["yaw"]), neon)
+
+static func _put(host: Node3D, grid: SMDomainGrid, id: String, node_name: String, at: Vector3, yaw: float, neon: bool) -> void:
+	if host.get_node_or_null(node_name) != null:
+		return
+	var cell: Vector2i = grid.cell_at(at)
+	if not grid.in_bounds(cell):
+		return
+	var root: Node3D = _load(id)
+	if root == null:
+		return
+	root.name = node_name
+	root.scale = Vector3.ONE * fit_of(id, _bounds(root))
+	root.rotation_degrees.y = yaw
+	root.position = at + Vector3(0.0, 1.55 if grid.domain_at_cell(cell) == SMDomainGrid.Domain.CLIFF else 0.0, 0.0)
+	_glow(root, neon and not Settings.low())
+	host.add_child(root)
 
 static func _neon(profile: String) -> bool:
 	return profile == "sop" or profile == "chiang" or profile == "phillips" or profile == "mekong" or profile == "showcase"
@@ -238,8 +271,15 @@ static func pull_web(host: Node, ids: PackedStringArray) -> void:
 			_inflight.erase(id)
 			http.queue_free()
 
-static func wanted(profile: String) -> PackedStringArray:
+static func wanted(profile: String, plan: SMMapPlan = null) -> PackedStringArray:
 	var ids: PackedStringArray = PackedStringArray()
+	if plan != null:
+		var mark: String = str(plan.landmark.get("id", ""))
+		if mark != "":
+			ids.append(mark)
+		for row: Dictionary in plan.props:
+			if not ids.has(str(row["id"])):
+				ids.append(str(row["id"]))
 	ids.append(tree_id(profile))
 	ids.append(palm_id(profile))
 	var house: String = house_id(profile)

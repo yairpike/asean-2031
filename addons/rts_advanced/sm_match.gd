@@ -228,10 +228,10 @@ func place_sites(map_id: String, p_grid: SMDomainGrid) -> void:
 	grid = p_grid
 	goods = SMCommodityNet.new()
 	tech = SMTechNet.new()
-	if map_id == "sop_ruak":
+	if SMMapPlan.exists(map_id):
+		_sites_plan(SMMapPlan.of(map_id))
+	elif map_id == "sop_ruak":
 		_sites_sop()
-	elif map_id == "burma_road":
-		_sites_burma()
 	elif map_id == "ten_degree_atolls":
 		_sites_atolls()
 	elif map_id == "mekong_delta":
@@ -366,19 +366,11 @@ func _sites_sop() -> void:
 	tech.add_site(&"cyber_c", SMTechNet.CYBER, grid.cell_center(SMDomainGrid.at("sop_ruak", Vector2i(6, 10))))
 	tech.add_site(&"bazaar", SMTechNet.BAZAAR, grid.cell_center(SMDomainGrid.at("sop_ruak", Vector2i(12, 22))))
 
-func _sites_burma() -> void:
-	_node(&"ruby_a", SMCommodityNet.KIND_RUBY, SMDomainGrid.at("burma_road", Vector2i(2, 12)), 15, false)
-	_node(&"ruby_b", SMCommodityNet.KIND_RUBY, SMDomainGrid.at("burma_road", Vector2i(6, 18)), 15, false)
-	_node(&"ruby_c", SMCommodityNet.KIND_RUBY, SMDomainGrid.at("burma_road", Vector2i(10, 22)), 15, false)
-	_node(&"ruby_d", SMCommodityNet.KIND_RUBY, SMDomainGrid.at("burma_road", Vector2i(30, 6)), 15, false)
-	_node(&"jade_a", SMCommodityNet.KIND_JADE, SMDomainGrid.at("burma_road", Vector2i(4, 24)), 15, false)
-	_node(&"jade_b", SMCommodityNet.KIND_JADE, SMDomainGrid.at("burma_road", Vector2i(34, 16)), 15, false)
-	_node(&"rare_a", SMCommodityNet.KIND_RARE, SMDomainGrid.at("burma_road", Vector2i(12, 16)), 0, false)
-	_node(&"rare_b", SMCommodityNet.KIND_RARE, SMDomainGrid.at("burma_road", Vector2i(32, 12)), 0, false)
-	tech.add_site(&"bazaar_a", SMTechNet.BAZAAR, grid.cell_center(SMDomainGrid.at("burma_road", Vector2i(8, 14))))
-	tech.add_site(&"bazaar_b", SMTechNet.BAZAAR, grid.cell_center(SMDomainGrid.at("burma_road", Vector2i(34, 8))))
-	tech.add_site(&"radar_a", SMTechNet.RADAR, grid.cell_center(SMDomainGrid.at("burma_road", Vector2i(14, 20))))
-	tech.add_site(&"radar_b", SMTechNet.RADAR, grid.cell_center(SMDomainGrid.at("burma_road", Vector2i(36, 14))))
+func _sites_plan(plan: SMMapPlan) -> void:
+	for row: Dictionary in plan.nodes:
+		_node(row["id"] as StringName, SMMapPlan.goods_kind(row["kind"] as StringName), row["cell"] as Vector2i, int(row["rate"]), bool(row["water"]))
+	for row: Dictionary in plan.sites:
+		tech.add_site(row["id"] as StringName, SMMapPlan.site_kind(row["kind"] as StringName), grid.cell_center(row["cell"] as Vector2i))
 
 func _sites_atolls() -> void:
 	_node(&"isle_a", SMCommodityNet.KIND_SLAG, SMDomainGrid.at("ten_degree_atolls", Vector2i(8, 20)), 12, false)
