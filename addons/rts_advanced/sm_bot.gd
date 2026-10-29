@@ -516,7 +516,7 @@ func _nearest(from: Vector3, group: Array[RTSUnit]) -> RTSUnit:
 	var best: RTSUnit = null
 	var best_d: float = 1.0e20
 	for foe: RTSUnit in group:
-		if not is_instance_valid(foe) or not foe.is_alive():
+		if not is_instance_valid(foe) or not foe.is_alive() or bool(foe.get_meta("concealed", false)):
 			continue
 		var d: float = from.distance_to(foe.global_position)
 		if d < best_d:

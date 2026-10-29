@@ -8,6 +8,7 @@ const Settings = preload("res://game/match_settings.gd")
 const ModelBook = preload("res://game/model_registry.gd")
 const Lan = preload("res://game/lan_link.gd")
 const Seat = preload("res://game/lan_seat.gd")
+const WebPaste = preload("res://game/web_paste.gd")
 const Weather = preload("res://addons/rts_advanced/sm_weather.gd")
 const Motion = preload("res://game/unit_motion.gd")
 const BuildingFx = preload("res://game/building_fx.gd")
@@ -777,11 +778,11 @@ func test_sm_catalog() -> void:
 	for id: String in ["gtfc", "mvd", "nmrf"]:
 		var data: Dictionary = SMCatalog.faction(id)
 		var units: Array[Dictionary] = SMCatalog.units_of(data)
-		var want: int = 16
+		var want: int = 19
 		if id == "gtfc":
-			want = 17
+			want = 20
 		elif id == "nmrf":
-			want = 15
+			want = 17
 		check(units.size() == want, "%s fields its blueprint roster" % id)
 		check(str(data.get("balance", "")) == "pass1", "%s costs record the balance pass" % id)
 		for unit: Dictionary in units:
@@ -800,7 +801,57 @@ func test_sm_catalog() -> void:
 	var flags: Dictionary = market["import_flags"]
 	check(bool(flags.get("rotary_slot", false)) and bool(flags.get("strike_slot", false)) and bool(flags.get("spotter_slot", false)), "black-market imports are flags")
 	var market_units: Array[Dictionary] = SMCatalog.units_of(market)
-	check(market_units.size() == 4, "black market air is in the catalog")
+	check(market_units.size() == 5, "black market air is in the catalog")
+	var fastest: float = 0.0
+	var teak_speed: float = 0.0
+	for unit: Dictionary in SMCatalog.units_of(gtfc):
+		if str(unit.get("locomotion", "")) != "ground":
+			continue
+		var pace: float = float(unit.get("speed", 0.0))
+		if str(unit.get("id", "")) == "teak_technical":
+			teak_speed = pace
+		elif pace > fastest:
+			fastest = pace
+	check(teak_speed > fastest and teak_speed >= 8.0, "the teak technical is the fastest GTFC ground unit")
+	var spool: Dictionary = {}
+	for unit: Dictionary in SMCatalog.units_of(mvd):
+		if str(unit.get("id", "")) == "spool_fpv":
+			spool = unit
+	var jam: SMEwField = SMEwField.new()
+	jam.center = Vector3.ZERO
+	jam.radius = 20.0
+	check(str(spool.get("guidance", "")) == "fiber" and jam.accuracy(Vector3.ZERO, SMEwField.guidance_of("fiber")) == 1.0, "the spool FPV is fibre guided and ignores a jammer")
+	var yard: SMBuildYard = SMBuildYard.new()
+	yard.style = SMBuildYard.Style.SCAFFOLD
+	yard.load_catalog(gtfc)
+	yard.finished.append(&"scaffold_yard")
+	check(yard.tech_order.size() == 10 and yard.can_build(&"bamboo_hide") and not yard.can_build(&"barracks"), "a bamboo hide builds beside the chain once the yard is up")
+	var host: Node3D = Node3D.new()
+	root.add_child(host)
+	var field: SMPointer = SMPointer.new()
+	field.bind(host, null)
+	field.faction_id = "gtfc"
+	field.use_open(20, 20, 2.0, Vector3(-20.0, 0.0, -20.0))
+	var lead: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3.ZERO, &"fpv_kamikaze")
+	check(field.units_of(SMPointer.PLAYER).size() == 3, "an FPV order launches a flight of three")
+	var tank: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(4.0, 0.0, 0.0), &"amber_tank")
+	var tank_hp: float = tank.hp
+	field.select_only([lead])
+	field.cast_f(tank.global_position)
+	check(not lead.is_alive() and tank.hp < tank_hp, "the lead FPV dives into armour")
+	field.faction_id = "mvd"
+	var hive: RTSUnit = field.spawn(SMPointer.PLAYER, Vector3(30.0, 0.0, 0.0), &"swarm_hive")
+	var chipped: RTSUnit = field.spawn(SMPointer.ENEMY, Vector3(32.0, 0.0, 0.0), &"clearance_trooper")
+	hive.set_meta("toggled", true)
+	var chip_hp: float = chipped.hp
+	field.tick(1.0)
+	check(chipped.hp < chip_hp, "a swarm hive chips units inside its cloud")
+	var boat: Dictionary = {}
+	for unit: Dictionary in SMCatalog.units_of(nmrf):
+		if str(unit.get("id", "")) == "longtail_raider":
+			boat = unit
+	check(str(boat.get("locomotion", "")) == "amphibious" and float(boat.get("speed", 0.0)) >= 8.0, "the longtail raider is a fast boat that can beach")
+	host.free()
 	for unit: Dictionary in market_units:
 		check(SMCatalog.entry_ok(unit), "black market %s has a weapon and one secondary" % str(unit.get("id", "")))
 	var banned: PackedStringArray = PackedStringArray(["opium", "heroin", "cocaine", "fentanyl", "yaba", "methamphetamine"])
@@ -1249,7 +1300,7 @@ func test_sm_roster() -> void:
 			var id: StringName = StringName(str(unit.get("id", "")))
 			if roster.train_and_finish(id) != id:
 				failed.append("%s:%s" % [faction_id, str(id)])
-	check(total == 52 and failed.is_empty(), "all 52 catalog units train through production %s" % [failed])
+	check(total == 61 and failed.is_empty(), "all 61 catalog units train through production %s" % [failed])
 	check(_spawned("gtfc", &"crimson_sapper", "Highland Saboteur", "rifle", "smart_cast", 9.0), "gtfc sapper spawns with a weapon and a secondary")
 	check(_spawned("mvd", &"cyan_sentry", "Cu Chi Tunnel Hound", "carbine", "group_toggle", 9.0), "mvd sentry spawns with a weapon and a secondary")
 	check(_spawned("nmrf", &"olive_ranger", "Sulu Tank-Buster", "rifle", "group_toggle", 8.0), "nmrf ranger spawns with a weapon and a secondary")
@@ -2153,7 +2204,7 @@ func test_sm_names() -> void:
 				mortar = display
 			total += 1
 			check(_named_f(faction_id, id, display, str(unit.get("ability", "")), str(unit.get("f_stat", ""))), "%s %s shows its name and F changes one stat" % [faction_id, id])
-	check(total == 52 and mortar == "Slag Jump Mortar", "the roster is 52 blueprint names and the Kokang mortar stays storefront-safe")
+	check(total == 61 and mortar == "Slag Jump Mortar", "the roster is 61 blueprint names and the Kokang mortar stays storefront-safe")
 	SMFront.faction_id = "gtfc"
 	check(await _train_caption("res://game/phillips_channel.tscn", "Train_militia") == "Shan Insurgent Militia", "gtfc training shows the blueprint name")
 	check(await _train_caption("res://game/phillips_channel.tscn", "Train_kachin_dog") == "Kachin Sapper Dog", "gtfc training lists the sapper dog")
@@ -2749,6 +2800,14 @@ func test_lan() -> void:
 	var seat: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	var seated: Error = seat.create_server(47923)
 	check(seated == OK and Lan.attach_peer(seat, true) == OK and Lan.role == "host" and Lan.peer == seat, "a WebRTC peer can take the same session slot later")
+	Lan.close()
+	var packed: String = WebPaste.pack("offer", "v=0\r\nstun", [["0", 0, "candidate:1 1 udp 1 1.2.3.4 9 typ host"]])
+	var unpacked: Dictionary = WebPaste.unpack(packed)
+	var ice: Array = unpacked.get("c", [])
+	check(WebPaste.STUN_URL == "stun:stun.l.google.com:19302" and str(unpacked.get("t", "")) == "offer" and str(unpacked.get("s", "")) == "v=0\r\nstun" and ice.size() == 1 and str(ice[0][2]).begins_with("candidate:"), "a WebRTC paste round-trips the offer and the STUN server")
+	check(WebPaste.unpack("").is_empty() and WebPaste.unpack("nope").is_empty() and WebPaste.unpack("ASEAN2031.!!!!").is_empty() and Lan.paste_join("nope") == ERR_INVALID_DATA, "a broken paste is ignored")
+	check(not WebPaste.ready() and Lan.paste_host() == ERR_UNAVAILABLE and Lan.paste_text() == "" and Lan.role == "" and Lan.paste_note() == WebPaste.DESKTOP_NOTE, "desktop without the WebRTC addon refuses to mint an offer")
+	check(Lan.paste_join(packed) == ERR_UNAVAILABLE and Lan.paste_seal(packed) == ERR_UNCONFIGURED, "joining waits for a browser WebRTC stack, and an answer needs an offer first")
 	Lan.close()
 	Lan.forget_hosts()
 	Lan.port = 7777

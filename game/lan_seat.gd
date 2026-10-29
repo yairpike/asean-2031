@@ -1,9 +1,10 @@
 extends RefCounted
-## One LAN endpoint. The host simulates. The guest is the second player.
-## Desktop uses ENet. attach_peer() can later take a WebRTCMultiplayerPeer.
+## One session endpoint. The host simulates. The guest is the second player.
+## Desktop uses ENet. Browsers attach a WebRTCMultiplayerPeer through the paste path.
 
 const Power = preload("res://addons/rts_advanced/sm_power.gd")
 const World = preload("res://game/world_view.gd")
+const Paste = preload("res://game/web_paste.gd")
 
 var port: int = 7777
 var beacon_port: int = 7778
@@ -43,6 +44,8 @@ var _hi_acc: float = 0.0
 var _prev: Dictionary = {}
 var _prev_fog: PackedByteArray = PackedByteArray()
 var _seq: int = 0
+var _web: Paste
+var _paste_note: String = ""
 
 static func faction_ids() -> PackedStringArray:
 	var ids: PackedStringArray = PackedStringArray()
@@ -135,8 +138,56 @@ func attach_peer(next: MultiplayerPeer, as_host: bool) -> Error:
 	started = false
 	return OK
 
+func paste_host() -> Error:
+	close()
+	var link: Paste = Paste.new()
+	var err: Error = link.open_host()
+	_paste_note = link.note
+	if err != OK:
+		return err
+	_adopt_paste(link, true)
+	return OK
+
+func paste_join(blob: String) -> Error:
+	var row: Dictionary = Paste.unpack(blob)
+	if row.is_empty() or str(row.get("t", "")) != "offer":
+		_paste_note = "That paste is not an offer."
+		return ERR_INVALID_DATA
+	close()
+	var link: Paste = Paste.new()
+	var err: Error = link.join(blob)
+	_paste_note = link.note
+	if err != OK:
+		return err
+	_adopt_paste(link, false)
+	return OK
+
+func paste_seal(blob: String) -> Error:
+	if _web == null or _web.phase != "offer":
+		_paste_note = "Start an offer before pasting an answer."
+		return ERR_UNCONFIGURED
+	var err: Error = _web.seal(blob)
+	_paste_note = _web.note
+	return err
+
+func paste_text() -> String:
+	if _web == null:
+		return ""
+	return _web.text
+
+func paste_note() -> String:
+	if _web != null and _web.note != "":
+		return _web.note
+	return _paste_note
+
 func close() -> void:
-	if peer != null:
+	var web_peer: MultiplayerPeer = null
+	if _web != null:
+		web_peer = _web.peer
+		_web.shutdown()
+	_web = null
+	_paste_note = ""
+	if peer != null and peer != web_peer:
 		peer.close()
 	peer = null
 	role = ""
@@ -157,6 +208,10 @@ func close() -> void:
 
 func pump() -> void:
 	_send_beacon()
+	if _web != null:
+		_web.poll()
+		if _web.note != "":
+			_paste_note = _web.note
 	if peer == null:
 		return
 	peer.poll()
@@ -945,6 +1000,12 @@ func _stop_beacon() -> void:
 	if _beacon != null:
 		_beacon.close()
 	_beacon = null
+
+func _adopt_paste(link: Paste, as_host: bool) -> void:
+	_web = link
+	peer = link.peer
+	role = "host" if as_host else "client"
+	started = false
 
 func _send_beacon() -> void:
 	if role != "host" or _beacon == null:

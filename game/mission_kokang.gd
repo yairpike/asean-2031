@@ -19,7 +19,7 @@ func _ready() -> void:
 	preload("res://game/sim_presenter.gd").follow(self)
 	mission.setup()
 	briefing_text = mission.briefing
-	grid = SMDomainGrid.new(14, 9, 2.0, Vector3(-14.0, 0.0, -9.0))
+	grid = SMDomainGrid.new(28, 18, 2.0, Vector3(-28.0, 0.0, -18.0))
 	_world()
 	_ui()
 	roster.setup("gtfc")
@@ -57,8 +57,8 @@ func _world() -> void:
 	_slab("RareNode", Vector3(-6, 0.4, 4), Vector3(1.5, 0.8, 1.5), Color(0.4, 0.5, 0.32))
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
-	cam.bounds = Rect2(-20, -16, 40, 32)
-	cam.distance = 18.0
+	cam.bounds = Rect2(-32, -22, 64, 44)
+	cam.distance = 30.0
 	cam.edge_pan_px = 16.0
 	cam.focus = Vector3(0, 0, 2)
 	add_child(cam)
@@ -110,7 +110,7 @@ func _ui() -> void:
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	field.bind(self, cam)
-	field.use_open(16, 12, 2.0, Vector3(-16.0, 0.0, -12.0))
+	field.use_open(28, 18, 2.0, Vector3(-28.0, 0.0, -18.0))
 	field.attach_box(ui_layer)
 	var kinds: Array[StringName] = SMPointer.GTFC_KINDS
 	for i: int in kinds.size():

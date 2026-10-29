@@ -172,10 +172,12 @@ func bind_mission(p_host: Node3D, id: String, p_field: SMPointer, p_side: SMSide
 		_spawn_duty(SMPointer.ENEMY, Vector3(2.0, 0.0, -6.0), &"raider", "pressure", "Haze raider", 90.0, 7.0, 6.0, false)
 	elif id == "andaman":
 		_cross = true
-		grid.fill_rect(Rect2i(7, 0, 3, grid.rows), SMDomainGrid.Domain.DEEP)
+		var channel_west: Vector2i = grid.cell_at(Vector3(-3.99, 0.0, 0.0))
+		var channel_east: Vector2i = grid.cell_at(Vector3(1.99, 0.0, 0.0))
+		grid.fill_rect(Rect2i(channel_west.x, 0, channel_east.x - channel_west.x + 1, grid.rows), SMDomainGrid.Domain.DEEP)
 		field.use_domain(grid)
 		field.spawn(SMPointer.PLAYER, Vector3(-12.0, 0.0, 0.0), &"channel_skiff")
-		_slab("ChannelWater", Vector3(-1.0, -0.05, 0.0), Vector3(6.0, 0.12, 24.0), Color(0.12, 0.28, 0.42))
+		_slab("ChannelWater", Vector3(-1.0, -0.05, 0.0), Vector3(6.0, 0.12, float(grid.rows) * grid.cell_size), Color(0.12, 0.28, 0.42))
 		_pad(far_shore, Color(0.72, 0.62, 0.32), "FarShore")
 		_tag_raider("clear", "Shore gun", 100.0, 6.0, 8.0, true)
 		_spawn_duty(SMPointer.ENEMY, Vector3(-1.0, 0.0, 2.0), &"channel_skiff", "clear", "Channel boat", 120.0, 6.0, 8.0, true)

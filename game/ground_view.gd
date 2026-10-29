@@ -43,9 +43,10 @@ static func dress(host: Node3D, grid: SMDomainGrid, profile: String) -> void:
 	var palms: Array[Transform3D] = []
 	var houses: Array[Transform3D] = []
 	var stilts: Array[Transform3D] = []
-	var tree_cap: int = 16 if grid.cols < 24 else 64
-	var palm_cap: int = 10 if grid.cols < 24 else 36
-	var house_cap: int = 6 if grid.cols < 24 else 14
+	var campaign: bool = profile == "kokang" or profile == "mission"
+	var tree_cap: int = 28 if campaign else (16 if grid.cols < 24 else 64)
+	var palm_cap: int = 16 if campaign else (10 if grid.cols < 24 else 36)
+	var house_cap: int = 8 if campaign else (6 if grid.cols < 24 else 14)
 	var land_n: int = 0
 	var mud_n: int = 0
 	var sand_n: int = 0

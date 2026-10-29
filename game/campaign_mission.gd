@@ -22,7 +22,7 @@ func _ready() -> void:
 	if mission_id == "":
 		mission_id = "tachileik"
 	briefing_text = SMCampaign.briefing_of(mission_id)
-	grid = SMDomainGrid.new(18, 12, 2.0, Vector3(-18.0, 0.0, -12.0))
+	grid = SMDomainGrid.new(36, 24, 2.0, Vector3(-36.0, 0.0, -24.0))
 	_world()
 	_ui()
 	preload("res://game/model_registry.gd").look_faction = _enemy_faction(mission_id)
@@ -70,8 +70,8 @@ func _world() -> void:
 	Ground.dress(self, grid, "mission")
 	var cam: RTSCamera = RTSCamera.new()
 	cam.name = "Camera"
-	cam.bounds = Rect2(-24, -20, 48, 40)
-	cam.distance = 18.0
+	cam.bounds = Rect2(-40, -28, 80, 56)
+	cam.distance = 30.0
 	cam.edge_pan_px = 16.0
 	cam.focus = Vector3(0, 0, 2)
 	add_child(cam)
@@ -140,7 +140,7 @@ func _enemy_faction(id: String) -> String:
 func _arm_units() -> void:
 	var cam: RTSCamera = get_node("Camera") as RTSCamera
 	field.bind(self, cam)
-	field.use_open(20, 16, 2.0, Vector3(-20.0, 0.0, -16.0))
+	field.use_open(36, 24, 2.0, Vector3(-36.0, 0.0, -24.0))
 	field.attach_box(ui_layer)
 	var kinds: Array[StringName] = [&"militia", &"ruby_lancer", &"amber_tank"]
 	for i: int in kinds.size():
