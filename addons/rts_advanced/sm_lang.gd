@@ -123,9 +123,10 @@ class Table:
 		for key: StringName in source.get_message_list():
 			var src: String = String(key)
 			var shown: String = String(source.get_message(key))
-			if shown == "" or shown == src:
+			if shown == "":
 				continue
-			out.exact[src] = shown
+			if shown != src:
+				out.exact[src] = shown
 			if splitter.search(src) != null:
 				out._add_pattern(splitter, src, shown)
 				if src.strip_edges() != src:

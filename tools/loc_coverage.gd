@@ -12,6 +12,7 @@ var _keys: Dictionary = {}
 var _patterns: Array[RegEx] = []
 var _seen: Dictionary = {}
 var _locale: String = ""
+var _target: String = ""
 
 func _initialize() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
@@ -36,7 +37,7 @@ func _quoted_template(src: String, splitter: RegEx) -> String:
 	for m: RegExMatch in splitter.search_all(src):
 		out += _quote(src.substr(at, m.get_start() - at))
 		var mark: String = m.get_string()
-		out += "%" if mark == "%%" else ("(.+?)" if mark.ends_with("s") else "(-?[0-9.]+)")
+		out += "%" if mark == "%%" else ("(.*?)" if mark.ends_with("s") else "(-?[0-9.]+)")
 		at = m.get_end()
 	return out + _quote(src.substr(at))
 
@@ -66,6 +67,8 @@ func _known(line: String, depth: int = 0) -> bool:
 	return false
 
 func _collect(where: String) -> void:
+	if _target != "":
+		SMLang.apply(_target)
 	for node: Node in root.find_children("*", "Control", true, false):
 		var c: Control = node as Control
 		var texts: PackedStringArray = PackedStringArray()
@@ -107,7 +110,10 @@ func _run() -> void:
 	if _locale != "":
 		for id: String in SMLang.ids():
 			if SMLang.locale_of(id) == _locale:
-				SMLang.apply(id)
+				_target = id
+		Settings.ensure()
+		Settings.language = _target
+		SMLang.apply(_target)
 	var boot: Node = await _visit("res://game/boot.tscn", "menu")
 	for tab: String in ["TabCampaign", "TabSkirmish", "TabFaction", "TabMultiplayer", "CreditsButton", "SettingsButton"]:
 		var b: Button = boot.find_child(tab, true, false) as Button
